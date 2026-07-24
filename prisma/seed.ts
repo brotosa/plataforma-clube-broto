@@ -174,7 +174,13 @@ async function main() {
     create: { tipoEntidade: "PUBLICACAO_OFERTA", exigida: false },
   });
 
-  if (process.env.NODE_ENV === "production") {
+  // Usuários de teste nunca entram em produção por padrão. Ambientes de
+  // DEMONSTRAÇÃO hospedados (ex.: Vercel) habilitam explicitamente com
+  // PERMITIR_USUARIOS_DEV="true" — flag nomeada, decisão consciente.
+  const permitirUsuariosDev =
+    process.env.NODE_ENV !== "production" ||
+    process.env.PERMITIR_USUARIOS_DEV === "true";
+  if (!permitirUsuariosDev) {
     console.log("Seed: taxonomias e regras de aprovação gravadas (produção — usuários de desenvolvimento ignorados).");
     return;
   }
