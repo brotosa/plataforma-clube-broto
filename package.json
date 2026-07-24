@@ -21,6 +21,9 @@
     "seed": "tsx prisma/seed.ts"
   },
   "pnpm": {
+    "publicHoistPattern": [
+      "*eslint*"
+    ],
     "onlyBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
