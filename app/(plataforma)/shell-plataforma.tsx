@@ -181,8 +181,10 @@ export function ShellPlataforma({
         </nav>
 
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* fix AAA: no protótipo esta legenda usa --azul-claro (3,7:1 sobre
+              o azul); branco é o maior contraste possível neste fundo */}
           {!recolhida ? (
-            <div style={{ paddingLeft: 20, color: "var(--azul-claro)" }} className="cap">
+            <div style={{ paddingLeft: 20, color: "var(--branco)" }} className="cap">
               Onda 1 · Aliados, Soluções e Ofertas
             </div>
           ) : null}

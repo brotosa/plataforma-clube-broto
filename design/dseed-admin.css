@@ -251,7 +251,9 @@ button{font-family:var(--font-family-body)}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
 .logo-ini{width:32px;height:32px;border-radius:50%;background:var(--off);border:1px solid var(--borda);
   color:var(--paragrafo-aaa);font:var(--font-body-caption-bold);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
-.dot-avatar{width:34px;height:34px;border-radius:50%;background:var(--azul-claro);color:var(--azul);
+/* fix AAA (F1): iniciais em --azul puro sobre --azul-claro ficavam em 3,7:1;
+   o token de texto derivado --azul-texto-aaa eleva a 5,3:1 sem sair da marca */
+.dot-avatar{width:34px;height:34px;border-radius:50%;background:var(--azul-claro);color:var(--azul-texto-aaa);
   font:var(--font-body-caption-bold);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 
 .menu-btn{display:none}
