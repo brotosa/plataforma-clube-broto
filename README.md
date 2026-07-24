@@ -20,6 +20,20 @@ pino · Vitest · Playwright + axe-core. Sem Tailwind e sem componentes de
 terceiros: o CSS é o DSeed (`design/tokens.css`, intocável) + extensões
 documentadas em `design/dseed-admin.css`.
 
+## Rodar no GitHub Codespaces (sem instalar nada)
+
+O repositório traz um devcontainer que sobe tudo sozinho (Node, PostgreSQL,
+migrations, seed e o servidor):
+
+1. No GitHub, clique no botão verde **Code** → aba **Codespaces** →
+   **Create codespace** (na branch desejada).
+2. Aguarde a preparação terminar (alguns minutos na primeira vez).
+3. O servidor inicia automaticamente na porta 3000 e o preview abre
+   sozinho — se não abrir, use a aba **Ports** e clique na porta 3000.
+4. Entre com um usuário de desenvolvimento (tabela abaixo).
+
+Log do servidor: `/tmp/plataforma-dev.log` dentro do Codespace.
+
 ## Subir localmente
 
 Requisitos: Node 22+, pnpm 10+, PostgreSQL 16.

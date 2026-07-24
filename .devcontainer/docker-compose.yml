@@ -1,0 +1,26 @@
+# Ambiente de desenvolvimento (GitHub Codespaces / Dev Containers):
+# contêiner da aplicação (Node 22) + PostgreSQL 16, sem instalar nada
+# na máquina de quem usa.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:22-bookworm
+    volumes:
+      - ..:/workspaces/plataforma-clube-broto:cached
+    command: sleep infinity
+    environment:
+      DATABASE_URL: postgresql://broto:broto@db:5432/clube_broto?schema=public
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: broto
+      POSTGRES_PASSWORD: broto
+      POSTGRES_DB: clube_broto
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+
+volumes:
+  dados-postgres:
