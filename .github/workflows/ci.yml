@@ -81,6 +81,9 @@ jobs:
       - name: Seed (taxonomias e usuários de desenvolvimento)
         run: pnpm db:seed
 
+      - name: Testes de integração (auditoria com banco)
+        run: pnpm test
+
       - name: Build
         run: pnpm build
 
