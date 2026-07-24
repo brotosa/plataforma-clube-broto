@@ -1,0 +1,665 @@
+// =====================================================================
+// Schema da Plataforma de Administração do Clube Broto — Onda 1
+// Fonte da verdade funcional: docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md (v0.6)
+// Decisões estruturais: docs/especificacao/prompt-claude-code-onda1.md
+//
+// Convenções:
+// - Modelos e campos em português; tabelas/colunas em snake_case via @map.
+// - Taxonomias da v1 são TABELAS com seed (dados, não enums de código),
+//   para o Parametrizador da Onda 3 editá-las sem migração.
+// - Pendências de negócio [A CONFIRMAR] ficam isoladas e comentadas —
+//   nunca resolvidas por suposição aqui.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+// Identidade e RBAC (papéis da ficha §2)
+// ---------------------------------------------------------------------
+
+enum Papel {
+  GESTOR
+  ANALISTA
+  APROVADOR
+  LEITURA
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  senhaHash String   @map("senha_hash")
+  papel     Papel
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  auditoriaEventos      AuditoriaEvento[]
+  solicitacoesCriadas   AprovacaoSolicitacao[] @relation("solicitante")
+  solicitacoesDecididas AprovacaoSolicitacao[] @relation("aprovador")
+  regrasDesignadas      AprovacaoRegraAprovador[]
+  publicacoes           Publicacao[]
+  importacoes           Importacao[]
+
+  @@map("usuarios")
+}
+
+// ---------------------------------------------------------------------
+// Taxonomias v1 — tabelas com seed (Parametrizador edita na Onda 3)
+// ---------------------------------------------------------------------
+
+model Categoria {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativa Boolean @default(true)
+
+  empresas EmpresaCategoria[]
+  solucoes Solucao[]
+
+  @@map("categorias")
+}
+
+model Cultura {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativa Boolean @default(true)
+
+  solucoes SolucaoCultura[]
+
+  @@map("culturas")
+}
+
+model Uf {
+  id    String  @id @default(cuid())
+  sigla String  @unique
+  nome  String  @unique
+  ativa Boolean @default(true)
+
+  solucoes SolucaoUf[]
+
+  @@map("ufs")
+}
+
+model TipoBeneficio {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativa Boolean @default(true)
+
+  ofertas Oferta[]
+
+  @@map("tipos_beneficio")
+}
+
+model Mecanica {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativa Boolean @default(true)
+
+  ofertas Oferta[]
+
+  @@map("mecanicas")
+}
+
+/// Motivos tipificados de suspensão de aliado (RN12). Lista editável no
+/// Parametrizador; "outros" exige descrição na Empresa.
+model MotivoSuspensao {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativa Boolean @default(true)
+
+  empresas Empresa[]
+
+  @@map("motivos_suspensao")
+}
+
+// ---------------------------------------------------------------------
+// Empresa (Aliado quando estágio = ALIADA_ATIVA) — ficha §3.1
+// ---------------------------------------------------------------------
+
+/// Estágios documentados do pipeline (ficha v0.6 + ficha cadastral v1).
+/// Os estágios de prospecção pré-negociação serão acrescentados por
+/// migração quando a Onda 2 (Mercado & Scout) os especificar.
+enum EstagioEmpresa {
+  EM_NEGOCIACAO
+  ALIADA_ATIVA
+  SUSPENSA
+  ENCERRADA
+}
+
+model Empresa {
+  id            String         @id @default(cuid())
+  razaoSocial   String?        @map("razao_social")
+  nomeFantasia  String         @map("nome_fantasia")
+  /// Único e com validação de dígito no serviço de domínio (RN08).
+  /// Opcional apenas em estágio pré-aliança (obrigatório em M2 — promoção).
+  cnpj          String?        @unique
+  // Endereço da sede — mínimo contratual, obrigatório para Aliada ativa
+  enderecoCep         String? @map("endereco_cep")
+  enderecoLogradouro  String? @map("endereco_logradouro")
+  enderecoNumero      String? @map("endereco_numero")
+  enderecoComplemento String? @map("endereco_complemento")
+  enderecoBairro      String? @map("endereco_bairro")
+  enderecoMunicipio   String? @map("endereco_municipio")
+  enderecoUf          String? @map("endereco_uf")
+  logoUrl               String?  @map("logo_url")
+  descricaoInstitucional String? @map("descricao_institucional")
+  site                  String?
+  dataEntrada           DateTime? @map("data_entrada") @db.Date
+  estagio               EstagioEmpresa @default(EM_NEGOCIACAO)
+  /// Suspensão exige motivo tipificado (RN12); "outros" exige descrição.
+  motivoSuspensaoId        String? @map("motivo_suspensao_id")
+  motivoSuspensaoDescricao String? @map("motivo_suspensao_descricao")
+  /// Somente leitura na Onda 1; calculado na Onda 2.
+  scoreScouting Int?    @map("score_scouting")
+  /// Preenchido na primeira publicação; na carga inicial vem da planilha ("Id do Seller").
+  idExternoMinutrade String? @unique @map("id_externo_minutrade")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  motivoSuspensao MotivoSuspensao? @relation(fields: [motivoSuspensaoId], references: [id])
+  categorias      EmpresaCategoria[]
+  contatos        ContatoEmpresa[]
+  contratos       ContratoComercial[]
+  solucoes        Solucao[]
+
+  @@map("empresas")
+}
+
+model EmpresaCategoria {
+  empresaId   String @map("empresa_id")
+  categoriaId String @map("categoria_id")
+
+  empresa   Empresa   @relation(fields: [empresaId], references: [id])
+  categoria Categoria @relation(fields: [categoriaId], references: [id])
+
+  @@id([empresaId, categoriaId])
+  @@map("empresa_categorias")
+}
+
+enum PapelContato {
+  COMERCIAL
+  TECNICO
+  FINANCEIRO
+}
+
+model ContatoEmpresa {
+  id        String       @id @default(cuid())
+  empresaId String       @map("empresa_id")
+  papel     PapelContato
+  nome      String
+  cargo     String?
+  email     String
+  telefone  String?
+  criadoEm  DateTime     @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@index([empresaId])
+  @@map("contatos_empresa")
+}
+
+// ---------------------------------------------------------------------
+// Bloco comercial — tabela própria (histórico de renovações)
+// ---------------------------------------------------------------------
+
+enum StatusContrato {
+  VIGENTE
+  DENUNCIADO
+  ENCERRADO
+}
+
+enum AmbientePagamento {
+  DENTRO_PLATAFORMA
+  FORA_PLATAFORMA
+  AMBOS
+}
+
+model ContratoComercial {
+  id        String  @id @default(cuid())
+  empresaId String  @map("empresa_id")
+  /// Chave do anexo (PDF) no S3; metadados de assinatura eletrônica ao lado.
+  anexoS3Key       String?   @map("anexo_s3_key")
+  dataAssinatura   DateTime? @map("data_assinatura") @db.Date
+  hashVerificacao  String?   @map("hash_verificacao")
+  /// Data-base da vigência; padrão contratual: 12 meses com renovação automática.
+  vigenciaBase     DateTime  @map("vigencia_base") @db.Date
+  status           StatusContrato @default(VIGENTE)
+  /// Comissão % sobre o valor efetivamente pago (por aliado, fonte = contrato).
+  /// Incide apenas sobre Benefícios pagos; Recompensas não geram comissão.
+  comissaoPct        Decimal?          @map("comissao_pct") @db.Decimal(5, 2)
+  ambientesPagamento AmbientePagamento @map("ambientes_pagamento")
+  /// Marcada pelo job diário quando faltam ≤30 dias para o aniversário
+  /// contratual (janela de não-renovação); alertada em T1/T2.
+  emJanelaNaoRenovacao Boolean @default(false) @map("em_janela_nao_renovacao")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@index([empresaId])
+  @@map("contratos_comerciais")
+}
+
+// ---------------------------------------------------------------------
+// Solução — ficha §3.2
+// ---------------------------------------------------------------------
+
+enum StatusSolucao {
+  ATIVA
+  INATIVA
+}
+
+enum PorteProdutor {
+  PEQUENO
+  MEDIO
+  GRANDE
+}
+
+model Solucao {
+  id        String @id @default(cuid())
+  /// Somente empresas em estágio ALIADA_ATIVA (RN01, garantida em serviço).
+  empresaId String @map("empresa_id")
+  nome      String
+  /// Texto do card (~140c); obrigatória para publicar oferta (RN09).
+  descricaoCurta    String? @map("descricao_curta")
+  descricaoCompleta String? @map("descricao_completa")
+  categoriaId       String? @map("categoria_id")
+  /// Perfil de cliente-alvo (lista fixa na ficha; alimenta recomendação e cestas).
+  perfilCliente PorteProdutor[] @map("perfil_cliente")
+  /// Tecnologia/diferenciais como tags (vocabulário herdado do scouting).
+  tecnologias   String[]
+  imagemCardUrl String?  @map("imagem_card_url")
+  linkExterno   String?  @map("link_externo")
+  status        StatusSolucao @default(ATIVA)
+  /// Cobertura: "nacional" OU conjunto de UFs (join solucao_ufs).
+  coberturaNacional Boolean @default(false) @map("cobertura_nacional")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa   Empresa    @relation(fields: [empresaId], references: [id])
+  categoria Categoria? @relation(fields: [categoriaId], references: [id])
+  culturas  SolucaoCultura[]
+  ufs       SolucaoUf[]
+  ofertas   Oferta[]
+
+  @@index([empresaId])
+  @@map("solucoes")
+}
+
+model SolucaoCultura {
+  solucaoId String @map("solucao_id")
+  culturaId String @map("cultura_id")
+
+  solucao Solucao @relation(fields: [solucaoId], references: [id])
+  cultura Cultura @relation(fields: [culturaId], references: [id])
+
+  @@id([solucaoId, culturaId])
+  @@map("solucao_culturas")
+}
+
+model SolucaoUf {
+  solucaoId String @map("solucao_id")
+  ufId      String @map("uf_id")
+
+  solucao Solucao @relation(fields: [solucaoId], references: [id])
+  uf      Uf      @relation(fields: [ufId], references: [id])
+
+  @@id([solucaoId, ufId])
+  @@map("solucao_ufs")
+}
+
+// ---------------------------------------------------------------------
+// Oferta — ficha §3.3 (natureza com TRÊS valores, decisão de 24/07)
+// ---------------------------------------------------------------------
+
+enum NaturezaOferta {
+  RECOMPENSA
+  BENEFICIO
+  CUPOM_DESCONTO
+}
+
+enum ModalidadePagamento {
+  UNICA
+  RECORRENTE
+}
+
+enum StatusOferta {
+  RASCUNHO
+  PUBLICADA
+  PAUSADA
+  ENCERRADA
+  EXPIRADA
+}
+
+model Oferta {
+  id        String @id @default(cuid())
+  solucaoId String @map("solucao_id")
+  titulo    String
+  /// Recompensa ⇒ preços zero; Cupom ⇒ desconto definido + código/regras.
+  /// A comissão do cupom está [A CONFIRMAR]: ver COMISSAO_CUPOM em
+  /// dominio/ofertas/constantes.ts — nenhum cálculo de receita para cupom.
+  natureza        NaturezaOferta
+  tipoBeneficioId String         @map("tipo_beneficio_id")
+  precoDe  Decimal? @map("preco_de") @db.Decimal(12, 2)
+  precoPor Decimal? @map("preco_por") @db.Decimal(12, 2)
+  /// Somente quando natureza = CUPOM_DESCONTO.
+  cupomCodigoRegras String? @map("cupom_codigo_regras")
+  /// Somente Benefícios; recorrente para prestação continuada.
+  modalidadePagamento ModalidadePagamento? @map("modalidade_pagamento")
+  /// Compatibilidade mecânica × ambiente habilitado do aliado (RN11, em serviço).
+  mecanicaId        String  @map("mecanica_id")
+  urlResgateExterno String? @map("url_resgate_externo")
+  /// Fluxo operacional quando o resgate não é automático (recomendado
+  /// para checkout externo).
+  instrucoesResgate String? @map("instrucoes_resgate")
+  vigenciaInicio DateTime  @map("vigencia_inicio") @db.Date
+  /// Fim vazio = prazo indeterminado; fim < hoje ⇒ EXPIRADA (RN03, job diário).
+  vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
+  /// [A CONFIRMAR] se a Minutrade suporta limite; até lá o campo é interno
+  /// (alerta ao atingir), sem efeito na publicação.
+  limiteResgates Int? @map("limite_resgates")
+  status         StatusOferta @default(RASCUNHO)
+  /// Ligada quando oferta publicada é alterada após o último export (RN10);
+  /// o export seguinte a limpa.
+  pendenteRepublicacao Boolean @default(false) @map("pendente_republicacao")
+  idExternoMinutrade   String? @map("id_externo_minutrade")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  solucao       Solucao       @relation(fields: [solucaoId], references: [id])
+  tipoBeneficio TipoBeneficio @relation(fields: [tipoBeneficioId], references: [id])
+  mecanica      Mecanica      @relation(fields: [mecanicaId], references: [id])
+  telemetriaEventos    TelemetriaEvento[]
+  acumuladosIniciais   TelemetriaAcumuladoInicial[]
+
+  @@index([solucaoId])
+  @@index([status])
+  @@map("ofertas")
+}
+
+// ---------------------------------------------------------------------
+// Telemetria — fatos imutáveis (RN07)
+// ---------------------------------------------------------------------
+
+enum TipoEventoTelemetria {
+  EMISSAO_VOUCHER
+  RESGATE_VOUCHER
+  COMPRA_CONFIRMADA
+}
+
+model TelemetriaEvento {
+  id        String               @id @default(cuid())
+  idVoucher String               @map("id_voucher")
+  tipo      TipoEventoTelemetria
+  /// Na Onda 1 o CPF entra apenas como hash (dado pessoal pleno só na
+  /// Onda 5, com RBAC de PF).
+  cpfHash    String?  @map("cpf_hash")
+  valor      Decimal? @db.Decimal(12, 2)
+  dataEvento DateTime @map("data_evento")
+  canal      String?
+  /// Identificadores externos crus do arquivo, para rastreabilidade mesmo
+  /// quando a resolução para oferta/empresa falha (quarentena, F4).
+  idSellerExterno String? @map("id_seller_externo")
+  idOfertaExterno String? @map("id_oferta_externo")
+  ofertaId        String? @map("oferta_id")
+  arquivoOrigem   String? @map("arquivo_origem")
+  importacaoId    String? @map("importacao_id")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+
+  oferta     Oferta?     @relation(fields: [ofertaId], references: [id])
+  importacao Importacao? @relation(fields: [importacaoId], references: [id])
+
+  /// Idempotência de reimportação.
+  @@unique([idVoucher, tipo])
+  @@index([ofertaId])
+  @@map("telemetria_eventos")
+}
+
+/// Carga única da telemetria histórica ("acumulado até a data da carga",
+/// ficha §7). O rótulo de "Resgates" está [A CONFIRMAR] (emissão × resgate
+/// efetivo) — os números são armazenados sem interpretação.
+model TelemetriaAcumuladoInicial {
+  id           String   @id @default(cuid())
+  ofertaId     String   @map("oferta_id")
+  resgates     Int?
+  compras      Int?
+  dataCorte    DateTime @map("data_corte") @db.Date
+  importacaoId String?  @map("importacao_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  oferta     Oferta      @relation(fields: [ofertaId], references: [id])
+  importacao Importacao? @relation(fields: [importacaoId], references: [id])
+
+  @@unique([ofertaId, dataCorte])
+  @@map("telemetria_acumulados_iniciais")
+}
+
+// ---------------------------------------------------------------------
+// Publicação (export batch) e importações
+// ---------------------------------------------------------------------
+
+model Publicacao {
+  id      String @id @default(cuid())
+  autorId String @map("autor_id")
+  /// Pacote gerado pelo ExportAdapter em uso (layout Minutrade [A CONFIRMAR];
+  /// até lá, GenericJsonCsvAdapter).
+  adapter String
+  pacote  Json
+  /// Diff em relação à publicação anterior (RN10).
+  diff     Json?
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  autor Usuario @relation(fields: [autorId], references: [id])
+
+  @@map("publicacoes")
+}
+
+enum TipoImportacao {
+  TELEMETRIA
+  CARGA_SELLERS
+  CARGA_OFERTAS
+}
+
+model Importacao {
+  id          String         @id @default(cuid())
+  tipo        TipoImportacao
+  nomeArquivo String         @map("nome_arquivo")
+  linhasOk    Int            @default(0) @map("linhas_ok")
+  linhasErro  Int            @default(0) @map("linhas_erro")
+  /// Linhas rejeitadas com motivo (relatório pós-carga).
+  relatorioQuarentena Json?   @map("relatorio_quarentena")
+  autorId             String  @map("autor_id")
+  criadoEm            DateTime @default(now()) @map("criado_em")
+
+  autor Usuario @relation(fields: [autorId], references: [id])
+  telemetriaEventos  TelemetriaEvento[]
+  acumuladosIniciais TelemetriaAcumuladoInicial[]
+  stagingSellers     StagingSeller[]
+  stagingOfertas     StagingOferta[]
+  stagingAgrupamentos StagingAgrupamento[]
+
+  @@map("importacoes")
+}
+
+// ---------------------------------------------------------------------
+// Staging da carga inicial (tela de conferência antes da efetivação)
+// ---------------------------------------------------------------------
+
+enum EstadoStaging {
+  PENDENTE
+  APROVADA
+  REJEITADA
+  EFETIVADA
+}
+
+model StagingSeller {
+  id           String @id @default(cuid())
+  importacaoId String @map("importacao_id")
+  linhaOrigem  Int    @map("linha_origem")
+  /// Linha crua da planilha (tolerante a colunas futuras — dump Minutrade
+  /// [A CONFIRMAR] enriquece o staging antes da conferência).
+  dadosOriginais Json @map("dados_originais")
+  // Campos mapeados da Lista de Sellers (ficha §7)
+  nomeSeller      String?   @map("nome_seller")
+  idSellerExterno String?   @map("id_seller_externo")
+  dataEntrada     DateTime? @map("data_entrada") @db.Date
+  estado       EstadoStaging @default(PENDENTE)
+  mensagemErro String?       @map("mensagem_erro")
+  empresaIdEfetivada String? @map("empresa_id_efetivada")
+  criadoEm     DateTime      @default(now()) @map("criado_em")
+  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+
+  importacao Importacao @relation(fields: [importacaoId], references: [id])
+
+  @@index([importacaoId])
+  @@map("staging_sellers")
+}
+
+model StagingOferta {
+  id           String @id @default(cuid())
+  importacaoId String @map("importacao_id")
+  linhaOrigem  Int    @map("linha_origem")
+  dadosOriginais Json @map("dados_originais")
+  // Campos mapeados da Lista de Ofertas (ficha §7)
+  produto         String? // → nome da solução e título da oferta
+  checkout        String? // → mecânica + natureza
+  preco           String?
+  desconto        String?
+  precoFinal      String? @map("preco_final")
+  statusOferta    String? @map("status_oferta")
+  resgates        Int?
+  compras         Int?
+  idSellerExterno String? @map("id_seller_externo")
+  agrupamentoId String? @map("agrupamento_id")
+  estado        EstadoStaging @default(PENDENTE)
+  mensagemErro  String?       @map("mensagem_erro")
+  solucaoIdEfetivada String?  @map("solucao_id_efetivada")
+  ofertaIdEfetivada  String?  @map("oferta_id_efetivada")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  importacao  Importacao          @relation(fields: [importacaoId], references: [id])
+  agrupamento StagingAgrupamento? @relation(fields: [agrupamentoId], references: [id])
+
+  @@index([importacaoId])
+  @@map("staging_ofertas")
+}
+
+/// Agrupamentos produto→solução propostos pela heurística
+/// "mesmo seller + mesmo texto de produto", revisáveis na conferência.
+model StagingAgrupamento {
+  id           String @id @default(cuid())
+  importacaoId String @map("importacao_id")
+  chaveHeuristica     String @map("chave_heuristica")
+  nomeSolucaoProposto String @map("nome_solucao_proposto")
+  estado       EstadoStaging @default(PENDENTE)
+  criadoEm     DateTime      @default(now()) @map("criado_em")
+  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+
+  importacao Importacao      @relation(fields: [importacaoId], references: [id])
+  ofertas    StagingOferta[]
+
+  @@index([importacaoId])
+  @@map("staging_agrupamentos")
+}
+
+// ---------------------------------------------------------------------
+// Motor de aprovação (RN06)
+// ---------------------------------------------------------------------
+
+enum TipoEntidadeAprovacao {
+  PROMOCAO_ALIADA_ATIVA
+  PUBLICACAO_OFERTA
+}
+
+/// Regra por tipo de entidade: ligável/desligável em T7 sem código.
+/// Nasce com PROMOCAO_ALIADA_ATIVA ligada e PUBLICACAO_OFERTA desligada.
+model AprovacaoRegra {
+  id           String                @id @default(cuid())
+  tipoEntidade TipoEntidadeAprovacao @unique @map("tipo_entidade")
+  exigida      Boolean
+  atualizadoEm DateTime              @updatedAt @map("atualizado_em")
+
+  aprovadores AprovacaoRegraAprovador[]
+
+  @@map("aprovacao_regras")
+}
+
+model AprovacaoRegraAprovador {
+  regraId   String @map("regra_id")
+  usuarioId String @map("usuario_id")
+
+  regra   AprovacaoRegra @relation(fields: [regraId], references: [id])
+  usuario Usuario        @relation(fields: [usuarioId], references: [id])
+
+  @@id([regraId, usuarioId])
+  @@map("aprovacao_regra_aprovadores")
+}
+
+enum EstadoSolicitacao {
+  SOLICITADA
+  APROVADA
+  DEVOLVIDA
+}
+
+model AprovacaoSolicitacao {
+  id           String                @id @default(cuid())
+  tipoEntidade TipoEntidadeAprovacao @map("tipo_entidade")
+  entidadeId   String                @map("entidade_id")
+  solicitanteId String               @map("solicitante_id")
+  estado        EstadoSolicitacao    @default(SOLICITADA)
+  /// Obrigatório na devolução (validado em serviço).
+  comentario String?
+  /// Segregação RN06 (solicitante ≠ aprovador) garantida em serviço.
+  aprovadorId String?   @map("aprovador_id")
+  decididoEm  DateTime? @map("decidido_em")
+  criadoEm    DateTime  @default(now()) @map("criado_em")
+
+  solicitante Usuario  @relation("solicitante", fields: [solicitanteId], references: [id])
+  aprovador   Usuario? @relation("aprovador", fields: [aprovadorId], references: [id])
+
+  @@index([estado])
+  @@index([tipoEntidade, entidadeId])
+  @@map("aprovacao_solicitacoes")
+}
+
+// ---------------------------------------------------------------------
+// Auditoria — toda mutação de entidade de negócio (serviço, não trigger)
+// ---------------------------------------------------------------------
+
+model AuditoriaEvento {
+  id         String @id @default(cuid())
+  /// Nome lógico da entidade (ex.: "empresa", "oferta").
+  entidade   String
+  entidadeId String @map("entidade_id")
+  campo      String
+  /// Valores serializados em JSON (null = campo ausente/limpo).
+  valorAnterior String? @map("valor_anterior")
+  valorNovo     String? @map("valor_novo")
+  autorId       String  @map("autor_id")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  autor Usuario @relation(fields: [autorId], references: [id])
+
+  @@index([entidade, entidadeId])
+  @@index([autorId])
+  @@map("auditoria_eventos")
+}
