@@ -58,7 +58,7 @@ export default async function PaginaEntrar({
           <Image
             src="/logos/logo-broto-azul-verde.svg"
             alt="Broto"
-            width={96}
+            width={137}
             height={26}
             priority
             style={{ height: 26, width: "auto" }}
