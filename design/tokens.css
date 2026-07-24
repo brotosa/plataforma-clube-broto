@@ -1,0 +1,91 @@
+/**
+ * Tokens do design system DSeed (Broto) — gerado a partir de tokens.json.
+ * Fonte: https://www.figma.com/design/zCtpgi1zpWfP8a4CD359UZ/DSeed (extração via Figma MCP, 2026-07-20).
+ * Nomes originais do Figma preservados ("/" convertido em "-", conversão mecânica, sem renomear).
+ *
+ * ATENÇÃO:
+ * - Os alfas dos tokens de transparência marcados [A CONFIRMAR] não puderam ser
+ *   observados no Figma; os demais seguem os valores observados no código
+ *   renderizado dos componentes (00=0%, 10=8%, 20=16%, 30=30%).
+ * - Não existem tokens de espaçamento, raio ou grid no arquivo Figma; os valores
+ *   recorrentes observados nos componentes estão documentados em
+ *   design-system-broto.md e não são emitidos aqui como tokens.
+ */
+:root {
+  /* ===== Cor — marca (primitivos) ===== */
+  --color-brand-primary-pure: #FCFC30;   /* amarelo Broto (= alert-notice-pure) */
+  --color-brand-primary-medium: #FAFA71;
+  --color-brand-primary-dark: #F2F200;
+  --color-brand-secondary-pure: #465EFF; /* azul Broto (= alert-info-pure) */
+  --color-brand-secondary-medium: #5E73FF;
+  --color-brand-secondary-light: #DBE0FF;
+  --color-brand-secondary-lightest: #F9F7FF;
+
+  /* ===== Cor — neutros ===== */
+  --color-neutral-lightest: #FFFFFF;
+  --color-neutral-light: #FAF9F9;
+  --color-neutral-medium: #E6E4E4;
+  --color-neutral-dark: #B1B0B0;
+  --color-neutral-darkest: #282313;
+  --color-neutral-paragraph: #6F6B61;    /* semântico: texto de parágrafo */
+
+  /* ===== Cor — alertas ===== */
+  --color-alert-error-pure: #FF0000;
+  --color-alert-error-dark: #CC0000;
+  --color-alert-error-medium: #F6B8B8;
+  --color-alert-error-light: #FFF7F7;
+  --color-alert-success-pure: #38DC6A;   /* também é o verde observado no símbolo do logo */
+  --color-alert-success-medium: #B2EDC4;
+  --color-alert-success-light: #EDFCF2;
+  --color-alert-warning-pure: #FF9040;
+  --color-alert-warning-medium: #FECA94;
+  --color-alert-warning-light: #FFF2E9;
+  --color-alert-notice-pure: #FCFC30;    /* duplicado de brand-primary-pure */
+  --color-alert-notice-medium: #FEFE94;
+  --color-alert-notice-light: #FFFFD8;
+  --color-alert-info-pure: #465EFF;      /* duplicado de brand-secondary-pure */
+  --color-alert-info-light: #F9FAFF;
+
+  /* ===== Cor — transparências (semânticos de estado/overlay) ===== */
+  --color-transparency-black-on-light-00: rgba(40, 35, 19, 0);
+  --color-transparency-black-on-light-10: rgba(40, 35, 19, 0.08);
+  --color-transparency-black-on-light-20: rgba(40, 35, 19, 0.16);
+  --color-transparency-black-on-light-30: rgba(40, 35, 19, 0.3);
+  --color-transparency-white-on-dark-00: rgba(255, 255, 255, 0);   /* alfa [A CONFIRMAR] */
+  --color-transparency-white-on-dark-10: rgba(255, 255, 255, 0.08); /* alfa [A CONFIRMAR] — espelhado de black-on-light */
+  --color-transparency-white-on-dark-20: rgba(255, 255, 255, 0.16); /* alfa [A CONFIRMAR] — espelhado de black-on-light */
+  --color-transparency-white-on-dark-30: rgba(255, 255, 255, 0.3);  /* alfa [A CONFIRMAR] — espelhado de black-on-light */
+  --color-transparency-blue-on-light-00: rgba(70, 94, 255, 0);
+  --color-transparency-blue-on-light-10: rgba(70, 94, 255, 0.08);  /* alfa [A CONFIRMAR] — espelhado de black-on-light */
+  --color-transparency-blue-on-light-20: rgba(70, 94, 255, 0.16);  /* alfa [A CONFIRMAR] — espelhado de black-on-light */
+  --color-transparency-blue-on-light-30: rgba(70, 94, 255, 0.3);   /* alfa [A CONFIRMAR] — espelhado de black-on-light */
+
+  /* ===== Tipografia — famílias ===== */
+  --font-family-headline: "Readex Pro", sans-serif; /* fallback sans-serif é decisão de implementação */
+  --font-family-body: "Inter", sans-serif;
+
+  /* ===== Tipografia — headlines (Readex Pro Bold, letter-spacing 0) =====
+     Shorthand pronto para a propriedade `font:`. */
+  --font-headline-page-desk: 700 28px/32px var(--font-family-headline);
+  --font-headline-page-mob: 700 24px/32px var(--font-family-headline);      /* = session-desk (duplicado) */
+  --font-headline-session-desk: 700 24px/32px var(--font-family-headline);
+  --font-headline-session-mob: 700 20px/32px var(--font-family-headline);
+  --font-headline-element-title: 700 16px/24px var(--font-family-headline);
+
+  /* ===== Tipografia — corpo (Inter, letter-spacing 0) ===== */
+  --font-body-base-regular: 400 14px/24px var(--font-family-body);
+  --font-body-base-bold: 700 14px/24px var(--font-family-body);
+  --font-body-base-link: 400 14px/24px var(--font-family-body);       /* = base-regular; decoração no componente */
+  --font-body-label-regular: 400 14px/16px var(--font-family-body);
+  --font-body-label-bold: 700 14px/16px var(--font-family-body);
+  --font-body-label-link: 400 14px/16px var(--font-family-body);      /* = label-regular; decoração no componente */
+  --font-body-caption-regular: 400 12px/16px var(--font-family-body);
+  --font-body-caption-bold: 700 12px/16px var(--font-family-body);
+  --font-body-caption-offer: 400 12px/16px var(--font-family-body);   /* = caption-regular; line-through no componente */
+  --font-body-smaller-regular: 400 10px/16px var(--font-family-body);
+  --font-body-smaller-bold: 700 10px/16px var(--font-family-body);
+  --font-body-smaller-offer: 400 10px/16px var(--font-family-body);   /* = smaller-regular (duplicado) */
+
+  /* ===== Sombra ===== */
+  --shadow: 0px 5px 10px 0px rgba(40, 35, 19, 0.1); /* única sombra do sistema */
+}
