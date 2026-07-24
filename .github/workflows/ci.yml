@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificacao:
+    name: Typecheck, lint e testes de unidade
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        run: pnpm db:generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Testes de unidade (regras de negócio)
+        run: pnpm test
+
+  e2e-acessibilidade:
+    name: Build, e2e e axe-core (AAA)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: broto
+          POSTGRES_PASSWORD: broto
+          POSTGRES_DB: clube_broto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U broto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://broto:broto@localhost:5432/clube_broto?schema=public
+      AUTH_SECRET: apenas-para-ci-nao-usar-em-producao
+      AUTH_TRUST_HOST: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        run: pnpm db:generate
+
+      - name: Aplicar migrations
+        run: pnpm db:migrate
+
+      - name: Seed (taxonomias e usuários de desenvolvimento)
+        run: pnpm db:seed
+
+      - name: Build
+        run: pnpm build
+
+      - name: Instalar navegador do Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E + axe-core
+        run: pnpm e2e
