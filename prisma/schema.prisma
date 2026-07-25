@@ -61,6 +61,8 @@ model Usuario {
   avaliacoesScout       AvaliacaoScout[]
   segmentos             Segmento[]
   exportacoesLista      ExportacaoLista[]
+  dossiesSolicitados    Dossie[] @relation("dossieSolicitante")
+  dossiesRevisados      Dossie[] @relation("dossieRevisor")
 
   @@map("usuarios")
 }
@@ -249,6 +251,7 @@ model Empresa {
   notasRapidas        NotaRapida[]
   registrosNegociacao RegistroNegociacao[]
   avaliacoesScout     AvaliacaoScout[]
+  dossies             Dossie[]
 
   @@index([estagio])
   @@map("empresas")
@@ -393,6 +396,98 @@ model AvaliacaoNota {
 
   @@unique([avaliacaoId, indicadorId])
   @@map("avaliacao_notas")
+}
+
+// ---------------------------------------------------------------------
+// Dossiê de due diligence pública (Onda 2, F8) — ficha §3.4, §6 e RN19
+// ---------------------------------------------------------------------
+
+/// Ciclo de vida da geração assíncrona (ficha §3.4).
+enum StatusDossie {
+  GERANDO
+  PRONTO
+  FALHA
+}
+
+enum OrigemDossie {
+  GERADO_IA
+  INSERIDO_MANUALMENTE
+}
+
+/// Dossiê de due diligence pública da empresa (ficha §3.4). O conteúdo
+/// segue as dez etapas do template versionado
+/// (docs/especificacao/prompt-dossie-due-diligence.md), com fontes por
+/// afirmação e "Não foi encontrada informação pública" onde faltar.
+///
+/// RN19: nasce com `revisado = false` ("gerado automaticamente — requer
+/// revisão") e só sai desse estado por ação humana explícita, que grava
+/// revisor e data. Nenhum campo daqui preenche nota de indicador — o
+/// dossiê alimenta evidência; a pontuação é sempre humana (garantido em
+/// serviço e verificado por teste de arquitetura).
+model Dossie {
+  id        String       @id @default(cuid())
+  empresaId String       @map("empresa_id")
+  status    StatusDossie @default(GERANDO)
+  origem    OrigemDossie
+  /// Conteúdo validado contra o schema do template (dominio/dossie/schema.ts).
+  /// Nulo enquanto GERANDO e quando a geração falha.
+  conteudo  Json?
+  /// Identificação da versão do template que originou o prompt — o
+  /// template é versionado e sua alteração é alteração de produto.
+  versaoTemplate String? @map("versao_template")
+  /// Quem pediu a geração (nunca em lote: sempre sob demanda de um analista).
+  solicitanteId     String  @map("solicitante_id")
+  /// Notas do analista enviadas ao provedor ({{contexto_adicional}}).
+  contextoAdicional String? @map("contexto_adicional")
+  /// RN19 — a marca de revisão e sua autoria.
+  revisado   Boolean   @default(false)
+  revisorId  String?   @map("revisor_id")
+  revisadoEm DateTime? @map("revisado_em")
+  /// Mensagem da última falha (exibida na T11 com a ação de nova tentativa).
+  erro       String?
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa     Empresa @relation(fields: [empresaId], references: [id])
+  solicitante Usuario @relation("dossieSolicitante", fields: [solicitanteId], references: [id])
+  revisor     Usuario? @relation("dossieRevisor", fields: [revisorId], references: [id])
+  execucoes   DossieExecucao[]
+
+  @@index([empresaId])
+  @@map("dossies")
+}
+
+/// Uma execução de geração (ficha §3.4 "registro de custo/execução"):
+/// custo e duração são registrados por execução, inclusive nas tentativas
+/// que falham — a telemetria de consumo precisa enxergar o gasto real.
+model DossieExecucao {
+  id       String @id @default(cuid())
+  dossieId String @map("dossie_id")
+  /// Nome do provedor que executou (ex.: "anthropic", "manual").
+  provedor String
+  /// Modelo usado, quando o provedor é automático.
+  modelo   String?
+  /// Sequencial por dossiê: 1 = geração original, 2+ = novas tentativas.
+  tentativa Int
+  iniciadaEm  DateTime  @map("iniciada_em")
+  concluidaEm DateTime? @map("concluida_em")
+  duracaoMs   Int?      @map("duracao_ms")
+  tokensEntrada Int? @map("tokens_entrada")
+  tokensSaida   Int? @map("tokens_saida")
+  /// Buscas na web realizadas pelo provedor automático, quando informado.
+  buscasWeb     Int? @map("buscas_web")
+  /// Custo apurado a partir dos tokens e da tarifa configurada em ambiente.
+  /// Nulo quando o provedor não tem custo (manual) ou não pôde ser apurado.
+  custoBrl Decimal? @map("custo_brl") @db.Decimal(12, 4)
+  sucesso  Boolean  @default(false)
+  erro     String?
+  versaoTemplate String @map("versao_template")
+
+  dossie Dossie @relation(fields: [dossieId], references: [id])
+
+  @@unique([dossieId, tentativa])
+  @@index([iniciadaEm])
+  @@map("dossie_execucoes")
 }
 
 model EmpresaCategoria {
