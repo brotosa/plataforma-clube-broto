@@ -28,7 +28,9 @@ export default defineConfig({
   webServer: {
     command: "pnpm start",
     url: "http://localhost:3000/entrar",
-    reuseExistingServer: false,
+    // Depuração local: PW_REUSAR_SERVIDOR=1 permite apontar para um
+    // servidor já em execução (com logs visíveis).
+    reuseExistingServer: Boolean(process.env.PW_REUSAR_SERVIDOR),
     timeout: 60_000,
   },
 });

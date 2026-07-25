@@ -8,10 +8,11 @@ Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria 
 - Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md`
 - Especificação visual: `docs/referencias/Plataforma_Broto_-_Prototipo_v2.1.html`
 
-**Estado atual: F2 — Domínio** (F1 concluída). CRUD de Aliados, Contatos,
-Contratos, Soluções e Ofertas com as regras RN01–RN12, motor de aprovação
-operante (T6/T7), telas T1/T2/T3/T5 e job diário (RN03 + janela contratual).
-A carga inicial (F3) e a integração batch (F4) chegam nas próximas fases.
+**Estado atual: F3 — Carga inicial** (F1 e F2 concluídas). Além do domínio
+completo (RN01–RN12, motor de aprovação, T1–T7 exceto T4 plena), a base real
+entra pelas planilhas de `dados/`: staging → tela de conferência
+(`/carga-inicial`, com ajuste de agrupamentos) → efetivação transacional com
+telemetria acumulada. A integração batch (F4) é a próxima fase.
 
 ## Stack
 
