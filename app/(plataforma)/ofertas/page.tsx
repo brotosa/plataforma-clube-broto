@@ -1,19 +1,50 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { prisma } from "@/infra/prisma/cliente";
 
 export const metadata: Metadata = {
   title: "Ofertas",
 };
 
+const ROTULO_NATUREZA: Record<string, string> = {
+  RECOMPENSA: "Recompensa",
+  BENEFICIO: "Benefício",
+  CUPOM_DESCONTO: "Cupom de desconto",
+};
+
+const ROTULO_STATUS: Record<string, string> = {
+  RASCUNHO: "Rascunho",
+  PUBLICADA: "Publicada",
+  PAUSADA: "Pausada",
+  ENCERRADA: "Encerrada",
+  EXPIRADA: "Expirada",
+};
+
+function formatarData(data: Date | null): string {
+  if (!data) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(data);
+}
+
 /**
- * T4 — Lista transversal de ofertas. Na F1 a tela exibe o layout base com
- * números reais (base vazia até F2/F3); tabela completa com coluna
- * Natureza, filtros, destaques e KPI "vitrine viva" chegam na F2/F4.
+ * T4 — Lista transversal de ofertas. Na F2 a lista traz título, aliado,
+ * natureza, mecânica, benefício, vigência e status; telemetria, filtros
+ * avançados, destaques (sem resgate 90d+ / vigências a vencer) e o KPI
+ * "vitrine viva" chegam com a F4.
  */
 export default async function PaginaOfertas() {
-  const [totalOfertas, ofertasPublicadas] = await Promise.all([
+  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas] = await Promise.all([
     prisma.oferta.count(),
     prisma.oferta.count({ where: { status: "PUBLICADA" } }),
+    prisma.oferta.count({ where: { pendenteRepublicacao: true } }),
+    prisma.oferta.findMany({
+      orderBy: { atualizadoEm: "desc" },
+      take: 50,
+      include: {
+        tipoBeneficio: true,
+        mecanica: true,
+        solucao: { include: { empresa: { select: { id: true, nomeFantasia: true } } } },
+      },
+    }),
   ]);
 
   return (
@@ -22,18 +53,10 @@ export default async function PaginaOfertas() {
         <div>
           <h1 className="h-page">Ofertas</h1>
           <div className="cap" style={{ marginTop: 4 }}>
-            Visão transversal de todas as ofertas da vitrine, com vigências e telemetria
+            Visão transversal de todas as ofertas da vitrine, com vigências e status
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="btn btn-azul"
-          disabled
-          title="Cadastro de ofertas disponível na F2 (domínio)"
-        >
-          + Nova oferta
-        </button>
       </div>
 
       <div className="contadores" style={{ marginBottom: 18 }}>
@@ -55,43 +78,105 @@ export default async function PaginaOfertas() {
         </div>
         <div className="c">
           <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
+            Pendentes de republicação
+          </div>
+          <div className="kpi-n num" style={{ marginTop: 6 }}>
+            {pendentesRepublicacao}
+          </div>
+          <div className="cap" style={{ marginTop: 2 }}>
+            limpas no próximo export (RN10)
+          </div>
+        </div>
+        <div className="c">
+          <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
             Vitrine viva (resgate em 90 d)
           </div>
           <div className="kpi-n" style={{ marginTop: 6, color: "var(--paragrafo-aaa)" }}>
             —
           </div>
           <div style={{ marginTop: 4 }}>
-            <span className="selo">pendente de telemetria</span>
-          </div>
-        </div>
-        <div className="c">
-          <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
-            Vigências a vencer (15 d)
-          </div>
-          <div className="kpi-n" style={{ marginTop: 6, color: "var(--paragrafo-aaa)" }}>
-            —
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <span className="selo">pendente de carga</span>
+            <span className="selo">pendente de telemetria (F4)</span>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="vazio">
-          <span className="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2H2v10l9.3 9.3a1.5 1.5 0 0 0 2.1 0l7.9-7.9a1.5 1.5 0 0 0 0-2.1zM7 7h.01" />
-            </svg>
-          </span>
-          <h2 className="h-el">Nenhuma oferta cadastrada</h2>
-          <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
-            As ofertas entram pelo cadastro (F2) e pela carga inicial das planilhas reais
-            (F3). A lista transversal com natureza, mecânica, vigência e telemetria chega
-            com essas fases.
-          </p>
+      {ofertas.length === 0 ? (
+        <div className="card">
+          <div className="vazio">
+            <span className="ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2H2v10l9.3 9.3a1.5 1.5 0 0 0 2.1 0l7.9-7.9a1.5 1.5 0 0 0 0-2.1zM7 7h.01" />
+              </svg>
+            </span>
+            <h2 className="h-el">Nenhuma oferta cadastrada</h2>
+            <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
+              Ofertas nascem dentro de uma solução, na ficha do aliado. A carga inicial
+              (F3) também povoa esta lista.
+            </p>
+            <Link href="/aliados" className="btn btn-ghost" style={{ marginTop: 8, textDecoration: "none" }}>
+              Ir para Aliados
+            </Link>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="card" style={{ overflowX: "auto" }}>
+          <table className="tbl tbl-resp">
+            <thead>
+              <tr>
+                <th style={{ width: "28%" }}>Título</th>
+                <th>Aliado</th>
+                <th>Natureza</th>
+                <th>Mecânica</th>
+                <th>Benefício</th>
+                <th>Vigência</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ofertas.map((oferta) => (
+                <tr key={oferta.id} className="click">
+                  <td>
+                    <Link href={`/ofertas/${oferta.id}`} style={{ fontWeight: 600, color: "inherit", textDecoration: "none" }}>
+                      {oferta.titulo}
+                    </Link>
+                    {oferta.pendenteRepublicacao ? (
+                      <span className="pill pill-warn" style={{ marginLeft: 8 }}>
+                        <i aria-hidden="true" />
+                        republicar
+                      </span>
+                    ) : null}
+                  </td>
+                  <td data-label="Aliado">
+                    <Link href={`/aliados/${oferta.solucao.empresa.id}`} style={{ color: "inherit" }}>
+                      {oferta.solucao.empresa.nomeFantasia}
+                    </Link>
+                  </td>
+                  <td data-label="Natureza" className="cap">
+                    {ROTULO_NATUREZA[oferta.natureza]}
+                  </td>
+                  <td data-label="Mecânica" className="cap">{oferta.mecanica.nome}</td>
+                  <td data-label="Benefício" className="cap">{oferta.tipoBeneficio.nome}</td>
+                  <td data-label="Vigência" className="num cap">
+                    {formatarData(oferta.vigenciaInicio)} –{" "}
+                    {oferta.vigenciaFim ? formatarData(oferta.vigenciaFim) : "indeterminado"}
+                  </td>
+                  <td data-label="Status">
+                    <span className={oferta.status === "PUBLICADA" ? "pill pill-ok" : "pill pill-neutra"}>
+                      <i aria-hidden="true" />
+                      {ROTULO_STATUS[oferta.status]}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="cap" style={{ marginTop: 10 }}>
+        Telemetria por oferta (vouchers emitidos/resgatados, compras), destaques de
+        vitrine e filtros avançados chegam com a importação de telemetria (F4) — valores
+        ausentes aparecem como “—”, nunca estimados.
+      </p>
     </div>
   );
 }

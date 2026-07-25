@@ -198,6 +198,7 @@ export async function avaliarPublicacao(ofertaId: string) {
     where: { id: ofertaId },
     include: {
       mecanica: true,
+      tipoBeneficio: true,
       solucao: {
         include: {
           culturas: true,
