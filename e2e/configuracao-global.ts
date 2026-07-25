@@ -8,6 +8,13 @@ import { PrismaClient } from "@prisma/client";
  * interrompida no meio de um toggle da T7.
  */
 export default async function configuracaoGlobal() {
+  // Identificador de execução ESTÁVEL, fixado uma única vez aqui. Os workers
+  // herdam este env do processo principal (inclusive após reinício por
+  // timeout), então o sufixo dos nomes/CNPJs não muda no meio da suíte — a
+  // causa-raiz da flakiness herdada (SUFIXO = Date.now() no topo do módulo,
+  // que dessincronizava cadeias serial ao recarregar). Numérico, 6 dígitos.
+  process.env.E2E_RUN_ID = process.env.E2E_RUN_ID || String(Date.now()).slice(-6);
+
   if (!process.env.DATABASE_URL) {
     // Fora do CI a URL vive no .env (carregado pelo Next, não pelo Playwright)
     try {
