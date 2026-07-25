@@ -41,11 +41,6 @@ async function entrar(page: Page, email: string) {
   await page.waitForURL("**/aliados");
 }
 
-async function sair(page: Page) {
-  await page.getByRole("button", { name: "Sair" }).click();
-  await page.waitForURL("**/entrar**");
-}
-
 async function semViolacoesAxe(page: Page) {
   // Aguarda a tela assentar (h1 único por tela) antes de varrer — evita
   // varredura no meio de uma navegação do App Router
@@ -74,7 +69,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
 
   test("analista registra contato e contrato (bloco comercial)", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto("/aliados");
+    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
 
@@ -98,7 +93,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
 
   test("analista solicita a promoção (entra na fila — RN06)", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto("/aliados");
+    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
     await page
       .getByRole("button", { name: "Solicitar promoção a Aliada ativa" })
@@ -116,14 +111,14 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     // A revalidação remove a pendência da fila — sinal de que o efeito foi aplicado
     await expect(dossie).toHaveCount(0);
 
-    await page.goto("/aliados");
+    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     const linha = page.getByRole("row", { name: new RegExp(NOME_ALIADO) });
     await expect(linha.getByText("Aliado ativo")).toBeVisible();
   });
 
   test("analista cria a solução com card completo (T3, RN01/RN09)", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto("/aliados");
+    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
@@ -147,7 +142,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
 
   test("analista cria a oferta (T5) e publica (RN02/RN09/RN11)", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto("/aliados");
+    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
@@ -190,7 +185,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
 
   test("recompensa com preço é bloqueada com explicação (validação de natureza)", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto("/aliados");
+    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
@@ -226,6 +221,11 @@ test("T7 inteira navegável por teclado: interruptor nativo liga e desliga", asy
   await page.keyboard.press("Enter");
   await expect(interruptor()).toHaveAttribute("aria-checked", String(!inicial));
 
+  // Página limpa antes de restaurar: a segunda alternância imediata pode
+  // disparar durante o assentamento do refresh anterior e perder a
+  // atualização visual (o banco muda; o DOM não).
+  await page.reload();
+  await page.waitForLoadState("networkidle");
   await interruptor().focus();
   await page.keyboard.press("Enter");
   await expect(interruptor()).toHaveAttribute("aria-checked", String(inicial));

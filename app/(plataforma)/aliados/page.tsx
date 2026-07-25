@@ -222,9 +222,9 @@ export default async function PaginaAliados({
               Importe-a ou comece cadastrando o primeiro aliado.
             </p>
             <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-              <button type="button" className="btn btn-azul" disabled title="Carga inicial disponível na F3">
+              <Link href="/carga-inicial" className="btn btn-azul" style={{ textDecoration: "none" }}>
                 Importar carga inicial
-              </button>
+              </Link>
               <Link href="/aliados/novo" className="btn btn-ghost" style={{ textDecoration: "none" }}>
                 + Novo aliado
               </Link>
