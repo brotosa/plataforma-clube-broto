@@ -14,6 +14,58 @@ import {
  * assinantes zerado e arquivos sintéticos de carga gerados em e2e/.tmp
  * (mesma semente da spec — contagens conferíveis sem número inventado).
  */
+/**
+ * Lê uma variável do `.env` do disco. O Playwright NÃO carrega `.env` (quem
+ * carrega é o Next, no processo do servidor), então o setup precisa olhar o
+ * arquivo para enxergar o mesmo ambiente que o servidor terá.
+ *
+ * `null` = arquivo ilegível; `""` = arquivo lido, variável ausente.
+ */
+function doEnvDoDisco(nome: string): string | null {
+  let env: string;
+  try {
+    env = readFileSync(".env", "utf8");
+  } catch {
+    return null;
+  }
+  const linha = env.split("\n").find((l) => l.startsWith(`${nome}=`));
+  return linha ? linha.slice(`${nome}=`.length).trim().replace(/^"|"$/g, "") : "";
+}
+
+/**
+ * PREFLIGHT das chaves de proteção de CPF — falha ANTES de subir o servidor.
+ *
+ * Desde a F11 (serviço canônico de hash, chave única SEM fallback), todo
+ * caminho que hasheia CPF lança quando `CPF_HASH_KEY` falta. Isso atinge
+ * exatamente os dois únicos e2e que sobem arquivo: a importação de telemetria
+ * (Onda 1/F4, que delega ao serviço canônico) e a carga de assinantes
+ * (Onda 5/F11).
+ *
+ * Sem este preflight, o ambiente sem a chave produz uma CASCATA OPACA: a
+ * server action captura o erro, responde 200 com mensagem efêmera, nada é
+ * persistido, e a falha só aparece minutos depois como
+ * `element(s) not found` no cartão do histórico — sintoma que não aponta a
+ * causa. Foi assim que o vermelho reportado pela F10 (PR #11) se apresentou:
+ * reproduzido aqui removendo a chave do ambiente, com assinatura idêntica
+ * (`integracao.spec.ts` e `assinantes.spec.ts`, mesmos testes, mesmo locator).
+ *
+ * Falhar aqui, nomeando a variável, custa segundos em vez de minutos e não
+ * afrouxa nada: um ambiente configurado passa exatamente como antes.
+ */
+function exigirChavesDeProtecaoDeCpf(): void {
+  const ausentes = (["CPF_HASH_KEY", "APP_ENCRYPTION_KEY"] as const).filter(
+    (nome) => !(process.env[nome] || doEnvDoDisco(nome)),
+  );
+  if (ausentes.length > 0) {
+    throw new Error(
+      `[e2e] ${ausentes.join(" e ")} ausente(s) no ambiente. A proteção de CPF (F11) ` +
+        "não tem fallback: sem essa(s) chave(s) a importação de telemetria e a carga de " +
+        "assinantes falham no servidor e os e2e de upload quebram sem indicar a causa. " +
+        "Defina em .env (ver .env.example) ou no ambiente do CI antes de rodar a suíte.",
+    );
+  }
+}
+
 export default async function configuracaoGlobal() {
   // Identificador de execução ESTÁVEL, fixado uma única vez aqui. Os workers
   // herdam este env do processo principal (inclusive após reinício por
@@ -24,16 +76,14 @@ export default async function configuracaoGlobal() {
 
   if (!process.env.DATABASE_URL) {
     // Fora do CI a URL vive no .env (carregado pelo Next, não pelo Playwright)
-    try {
-      const env = readFileSync(".env", "utf8");
-      const linha = env.split("\n").find((l) => l.startsWith("DATABASE_URL="));
-      if (linha) {
-        process.env.DATABASE_URL = linha.slice("DATABASE_URL=".length).replace(/^"|"$/g, "");
-      }
-    } catch {
+    const doArquivo = doEnvDoDisco("DATABASE_URL");
+    if (doArquivo === null) {
       return; // sem banco acessível: os próprios testes falharão com contexto
     }
+    if (doArquivo) process.env.DATABASE_URL = doArquivo;
   }
+
+  exigirChavesDeProtecaoDeCpf();
   const prisma = new PrismaClient();
   try {
     // Remove os dados criados por execuções anteriores da própria suíte

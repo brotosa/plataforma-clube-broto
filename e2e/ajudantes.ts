@@ -102,14 +102,32 @@ export function cnpjDeNome(nome: string): string {
  * está autenticado para /aliados e o formulário some.
  */
 export async function entrar(page: Page, email: string): Promise<void> {
-  await page.context().clearCookies();
-  await page.goto("/entrar");
-  // Se uma sessão anterior sobreviveu à limpeza (corrida de cookie observada
-  // ao trocar de usuário no mesmo teste), /entrar redireciona para /aliados e
-  // o formulário some. Limpa e recarrega uma vez até o campo aparecer.
-  if (!(await page.getByLabel("E-mail").isVisible().catch(() => false))) {
+  // Limpar o cookie e ir para /entrar NÃO é atômico: o navegador pode reenviar
+  // a sessão anterior e o servidor redireciona para /aliados, sumindo com o
+  // formulário. Observado ao TROCAR de usuário dentro do mesmo teste (RN06).
+  //
+  // A recuperação anterior era uma única repetição sem espera: bastava a
+  // segunda tentativa cair na mesma corrida para o teste morrer 60s depois em
+  // `locator.fill`, apontando o campo de e-mail em vez da causa. Agora são até
+  // três tentativas, cada uma ESPERANDO o formulário aparecer (tolera hidratação
+  // lenta sem repetir à toa), e o esgotamento falha nomeando o que aconteceu.
+  const TENTATIVAS = 3;
+  for (let tentativa = 1; ; tentativa++) {
     await page.context().clearCookies();
     await page.goto("/entrar");
+    const apareceu = await page
+      .getByLabel("E-mail")
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (apareceu) break;
+    if (tentativa === TENTATIVAS) {
+      throw new Error(
+        `[e2e] o formulário de login não apareceu em ${TENTATIVAS} tentativas; a página ` +
+          `parou em ${page.url()}. A sessão anterior sobreviveu à limpeza de cookies ` +
+          `(corrida ao trocar de usuário — RN06).`,
+      );
+    }
   }
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(SENHA);
