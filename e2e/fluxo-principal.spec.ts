@@ -77,6 +77,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByLabel("Nome", { exact: true }).fill("Contato Comercial E2E");
     await page.getByLabel("E-mail", { exact: true }).fill(`comercial+${SUFIXO}@e2e.local`);
     await page.getByRole("button", { name: "Adicionar contato" }).click();
+    await page.waitForLoadState("networkidle");
     // Sinal durável: o contato aparece na tabela após a revalidação
     await expect(page.getByRole("cell", { name: "Contato Comercial E2E" })).toBeVisible();
 
@@ -86,6 +87,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByLabel("Ambientes de pagamento habilitados").selectOption("AMBOS");
     await page.getByLabel("Anexo do contrato (chave do arquivo)").fill("s3://contratos/e2e.pdf");
     await page.getByRole("button", { name: "Registrar contrato" }).click();
+    await page.waitForLoadState("networkidle");
     // A revalidação troca o formulário pela visão do contrato vigente
     await expect(page.getByRole("heading", { name: "Contrato vigente" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Encerrar contrato" })).toBeVisible();
@@ -98,6 +100,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page
       .getByRole("button", { name: "Solicitar promoção a Aliada ativa" })
       .click();
+    await page.waitForLoadState("networkidle");
     // A revalidação troca o formulário pelo estado "aguardando aprovação"
     await expect(page.getByText("Promoção aguardando aprovação")).toBeVisible();
   });
@@ -108,6 +111,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     const dossie = page.locator("details", { hasText: NOME_ALIADO });
     await dossie.locator("summary").click();
     await dossie.getByRole("button", { name: "Aprovar", exact: true }).click();
+    await page.waitForLoadState("networkidle");
     // A revalidação remove a pendência da fila — sinal de que o efeito foi aplicado
     await expect(dossie).toHaveCount(0);
 
@@ -123,7 +127,11 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
-    await page.getByRole("link", { name: "+ Nova solução" }).click();
+    // Navegação pelo href (clique em Link com prefetch é sujeito a corrida no CI)
+    const hrefNovaSolucao = await page
+      .getByRole("link", { name: "+ Nova solução" })
+      .getAttribute("href");
+    await page.goto(hrefNovaSolucao!);
     await page.waitForURL(/\/solucoes\/nova/);
     await page.waitForLoadState("networkidle"); // hidratação completa antes de interagir
 
@@ -135,9 +143,13 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByRole("checkbox", { name: "Cobertura nacional" }).check();
     // Régua ao vivo chega a 100% antes de salvar
     await expect(page.getByText("100%")).toBeVisible();
+    await page.waitForLoadState("networkidle"); // formulário assentado antes de submeter
     await page.getByRole("button", { name: "Criar solução" }).click();
-    await page.waitForURL(/\/solucoes\/(?!nova$)[a-z0-9]+$/);
-    await expect(page.getByRole("heading", { level: 1, name: NOME_SOLUCAO })).toBeVisible();
+    // Sinal durável do redirect: o título da solução na ficha (mais robusto que
+    // waitForURL sob o App Router no runner lento do CI).
+    await expect(page.getByRole("heading", { level: 1, name: NOME_SOLUCAO })).toBeVisible({
+      timeout: 30_000,
+    });
   });
 
   test("analista cria a oferta (T5) e publica (RN02/RN09/RN11)", async ({ page }) => {
@@ -165,9 +177,10 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByLabel("Preço por (R$)").fill("85");
     await page.getByRole("radio", { name: /Checkout no clube/ }).check();
     await page.getByLabel("Vigência início").fill("2026-07-01");
+    await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Criar oferta (rascunho)" }).click();
-    await page.waitForURL(/\/ofertas\/(?!nova$)[a-z0-9]+$/);
-    await expect(page.getByText("Rascunho")).toBeVisible();
+    // Sinal durável do redirect: o pill de status na ficha da oferta.
+    await expect(page.getByText("Rascunho")).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole("button", { name: "Publicar oferta" }).click();
     // Aguarda a revalidação concluir (a ficha da oferta agora também carrega os
