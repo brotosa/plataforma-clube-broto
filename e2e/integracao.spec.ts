@@ -1,7 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
-import { entrar, resolverDatabaseUrl } from "./ajudantes";
+import { entrar, resolverDatabaseUrl, semViolacoesAxe } from "./ajudantes";
 
 /**
  * Ciclo da F4 pela interface: publicar catálogo → importar telemetria →
@@ -138,13 +137,11 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
       .toBe(antes);
   });
 
-  test("axe-core sem violações nas telas de integração", async ({ page }) => {
+  test("axe-core (AAA) sem violações nas telas de integração", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     for (const rota of ["/ofertas", "/ofertas/publicacao", "/ofertas/telemetria"]) {
       await page.goto(rota);
-      await page.getByRole("heading", { level: 1 }).first().waitFor();
-      const resultado = await new AxeBuilder({ page }).analyze();
-      expect(resultado.violations, `axe em ${rota}`).toEqual([]);
+      await semViolacoesAxe(page);
     }
   });
 });

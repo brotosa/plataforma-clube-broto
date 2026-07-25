@@ -8,9 +8,21 @@ import {
   semearAliadoAtivoComContrato,
   semearAliadoEmNegociacao,
   semearAliadoEmNegociacaoM2Completo,
+  semearOfertaPublicada,
   semearSolucaoCompleta,
   submeterERepintar,
 } from "./ajudantes";
+
+/** Abas da T2 (ficha do aliado) — espelham `ABAS` em app/(plataforma)/aliados/[id]/page.tsx. */
+const ABAS_DA_FICHA = [
+  "visao",
+  "solucoes",
+  "ofertas",
+  "comercial",
+  "scouting",
+  "contatos",
+  "integracao",
+] as const;
 
 /**
  * Fluxo principal da F2 pela interface, reescrito como testes ISOLADOS
@@ -267,31 +279,41 @@ test("T7 inteira navegável por teclado: interruptor nativo liga e desliga", asy
   await alternarPorTeclado(inicial);
 });
 
-test("axe-core sem violações nas telas da F2", async ({ page }) => {
+/**
+ * Auditoria AAA (F5) das telas da Onda 1 — T1, T2 (as SETE abas), T3, T5, T6
+ * e T7, mais os formulários de criação e edição. A F2 varria só um subconjunto
+ * (T1, a aba Comercial, T4/T6/T7): abas e formulários inteiros nunca tinham
+ * passado pelo axe. A precondição é semeada aqui para que as telas que só
+ * existem com dados (ficha da solução, ficha da oferta, edição) sejam
+ * realmente varridas — e não silenciosamente puladas.
+ */
+test("axe-core (AAA) sem violações nas telas da Onda 1", async ({ page }) => {
+  const nome = `Aliado E2E ${runId()}-axe`;
+  const nomeSolucao = `Solução E2E ${runId()}-axe`;
+  const tituloOferta = `Oferta E2E ${runId()}-axe`;
+  const aliado = await semearAliadoAtivoComContrato(nome);
+  const solucao = await semearSolucaoCompleta(aliado.id, nomeSolucao);
+  const oferta = await semearOfertaPublicada(solucao.id, tituloOferta);
+
   await entrar(page, "gestor@dev.clubebroto.local");
 
-  await page.goto("/aliados");
-  await semViolacoesAxe(page);
+  const rotas = [
+    "/aliados", // T1
+    "/aliados/novo",
+    ...ABAS_DA_FICHA.map((aba) => `/aliados/${aliado.id}?aba=${aba}`), // T2
+    `/aliados/${aliado.id}/editar`,
+    `/aliados/${aliado.id}/solucoes/nova`, // T3 (formulário)
+    `/aliados/${aliado.id}/solucoes/${solucao.id}`, // T3 (ficha)
+    `/aliados/${aliado.id}/solucoes/${solucao.id}/ofertas/nova`, // T5 (formulário)
+    `/ofertas/${oferta.id}`, // T5 (ficha)
+    `/ofertas/${oferta.id}/editar`,
+    "/ofertas", // T4
+    "/aprovacoes", // T6
+    "/aprovacoes/regras", // T7
+  ];
 
-  await page.goto("/aliados/novo");
-  await semViolacoesAxe(page);
-
-  // Qualquer ficha de aliado serve para a varredura (independente do sufixo
-  // desta execução — o worker pode ter sido reiniciado)
-  await page.goto("/aliados");
-  await page.locator("table tbody tr").first().getByRole("link").first().click();
-  await page.waitForURL(/\/aliados\/[a-z0-9]+/);
-  await semViolacoesAxe(page);
-
-  await page.getByRole("link", { name: "Comercial" }).click();
-  await semViolacoesAxe(page);
-
-  await page.goto("/ofertas");
-  await semViolacoesAxe(page);
-
-  await page.goto("/aprovacoes");
-  await semViolacoesAxe(page);
-
-  await page.goto("/aprovacoes/regras");
-  await semViolacoesAxe(page);
+  for (const rota of rotas) {
+    await page.goto(rota);
+    await semViolacoesAxe(page);
+  }
 });
