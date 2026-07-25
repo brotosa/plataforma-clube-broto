@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:vercel": "prisma generate && prisma migrate deploy && prisma db seed && next build",
+    "build:vercel": "prisma generate && node scripts/preparar-banco-deploy.mjs && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint .",
