@@ -195,9 +195,9 @@ export default async function PaginaAliados({
           href={urlAlternarSemOferta()}
           className={semOfertaAtiva ? "chip on" : "chip"}
           style={{ textDecoration: "none" }}
-          aria-pressed={semOfertaAtiva}
         >
           Sem oferta ativa
+          {semOfertaAtiva ? <span className="sr-oculto"> (filtro ativo — remover)</span> : null}
         </Link>
         <div style={{ flex: 1 }} />
         <span className="cap num">

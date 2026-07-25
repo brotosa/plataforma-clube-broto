@@ -8,9 +8,10 @@ Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria 
 - Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md`
 - Especificação visual: `docs/referencias/Plataforma_Broto_-_Prototipo_v2.1.html`
 
-**Estado atual: F1 — Fundação** (projeto, CI, schema completo com migrations,
-Auth.js + RBAC, serviço de auditoria e layout base). As telas de gestão
-(T1–T7), a carga inicial e a integração chegam nas fases F2–F4.
+**Estado atual: F2 — Domínio** (F1 concluída). CRUD de Aliados, Contatos,
+Contratos, Soluções e Ofertas com as regras RN01–RN12, motor de aprovação
+operante (T6/T7), telas T1/T2/T3/T5 e job diário (RN03 + janela contratual).
+A carga inicial (F3) e a integração batch (F4) chegam nas próximas fases.
 
 ## Stack
 
@@ -76,6 +77,7 @@ Senha de todos: `clube-broto-dev` (sobrescrevível com `SENHA_USUARIOS_DEV`).
 | `pnpm db:migrate` | aplica migrations (produção/CI) |
 | `pnpm db:migrate:dev` | cria/aplica migrations (desenvolvimento) |
 | `pnpm db:seed` | seed de taxonomias, regras RN06 e usuários dev |
+| `pnpm job:diario` | job diário: expira vigências (RN03) e marca a janela contratual |
 
 \* os testes de integração (auditoria com banco) só executam quando
 `DATABASE_URL` está definida; sem banco, são pulados.

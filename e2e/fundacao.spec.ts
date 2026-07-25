@@ -78,7 +78,8 @@ test("navegação entre os módulos da Onda 1 e estado do motor de aprovação",
 
   await page.getByRole("link", { name: "Aprovações" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Aprovações" })).toBeVisible();
-  // Estado inicial do motor conforme RN06 (seed): Aliado ligado, Oferta desligada
+  // Estado inicial do motor conforme RN06 (seed): Aliado ligado, Oferta desligada (T7)
+  await page.getByRole("link", { name: "Regras de aprovação (T7)" }).click();
   await expect(page.getByText("Aprovação exigida")).toBeVisible();
   await expect(page.getByText("Aprovação desligada")).toBeVisible();
 });

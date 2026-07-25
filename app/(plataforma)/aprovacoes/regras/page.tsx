@@ -86,15 +86,9 @@ export default async function PaginaRegrasAprovacao() {
                     type="submit"
                     role="switch"
                     aria-checked={regra.exigida}
-                    aria-labelledby={idRotulo}
+                    aria-label={`Exigência de aprovação para ${detalhes.titulo}`}
                     className={regra.exigida ? "sw on" : "sw"}
-                  >
-                    <span className="sr-oculto">
-                      {regra.exigida
-                        ? `Desligar exigência de aprovação para ${detalhes.titulo}`
-                        : `Ligar exigência de aprovação para ${detalhes.titulo}`}
-                    </span>
-                  </button>
+                  />
                 </form>
               </div>
 
