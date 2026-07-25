@@ -73,7 +73,14 @@ export default async function PaginaAvaliacao({
           fechadas={fechadas}
         />
       ) : (
-        <div className="card">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <h1 className="h-page">Avaliação — {empresa.nomeFantasia}</h1>
+            <div className="cap" style={{ marginTop: 4 }}>
+              ScoutCB · nota 1–5 por indicador · empresa em {empresa.rotuloEstagio}
+            </div>
+          </div>
+          <div className="card">
           <div className="vazio">
             <div className="ic">
               <svg
@@ -100,6 +107,7 @@ export default async function PaginaAvaliacao({
             <Link href="/mercado" className="btn btn-azul" style={{ marginTop: 8, textDecoration: "none" }}>
               Abrir o funil
             </Link>
+          </div>
           </div>
         </div>
       )}

@@ -239,7 +239,9 @@ export function FormularioAvaliacao({
                   type="button"
                   className="dim-h"
                   aria-expanded={aberta}
-                  aria-controls={idSecao}
+                  // Só referencia a seção quando ela existe no DOM (axe:
+                  // aria-valid-attr-value com o painel fechado).
+                  aria-controls={aberta ? idSecao : undefined}
                   onClick={() => alternarDimensao(dimensao.dimensao)}
                 >
                   <span>
