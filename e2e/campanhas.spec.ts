@@ -244,18 +244,19 @@ test.describe.serial("F12 — ciclo completo da campanha (T22 → T23 → T25)",
     // Modal de confirmação explica o congelamento e a herança da RN34.
     await expect(page.getByRole("dialog", { name: "Ativar campanha" })).toBeVisible();
     await expect(page.getByText(/finalidade preenchida pelo nome da campanha/)).toBeVisible();
-    await page.getByRole("button", { name: "Ativar e gerar kit v1" }).click();
+    // Aguarda a RESPOSTA da server action e recarrega (padrão de
+    // estabilização da suíte). Recarregar também torna a asserção
+    // independente do push do cliente: campanha já ativa faz a rota de
+    // modelagem redirecionar para o painel no servidor.
+    await submeterERepintar(page, async () => {
+      await page.getByRole("button", { name: "Ativar e gerar kit v1" }).click();
+    });
 
     // Recusa de validação aparece como aviso na própria tela: assertá-la
     // primeiro transforma um timeout mudo em mensagem legível. O seletor é
     // o aviso da tela — o anunciador de rota do Next também tem role=alert.
     await expect(page.locator('.aviso-inline[role="alert"]')).toHaveCount(0);
-
-    // toHaveURL (e não waitForURL): a navegação do App Router é soft — não
-    // dispara "load", e esperar por lifecycle estoura o timeout. A ativação
-    // ainda materializa o snapshot e empacota o kit antes de navegar, então
-    // a espera é generosa.
-    await expect(page).toHaveURL(/\/painel$/, { timeout: 45_000 });
+    await expect(page).toHaveURL(/\/painel$/);
     await expect(
       page.getByText(`público congelado: ${SINTETICOS.length}`),
     ).toBeVisible();
