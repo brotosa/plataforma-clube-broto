@@ -80,6 +80,7 @@ model Categoria {
 
   empresas EmpresaCategoria[]
   solucoes Solucao[]
+  metas    MetaPeriodo[]
 
   @@map("categorias")
 }
@@ -1226,4 +1227,45 @@ model StagingAssinante {
   @@index([importacaoId])
   @@index([importacaoId, cpfHash])
   @@map("staging_assinantes")
+}
+
+// ---------------------------------------------------------------------
+// Metas de novos aliados (Onda 2, F9) — ficha §3.5 e RN22
+// ---------------------------------------------------------------------
+
+/// Períodos de meta (ficha da Onda 3 §3.2, que governa a edição na T17).
+enum PeriodoMeta {
+  MENSAL
+  TRIMESTRAL
+  ANUAL
+}
+
+/// Meta de novos aliados por período (ficha Onda 2 §3.5). A F9 apenas LÊ
+/// esta tabela — a T14 exibe meta × realizado (RN22) e o valor nasce do
+/// seed com a decisão de negócio registrada. A escrita chega no
+/// Parametrizador (Onda 3, T17), restrita ao Administrador da Plataforma;
+/// a tabela já nasce no formato que aquele editor espera, inclusive a
+/// unicidade da RN28 (uma meta geral por período; uma por categoria por
+/// período), garantida por índices parciais na migration.
+model MetaPeriodo {
+  id      String      @id @default(cuid())
+  periodo PeriodoMeta
+  /// Janela do período: início inclusivo, fim exclusivo (primeiro instante
+  /// do período seguinte) — o mesmo recorte usado para contar o realizado.
+  inicio  DateTime    @db.Date
+  fim     DateTime    @db.Date
+  /// Nulo = meta geral; preenchida = meta por categoria (RN28).
+  categoriaId String? @map("categoria_id")
+  /// Novos aliados esperados no período.
+  valor       Int
+  /// De onde veio o número (ex.: decisão de negócio de 24/07) — nenhum
+  /// valor de meta nasce sem procedência.
+  origem      String
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  categoria Categoria? @relation(fields: [categoriaId], references: [id])
+
+  @@index([inicio, fim])
+  @@map("metas_periodo")
 }
