@@ -71,6 +71,11 @@ button{font-family:var(--font-family-body)}
 .btn:hover{filter:brightness(.94)}
 .btn:active{transform:translateY(1px)}
 .btn-azul{background:var(--azul);color:#fff}
+/* AAA (F11): âncoras estilizadas como botão herdam a regra global de <a>
+   durante transições de rota — cor e transição explícitas garantem o
+   contraste do rótulo em qualquer instante do ciclo de renderização. */
+a.btn{transition:none}
+a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .btn-ghost{border-color:var(--borda);color:var(--preto);background:var(--branco)}
 .btn-ghost:hover{filter:none;background:var(--azul-lightest);border-color:var(--azul-claro)}
 .btn-sm{height:32px;padding:0 14px;font-size:13px}

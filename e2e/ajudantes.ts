@@ -263,7 +263,8 @@ async function idUsuarioPorPapel(papel: string): Promise<string> {
  * a limpeza de configuracao-global.ts e integracao.integracao.test.ts:
  * ofertas → telemetria/acumulados primeiro, depois vínculos de solução,
  * solução, contrato, contatos, categorias, solicitações e auditoria por
- * entidadeId — mais notas/registros/staging do funil (no-op para aliados).
+ * entidadeId — mais notas/registros/staging do funil e avaliações de scout
+ * com suas notas (F7; no-op para aliados sem avaliação).
  */
 export async function limparAliadoPorNome(nome: string): Promise<void> {
   const empresas = await prisma.empresa.findMany({
@@ -275,13 +276,23 @@ export async function limparAliadoPorNome(nome: string): Promise<void> {
     const ofertaIds = empresa.solucoes.flatMap((solucao) =>
       solucao.ofertas.map((oferta) => oferta.id),
     );
+    const avaliacaoIds = (
+      await prisma.avaliacaoScout.findMany({
+        where: { empresaId: empresa.id },
+        select: { id: true },
+      })
+    ).map((avaliacao) => avaliacao.id);
+    await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
+    await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIds } } });
     await prisma.telemetriaEvento.deleteMany({ where: { ofertaId: { in: ofertaIds } } });
     await prisma.telemetriaAcumuladoInicial.deleteMany({ where: { ofertaId: { in: ofertaIds } } });
     await prisma.aprovacaoSolicitacao.deleteMany({
       where: { entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds] } },
     });
     await prisma.auditoriaEvento.deleteMany({
-      where: { entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds] } },
+      where: {
+        entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds, ...avaliacaoIds] },
+      },
     });
     await prisma.oferta.deleteMany({ where: { id: { in: ofertaIds } } });
     await prisma.solucaoCultura.deleteMany({ where: { solucaoId: { in: solucaoIds } } });

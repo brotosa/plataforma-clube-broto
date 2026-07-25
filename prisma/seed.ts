@@ -1,5 +1,5 @@
 /**
- * Seed da fundação (F1).
+ * Seed da plataforma (F1 + Onda 2).
  *
  * Regra inviolável: nenhum dado de negócio inventado. Este seed grava apenas:
  *  1. Taxonomias v1 documentadas na ficha v0.6 e no protótipo v2.1
@@ -7,7 +7,9 @@
  *     público —, tipos de benefício, mecânicas e motivos de suspensão RN12);
  *  2. Regras do motor de aprovação no estado inicial exigido pela RN06
  *     (promoção a Aliada ativa LIGADA; publicação de Oferta DESLIGADA);
- *  3. Usuários internos de DESENVOLVIMENTO (um por papel) — credenciais de
+ *  3. Indicadores de scouting (F7) — transposição fiel das duas tabelas do
+ *     ScoutCB versionadas em docs/especificacao/indicadores-scoutcb-seed.md;
+ *  4. Usuários internos de DESENVOLVIMENTO (um por papel) — credenciais de
  *     teste para login/RBAC, nunca pessoas reais; ignorados quando
  *     NODE_ENV=production.
  *
@@ -16,6 +18,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { hashSync } from "bcryptjs";
+import { DIMENSOES_MEDICAO } from "../dominio/avaliacao/dimensoes";
 
 const prisma = new PrismaClient();
 
@@ -100,6 +103,43 @@ const MOTIVOS_DESCARTE: ReadonlyArray<[string, string]> = [
   ["OUTRO", "Outro (descrever)"],
 ];
 
+/**
+ * Indicadores de scouting (F7) — transposição fiel de
+ * docs/especificacao/indicadores-scoutcb-seed.md, tabelas "Indicadores a
+ * serem medidos — Empresa" e "— Produto" do ScoutCB, na ordem do documento:
+ * [nome, o que mede, dimensão de medição]. Pesos v1 = 1 uniforme (default
+ * do schema; o ScoutCB não define pesos — a ponderação torna-se editável
+ * por dimensão na F10/RN25).
+ */
+const INDICADORES_EMPRESA: ReadonlyArray<[string, string, string]> = [
+  ["Presença geográfica (UFs atendidas)", "Alcance territorial da operação", "Capilaridade"],
+  ["Canais e parcerias de distribuição", "Capacidade de chegar ao produtor", "Capilaridade"],
+  ["Culturas atendidas", "Aderência às culturas do público do Clube", "Fit de Negócio"],
+  ["Modelo de negócio", "Compatibilidade do modelo com a intermediação do Clube", "Fit de Negócio"],
+  ["Tempo de mercado", "Maturidade e experiência acumulada", "Dimensão e Maturidade"],
+  ["Número de colaboradores", "Porte da estrutura", "Dimensão e Maturidade"],
+  ["Senioridade dos sócios e do time", "Qualificação e histórico das lideranças", "Senioridade e Compliance"],
+  ["Certificações e conformidade", "Regularidade, certificações e compliance", "Senioridade e Compliance"],
+  ["Número de clientes ativos", "Base instalada", "Escala da operação"],
+  ["Área monitorada/atendida (ha)", "Escala física da operação no campo", "Escala da operação"],
+  ["Retenção e satisfação de clientes", "Qualidade percebida da operação (churn, NPS quando disponível)", "Sucesso da operação"],
+  ["Casos de sucesso documentados", "Evidência pública de resultado entregue", "Sucesso da operação"],
+  ["Complementaridade ao portfólio do Clube", "Preenchimento de lacunas de categoria da vitrine", "GAP de Portfólio"],
+  ["Investimentos e funding recebidos", "Capitalização e fôlego financeiro", "Saúde do caixa"],
+  ["Faturamento/receita (quando público)", "Sustentação econômica da operação", "Saúde do caixa"],
+  ["Crescimento e clientes/parcerias relevantes", "Tração comercial e validação de mercado", "Tração"],
+];
+
+const INDICADORES_PRODUTO: ReadonlyArray<[string, string, string]> = [
+  ["Relevância para o produtor do Clube", "Quanto o produto importa para o assinante-alvo", "Relevância de Mercado"],
+  ["Diferenciais tecnológicos", "Grau de inovação frente ao disponível no mercado", "Inovação"],
+  ["Proposta de valor e impacto (ROI para o produtor)", "Clareza do benefício e resultado mensurável", "Proposta de Valor e Eficácia"],
+  ["Facilidade de adoção e implantação", "Barreira de entrada para o produtor usar", "Proposta de Valor e Eficácia"],
+  ["Adequação de preço/ticket ao público-alvo", "Compatibilidade do preço com o perfil do assinante", "Público-alvo"],
+  ["Segmentos e portes atendidos", "Aderência ao recorte de público do Clube", "Público-alvo"],
+  ["Concorrentes diretos e posicionamento", "Densidade competitiva e diferenciação", "Concorrência"],
+];
+
 /** Usuários de desenvolvimento — um por papel; nunca em produção. */
 const USUARIOS_DEV: ReadonlyArray<{
   nome: string;
@@ -180,6 +220,33 @@ async function main() {
     });
   }
 
+  // Indicadores do ScoutCB (F7): a dimensão de cada linha precisa ser uma
+  // das 14 dimensões canônicas e pertencer ao grupo da tabela de origem —
+  // divergência aqui é erro de transcrição, e o seed para em vez de gravar.
+  const indicadoresPorGrupo: ReadonlyArray<["EMPRESA" | "PRODUTO", ReadonlyArray<[string, string, string]>]> = [
+    ["EMPRESA", INDICADORES_EMPRESA],
+    ["PRODUTO", INDICADORES_PRODUTO],
+  ];
+  let ordemIndicador = 0;
+  for (const [grupo, indicadores] of indicadoresPorGrupo) {
+    for (const [nome, descricao, dimensao] of indicadores) {
+      const dimensaoCanonica = DIMENSOES_MEDICAO.find((d) => d.nome === dimensao);
+      if (!dimensaoCanonica || dimensaoCanonica.grupo !== grupo) {
+        throw new Error(
+          `Indicador "${nome}": dimensão "${dimensao}" não confere com as 14 dimensões do grupo ${grupo}.`,
+        );
+      }
+      // Não sobrescreve peso nem ativo em re-execuções: passam a ser
+      // geridos no produto (Parametrizador, Onda 3 / F10).
+      await prisma.indicador.upsert({
+        where: { slug: slugDe(nome) },
+        update: { nome, descricao, grupo, dimensao, ordem: ordemIndicador },
+        create: { slug: slugDe(nome), nome, descricao, grupo, dimensao, ordem: ordemIndicador },
+      });
+      ordemIndicador += 1;
+    }
+  }
+
   // Estado inicial do motor de aprovação (RN06): nasce com promoção a
   // Aliada ativa LIGADA e publicação de Oferta DESLIGADA. O upsert não
   // sobrescreve `exigida` em re-execuções: reconfiguração é feita em T7.
@@ -201,7 +268,9 @@ async function main() {
     process.env.NODE_ENV !== "production" ||
     process.env.PERMITIR_USUARIOS_DEV === "true";
   if (!permitirUsuariosDev) {
-    console.log("Seed: taxonomias e regras de aprovação gravadas (produção — usuários de desenvolvimento ignorados).");
+    console.log(
+      `Seed: taxonomias, regras de aprovação e ${ordemIndicador} indicadores do ScoutCB gravados (produção — usuários de desenvolvimento ignorados).`,
+    );
     return;
   }
 
@@ -215,7 +284,7 @@ async function main() {
     });
   }
   console.log(
-    `Seed: taxonomias, regras de aprovação e ${USUARIOS_DEV.length} usuários de desenvolvimento gravados.`,
+    `Seed: taxonomias, regras de aprovação, ${ordemIndicador} indicadores do ScoutCB e ${USUARIOS_DEV.length} usuários de desenvolvimento gravados.`,
   );
 }
 

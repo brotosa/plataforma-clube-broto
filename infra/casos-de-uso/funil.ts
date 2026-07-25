@@ -8,6 +8,7 @@ import {
   podeExecutar,
 } from "@/dominio/autorizacao/permissoes";
 import { podeTransicionar } from "@/dominio/empresas/estagio";
+import { validarPriorizacao } from "@/dominio/avaliacao/regras";
 import {
   destinosDeMovimentoManual,
   validarDescarte,
@@ -72,7 +73,9 @@ export async function entrarNoRadar(ator: Ator, dados: DadosRadar) {
  * destinosDeMovimentoManual (o grafo já exclui EM_APROVACAO, do motor, e
  * DESCARTADA, que tem ação própria). RN14: mover para EM_AVALIACAO é ato
  * de quem assume — o ator vira responsável de scout; voltar a MAPEADA
- * devolve a empresa ao pool (responsável limpo).
+ * devolve a empresa ao pool (responsável limpo). RN15 (F7): PRIORIZADA
+ * exige avaliação fechada — e é sempre este ato humano; nenhum fechamento
+ * de avaliação chama esta função.
  */
 export async function moverNoFunil(
   ator: Ator,
@@ -90,6 +93,15 @@ export async function moverNoFunil(
       throw new ErroDeValidacao([
         `Mover de ${anterior.estagio} para ${destino} não é permitido pelo pipeline do funil.`,
       ]);
+    }
+    if (destino === "PRIORIZADA") {
+      const avaliacoesFechadas = await tx.avaliacaoScout.count({
+        where: { empresaId, status: "FECHADA" },
+      });
+      const errosRN15 = validarPriorizacao(avaliacoesFechadas > 0);
+      if (errosRN15.length > 0) {
+        throw new ErroDeValidacao(errosRN15);
+      }
     }
     const empresa = await tx.empresa.update({
       where: { id: empresaId },

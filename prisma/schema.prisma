@@ -1,10 +1,10 @@
 // =====================================================================
-// Schema da Plataforma de Administração do Clube Broto — Ondas 1 e 2
+// Schema da Plataforma de Administração do Clube Broto — Ondas 1, 2 e 5
 // Fontes da verdade funcionais:
 //   Onda 1: docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md (v0.6)
 //   Onda 2: docs/especificacao/ficha-onda2-mercado-scout.md (v0.1)
-// Decisões estruturais: docs/especificacao/prompt-claude-code-onda1.md
-//   e docs/especificacao/prompt-claude-code-onda2.md
+//   Onda 5: docs/especificacao/ficha-onda5-assinantes.md (v0.1, RN29–RN37)
+// Decisões estruturais: prompts das ondas em docs/especificacao/.
 //
 // Convenções:
 // - Modelos e campos em português; tabelas/colunas em snake_case via @map.
@@ -58,6 +58,9 @@ model Usuario {
   empresasComoComercial Empresa[] @relation("responsavelComercial")
   notasRapidas          NotaRapida[]
   registrosNegociacao   RegistroNegociacao[]
+  avaliacoesScout       AvaliacaoScout[]
+  segmentos             Segmento[]
+  exportacoesLista      ExportacaoLista[]
 
   @@map("usuarios")
 }
@@ -223,8 +226,13 @@ model Empresa {
   motivoDescarteId         String? @map("motivo_descarte_id")
   motivoDescarteDescricao  String? @map("motivo_descarte_descricao")
   motivoDescarteComentario String? @map("motivo_descarte_comentario")
-  /// Somente leitura na Onda 1; calculado na Onda 2 (F7 — avaliação).
+  /// Total 0–100 da avaliação fechada vigente (F7); recalculado a cada
+  /// fechamento de versão. Nulo = sem avaliação fechada ("pendente").
   scoreScouting Int?    @map("score_scouting")
+  /// RN21 — ligada pelo job diário quando a aliada ativa completa 12 meses
+  /// da última avaliação fechada; limpa ao fechar nova avaliação (ou pelo
+  /// próprio job quando deixar de valer).
+  reavaliacaoPendente Boolean @default(false) @map("reavaliacao_pendente")
   /// Preenchido na primeira publicação; na carga inicial vem da planilha ("Id do Seller").
   idExternoMinutrade String? @unique @map("id_externo_minutrade")
   criadoEm     DateTime @default(now()) @map("criado_em")
@@ -240,6 +248,7 @@ model Empresa {
   solucoes        Solucao[]
   notasRapidas        NotaRapida[]
   registrosNegociacao RegistroNegociacao[]
+  avaliacoesScout     AvaliacaoScout[]
 
   @@index([estagio])
   @@map("empresas")
@@ -284,6 +293,106 @@ model RegistroNegociacao {
 
   @@index([empresaId])
   @@map("registros_negociacao")
+}
+
+// ---------------------------------------------------------------------
+// Avaliação de scout (Onda 2, F7) — ficha §3.2/§3.3, RN15/RN18/RN21
+// ---------------------------------------------------------------------
+
+/// As duas tabelas do ScoutCB (ficha §3.3): indicadores de Empresa e de
+/// Produto.
+enum GrupoIndicador {
+  EMPRESA
+  PRODUTO
+}
+
+/// Indicador de scouting — taxonomia com seed fiel a
+/// docs/especificacao/indicadores-scoutcb-seed.md (16 de Empresa e 7 de
+/// Produto nas 14 dimensões de medição); edição chega com o Parametrizador
+/// (Onda 3, T16).
+model Indicador {
+  id        String         @id @default(cuid())
+  slug      String         @unique
+  nome      String         @unique
+  /// Coluna "O que mede" da tabela do ScoutCB.
+  descricao String
+  grupo     GrupoIndicador
+  /// Uma das 14 dimensões de medição (constante em
+  /// dominio/avaliacao/dimensoes.ts, validada em serviço); vira lista
+  /// editável na Onda 3.
+  dimensao  String
+  /// Pesos v1 = 1 uniforme (o ScoutCB não define pesos); a ponderação
+  /// torna-se editável por dimensão no Parametrizador (F10/RN25).
+  peso      Decimal        @default(1) @db.Decimal(5, 2)
+  ordem     Int
+  ativo     Boolean        @default(true)
+
+  notas AvaliacaoNota[]
+
+  @@map("indicadores")
+}
+
+enum StatusAvaliacao {
+  RASCUNHO
+  FECHADA
+}
+
+/// As três recomendações da ficha §3.2 — o score recomenda, nunca decide
+/// (RN15): priorização e descarte seguem sendo atos humanos no funil.
+enum RecomendacaoAvaliacao {
+  AVANCAR
+  MONITORAR
+  DESCARTAR
+}
+
+/// Avaliação de scout versionada (ficha §3.2). Imutável após fechamento
+/// (RN18, garantida em serviço): correção = nova versão. Subtotais e total
+/// são CONGELADOS no fechamento — mudança futura de peso nunca re-pontua
+/// avaliação fechada (antecipação da RN25, Onda 3).
+model AvaliacaoScout {
+  id           String                 @id @default(cuid())
+  empresaId    String                 @map("empresa_id")
+  /// Sequencial por empresa; a vigente é a FECHADA de maior versão.
+  versao       Int
+  avaliadorId  String                 @map("avaliador_id")
+  status       StatusAvaliacao        @default(RASCUNHO)
+  recomendacao RecomendacaoAvaliacao?
+  /// Congelado no fechamento: [{dimensao, grupo, media, peso, subtotal}] —
+  /// subtotal = média 1–5 das notas da dimensão × 20 (nota de consistência
+  /// do seed dos indicadores).
+  subtotais    Json?
+  /// Total 0–100 congelado no fechamento: média dos subtotais das
+  /// dimensões avaliadas ponderada pelos pesos (v1 todos 1).
+  total        Int?
+  fechadaEm    DateTime?              @map("fechada_em")
+  criadoEm     DateTime               @default(now()) @map("criado_em")
+  atualizadoEm DateTime               @updatedAt @map("atualizado_em")
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  avaliador Usuario @relation(fields: [avaliadorId], references: [id])
+  notas     AvaliacaoNota[]
+
+  @@unique([empresaId, versao])
+  @@index([empresaId, status])
+  @@map("avaliacoes_scout")
+}
+
+/// Nota 1–5 por indicador com evidência opcional (ficha §3.2). A evidência
+/// pode citar o dossiê, mas nenhum campo de dossiê preenche nota — a
+/// pontuação é sempre humana (RN19).
+model AvaliacaoNota {
+  id          String  @id @default(cuid())
+  avaliacaoId String  @map("avaliacao_id")
+  indicadorId String  @map("indicador_id")
+  /// 1–5 (validada em domínio e por CHECK no banco).
+  nota        Int
+  evidencia   String?
+
+  avaliacao AvaliacaoScout @relation(fields: [avaliacaoId], references: [id])
+  indicador Indicador      @relation(fields: [indicadorId], references: [id])
+
+  @@unique([avaliacaoId, indicadorId])
+  @@map("avaliacao_notas")
 }
 
 model EmpresaCategoria {
@@ -582,6 +691,17 @@ enum TipoImportacao {
   CARGA_OFERTAS
   /// Onda 2 (T9): importação de listas de prospects para o radar.
   CARGA_PROSPECTS
+  /// Onda 5 — as duas famílias da importação de assinantes (ficha §3).
+  ASSINANTES_NUCLEO
+  ASSINANTES_ENRIQUECIMENTO
+}
+
+/// Política de carga de assinantes (RN29): a carga declara o que a
+/// ausência de um CPF significa. Só FOTO_COMPLETA marca ausentes como
+/// "fora da base", e somente com confirmação explícita em duas etapas.
+enum PoliticaImportacao {
+  INCREMENTAL
+  FOTO_COMPLETA
 }
 
 model Importacao {
@@ -596,6 +716,15 @@ model Importacao {
   /// real das listas de prospects é [A CONFIRMAR] e vive como
   /// configuração por importação, nunca como código rígido.
   configuracaoMapeamento Json? @map("configuracao_mapeamento")
+  /// Onda 5 — política declarada da carga de assinantes (RN29);
+  /// null nos tipos das Ondas 1 e 2, que não têm essa semântica.
+  politica PoliticaImportacao?
+  /// Onda 5 — de/para de colunas aplicado pelo mapeador da T20
+  /// (o dicionário real do arquivo do comprador é [A CONFIRMAR]).
+  mapeamentoColunas Json? @map("mapeamento_colunas")
+  /// Onda 5 — resumo da carga (novos, atualizados, fora da base,
+  /// divergências de enriquecimento), exibido na T20 e no histórico.
+  resumo Json?
   autorId             String  @map("autor_id")
   criadoEm            DateTime @default(now()) @map("criado_em")
 
@@ -606,6 +735,8 @@ model Importacao {
   stagingOfertas     StagingOferta[]
   stagingAgrupamentos StagingAgrupamento[]
   stagingEmpresas     StagingEmpresa[]
+  stagingAssinantes   StagingAssinante[]
+  atributosGravados   AtributoEnriquecimento[]
 
   @@map("importacoes")
 }
@@ -801,4 +932,203 @@ model AuditoriaEvento {
   @@index([entidade, entidadeId])
   @@index([autorId])
   @@map("auditoria_eventos")
+}
+
+// ---------------------------------------------------------------------
+// Assinantes (Onda 5 antecipada, F11) — ficha-onda5-assinantes.md
+// ---------------------------------------------------------------------
+
+/// Preferência do núcleo importado (ficha §1.1a — os seis campos
+/// confirmados do arquivo do comprador).
+enum PreferenciaAssinante {
+  AGRICULTURA
+  PECUARIA
+  AMBOS
+}
+
+/// FORA_DA_BASE é marcado exclusivamente por carga "foto completa"
+/// confirmada em duas etapas (RN29) — nunca por omissão.
+enum StatusBaseAssinante {
+  ATIVO
+  FORA_DA_BASE
+}
+
+model Assinante {
+  id String @id @default(cuid())
+  /// Identidade única e chave de junção com telemetria_eventos.cpf_hash
+  /// (RN36): HMAC-SHA-256 do CPF normalizado, com chave própria via env
+  /// CPF_HASH_KEY (determinístico entre cargas).
+  cpfHash String @unique @map("cpf_hash")
+  /// CPF cifrado em repouso (AES-256-GCM com APP_ENCRYPTION_KEY via env —
+  /// a chave nunca entra no repositório). Toda exibição nasce mascarada;
+  /// a plena é decidida na API, com permissão e auditoria (RN30).
+  cpfCifrado String @map("cpf_cifrado")
+  nome       String
+  /// Endereço bruto como veio do arquivo (dicionário [A CONFIRMAR]).
+  enderecoBruto String? @map("endereco_bruto")
+  /// CEP quando o arquivo trouxer ([A CONFIRMAR] — ficha §10).
+  cep String?
+  /// Derivados na importação (RN32); null = estado honesto "não derivado".
+  uf        String?
+  municipio String?
+  email     String?
+  telefone  String?
+  preferencia PreferenciaAssinante?
+  statusBase  StatusBaseAssinante   @default(ATIVO) @map("status_base")
+  /// Marca de registro sintético (regra do CLAUDE.md): fixtures e seeds de
+  /// PF são gerados e marcados — a UI exibe "registro ilustrativo".
+  marcaSintetico Boolean  @default(false) @map("marca_sintetico")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+  atualizadoEm   DateTime @updatedAt @map("atualizado_em")
+
+  assinatura Assinatura?
+  atributos  AtributoEnriquecimento[]
+
+  // Índices do catálogo de segmentação — contagem viva em milissegundos
+  // no volume de projeto (ficha §7).
+  @@index([uf])
+  @@index([municipio])
+  @@index([preferencia])
+  @@index([statusBase])
+  @@map("assinantes")
+}
+
+/// Plano da assinatura ("mensal/anual", ficha §1.1d).
+enum PlanoAssinatura {
+  MENSAL
+  ANUAL
+}
+
+/// Assinatura/vencimento — a ORIGEM do dado é [A CONFIRMAR: arquivo do
+/// comprador × extrato Minutrade] (ficha §1.1d e §10). A seção existe no
+/// modelo e no perfil, sinalizada como "origem pendente"; nada é suposto.
+model Assinatura {
+  id          String  @id @default(cuid())
+  assinanteId String  @unique @map("assinante_id")
+  plano       PlanoAssinatura?
+  /// Valores possíveis [A CONFIRMAR] — armazenado como recebido da fonte.
+  status String?
+  /// Vencimento é visibilidade e filtro 30/60/90 (RN37); nenhuma ação.
+  vencimento DateTime? @db.Date
+  /// Fonte real deste registro quando definida ([A CONFIRMAR]);
+  /// null = origem do dado ainda em definição (exibido na T19).
+  origemDado   String?  @map("origem_dado")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  assinante Assinante @relation(fields: [assinanteId], references: [id])
+
+  @@index([vencimento])
+  @@map("assinaturas")
+}
+
+/// Catálogo de atributos de enriquecimento (EAV leve com catálogo).
+/// É a allowlist dinâmica do construtor de segmentos (RN33): um campo de
+/// enriquecimento só filtra se existir aqui e estiver ativo. Trade-off
+/// documentado (prompt da Onda 5): enquanto os atributos não estabilizam
+/// ([A CONFIRMAR], ficha §10), EAV dá flexibilidade; quando estabilizarem,
+/// promover os quentes a colunas indexadas.
+model CatalogoAtributo {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  nome     String
+  ativo    Boolean @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  valores AtributoEnriquecimento[]
+
+  @@map("catalogo_atributos")
+}
+
+/// Valor de atributo por assinante, com proveniência obrigatória (RN35).
+/// Multivalorado por desenho: um assinante pode ter várias unidades
+/// produtivas, cada uma com cultura própria (protótipo v6.1, T18/T19).
+/// Enriquecimento nunca sobrescreve o núcleo — divergências são
+/// registradas no resumo da carga.
+model AtributoEnriquecimento {
+  id          String @id @default(cuid())
+  assinanteId String @map("assinante_id")
+  catalogoId  String @map("catalogo_id")
+  valor       String
+  /// Proveniência (RN35): fonte declarada na carga + data de referência.
+  fonte          String
+  dataReferencia DateTime @map("data_referencia") @db.Date
+  importacaoId   String?  @map("importacao_id")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  assinante  Assinante        @relation(fields: [assinanteId], references: [id])
+  catalogo   CatalogoAtributo @relation(fields: [catalogoId], references: [id])
+  importacao Importacao?      @relation(fields: [importacaoId], references: [id])
+
+  // Índice de segmentação: EXISTS (catalogo, valor) por assinante.
+  @@index([catalogoId, valor])
+  @@index([assinanteId])
+  @@map("atributos_enriquecimento")
+}
+
+/// Segmento salvo (RN33): SEMPRE a estrutura declarativa — lista ordenada
+/// de regras { campo, operador, valor, combinadorAnterior } sobre o
+/// catálogo. É a semente do público de campanha (Onda 4 reutiliza no
+/// simulador de alcance sem código novo de filtro); guarda a regra,
+/// não a lista — contagem recalculada a cada consulta.
+model Segmento {
+  id           String   @id @default(cuid())
+  nome         String
+  regras       Json
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor       Usuario           @relation(fields: [autorId], references: [id])
+  exportacoes ExportacaoLista[]
+
+  @@map("segmentos")
+}
+
+/// Exportação de lista de contato (RN34): snapshot materializado e
+/// auditável — autor, data, contagem, FINALIDADE obrigatória, a regra que
+/// gerou a lista e o hash do arquivo. O CSV vai ao armazenamento de
+/// objetos (S3; adapter local em desenvolvimento/teste).
+model ExportacaoLista {
+  id         String @id @default(cuid())
+  autorId    String @map("autor_id")
+  finalidade String
+  contagem   Int
+  /// Regra declarativa usada na geração (gravada junto, RN34).
+  regras       Json
+  segmentoId   String? @map("segmento_id")
+  arquivoChave String  @map("arquivo_chave")
+  hashArquivo  String  @map("hash_arquivo")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  autor    Usuario   @relation(fields: [autorId], references: [id])
+  segmento Segmento? @relation(fields: [segmentoId], references: [id])
+
+  @@map("exportacoes_lista")
+}
+
+/// Staging da importação de assinantes (T20): o arquivo inteiro entra
+/// aqui nos passos 1–4 (dry-run); nada muta o cadastro-mestre antes da
+/// confirmação do passo 5 (RN29). Linhas inválidas ficam REJEITADA com
+/// motivo (RN31 — quarentena, nunca tudo-ou-nada).
+model StagingAssinante {
+  id           String @id @default(cuid())
+  importacaoId String @map("importacao_id")
+  linhaOrigem  Int    @map("linha_origem")
+  /// Linha crua do arquivo, para rastreabilidade e download de erros.
+  dadosOriginais Json @map("dados_originais")
+  /// Núcleo normalizado pelo mapeador OU pares atributo→valor da família
+  /// de enriquecimento (conforme o tipo da importação).
+  camposMapeados Json?   @map("campos_mapeados")
+  cpfHash        String? @map("cpf_hash")
+  cpfCifrado     String? @map("cpf_cifrado")
+  estado         EstadoStaging @default(PENDENTE)
+  mensagemErro   String?       @map("mensagem_erro")
+  criadoEm       DateTime      @default(now()) @map("criado_em")
+
+  importacao Importacao @relation(fields: [importacaoId], references: [id])
+
+  @@index([importacaoId])
+  @@index([importacaoId, cpfHash])
+  @@map("staging_assinantes")
 }
