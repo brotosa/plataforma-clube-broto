@@ -51,7 +51,8 @@ pnpm install
 
 # 2. Variáveis de ambiente
 cp .env.example .env
-# preencha DATABASE_URL e gere AUTH_SECRET (openssl rand -base64 32)
+# preencha DATABASE_URL e gere AUTH_SECRET, CPF_HASH_KEY e
+# APP_ENCRYPTION_KEY (cada uma com: openssl rand -base64 32)
 
 # 3. Banco: aplicar migrations e seed (taxonomias + usuários de desenvolvimento)
 pnpm db:migrate:dev   # desenvolvimento (cria/aplica migrations)
@@ -60,6 +61,18 @@ pnpm db:seed
 # 4. Rodar
 pnpm dev              # http://localhost:3000
 ```
+
+### Chaves de proteção de dados pessoais
+
+Duas chaves obrigatórias, ambas só por ambiente — nunca no repositório e
+sem valor padrão embutido: faltando qualquer uma, a operação que a usaria
+falha com mensagem explícita em vez de gravar dado protegido por um
+segredo conhecido.
+
+| Chave | Para que serve | Ao girar |
+|---|---|---|
+| `CPF_HASH_KEY` | HMAC-SHA-256 de CPF de **toda** a plataforma: identidade do assinante (Onda 5) e `cpf_hash` da telemetria (Onda 1), que delega ao mesmo serviço (`infra/assinantes/protecao-cpf.ts`). Chave única é o que sustenta a junção telemetria ↔ assinante (RN36). | Re-identifica a base inteira e desliga a junção — só com plano de recarga |
+| `APP_ENCRYPTION_KEY` | Cifragem do CPF em repouso (AES-256-GCM) na tabela `assinantes` | CPFs já cifrados deixam de ser legíveis — exige recarga do núcleo |
 
 ### Usuários de desenvolvimento (seed, nunca criados em produção)
 

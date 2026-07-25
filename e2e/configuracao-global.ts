@@ -1,11 +1,18 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { PrismaClient } from "@prisma/client";
+import {
+  gerarAssinantesSinteticos,
+  gerarCsvNucleoSintetico,
+} from "../infra/assinantes/fixtures-sinteticas";
 
 /**
  * Estado inicial determinístico para a suíte e2e: as regras do motor
  * voltam ao estado de nascimento da RN06 (promoção LIGADA, publicação de
  * oferta DESLIGADA), mesmo que uma execução anterior tenha sido
- * interrompida no meio de um toggle da T7.
+ * interrompida no meio de um toggle da T7. A F11 acrescenta: módulo de
+ * assinantes zerado e arquivos sintéticos de carga gerados em e2e/.tmp
+ * (mesma semente da spec — contagens conferíveis sem número inventado).
  */
 export default async function configuracaoGlobal() {
   // Identificador de execução ESTÁVEL, fixado uma única vez aqui. Os workers
@@ -114,6 +121,36 @@ export default async function configuracaoGlobal() {
       data: { exigida: false },
     });
     console.log("[e2e] regras do motor no estado de nascimento (RN06): promoção ON, oferta OFF");
+
+    // F11 — módulo de assinantes zerado (a spec importa tudo pela T20).
+    await prisma.atributoEnriquecimento.deleteMany({});
+    await prisma.assinatura.deleteMany({});
+    await prisma.exportacaoLista.deleteMany({});
+    await prisma.segmento.deleteMany({});
+    await prisma.stagingAssinante.deleteMany({});
+    await prisma.assinante.deleteMany({});
+    await prisma.importacao.deleteMany({
+      where: { tipo: { in: ["ASSINANTES_NUCLEO", "ASSINANTES_ENRIQUECIMENTO"] } },
+    });
+    await prisma.auditoriaEvento.deleteMany({
+      where: { entidade: { in: ["assinante", "segmento", "exportacao_lista"] } },
+    });
+
+    // Arquivos sintéticos da carga (semente 21 — a mesma da spec).
+    const sinteticos = gerarAssinantesSinteticos(12, 21);
+    const pastaTemporaria = path.join(process.cwd(), "e2e", ".tmp");
+    mkdirSync(pastaTemporaria, { recursive: true });
+    writeFileSync(
+      path.join(pastaTemporaria, "assinantes-nucleo.csv"),
+      gerarCsvNucleoSintetico(sinteticos),
+      "utf8",
+    );
+    writeFileSync(
+      path.join(pastaTemporaria, "assinantes-parcial.csv"),
+      gerarCsvNucleoSintetico(sinteticos.slice(0, 2)),
+      "utf8",
+    );
+    console.log("[e2e] módulo de assinantes zerado e arquivos sintéticos gerados");
   } finally {
     await prisma.$disconnect();
   }

@@ -22,3 +22,9 @@ test-results/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# exportações locais (snapshots RN34 em desenvolvimento)
+var/
+
+# artefatos temporários do e2e (arquivos sintéticos de carga)
+e2e/.tmp/
