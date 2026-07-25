@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { semViolacoesAxe } from "./ajudantes";
 
 /**
  * E2E da fundação (F1): login com papéis aplicados, shell fiel ao
@@ -20,9 +20,14 @@ async function entrarComoGestor(page: Page) {
   await page.waitForURL("**/aliados");
 }
 
+/**
+ * Varredura axe que AGUARDA a tela assentar (h1 único) antes de analisar —
+ * sem isso, a primeira varredura após o redirect do login corria contra o
+ * repintar do App Router no runner lento e acusava "Page must have a
+ * level-one heading" (flaky). Reaproveita o ajudante compartilhado.
+ */
 async function esperarSemViolacoesAxe(page: Page) {
-  const resultado = await new AxeBuilder({ page }).analyze();
-  expect(resultado.violations).toEqual([]);
+  await semViolacoesAxe(page);
 }
 
 test("login inválido permanece em /entrar com mensagem de erro", async ({ page }) => {
@@ -81,8 +86,18 @@ test("navegação entre os módulos da Onda 1 e estado do motor de aprovação",
   await expect(page.getByRole("heading", { level: 1, name: "Aprovações" })).toBeVisible();
   // Estado inicial do motor conforme RN06 (seed): Aliado ligado, Oferta desligada (T7)
   await page.getByRole("link", { name: "Regras de aprovação (T7)" }).click();
-  await expect(page.getByText("Aprovação exigida")).toBeVisible();
-  await expect(page.getByText("Aprovação desligada")).toBeVisible();
+  // Escopado ao card de cada regra: o mesmo texto de status aparece uma vez
+  // por regra, então o getByText global seria sensível a strict-mode se o
+  // estado de outra regra coincidisse. O globalSetup garante o estado de
+  // nascimento (promoção ON, oferta OFF).
+  const cartaoPromocao = page.locator(".card", {
+    has: page.getByRole("heading", { name: "Promoção a Aliada ativa" }),
+  });
+  await expect(cartaoPromocao.getByText("Aprovação exigida")).toBeVisible();
+  const cartaoOferta = page.locator(".card", {
+    has: page.getByRole("heading", { name: "Publicação de oferta" }),
+  });
+  await expect(cartaoOferta.getByText("Aprovação desligada")).toBeVisible();
 });
 
 test("sidebar recolhe e expande por teclado (Enter)", async ({ page }) => {

@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
+import { entrar, resolverDatabaseUrl } from "./ajudantes";
 
 /**
  * Ciclo da F4 pela interface: publicar catálogo → importar telemetria →
@@ -10,28 +10,20 @@ import { expect, test, type Page } from "@playwright/test";
  * verificador) e nunca entram na demo/seed — só exercitam o parser.
  *
  * Critério "pronto" da F4: ciclo publicar → telemetria → agregados verde.
+ *
+ * IDs estáveis: o prefixo de voucher já é fixo (não deriva de Date.now()),
+ * então a suíte é idempotente entre execuções. Resolve DATABASE_URL e
+ * reaproveita `entrar` do ajudante compartilhado.
  */
-
-function resolverDatabaseUrl() {
-  if (process.env.DATABASE_URL) return;
-  try {
-    const env = readFileSync(".env", "utf8");
-    const linha = env.split("\n").find((l) => l.startsWith("DATABASE_URL="));
-    if (linha) {
-      process.env.DATABASE_URL = linha.slice("DATABASE_URL=".length).replace(/^"|"$/g, "");
-    }
-  } catch {
-    /* sem banco: os testes serão pulados */
-  }
-}
 
 resolverDatabaseUrl();
 
-const SENHA = process.env.SENHA_USUARIOS_DEV ?? "clube-broto-dev";
 const PREFIXO_VOUCHER = "E2E-F4-";
 const ARQUIVO_SINTETICO = "[SINTETICO] telemetria_uso_e2e.csv";
 const CPF_SINTETICO = "111.111.111-11"; // reprova o dígito verificador
 
+// PrismaClient próprio: esta suíte o desconecta no afterAll; manter local
+// evita fechar o cliente compartilhado dos ajudantes usado por outras specs.
 const prisma = new PrismaClient();
 let ofertaId = "";
 let idExterno = "";
@@ -47,22 +39,25 @@ function csvSintetico(id: string): string {
   ].join("\n");
 }
 
-async function entrarComoGestor(page: Page) {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill("gestor@dev.clubebroto.local");
-  await page.getByLabel("Senha").fill(SENHA);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
-}
-
 async function enviarFixture(page: Page) {
   await page.locator('input[type="file"]').setInputFiles({
     name: ARQUIVO_SINTETICO,
     mimeType: "text/csv",
     buffer: Buffer.from(csvSintetico(idExterno), "utf8"),
   });
-  await page.getByRole("button", { name: "Importar arquivo" }).click();
-  // Aguarda a server action + revalidação concluírem antes de ler o status.
+  // Aguarda a RESPOSTA da server action (POST) e recarrega. A mensagem de
+  // sucesso vive em estado efêmero (useActionState) e, no upload de arquivo
+  // sob runner lento, ora não repintava, ora era varrida pelo revalidatePath
+  // — origem de flakiness. Recarregar assenta o histórico (persistido no
+  // banco), que é o sinal DURÁVEL usado nas asserções abaixo.
+  await Promise.all([
+    page.waitForResponse(
+      (resposta) => resposta.request().method() === "POST" && resposta.status() === 200,
+      { timeout: 30_000 },
+    ),
+    page.getByRole("button", { name: "Importar arquivo" }).click(),
+  ]);
+  await page.reload();
   await page.waitForLoadState("networkidle");
 }
 
@@ -92,7 +87,7 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
 
   test("publicar catálogo gera o pacote e registra no histórico", async ({ page }) => {
     test.skip(semDados, "carga inicial não efetivada: sem oferta publicada com id externo");
-    await entrarComoGestor(page);
+    await entrar(page, "gestor@dev.clubebroto.local");
     page.on("dialog", (dialogo) => dialogo.accept());
     await page.goto("/ofertas/publicacao");
     await page.waitForLoadState("networkidle");
@@ -105,15 +100,16 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
     page,
   }) => {
     test.skip(semDados, "sem base real");
-    await entrarComoGestor(page);
+    await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/ofertas/telemetria");
     await page.waitForLoadState("networkidle");
     await enviarFixture(page);
-    // A mensagem de resultado é o <p role="status"> (o histórico também traz
-    // "em quarentena" em pílulas — por isso escopamos ao status).
-    const status = page.locator('p[role="status"]');
-    await expect(status).toContainText("3 eventos importados", { timeout: 30_000 });
-    await expect(status).toContainText("1 em quarentena");
+    // Sinal DURÁVEL: o histórico (renderizado do banco após o reload) traz o
+    // arquivo com as pílulas — 3 importadas e 1 em quarentena. Evita o estado
+    // efêmero do useActionState, que era instável no upload sob runner lento.
+    const cartaoImportacao = page.locator(".card", { hasText: ARQUIVO_SINTETICO }).first();
+    await expect(cartaoImportacao.getByText("3 importadas")).toBeVisible();
+    await expect(cartaoImportacao.getByText("1 em quarentena")).toBeVisible();
 
     // Conferir agregados na oferta (derivam só dos eventos importados — RN07)
     await page.goto(`/ofertas/${ofertaId}`);
@@ -126,17 +122,24 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
 
   test("reimportar o mesmo arquivo é idempotente (nada duplica — RN07)", async ({ page }) => {
     test.skip(semDados, "sem base real");
-    await entrarComoGestor(page);
+    await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/ofertas/telemetria");
     await page.waitForLoadState("networkidle");
+    // Baseline persistido pela importação anterior (fato imutável — RN07).
+    const antes = await prisma.telemetriaEvento.count({ where: { ofertaId } });
+    expect(antes).toBe(3);
     await enviarFixture(page);
-    const status = page.locator('p[role="status"]');
-    await expect(status).toContainText("0 eventos importados", { timeout: 30_000 });
-    await expect(status).toContainText("3 duplicados");
+    // Sinal DURÁVEL no histórico: a reimportação registra 0 importadas…
+    const cartaoReimportacao = page.locator(".card", { hasText: ARQUIVO_SINTETICO }).first();
+    await expect(cartaoReimportacao.getByText("0 importadas")).toBeVisible();
+    // …e o invariante RN07: a contagem de eventos NÃO muda (nada duplica).
+    await expect
+      .poll(() => prisma.telemetriaEvento.count({ where: { ofertaId } }))
+      .toBe(antes);
   });
 
   test("axe-core sem violações nas telas de integração", async ({ page }) => {
-    await entrarComoGestor(page);
+    await entrar(page, "gestor@dev.clubebroto.local");
     for (const rota of ["/ofertas", "/ofertas/publicacao", "/ofertas/telemetria"]) {
       await page.goto(rota);
       await page.getByRole("heading", { level: 1 }).first().waitFor();

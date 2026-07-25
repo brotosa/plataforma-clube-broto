@@ -40,12 +40,6 @@ jobs:
   e2e-acessibilidade:
     name: Build, e2e e axe-core (AAA)
     runs-on: ubuntu-latest
-    # TEMPORÁRIO — remoção obrigatória no PR de estabilização e2e.
-    # A suíte e2e (herdada de F1/F2, que nunca havia rodado no CI) está flaky no
-    # runner: SUFIXO instável a restart de worker, describe.serial que recria
-    # entidades no retry e pressão de recurso. Enquanto o gate permanece em
-    # typecheck/lint/unidade/integração/build, o e2e roda como informativo.
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16

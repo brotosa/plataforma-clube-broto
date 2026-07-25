@@ -1,32 +1,24 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import {
+  entrar,
+  limparAliadoPorNome,
+  runId,
+  semViolacoesAxe,
+  semearEmpresaRadar,
+} from "./ajudantes";
 
 /**
- * F6 pela interface: entrada no radar (T9, RN13), kanban da T8 operado
- * 100% por teclado — Tab até o card, Enter abre o menu, Esc fecha e
- * devolve o foco ao gatilho, mover e descartar completáveis sem mouse
- * (RN14/RN17) —, reativação de descartada e importação de lista em três
- * passos com deduplicação. axe-core nas telas novas (kanban, tabela e T9).
+ * F6 pela interface, reescrita como testes ISOLADOS: cada teste semeia sua
+ * própria precondição de radar direto no banco (via Prisma) e exercita a
+ * ação de UI que verifica. Nenhum teste depende de outro — o antigo
+ * describe.serial refazia toda a cadeia no retry e o SUFIXO = Date.now()
+ * mudava a cada reload de worker. Agora runId() é estável e a semeadura é
+ * idempotente (deleta o homônimo antes de criar).
+ *
+ * Cobertura preservada: entrada no radar (T9, RN13), kanban da T8 operado
+ * 100% por teclado (RN14/RN17), reativação de descartada e importação de
+ * lista com deduplicação. axe-core nas telas novas.
  */
-
-const SENHA = process.env.SENHA_USUARIOS_DEV ?? "clube-broto-dev";
-const SUFIXO = `${Date.now()}`.slice(-6);
-const NOME_RADAR = `Radar E2E ${SUFIXO}`;
-const NOME_PROSPECT = `Prospect E2E ${SUFIXO}`;
-
-async function entrar(page: Page, email: string) {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(SENHA);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
-}
-
-async function semViolacoesAxe(page: Page) {
-  await page.getByRole("heading", { level: 1 }).first().waitFor();
-  const resultado = await new AxeBuilder({ page }).analyze();
-  expect(resultado.violations).toEqual([]);
-}
 
 /** Rótulo acessível do elemento focado (para asserções de teclado). */
 function rotuloFocado(page: Page): Promise<string> {
@@ -49,17 +41,20 @@ async function tabAteAcoesDoCard(page: Page, nome: string) {
   throw new Error(`Tab não alcançou o gatilho de ações de ${nome}`);
 }
 
-test.describe.serial("funil e radar — T8/T9 (F6)", () => {
+test.describe("funil e radar — T8/T9 (F6) — testes isolados", () => {
   test("RN13 na interface: sem origem não entra; completo entra como Mapeada", async ({ page }) => {
+    const nome = `Radar E2E ${runId()}-rn13`;
+    await limparAliadoPorNome(nome); // idempotência
+
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado/radar");
 
-    await page.getByLabel("Nome", { exact: true }).fill(NOME_RADAR);
+    await page.getByLabel("Nome", { exact: true }).fill(nome);
     await page.getByRole("checkbox", { name: "Tecnologia e Software" }).check();
     await page.getByRole("button", { name: "Adicionar ao radar" }).click();
     await expect(page.locator('[role="alert"].aviso-inline')).toContainText("RN13");
 
-    await page.getByLabel("Nome", { exact: true }).fill(NOME_RADAR);
+    await page.getByLabel("Nome", { exact: true }).fill(nome);
     await page.getByLabel("Origem").selectOption("SCOUTING_ATIVO");
     await page.getByRole("checkbox", { name: "Tecnologia e Software" }).check();
     await page.getByRole("button", { name: "Adicionar ao radar" }).click();
@@ -67,14 +62,22 @@ test.describe.serial("funil e radar — T8/T9 (F6)", () => {
   });
 
   test("kanban só por teclado: Enter abre o menu, Esc devolve o foco, mover sem mouse (RN14)", async ({ page }) => {
+    const nome = `Radar E2E ${runId()}-mover`;
+    // Semeia Mapeada SEM responsável — o move (RN14) deve atribuir o scout.
+    await semearEmpresaRadar(nome, {
+      estagio: "MAPEADA",
+      origem: "SCOUTING_ATIVO",
+      categoriaSlug: "TECNOLOGIA_E_SOFTWARE",
+    });
+
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado");
     await expect(page.getByRole("heading", { level: 1, name: "Mercado & Scout" })).toBeVisible();
 
     // Tab até o gatilho do card; Enter abre o menu com foco no 1º item
-    await tabAteAcoesDoCard(page, NOME_RADAR);
+    await tabAteAcoesDoCard(page, nome);
     await page.keyboard.press("Enter");
-    const menu = page.getByRole("menu", { name: `Ações de ${NOME_RADAR}` });
+    const menu = page.getByRole("menu", { name: `Ações de ${nome}` });
     await expect(menu).toBeVisible();
     await expect
       .poll(() => rotuloFocado(page))
@@ -83,7 +86,7 @@ test.describe.serial("funil e radar — T8/T9 (F6)", () => {
     // Esc fecha e devolve o foco ao gatilho
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
-    await expect.poll(() => rotuloFocado(page)).toContain(`Ações de ${NOME_RADAR}`);
+    await expect.poll(() => rotuloFocado(page)).toContain(`Ações de ${nome}`);
 
     // Reabre e move para Em avaliação apenas com o teclado (RN14: assume)
     await page.keyboard.press("Enter");
@@ -93,27 +96,36 @@ test.describe.serial("funil e radar — T8/T9 (F6)", () => {
     const laneEmAvaliacao = page
       .locator(".kb-lane", { has: page.getByText("Em avaliação", { exact: true }) })
       .first();
-    await expect(laneEmAvaliacao.getByText(NOME_RADAR)).toBeVisible();
+    await expect(laneEmAvaliacao.getByText(nome)).toBeVisible();
     // RN14: quem assumiu vira responsável de scout, visível no card
     await expect(
-      laneEmAvaliacao.locator(".kb-card", { hasText: NOME_RADAR }).getByText(/Responsável:/),
+      laneEmAvaliacao.locator(".kb-card", { hasText: nome }).getByText(/Responsável:/),
     ).toBeVisible();
   });
 
   test("descartar sem mouse: modal com motivo tipificado obrigatório (RN17)", async ({ page }) => {
+    const nome = `Radar E2E ${runId()}-descarte`;
+    // Em avaliação ⇒ o menu do card tem 3 itens (Mapeada, Priorizada,
+    // Descartar…), como o fluxo original ao chegar no descarte.
+    await semearEmpresaRadar(nome, {
+      estagio: "EM_AVALIACAO",
+      origem: "SCOUTING_ATIVO",
+      categoriaSlug: "TECNOLOGIA_E_SOFTWARE",
+    });
+
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado");
 
-    await tabAteAcoesDoCard(page, NOME_RADAR);
+    await tabAteAcoesDoCard(page, nome);
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("menu", { name: `Ações de ${NOME_RADAR}` })).toBeVisible();
+    await expect(page.getByRole("menu", { name: `Ações de ${nome}` })).toBeVisible();
     // Itens: Mover para Mapeada, Mover para Priorizada, Descartar…
     await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
     await expect.poll(() => rotuloFocado(page)).toContain("Descartar");
     await page.keyboard.press("Enter");
 
-    const modal = page.getByRole("dialog", { name: `Descartar ${NOME_RADAR}` });
+    const modal = page.getByRole("dialog", { name: `Descartar ${nome}` });
     await expect(modal).toBeVisible();
     // Foco nasce no select de motivo; seleção e confirmação só por teclado
     await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? "")).toBe(
@@ -127,13 +139,21 @@ test.describe.serial("funil e radar — T8/T9 (F6)", () => {
     await page.keyboard.press("Enter");
 
     await expect(page.getByRole("status")).toContainText("descartada com motivo registrado");
-    await expect(page.locator(".kb-card", { hasText: NOME_RADAR })).toHaveCount(0);
+    await expect(page.locator(".kb-card", { hasText: nome })).toHaveCount(0);
   });
 
   test("descartada aparece na tabela e a reativação volta a Mapeada (RN17)", async ({ page }) => {
+    const nome = `Radar E2E ${runId()}-reativar`;
+    await semearEmpresaRadar(nome, {
+      estagio: "DESCARTADA",
+      origem: "SCOUTING_ATIVO",
+      categoriaSlug: "TECNOLOGIA_E_SOFTWARE",
+      motivoDescarteSlug: "SEM_FIT_DE_NEGOCIO",
+    });
+
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado?visao=tabela");
-    const linha = page.getByRole("row", { name: new RegExp(NOME_RADAR) });
+    const linha = page.getByRole("row", { name: new RegExp(nome) });
     await expect(linha.getByText("Descartada")).toBeVisible();
     await linha.getByRole("button", { name: "Reativar" }).click();
     await expect(page.getByRole("status")).toContainText("voltou a Mapeada");
@@ -142,17 +162,27 @@ test.describe.serial("funil e radar — T8/T9 (F6)", () => {
     const laneMapeada = page
       .locator(".kb-lane", { has: page.getByText("Mapeada", { exact: true }) })
       .first();
-    await expect(laneMapeada.getByText(NOME_RADAR)).toBeVisible();
+    await expect(laneMapeada.getByText(nome)).toBeVisible();
   });
 
   test("importação em três passos: upload → mapeamento → resumo com deduplicação", async ({ page }) => {
+    const nomeRadar = `Radar E2E ${runId()}-import`;
+    const nomeProspect = `Prospect E2E ${runId()}-import`;
+    // O radar já contém `nomeRadar` (será deduplicado); `nomeProspect` é novo.
+    await semearEmpresaRadar(nomeRadar, {
+      estagio: "MAPEADA",
+      origem: "SCOUTING_ATIVO",
+      categoriaSlug: "TECNOLOGIA_E_SOFTWARE",
+    });
+    await limparAliadoPorNome(nomeProspect); // garante que o prospect entra como novo
+
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado/radar?importar=1");
 
     const csv = [
       "Empresa;Site;Segmento",
-      `${NOME_PROSPECT};https://prospect.e2e.local;Tecnologia e Software`,
-      `${NOME_RADAR};;Tecnologia e Software`,
+      `${nomeProspect};https://prospect.e2e.local;Tecnologia e Software`,
+      `${nomeRadar};;Tecnologia e Software`,
     ].join("\n");
     await page
       .locator('input[name="arquivo"]')
@@ -177,11 +207,18 @@ test.describe.serial("funil e radar — T8/T9 (F6)", () => {
     const laneMapeada = page
       .locator(".kb-lane", { has: page.getByText("Mapeada", { exact: true }) })
       .first();
-    await expect(laneMapeada.getByText(NOME_PROSPECT)).toBeVisible();
-    await expect(laneMapeada.locator(".kb-card", { hasText: NOME_PROSPECT }).getByText("via Lista importada")).toBeVisible();
+    await expect(laneMapeada.getByText(nomeProspect)).toBeVisible();
+    await expect(laneMapeada.locator(".kb-card", { hasText: nomeProspect }).getByText("via Lista importada")).toBeVisible();
   });
 
   test("axe-core limpo na T8 (kanban e tabela) e na T9", async ({ page }) => {
+    // Garante ≥1 card no kanban para a varredura cobrir também os cards.
+    await semearEmpresaRadar(`Radar E2E ${runId()}-axe`, {
+      estagio: "MAPEADA",
+      origem: "SCOUTING_ATIVO",
+      categoriaSlug: "TECNOLOGIA_E_SOFTWARE",
+    });
+
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado");
     await semViolacoesAxe(page);
