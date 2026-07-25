@@ -384,7 +384,7 @@ export function FormularioOferta({
         </div>
       </form>
 
-      <aside style={{ position: "sticky", top: 16 }}>
+      <aside aria-label="Pré-visualização do card" style={{ position: "sticky", top: 16 }}>
         <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, marginBottom: 8 }}>
           Pré-visualização do card
         </div>

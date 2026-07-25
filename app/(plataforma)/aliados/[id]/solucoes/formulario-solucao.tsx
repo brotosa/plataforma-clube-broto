@@ -264,7 +264,10 @@ export function FormularioSolucao({
         </div>
       </form>
 
-      <aside style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 16 }}>
+      <aside
+        aria-label="Régua de completude e pré-visualização do card"
+        style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 16 }}
+      >
         <div className="kpi">
           <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
             Régua de completude do card (RN09)
