@@ -99,7 +99,7 @@ describe("RN33 — SQL parametrizado, jamais interpolado", () => {
       { campo: "vencimento", operador: "vence_em", valor: "60" },
     ]);
     if (resultado.status !== "OK") throw new Error("esperava OK");
-    expect(resultado.sql).toContain("make_interval(days => $1)");
+    expect(resultado.sql).toContain("make_interval(days => $1::int)");
     expect(resultado.sql).toContain("s.vencimento >= CURRENT_DATE");
     expect(resultado.parametros).toEqual([60]);
   });
@@ -148,8 +148,8 @@ describe("validarEstruturaRegras — fronteira com o JSON externo", () => {
       { campo: "uf", operador: "e", valor: "MT", combinadorAnterior: "OU" },
       { campo: "cultura", operador: "nao_e", valor: "soja", combinadorAnterior: "OU" },
     ]);
-    expect(regras[0].combinadorAnterior).toBeUndefined();
-    expect(regras[1].combinadorAnterior).toBe("OU");
+    expect(regras[0]?.combinadorAnterior).toBeUndefined();
+    expect(regras[1]?.combinadorAnterior).toBe("OU");
   });
 
   it("rejeita não-lista, regra sem campo/valor e operador desconhecido", () => {

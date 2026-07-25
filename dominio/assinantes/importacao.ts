@@ -222,15 +222,20 @@ export function montarResumoNucleo(parametros: {
   linhasLidas: number;
   plano: PlanoUpsert;
   quarentena: ReadonlyArray<ItemQuarentena>;
-  foraDaBase: ReadonlyArray<string> | null;
+  /** Lista de hashes OU contagem direta (dry-run via COUNT no banco). */
+  foraDaBase: ReadonlyArray<string> | number | null;
 }): ResumoCargaNucleo {
+  const foraDaBase =
+    typeof parametros.foraDaBase === "number"
+      ? parametros.foraDaBase
+      : (parametros.foraDaBase?.length ?? null);
   return {
     linhasLidas: parametros.linhasLidas,
     novos: parametros.plano.novos,
     atualizados: parametros.plano.atualizados,
     quarentena: parametros.quarentena.length,
     repetidosNoArquivo: parametros.plano.repetidosNoArquivo,
-    foraDaBase: parametros.foraDaBase ? parametros.foraDaBase.length : null,
+    foraDaBase,
   };
 }
 

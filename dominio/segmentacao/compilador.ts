@@ -169,7 +169,9 @@ function compilarCondicaoNucleo(
         sql:
           `EXISTS (SELECT 1 FROM assinaturas s WHERE s.assinante_id = a.id ` +
           `AND s.vencimento >= CURRENT_DATE ` +
-          `AND s.vencimento <= CURRENT_DATE + make_interval(days => $${indice}))`,
+          // ::int — o driver binda números JS como bigint, que o
+          // make_interval não aceita.
+          `AND s.vencimento <= CURRENT_DATE + make_interval(days => $${indice}::int))`,
         parametros: [Number(regra.valor)],
       };
     }

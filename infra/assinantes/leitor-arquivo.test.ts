@@ -25,7 +25,7 @@ describe("leitor CSV de assinantes (T20)", () => {
     const csv = 'cpf,endereco\n111,"Rua A, 10 — ""Sítio"" Novo\nZona Rural, Sorriso/MT"\n';
     const lido = lerCsvAssinantes(Buffer.from(csv, "utf8"));
     expect(lido.linhas).toHaveLength(1);
-    expect(lido.linhas[0].valores.endereco).toBe(
+    expect(lido.linhas[0]?.valores.endereco).toBe(
       'Rua A, 10 — "Sítio" Novo\nZona Rural, Sorriso/MT',
     );
   });

@@ -104,18 +104,18 @@ export function derivarDoEndereco(enderecoBruto: string | null | undefined): Loc
   if (!casamento) {
     return { uf: null, municipio: null };
   }
-  const uf = casamento[2].toUpperCase();
+  const uf = (casamento[2] ?? "").toUpperCase();
   if (!UFS_VALIDAS.has(uf)) {
     return { uf: null, municipio: null };
   }
 
   // Município: último segmento textual antes da UF.
-  const anterior = casamento[1];
+  const anterior = casamento[1] ?? "";
   const segmentos = anterior
     .split(/[,–—]|\s-\s/)
     .map((parte) => parte.trim())
     .filter(Boolean);
-  const municipio = segmentos.length > 0 ? segmentos[segmentos.length - 1] : null;
+  const municipio = segmentos[segmentos.length - 1] ?? null;
   return { uf, municipio: municipio || null };
 }
 

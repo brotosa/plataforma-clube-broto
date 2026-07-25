@@ -78,16 +78,17 @@ function linhasLogicas(texto: string): string[] {
 export function lerCsvAssinantes(conteudo: Buffer): ArquivoAssinantesLido {
   const texto = conteudo.toString("utf8").replace(/^﻿/, "");
   const linhasDoArquivo = linhasLogicas(texto);
-  if (linhasDoArquivo.length === 0 || !linhasDoArquivo[0].trim()) {
+  const cabecalho = linhasDoArquivo[0];
+  if (!cabecalho?.trim()) {
     return { colunas: [], linhas: [] };
   }
-  const delimitador = detectarDelimitador(linhasDoArquivo[0]);
-  const colunas = dividirCsv(linhasDoArquivo[0], delimitador).map((c) => c.trim());
+  const delimitador = detectarDelimitador(cabecalho);
+  const colunas = dividirCsv(cabecalho, delimitador).map((c) => c.trim());
 
   const linhas: ArquivoAssinantesLido["linhas"] = [];
   for (let i = 1; i < linhasDoArquivo.length; i += 1) {
     const bruta = linhasDoArquivo[i];
-    if (!bruta.trim()) {
+    if (!bruta || !bruta.trim()) {
       continue;
     }
     const valores = dividirCsv(bruta, delimitador);

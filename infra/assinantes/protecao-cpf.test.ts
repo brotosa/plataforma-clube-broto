@@ -52,8 +52,8 @@ describe("cifrarCpf/decifrarCpf — sigilo em repouso (AES-256-GCM)", () => {
   it("detecta violação do conteúdo (tag GCM)", () => {
     const cifrado = cifrarCpf(CPF);
     const partes = cifrado.split(":");
-    const dados = Buffer.from(partes[3], "base64");
-    dados[0] = dados[0] ^ 0xff;
+    const dados = Buffer.from(partes[3] ?? "", "base64");
+    dados[0] = (dados[0] ?? 0) ^ 0xff;
     partes[3] = dados.toString("base64");
     expect(() => decifrarCpf(partes.join(":"))).toThrow();
   });

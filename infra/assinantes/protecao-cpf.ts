@@ -79,6 +79,9 @@ export function decifrarCpf(cpfCifrado: string): string {
     throw new Error("Formato de CPF cifrado desconhecido.");
   }
   const [, ivBase64, tagBase64, dadosBase64] = partes;
+  if (!ivBase64 || !tagBase64 || !dadosBase64) {
+    throw new Error("Formato de CPF cifrado desconhecido.");
+  }
   const decifrador = createDecipheriv(
     "aes-256-gcm",
     chaveDeCifra(),
