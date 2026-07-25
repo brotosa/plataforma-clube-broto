@@ -6,6 +6,7 @@ import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import { FormularioComEstado } from "../../aliados/formularios";
+import { AVISO_CONFIGURACAO, AvisoEdicaoDesktop } from "../../aviso-desktop";
 import { acaoAlternarRegra, acaoDefinirAprovadores } from "../acoes";
 
 export const metadata: Metadata = {
@@ -57,6 +58,7 @@ export default async function PaginaRegrasAprovacao() {
           alteração é auditada
         </div>
       </div>
+      <AvisoEdicaoDesktop texto={AVISO_CONFIGURACAO} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {regras.map((regra) => {

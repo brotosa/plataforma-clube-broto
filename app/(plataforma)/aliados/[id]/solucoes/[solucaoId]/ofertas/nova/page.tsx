@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/infra/prisma/cliente";
 import type { MecanicaSlug } from "@/dominio/ofertas/regras";
 import { FormularioOferta } from "@/app/(plataforma)/ofertas/formulario-oferta";
+import { AvisoEdicaoDesktop } from "@/app/(plataforma)/aviso-desktop";
 
 export const metadata: Metadata = {
   title: "Nova oferta",
@@ -46,6 +47,7 @@ export default async function PaginaNovaOferta({
           A oferta nasce como rascunho; a publicação verifica RN02, RN09 e RN11
         </div>
       </div>
+      <AvisoEdicaoDesktop />
       <FormularioOferta
         solucaoId={solucao.id}
         contexto={{

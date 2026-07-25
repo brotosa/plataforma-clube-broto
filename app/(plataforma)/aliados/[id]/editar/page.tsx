@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/infra/prisma/cliente";
 import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { FormularioAliado } from "../../formulario-aliado";
+import { AvisoEdicaoDesktop } from "../../../aviso-desktop";
 
 export const metadata: Metadata = {
   title: "Editar aliado",
@@ -40,6 +41,7 @@ export default async function PaginaEditarAliado({
           Todas as alterações ficam na trilha de auditoria (valor anterior/novo/autor)
         </div>
       </div>
+      <AvisoEdicaoDesktop />
       <FormularioAliado
         categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
         ufs={ufs.map((uf) => ({ sigla: uf.sigla }))}

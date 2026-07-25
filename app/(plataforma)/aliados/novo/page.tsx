@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/infra/prisma/cliente";
 import { FormularioAliado } from "../formulario-aliado";
+import { AvisoEdicaoDesktop } from "../../aviso-desktop";
 
 export const metadata: Metadata = {
   title: "Novo aliado",
@@ -27,6 +28,7 @@ export default async function PaginaNovoAliado() {
           motor de aprovação (RN06)
         </div>
       </div>
+      <AvisoEdicaoDesktop />
       <FormularioAliado
         categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
         ufs={ufs.map((uf) => ({ sigla: uf.sigla }))}

@@ -9,6 +9,7 @@ import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { buscarAliado, trilhaDeAuditoria } from "@/infra/consultas/aliados";
 import { avaliarPromocao } from "@/infra/casos-de-uso/empresas";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
+import { AvisoEdicaoDesktop } from "../../aviso-desktop";
 import { AcoesDeEstagio, AcoesContrato, FormularioContato, FormularioContrato } from "./paineis";
 import { acaoRemoverContato } from "../acoes";
 
@@ -206,6 +207,7 @@ export default async function PaginaFichaAliado({
           </Link>
         ))}
       </nav>
+      <AvisoEdicaoDesktop />
 
       {aba === "visao" ? (
         <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 18, alignItems: "start" }}>

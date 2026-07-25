@@ -1,10 +1,20 @@
 import { defineConfig } from "@playwright/test";
 
 /**
- * E2E da F1: fluxo de login, shell e acessibilidade (axe-core).
+ * E2E dos fluxos, acessibilidade (axe-core em modo AAA) e responsividade.
  * O servidor de produção (`next start`) é levantado automaticamente;
  * o banco precisa estar migrado e com seed (ver README).
+ *
+ * Dois projetos, mesma disciplina de estabilidade (setup idempotente por
+ * teste, sem `describe.serial` novo, sem `continue-on-error` no CI):
+ * • `desktop`   — 1280×800, todas as suítes exceto a de responsividade;
+ * • `mobile-380` — 380×740, só `responsividade.spec.ts` (F5: T1/T4/T6
+ *   plenamente usáveis a 380px; T2/T3/T5/T7 íntegras com o aviso de edição
+ *   preferencial em desktop).
+ * Rodam em sequência (workers:1, fullyParallel:false) sobre o mesmo banco.
  */
+const SUITE_RESPONSIVA = /responsividade\.spec\.ts/;
+
 export default defineConfig({
   testDir: "e2e",
   globalSetup: "./e2e/configuracao-global.ts",
@@ -30,6 +40,19 @@ export default defineConfig({
       ? { executablePath: process.env.CHROMIUM_EXECUTAVEL }
       : {},
   },
+  projects: [
+    {
+      name: "desktop",
+      testIgnore: SUITE_RESPONSIVA,
+      use: { viewport: { width: 1280, height: 800 } },
+    },
+    {
+      // 380px é o piso declarado no prompt da Onda 1 (§Acessibilidade).
+      name: "mobile-380",
+      testMatch: SUITE_RESPONSIVA,
+      use: { viewport: { width: 380, height: 740 }, isMobile: false },
+    },
+  ],
   webServer: {
     command: "pnpm start",
     url: "http://localhost:3000/entrar",

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/infra/prisma/cliente";
 import { FormularioSolucao } from "../formulario-solucao";
+import { AvisoEdicaoDesktop } from "../../../../aviso-desktop";
 
 export const metadata: Metadata = {
   title: "Nova solução",
@@ -38,6 +39,7 @@ export default async function PaginaNovaSolucao({
           O card da vitrine nasce aqui — a régua ao lado mostra o que falta para publicar (RN09)
         </div>
       </div>
+      <AvisoEdicaoDesktop />
       <FormularioSolucao
         empresaId={empresa.id}
         aliado={{ nomeFantasia: empresa.nomeFantasia, logoUrl: empresa.logoUrl }}
