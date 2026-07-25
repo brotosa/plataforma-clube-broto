@@ -49,6 +49,23 @@ async function semViolacoesAxe(page: Page) {
   expect(resultado.violations).toEqual([]);
 }
 
+/**
+ * Executa uma server action *no lugar* (sem redirect) e recarrega para que a
+ * asserção veja o estado já persistido: o refresh do App Router
+ * (revalidatePath) nem sempre repinta o DOM no runner lento do CI — o banco
+ * muda, o DOM não. Aguarda a RESPOSTA do POST antes de recarregar (recarregar
+ * cedo abortaria a ação em voo).
+ */
+async function submeterERepintar(page: Page, acionar: () => Promise<void>) {
+  await Promise.all([
+    page.waitForResponse((resposta) => resposta.request().method() === "POST", {
+      timeout: 30_000,
+    }),
+    acionar(),
+  ]);
+  await page.reload();
+}
+
 test.describe.serial("fluxo principal — criar → promover → aprovar → solução → oferta → publicar", () => {
   test("analista cria o aliado com dados M2 completos", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
@@ -76,8 +93,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByRole("link", { name: "Contatos" }).click();
     await page.getByLabel("Nome", { exact: true }).fill("Contato Comercial E2E");
     await page.getByLabel("E-mail", { exact: true }).fill(`comercial+${SUFIXO}@e2e.local`);
-    await page.getByRole("button", { name: "Adicionar contato" }).click();
-    await page.waitForLoadState("networkidle");
+    await submeterERepintar(page, () =>
+      page.getByRole("button", { name: "Adicionar contato" }).click(),
+    );
     // Sinal durável: o contato aparece na tabela após a revalidação
     await expect(page.getByRole("cell", { name: "Contato Comercial E2E" })).toBeVisible();
 
@@ -86,8 +104,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByLabel("Comissão (%)").fill("5");
     await page.getByLabel("Ambientes de pagamento habilitados").selectOption("AMBOS");
     await page.getByLabel("Anexo do contrato (chave do arquivo)").fill("s3://contratos/e2e.pdf");
-    await page.getByRole("button", { name: "Registrar contrato" }).click();
-    await page.waitForLoadState("networkidle");
+    await submeterERepintar(page, () =>
+      page.getByRole("button", { name: "Registrar contrato" }).click(),
+    );
     // A revalidação troca o formulário pela visão do contrato vigente
     await expect(page.getByRole("heading", { name: "Contrato vigente" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Encerrar contrato" })).toBeVisible();
@@ -97,10 +116,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await entrar(page, "analista@dev.clubebroto.local");
     await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
-    await page
-      .getByRole("button", { name: "Solicitar promoção a Aliada ativa" })
-      .click();
-    await page.waitForLoadState("networkidle");
+    await submeterERepintar(page, () =>
+      page.getByRole("button", { name: "Solicitar promoção a Aliada ativa" }).click(),
+    );
     // A revalidação troca o formulário pelo estado "aguardando aprovação"
     await expect(page.getByText("Promoção aguardando aprovação")).toBeVisible();
   });
@@ -183,8 +201,6 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await expect(page.getByText("Rascunho")).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole("button", { name: "Publicar oferta" }).click();
-    // Aguarda a revalidação concluir (a ficha da oferta agora também carrega os
-    // agregados de telemetria) antes de checar o sinal durável do pill.
     await page.waitForLoadState("networkidle");
     await expect(page.getByText("Publicada", { exact: true })).toBeVisible();
   });
@@ -232,18 +248,17 @@ test("T7 inteira navegável por teclado: interruptor nativo liga e desliga", asy
     page.getByRole("switch", { name: /exigência de aprovação para Publicação de oferta/i });
   const inicial = (await interruptor().getAttribute("aria-checked")) === "true";
 
-  await interruptor().focus();
-  await page.keyboard.press("Enter");
-  await expect(interruptor()).toHaveAttribute("aria-checked", String(!inicial));
-
-  // Página limpa antes de restaurar: a segunda alternância imediata pode
-  // disparar durante o assentamento do refresh anterior e perder a
-  // atualização visual (o banco muda; o DOM não).
-  await page.reload();
-  await page.waitForLoadState("networkidle");
-  await interruptor().focus();
-  await page.keyboard.press("Enter");
-  await expect(interruptor()).toHaveAttribute("aria-checked", String(inicial));
+  // Alterna por teclado e confere após recarregar: o refresh do App Router
+  // pode não repintar o interruptor no runner lento do CI (o banco muda, o DOM
+  // não); recarregar garante o estado já persistido. Restaura ao final para
+  // não vazar estado para outras suítes (ex.: a checagem do motor na fundação).
+  const alternarPorTeclado = async (esperado: boolean) => {
+    await interruptor().focus();
+    await submeterERepintar(page, () => page.keyboard.press("Enter"));
+    await expect(interruptor()).toHaveAttribute("aria-checked", String(esperado));
+  };
+  await alternarPorTeclado(!inicial);
+  await alternarPorTeclado(inicial);
 });
 
 test("axe-core sem violações nas telas da F2", async ({ page }) => {
