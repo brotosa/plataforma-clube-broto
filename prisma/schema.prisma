@@ -36,6 +36,10 @@ enum Papel {
   COMERCIAL
   APROVADOR
   LEITURA
+  /// Onda 3 (ficha §2, RN23): único papel com escrita no Parametrizador e
+  /// na definição de metas. Os demais leem o hub por transparência da
+  /// configuração vigente. A gestão completa de usuários fica na Onda 6.
+  ADMINISTRADOR_PLATAFORMA
 }
 
 model Usuario {
@@ -64,6 +68,8 @@ model Usuario {
   dossiesSolicitados    Dossie[] @relation("dossieSolicitante")
   dossiesRevisados      Dossie[] @relation("dossieRevisor")
   indicadoresDeclarados IndicadorDeclarado[]
+  alteracoesDeValor     ValorRegraHistorico[]
+  versoesDeConfiguracao ConfiguracaoVersao[]
 
   @@map("usuarios")
 }
@@ -384,6 +390,13 @@ model AvaliacaoScout {
   /// dimensões avaliadas ponderada pelos pesos (v1 todos 1).
   total        Int?
   fechadaEm    DateTime?              @map("fechada_em")
+  /// RN25 — versão de configuração (indicadores, dimensões, pesos) usada
+  /// nesta avaliação. É o que torna o efeito prospectivo verificável: uma
+  /// avaliação fechada aponta para a configuração vigente à época, e nova
+  /// escrita em pesos gera nova versão sem tocar nesta. Opcional apenas
+  /// porque a coluna nasceu depois das avaliações da F7 (backfill aponta
+  /// as existentes para a versão-seed).
+  configuracaoVersaoId String?        @map("configuracao_versao_id")
   criadoEm     DateTime               @default(now()) @map("criado_em")
   atualizadoEm DateTime               @updatedAt @map("atualizado_em")
 
@@ -392,6 +405,7 @@ model AvaliacaoScout {
   notas     AvaliacaoNota[]
   /// Pedidos de promoção que levaram esta avaliação anexada (RN20).
   solicitacoes AprovacaoSolicitacao[]
+  configuracaoVersao ConfiguracaoVersao? @relation(fields: [configuracaoVersaoId], references: [id])
 
   @@unique([empresaId, versao])
   @@index([empresaId, status])
@@ -976,6 +990,10 @@ model StagingAgrupamento {
 enum TipoEntidadeAprovacao {
   PROMOCAO_ALIADA_ATIVA
   PUBLICACAO_OFERTA
+  /// RN27 (Onda 3) — família sensível do Parametrizador: comissão-padrão,
+  /// pesos de indicadores, tetos do dossiê e metas. Nasce DESLIGADA; ligar
+  /// na T7 passa a exigir aprovação dessas escritas sem código novo.
+  PARAMETRO_SENSIVEL
 }
 
 /// Regra por tipo de entidade: ligável/desligável em T7 sem código.
@@ -1269,6 +1287,117 @@ model StagingAssinante {
 // ---------------------------------------------------------------------
 
 /// Períodos de meta (ficha da Onda 3 §3.2, que governa a edição na T17).
+// Parametrizador — Onda 3 (ficha v0.2 §3, RN23–RN28)
+//
+// Três classes de parâmetro:
+//  1. Listas de domínio  — já são tabelas desde a F1 (Categoria, Cultura,
+//     Uf, TipoBeneficio, MotivoSuspensao, MotivoDescarte, Indicador); a
+//     Onda 3 acrescenta apenas PerfilCliente e o CRUD sobre todas elas.
+//  2. Valores de regra   — ValorRegra + ValorRegraHistorico. As metas
+//     vivem em MetaPeriodo, criada pela F9 e editada aqui pela T17.
+//  3. Somente leitura    — enums e metadados; não ganham tabela por
+//     decisão de projeto (RN26: alterá-los é release, não configuração).
+// ---------------------------------------------------------------------
+
+/// Perfil de cliente — porte × natureza (PF/PJ), ficha §3.1. NASCE VAZIA:
+/// o seed depende de definição do negócio (protótipo v6.1, família
+/// "perfil": "seed a definir com o negócio"). Ausência de dado é estado
+/// pendente, jamais um valor plausível — a T16 mostra o estado vazio com a
+/// explicação e o Administrador cria os itens quando o negócio fechar.
+/// Não se confunde com Solucao.perfilCliente (enum PorteProdutor da Onda
+/// 1, que é o recorte de porte do produtor-alvo da solução).
+model PerfilCliente {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativo Boolean @default(true)
+
+  @@map("perfis_cliente")
+}
+
+/// Natureza do valor — governa formatação, unidade e validação na T17.
+enum TipoValorRegra {
+  DIAS
+  MESES
+  PERCENTUAL
+  MONETARIO
+}
+
+/// Valor de regra configurável (ficha §3.2). Substitui as constantes das
+/// Ondas 1 e 2: quem lê é o Serviço de Configuração, nunca o código de
+/// tela. RN25 — toda escrita é prospectiva e deixa rastro em
+/// ValorRegraHistorico; registro fechado jamais é recalculado.
+model ValorRegra {
+  id     String @id @default(cuid())
+  /// Chave estável referenciada pelo código (ex.: FUNIL_ENVELHECIMENTO_LEVE_DIAS).
+  chave  String @unique
+  /// Agrupamento visual da T17: REGUAS · COMISSAO · TETOS_DOSSIE.
+  grupo  String
+  rotulo String
+  /// "Onde isto aparece" — texto da T17, não comentário de código.
+  descricao String
+  tipo   TipoValorRegra
+  /// NULL = nunca definido. É o caso dos tetos do dossiê, cuja definição
+  /// segue [A CONFIRMAR TI] na ficha §8: a UI mostra o campo vazio com a
+  /// etiqueta de pendência em vez de um número inventado.
+  valor  Decimal? @db.Decimal(14, 4)
+  /// RN27 — pertence à família sensível (comissão-padrão, tetos). Quando a
+  /// regra PARAMETRO_SENSIVEL estiver ligada na T7, a escrita passa a
+  /// exigir aprovação sem código novo.
+  sensivel Boolean @default(false)
+  ordem    Int
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  historico ValorRegraHistorico[]
+
+  @@index([grupo])
+  @@map("valores_regra")
+}
+
+/// Histórico por valor (RN25): "alterado por X em D, de A para B". É o que
+/// a T17 exibe sob cada linha; complementa — não substitui — o evento de
+/// auditoria, que continua sendo gravado pelo serviço existente.
+model ValorRegraHistorico {
+  id            String   @id @default(cuid())
+  valorRegraId  String   @map("valor_regra_id")
+  valorAnterior Decimal? @map("valor_anterior") @db.Decimal(14, 4)
+  valorNovo     Decimal? @map("valor_novo") @db.Decimal(14, 4)
+  autorId       String   @map("autor_id")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  valorRegra ValorRegra @relation(fields: [valorRegraId], references: [id])
+  autor      Usuario    @relation(fields: [autorId], references: [id])
+
+  @@index([valorRegraId, criadoEm])
+  @@map("valores_regra_historico")
+}
+
+/// Snapshot dos parâmetros que afetam o score (indicadores, dimensões e
+/// pesos) no momento em que valiam (RN25). Nova escrita em indicadores ou
+/// pesos gera uma nova versão; as avaliações já fechadas continuam
+/// apontando para a sua, e é isso que prova o efeito prospectivo.
+model ConfiguracaoVersao {
+  id     String @id @default(cuid())
+  /// Sequencial legível (1 = versão-seed criada pela migration).
+  numero Int    @unique
+  /// [{indicadorId, slug, nome, grupo, dimensao, peso, ativo}] — congelado.
+  snapshot Json
+  /// O que provocou a versão (ex.: "carga inicial", "peso de indicador").
+  motivo   String
+  /// NULL na versão-seed: nasceu da migration, não de um autor humano.
+  autorId  String?  @map("autor_id")
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  autor      Usuario?         @relation(fields: [autorId], references: [id])
+  avaliacoes AvaliacaoScout[]
+
+  @@map("configuracao_versoes")
+}
+
+/// Períodos de meta da ficha §3.2. Cada período é alinhado ao calendário
+/// (mês, trimestre ou ano civil), o que torna a não-sobreposição da RN28
+/// verificável tanto no domínio quanto no banco.
 enum PeriodoMeta {
   MENSAL
   TRIMESTRAL
