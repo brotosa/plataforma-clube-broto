@@ -1,0 +1,24 @@
+# dependências
+node_modules/
+
+# next.js
+.next/
+out/
+
+# produção
+build/
+
+# variáveis de ambiente locais
+.env
+.env.local
+.env.*.local
+
+# testes
+coverage/
+playwright-report/
+test-results/
+
+# diversos
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store

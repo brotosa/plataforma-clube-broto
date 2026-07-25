@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm build:vercel",
+  "build": {
+    "env": {
+      "PERMITIR_USUARIOS_DEV": "true"
+    }
+  },
+  "env": {
+    "AUTH_TRUST_HOST": "true"
+  }
+}

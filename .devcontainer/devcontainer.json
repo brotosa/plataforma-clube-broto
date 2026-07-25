@@ -1,0 +1,20 @@
+{
+  "name": "Plataforma Clube Broto",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/plataforma-clube-broto",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Plataforma (Next.js)",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/configurar.sh",
+  "postStartCommand": "bash .devcontainer/iniciar.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["Prisma.prisma"]
+    }
+  }
+}
