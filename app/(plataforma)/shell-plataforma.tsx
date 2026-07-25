@@ -43,7 +43,7 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
   { rotulo: "Aprovações", href: "/aprovacoes", icone: "M22 11.1V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" },
   {
     rotulo: "Parametrizador",
-    href: null,
+    href: "/parametrizador",
     icone: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   },
   { rotulo: "Usuários", href: null, icone: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0" },

@@ -23,9 +23,27 @@ import {
 
 type MapaDeValores = ReadonlyMap<ChaveValorRegra, number | null>;
 
-let cache: MapaDeValores | null = null;
-/** Leituras concorrentes durante o preenchimento compartilham a mesma ida ao banco. */
-let leituraEmVoo: Promise<MapaDeValores> | null = null;
+/**
+ * O cache mora no globalThis, não em variável de módulo — mesmo motivo do
+ * cliente Prisma em infra/prisma/cliente.ts. O empacotador do Next duplica
+ * um módulo importado por rotas diferentes, então uma escrita feita na
+ * server action invalidaria apenas a SUA cópia e a página continuaria
+ * servindo o valor velho. Ancorado aqui, existe uma cópia por processo.
+ */
+interface EstadoDoCache {
+  valores: MapaDeValores | null;
+  /** Leituras concorrentes durante o preenchimento compartilham a ida ao banco. */
+  emVoo: Promise<MapaDeValores> | null;
+}
+
+const globalComCache = globalThis as unknown as {
+  configuracaoBroto?: EstadoDoCache;
+};
+
+const estado: EstadoDoCache = (globalComCache.configuracaoBroto ??= {
+  valores: null,
+  emVoo: null,
+});
 
 async function carregar(): Promise<MapaDeValores> {
   const linhas = await prisma.valorRegra.findMany({
@@ -40,25 +58,25 @@ async function carregar(): Promise<MapaDeValores> {
 
 /** Descarta o cache. Chamado por toda escrita de valor de regra. */
 export function invalidarCacheDeConfiguracao(): void {
-  cache = null;
-  leituraEmVoo = null;
+  estado.valores = null;
+  estado.emVoo = null;
 }
 
 async function valores(): Promise<MapaDeValores> {
-  if (cache) {
-    return cache;
+  if (estado.valores) {
+    return estado.valores;
   }
-  if (!leituraEmVoo) {
-    leituraEmVoo = carregar()
+  if (!estado.emVoo) {
+    estado.emVoo = carregar()
       .then((mapa) => {
-        cache = mapa;
+        estado.valores = mapa;
         return mapa;
       })
       .finally(() => {
-        leituraEmVoo = null;
+        estado.emVoo = null;
       });
   }
-  return leituraEmVoo;
+  return estado.emVoo;
 }
 
 /**

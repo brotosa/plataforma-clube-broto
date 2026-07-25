@@ -40,7 +40,7 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
   let gestor: { id: string; papel: "GESTOR" };
   let scout: { id: string; papel: "ANALISTA_SCOUT" };
   let aprovador: { id: string; papel: "APROVADOR" };
-  let indicador = { id: "", peso: 1 };
+  let indicador = { id: "", nome: "", peso: 1 };
 
   /** Devolve as réguas ao estado de implantação — outras suítes as leem. */
   async function restaurarReguas() {
@@ -111,13 +111,19 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
     outroAdministrador = segundo as typeof outroAdministrador;
 
     const primeiro = await prisma.indicador.findFirstOrThrow({ orderBy: { ordem: "asc" } });
-    indicador = { id: primeiro.id, peso: Number(primeiro.peso) };
+    indicador = { id: primeiro.id, nome: primeiro.nome, peso: Number(primeiro.peso) };
     await limparDadosDeTeste();
   });
 
   afterAll(async () => {
     await limparDadosDeTeste();
-    await prisma.indicador.update({ where: { id: indicador.id }, data: { peso: indicador.peso } });
+    // Restaura NOME e peso: a suíte renomeia o indicador para provar que
+    // renomear não versiona, e o nome original é o que a suíte e2e da F7
+    // procura na T10. Deixar o nome de teste no banco quebraria a F7.
+    await prisma.indicador.update({
+      where: { id: indicador.id },
+      data: { nome: indicador.nome, peso: indicador.peso },
+    });
     await prisma.$disconnect();
   });
 
