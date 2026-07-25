@@ -46,8 +46,12 @@ function validarDadosEmpresa(dados: DadosEmpresa): void {
   }
 }
 
-/** Estado auditável da empresa (snapshot dos campos de negócio). */
-function estadoAuditavel(empresa: {
+/**
+ * Estado auditável da empresa (snapshot dos campos de negócio, Ondas 1 e
+ * 2). estagioDesde fica de fora de propósito: o carimbo de data do próprio
+ * evento de auditoria é o registro de quando o estágio mudou.
+ */
+export function estadoAuditavel(empresa: {
   razaoSocial: string | null;
   nomeFantasia: string;
   cnpj: string | null;
@@ -65,6 +69,13 @@ function estadoAuditavel(empresa: {
   motivoSuspensaoId: string | null;
   motivoSuspensaoDescricao: string | null;
   dataEntrada: Date | null;
+  origem: string | null;
+  dataEntradaRadar: Date | null;
+  responsavelScoutId: string | null;
+  responsavelComercialId: string | null;
+  motivoDescarteId: string | null;
+  motivoDescarteDescricao: string | null;
+  motivoDescarteComentario: string | null;
 }) {
   return {
     razaoSocial: empresa.razaoSocial,
@@ -84,6 +95,13 @@ function estadoAuditavel(empresa: {
     motivoSuspensaoId: empresa.motivoSuspensaoId,
     motivoSuspensaoDescricao: empresa.motivoSuspensaoDescricao,
     dataEntrada: empresa.dataEntrada,
+    origem: empresa.origem,
+    dataEntradaRadar: empresa.dataEntradaRadar,
+    responsavelScoutId: empresa.responsavelScoutId,
+    responsavelComercialId: empresa.responsavelComercialId,
+    motivoDescarteId: empresa.motivoDescarteId,
+    motivoDescarteDescricao: empresa.motivoDescarteDescricao,
+    motivoDescarteComentario: empresa.motivoDescarteComentario,
   };
 }
 
@@ -207,6 +225,7 @@ export async function promoverDentroDaTransacao(
     where: { id: empresaId },
     data: {
       estagio: "ALIADA_ATIVA",
+      estagioDesde: new Date(),
       // Data de entrada preenchida na promoção (ficha §3.1); a carga
       // inicial traz a data da planilha (F3) e não passa por aqui.
       dataEntrada: anterior.dataEntrada ?? new Date(),
@@ -279,6 +298,20 @@ export async function solicitarPromocao(ator: Ator, empresaId: string) {
         estado: solicitacao.estado,
       },
     });
+    // Onda 2 (pipeline da ficha §3.1): com o pedido pendente a empresa
+    // fica Em aprovação; a devolução a traz de volta a Em negociação.
+    const anterior = await tx.empresa.findUniqueOrThrow({ where: { id: empresaId } });
+    const emAprovacao = await tx.empresa.update({
+      where: { id: empresaId },
+      data: { estagio: "EM_APROVACAO", estagioDesde: new Date() },
+    });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: "empresa",
+      entidadeId: empresaId,
+      autorId: ator.id,
+      anterior: estadoAuditavel(anterior),
+      novo: estadoAuditavel(emAprovacao),
+    });
     return { resultado: "SOLICITADA" as const, solicitacao };
   });
 }
@@ -348,6 +381,7 @@ export async function suspenderEmpresa(
       where: { id: empresaId },
       data: {
         estagio: "SUSPENSA",
+        estagioDesde: new Date(),
         motivoSuspensaoId: motivo.motivoSuspensaoId,
         motivoSuspensaoDescricao: motivo.descricao,
       },
@@ -378,6 +412,7 @@ export async function reativarEmpresa(ator: Ator, empresaId: string) {
       where: { id: empresaId },
       data: {
         estagio: "ALIADA_ATIVA",
+        estagioDesde: new Date(),
         motivoSuspensaoId: null,
         motivoSuspensaoDescricao: null,
       },
@@ -405,7 +440,7 @@ export async function encerrarEmpresa(ator: Ator, empresaId: string) {
     }
     const empresa = await tx.empresa.update({
       where: { id: empresaId },
-      data: { estagio: "ENCERRADA" },
+      data: { estagio: "ENCERRADA", estagioDesde: new Date() },
     });
     await registrarMutacao(criarGravadorPrisma(tx), {
       entidade: "empresa",
