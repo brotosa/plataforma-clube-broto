@@ -280,11 +280,32 @@ export async function solicitarPromocao(ator: Ator, empresaId: string) {
         "Já existe uma solicitação de promoção pendente para este aliado.",
       ]);
     }
+    // RN20 — o caso completo viaja com o pedido: a avaliação vigente (a
+    // fechada de maior versão) e o dossiê vigente (o mais recente) ficam
+    // fixados na solicitação. Fixar, e não consultar na hora de decidir,
+    // preserva o que existia quando o pedido foi feito: enquanto ele
+    // espera na fila, uma nova versão de avaliação pode ser aberta e um
+    // novo dossiê pode ser gerado.
+    const [avaliacaoVigente, dossieVigente] = await Promise.all([
+      tx.avaliacaoScout.findFirst({
+        where: { empresaId, status: "FECHADA" },
+        orderBy: { versao: "desc" },
+        select: { id: true },
+      }),
+      tx.dossie.findFirst({
+        where: { empresaId, status: "PRONTO" },
+        orderBy: { criadoEm: "desc" },
+        select: { id: true },
+      }),
+    ]);
+
     const solicitacao = await tx.aprovacaoSolicitacao.create({
       data: {
         tipoEntidade: "PROMOCAO_ALIADA_ATIVA",
         entidadeId: empresaId,
         solicitanteId: ator.id,
+        avaliacaoVigenteId: avaliacaoVigente?.id ?? null,
+        dossieVigenteId: dossieVigente?.id ?? null,
       },
     });
     await registrarMutacao(criarGravadorPrisma(tx), {
@@ -296,6 +317,9 @@ export async function solicitarPromocao(ator: Ator, empresaId: string) {
         tipoEntidade: solicitacao.tipoEntidade,
         entidadeId: solicitacao.entidadeId,
         estado: solicitacao.estado,
+        // Anexos da RN20 na trilha: dá para reconstruir o que o aprovador viu.
+        avaliacaoVigenteId: solicitacao.avaliacaoVigenteId,
+        dossieVigenteId: solicitacao.dossieVigenteId,
       },
     });
     // Onda 2 (pipeline da ficha §3.1): com o pedido pendente a empresa

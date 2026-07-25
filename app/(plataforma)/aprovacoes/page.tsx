@@ -5,6 +5,7 @@ import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { FormularioDecisao } from "./formulario-decisao";
+import { AnexosDaPromocao } from "./anexos-da-promocao";
 
 export const metadata: Metadata = {
   title: "Aprovações",
@@ -30,7 +31,17 @@ export default async function PaginaAprovacoes() {
     prisma.aprovacaoSolicitacao.findMany({
       where: { estado: "SOLICITADA" },
       orderBy: { criadoEm: "asc" },
-      include: { solicitante: { select: { id: true, nome: true } } },
+      include: {
+        solicitante: { select: { id: true, nome: true } },
+        // RN20 — o caso completo viaja com o pedido.
+        avaliacaoVigente: {
+          include: {
+            avaliador: { select: { nome: true } },
+            _count: { select: { notas: true } },
+          },
+        },
+        dossieVigente: { include: { revisor: { select: { nome: true } } } },
+      },
     }),
     prisma.aprovacaoSolicitacao.findMany({
       where: { estado: { in: ["APROVADA", "DEVOLVIDA"] } },
@@ -144,7 +155,7 @@ export default async function PaginaAprovacoes() {
                     {formatarDataHora(solicitacao.criadoEm)}
                   </span>
                   <span style={{ flex: 1 }} />
-                  <span className="cap">dossiê ▾</span>
+                  <span className="cap">caso completo ▾</span>
                 </summary>
                 <div style={{ borderTop: "1px solid var(--borda)", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
                   {empresa ? (
@@ -170,6 +181,38 @@ export default async function PaginaAprovacoes() {
                         <Link href={`/aliados/${empresa.id}`}>abrir ficha do aliado</Link>
                       </span>
                     </div>
+                  ) : null}
+                  {empresa ? (
+                    <AnexosDaPromocao
+                      empresaId={empresa.id}
+                      avaliacao={
+                        solicitacao.avaliacaoVigente
+                          ? {
+                              id: solicitacao.avaliacaoVigente.id,
+                              versao: solicitacao.avaliacaoVigente.versao,
+                              total: solicitacao.avaliacaoVigente.total,
+                              recomendacao: solicitacao.avaliacaoVigente.recomendacao,
+                              fechadaEm: solicitacao.avaliacaoVigente.fechadaEm,
+                              avaliadorNome: solicitacao.avaliacaoVigente.avaliador.nome,
+                              subtotais: solicitacao.avaliacaoVigente.subtotais,
+                              quantidadeNotas: solicitacao.avaliacaoVigente._count.notas,
+                            }
+                          : null
+                      }
+                      dossie={
+                        solicitacao.dossieVigente
+                          ? {
+                              id: solicitacao.dossieVigente.id,
+                              status: solicitacao.dossieVigente.status,
+                              origem: solicitacao.dossieVigente.origem,
+                              revisado: solicitacao.dossieVigente.revisado,
+                              revisorNome: solicitacao.dossieVigente.revisor?.nome ?? null,
+                              revisadoEm: solicitacao.dossieVigente.revisadoEm,
+                              criadoEm: solicitacao.dossieVigente.criadoEm,
+                            }
+                          : null
+                      }
+                    />
                   ) : null}
                   {oferta ? (
                     <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "8px 16px", fontSize: 14 }}>

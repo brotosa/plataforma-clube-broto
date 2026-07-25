@@ -375,6 +375,8 @@ model AvaliacaoScout {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   avaliador Usuario @relation(fields: [avaliadorId], references: [id])
   notas     AvaliacaoNota[]
+  /// Pedidos de promoção que levaram esta avaliação anexada (RN20).
+  solicitacoes AprovacaoSolicitacao[]
 
   @@unique([empresaId, versao])
   @@index([empresaId, status])
@@ -453,6 +455,8 @@ model Dossie {
   solicitante Usuario @relation("dossieSolicitante", fields: [solicitanteId], references: [id])
   revisor     Usuario? @relation("dossieRevisor", fields: [revisorId], references: [id])
   execucoes   DossieExecucao[]
+  /// Pedidos de promoção que levaram este dossiê anexado (RN20).
+  solicitacoes AprovacaoSolicitacao[]
 
   @@index([empresaId])
   @@map("dossies")
@@ -998,9 +1002,22 @@ model AprovacaoSolicitacao {
   aprovadorId String?   @map("aprovador_id")
   decididoEm  DateTime? @map("decidido_em")
   criadoEm    DateTime  @default(now()) @map("criado_em")
+  // --- RN20 (Onda 2, F9): o caso completo viaja com o pedido ---
+  /// Avaliação de scout VIGENTE no momento do pedido (a fechada de maior
+  /// versão). Fixada aqui, e não consultada na hora de decidir, para que o
+  /// aprovador veja o que existia quando o pedido foi feito — avaliações
+  /// são imutáveis após fechamento (RN18), mas uma nova versão pode ser
+  /// aberta enquanto o pedido espera na fila.
+  avaliacaoVigenteId String? @map("avaliacao_vigente_id")
+  /// Dossiê vigente no momento do pedido (o mais recente da empresa).
+  /// Pode ser nulo: o dossiê é insumo de decisão, não pré-requisito de
+  /// promoção — a T6 diz ao aprovador quando não há.
+  dossieVigenteId String? @map("dossie_vigente_id")
 
   solicitante Usuario  @relation("solicitante", fields: [solicitanteId], references: [id])
   aprovador   Usuario? @relation("aprovador", fields: [aprovadorId], references: [id])
+  avaliacaoVigente AvaliacaoScout? @relation(fields: [avaliacaoVigenteId], references: [id])
+  dossieVigente    Dossie?         @relation(fields: [dossieVigenteId], references: [id])
 
   @@index([estado])
   @@index([tipoEntidade, entidadeId])
