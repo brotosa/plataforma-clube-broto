@@ -90,6 +90,7 @@ const MODELOS_TELEMETRIA = ["telemetriaEvento", "telemetriaAcumuladoInicial"];
  */
 const MODULOS_DE_IMPORTACAO = new Set<string>([
   "infra/casos-de-uso/carga-inicial.ts",
+  "infra/casos-de-uso/telemetria.ts",
 ]);
 
 const METODOS_QUE_EDITAM = new Set(["update", "updateMany", "delete", "deleteMany"]);
