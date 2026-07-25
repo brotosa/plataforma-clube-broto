@@ -9,7 +9,9 @@ import type { Papel } from "@prisma/client";
 
 /**
  * Casos positivos e negativos derivados célula a célula das tabelas de
- * permissões das fichas §2 (● = permitido, — = negado; Ondas 1 e 2).
+ * permissões das fichas §2 (● = permitido, — = negado; Ondas 1, 2, 3 e 5).
+ * Toda ação tem a célula do ADMINISTRADOR_PLATAFORMA explicitada: o papel
+ * novo não herda nada por omissão.
  */
 const TABELA_DA_FICHA: ReadonlyArray<{
   acao: Acao;
@@ -19,112 +21,180 @@ const TABELA_DA_FICHA: ReadonlyArray<{
   {
     // Leitura geral: papéis da Onda 1 + perfis novos (o funil abre T2/T12).
     acao: "VISUALIZAR",
-    permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    permitidos: [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
     negados: [],
   },
   {
     acao: "CRIAR_EDITAR",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     // Ficha Onda 2 §2: Comercial solicita a promoção; o scout, não.
     acao: "SOLICITAR_PROMOCAO",
     permitidos: ["GESTOR", "ANALISTA", "COMERCIAL"],
-    negados: ["ANALISTA_SCOUT", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA_SCOUT", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "APROVAR_DEVOLVER",
     permitidos: ["GESTOR", "APROVADOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "LEITURA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "CONFIGURAR_REGRAS_APROVACAO",
     permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "PUBLICAR_PAUSAR_ENCERRAR_OFERTA",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "GERAR_EXPORTACAO",
     permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "IMPORTAR_TELEMETRIA",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   // ---- Onda 2: Mercado & Scout (ficha §2) ----
   {
     acao: "VISUALIZAR_FUNIL",
-    permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    permitidos: [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
     negados: [],
   },
   {
     acao: "INCLUIR_NO_RADAR",
     permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "ASSUMIR_E_AVALIAR",
     permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "PRIORIZAR",
     permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "GERAR_REVISAR_DOSSIE",
     permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     // "○ (ver)" do Comercial na linha do dossiê.
     acao: "VER_DOSSIE",
     permitidos: ["GESTOR", "ANALISTA_SCOUT", "COMERCIAL"],
-    negados: ["ANALISTA", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
   {
     acao: "ASSUMIR_NEGOCIACAO",
     permitidos: ["GESTOR", "COMERCIAL"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+  },
+  // ---- Errata da ficha Onda 3 v0.2: a célula única "definir metas e
+  // designar" da ficha da Onda 2 vira duas, com titulares diferentes. ----
+  {
+    // Designar responsável de scout/comercial permanece com o Gestor —
+    // inclusive contra o Administrador, que não opera o funil.
+    acao: "DESIGNAR_RESPONSAVEIS",
+    permitidos: ["GESTOR"],
+    negados: [
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
   },
   {
-    acao: "DEFINIR_METAS_E_DESIGNAR",
-    permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    // Metas passam ao Administrador da Plataforma: o Gestor, que as tinha
+    // na ficha da Onda 2, agora é negado — é o coração da errata.
+    acao: "DEFINIR_METAS",
+    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
-  // Onda 5 — ficha §2. Administrador da Plataforma entra nas duas
-  // primeiras quando a trilha da Onda 3 criar o papel (RN23).
+  // ---- Onda 3: Parametrizador (ficha §2, RN23) ----
+  {
+    // Leitura do hub para todos — transparência da configuração vigente.
+    acao: "VISUALIZAR_PARAMETROS",
+    permitidos: [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+    negados: [],
+  },
+  {
+    acao: "CONFIGURAR_PARAMETROS",
+    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+  },
+  // Onda 5 — ficha §2. As duas primeiras são de "Gestor e Administrador":
+  // a F11 as deixou só com o Gestor porque o papel ainda não existia e
+  // anotou que incluí-lo seria a única mudança quando a trilha da Onda 3
+  // chegasse. É o que a F10 faz aqui.
   {
     acao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
-    permitidos: ["GESTOR"],
+    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "EXPORTAR_LISTAS_CONTATO",
-    permitidos: ["GESTOR"],
+    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "IMPORTAR_ASSINANTES",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
   },
   {
     acao: "GERIR_SEGMENTOS",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
   },
 ];
 
-describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 e 2)", () => {
+describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1, 2, 3 e 5)", () => {
   for (const { acao, permitidos, negados } of TABELA_DA_FICHA) {
     for (const papel of permitidos) {
       it(`permite ${acao} para ${papel}`, () => {
@@ -139,6 +209,25 @@ describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 e 2)", () => {
       });
     }
   }
+
+  // A tabela acima só vale como "célula a célula" se cobrir mesmo todas as
+  // células. Este teste falha quando uma ação nova (ou um papel novo)
+  // entra no código sem a decisão correspondente na ficha.
+  it("cobre toda a matriz papéis × ações, sem célula implícita", () => {
+    const PAPEIS: ReadonlyArray<Papel> = [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ];
+    for (const linha of TABELA_DA_FICHA) {
+      const declarados = [...linha.permitidos, ...linha.negados].sort();
+      expect(declarados, `ação ${linha.acao}`).toEqual([...PAPEIS].sort());
+    }
+  });
 
   it("expõe papel e ação no erro de autorização", () => {
     try {
