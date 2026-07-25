@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ModalidadePagamento, NaturezaOferta } from "@prisma/client";
+import type { DestinacaoOferta, ModalidadePagamento, NaturezaOferta } from "@prisma/client";
 import { auth } from "@/infra/auth";
 import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
@@ -70,6 +70,13 @@ function dadosOfertaDoFormulario(dados: FormData) {
     vigenciaInicio: dataDoFormulario(dados, "vigenciaInicio") ?? undefined,
     vigenciaFim: dataDoFormulario(dados, "vigenciaFim"),
     limiteResgates: numero(dados, "limiteResgates"),
+    // Onda 4 (ficha §3): destinação da oferta. O vínculo só é gravado na
+    // destinação correspondente — trocar de destinação limpa o outro lado.
+    destinacao: (texto(dados, "destinacao") ?? "VITRINE") as DestinacaoOferta,
+    destinacaoCampanhaId:
+      texto(dados, "destinacao") === "CAMPANHA" ? texto(dados, "destinacaoCampanhaId") : null,
+    destinacaoCestaId:
+      texto(dados, "destinacao") === "CESTA" ? texto(dados, "destinacaoCestaId") : null,
   };
 }
 

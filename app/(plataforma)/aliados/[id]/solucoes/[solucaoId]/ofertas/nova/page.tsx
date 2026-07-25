@@ -16,7 +16,7 @@ export default async function PaginaNovaOferta({
   params: Promise<{ id: string; solucaoId: string }>;
 }) {
   const { id, solucaoId } = await params;
-  const [solucao, tiposBeneficio, mecanicas] = await Promise.all([
+  const [solucao, tiposBeneficio, mecanicas, campanhas, cestas] = await Promise.all([
     prisma.solucao.findUnique({
       where: { id: solucaoId },
       include: {
@@ -26,6 +26,12 @@ export default async function PaginaNovaOferta({
     }),
     prisma.tipoBeneficio.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     prisma.mecanica.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+    // Onda 4: destinos do vínculo da oferta (ficha §3).
+    prisma.campanha.findMany({
+      where: { estado: { in: ["RASCUNHO", "ATIVA"] } },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.cesta.findMany({ orderBy: { nome: "asc" } }),
   ]);
   if (!solucao || solucao.empresaId !== id) {
     notFound();
@@ -64,6 +70,14 @@ export default async function PaginaNovaOferta({
           slug: mecanica.slug as MecanicaSlug,
           nome: mecanica.nome,
         }))}
+        campanhas={campanhas.map((campanha) => ({
+          id: campanha.id,
+          nome: campanha.nome,
+          vigencia: campanha.vigenciaInicio
+            ? `${campanha.vigenciaInicio.toISOString().slice(0, 10)} a ${campanha.vigenciaFim?.toISOString().slice(0, 10) ?? "sem fim"}`
+            : null,
+        }))}
+        cestas={cestas.map((cesta) => ({ id: cesta.id, nome: cesta.nome }))}
       />
     </div>
   );

@@ -1,4 +1,10 @@
-import type { ModalidadePagamento, NaturezaOferta, Prisma, StatusOferta } from "@prisma/client";
+import type {
+  DestinacaoOferta,
+  ModalidadePagamento,
+  NaturezaOferta,
+  Prisma,
+  StatusOferta,
+} from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
@@ -28,6 +34,11 @@ export interface DadosOferta {
   vigenciaInicio?: Date;
   vigenciaFim?: Date | null;
   limiteResgates?: number | null;
+  /** Onda 4 (ficha §3): destinação e vínculo opcional — a publicação
+   *  Minutrade segue inalterada; o vínculo serve à gestão e à medição. */
+  destinacao?: DestinacaoOferta;
+  destinacaoCampanhaId?: string | null;
+  destinacaoCestaId?: string | null;
 }
 
 function estadoAuditavelOferta(oferta: {
@@ -46,6 +57,9 @@ function estadoAuditavelOferta(oferta: {
   limiteResgates: number | null;
   status: StatusOferta;
   pendenteRepublicacao: boolean;
+  destinacao?: DestinacaoOferta;
+  destinacaoCampanhaId?: string | null;
+  destinacaoCestaId?: string | null;
 }) {
   return {
     titulo: oferta.titulo,
@@ -63,6 +77,9 @@ function estadoAuditavelOferta(oferta: {
     limiteResgates: oferta.limiteResgates,
     status: oferta.status,
     pendenteRepublicacao: oferta.pendenteRepublicacao,
+    destinacao: oferta.destinacao ?? null,
+    destinacaoCampanhaId: oferta.destinacaoCampanhaId ?? null,
+    destinacaoCestaId: oferta.destinacaoCestaId ?? null,
   };
 }
 
@@ -127,6 +144,11 @@ export async function criarOferta(ator: Ator, solucaoId: string, dados: DadosOfe
         vigenciaInicio: dados.vigenciaInicio!,
         vigenciaFim: dados.vigenciaFim ?? null,
         limiteResgates: dados.limiteResgates ?? null,
+        // Onda 4: destinação não é campo publicável (não entra em
+        // CAMPOS_PUBLICAVEIS) — a vitrine e o export seguem iguais.
+        destinacao: dados.destinacao ?? "VITRINE",
+        destinacaoCampanhaId: dados.destinacaoCampanhaId ?? null,
+        destinacaoCestaId: dados.destinacaoCestaId ?? null,
       },
     });
     await registrarMutacao(criarGravadorPrisma(tx), {
