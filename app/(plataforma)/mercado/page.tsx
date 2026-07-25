@@ -9,7 +9,7 @@ import {
   funilDeMercado,
   responsaveisComerciaisDisponiveis,
 } from "@/infra/consultas/funil";
-import { REGUA_ENVELHECIMENTO, ROTULOS_ORIGEM } from "@/dominio/funil/regras";
+import { ROTULOS_ORIGEM } from "@/dominio/funil/regras";
 import { mapaDeCobertura, painelDeMetas } from "@/infra/consultas/cobertura-metas";
 import { KanbanFunil } from "./kanban";
 import { MapaDeCobertura } from "./mapa-cobertura";
@@ -65,7 +65,13 @@ export default async function PaginaMercado({
   const minhasEmpresas = parametros.minhas === "empresas";
   const minhasNegociacoes = parametros.minhas === "negociacoes";
 
-  const [{ lanes, tabela, contadores }, aliadasAtivas, motivosDescarte, responsaveis, categorias] =
+  const [
+    { lanes, tabela, contadores, regua },
+    aliadasAtivas,
+    motivosDescarte,
+    responsaveis,
+    categorias,
+  ] =
     await Promise.all([
       funilDeMercado({
         categoriaId: categoriaId || undefined,
@@ -352,8 +358,8 @@ export default async function PaginaMercado({
       )}
 
       <p className="cap" style={{ margin: "10px 0 0", maxWidth: "80ch" }}>
-        Envelhecimento por estágio: leve ≥ {REGUA_ENVELHECIMENTO.leveDias} dias, forte ≥{" "}
-        {REGUA_ENVELHECIMENTO.forteDias} (régua parametrizável). Mover registra autor e data na
+        Envelhecimento por estágio: leve ≥ {regua.leveDias} dias, forte ≥ {regua.forteDias}{" "}
+        (régua vigente no Parametrizador). Mover registra autor e data na
         auditoria; descartar exige motivo tipificado (RN17); priorizar exige avaliação fechada
         (RN15) — avalie pelo menu do card. Score vem da avaliação ScoutCB (T10); valores
         ausentes aparecem como “—”, nunca estimados.

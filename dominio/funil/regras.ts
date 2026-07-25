@@ -41,15 +41,15 @@ export const ROTULOS_ORIGEM: Readonly<Record<OrigemEmpresa, string>> = {
 };
 
 /**
- * Régua de envelhecimento por estágio (T8): alerta leve a partir de 14
- * dias e forte a partir de 30 — "régua 14/30 parametrizada em constante
- * nomeada" (prompt F6); a edição sem código chega com o Parametrizador
- * (Onda 3).
+ * Régua de envelhecimento por estágio (T8). Desde a F10 os valores vêm do
+ * Serviço de Configuração (chaves FUNIL_ENVELHECIMENTO_LEVE_DIAS e
+ * FUNIL_ENVELHECIMENTO_FORTE_DIAS): a régua é dado, não constante, e quem
+ * decide o nível recebe os dias vigentes em vez de consultá-los aqui.
  */
-export const REGUA_ENVELHECIMENTO = {
-  leveDias: 14,
-  forteDias: 30,
-} as const;
+export interface ReguaEnvelhecimento {
+  leveDias: number;
+  forteDias: number;
+}
 
 /** Dados mínimos avaliados na entrada no radar (RN13 + T9). */
 export interface DadosEntradaRadar {
@@ -127,15 +127,22 @@ export function diasNoEstagio(estagioDesde: Date | null, referencia: Date): numb
   return Math.max(0, Math.floor(decorrido / MILISSEGUNDOS_POR_DIA));
 }
 
-/** Nível de alerta da régua: FORTE (≥30), LEVE (≥14) ou nenhum. */
-export function nivelEnvelhecimento(dias: number | null): "LEVE" | "FORTE" | null {
+/**
+ * Nível de alerta da régua vigente: FORTE, LEVE ou nenhum. A régua entra
+ * por parâmetro para que uma alteração na T17 valha na próxima leitura da
+ * T8 — e para que nada aqui possa usar um número velho por engano.
+ */
+export function nivelEnvelhecimento(
+  dias: number | null,
+  regua: ReguaEnvelhecimento,
+): "LEVE" | "FORTE" | null {
   if (dias === null) {
     return null;
   }
-  if (dias >= REGUA_ENVELHECIMENTO.forteDias) {
+  if (dias >= regua.forteDias) {
     return "FORTE";
   }
-  if (dias >= REGUA_ENVELHECIMENTO.leveDias) {
+  if (dias >= regua.leveDias) {
     return "LEVE";
   }
   return null;

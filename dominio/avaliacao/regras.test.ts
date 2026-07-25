@@ -6,7 +6,6 @@ import {
   podeAvaliarNoEstagio,
   podeEditarAvaliacao,
   precisaReavaliacao,
-  REAVALIACAO_ANUAL,
   validarFechamento,
   validarNota,
   validarPriorizacao,
@@ -94,23 +93,32 @@ describe("estágios em que se avalia", () => {
   });
 });
 
-describe("RN21 — reavaliação anual de aliadas ativas", () => {
+describe("RN21 — reavaliação de aliadas ativas na régua vigente", () => {
   const referencia = new Date("2026-07-25T12:00:00Z");
+  /** 12 meses na implantação; desde a F10, valor do Parametrizador. */
+  const MESES = 12;
 
   it("sem avaliação fechada não há aniversário — nunca marca", () => {
-    expect(precisaReavaliacao(null, referencia)).toBe(false);
+    expect(precisaReavaliacao(null, referencia, MESES)).toBe(false);
   });
 
-  it("antes de completar 12 meses não precisa", () => {
-    expect(precisaReavaliacao(new Date("2025-08-01T12:00:00Z"), referencia)).toBe(false);
+  it("antes de completar a régua não precisa", () => {
+    expect(precisaReavaliacao(new Date("2025-08-01T12:00:00Z"), referencia, MESES)).toBe(false);
   });
 
-  it("aos 12 meses completos precisa", () => {
-    expect(precisaReavaliacao(new Date("2025-07-25T12:00:00Z"), referencia)).toBe(true);
-    expect(REAVALIACAO_ANUAL.meses).toBe(12);
+  it("na régua completa precisa", () => {
+    expect(precisaReavaliacao(new Date("2025-07-25T12:00:00Z"), referencia, MESES)).toBe(true);
   });
 
   it("bem além do ciclo continua precisando", () => {
-    expect(precisaReavaliacao(new Date("2024-01-10T00:00:00Z"), referencia)).toBe(true);
+    expect(precisaReavaliacao(new Date("2024-01-10T00:00:00Z"), referencia, MESES)).toBe(true);
+  });
+
+  // F10 — encurtar a régua na T17 antecipa o alerta na próxima varredura
+  // do job; nenhuma avaliação fechada é tocada por isso (RN25).
+  it("régua encurtada antecipa o alerta sem mexer no que já foi avaliado", () => {
+    const fechadaEm = new Date("2025-11-25T12:00:00Z");
+    expect(precisaReavaliacao(fechadaEm, referencia, 12)).toBe(false);
+    expect(precisaReavaliacao(fechadaEm, referencia, 6)).toBe(true);
   });
 });

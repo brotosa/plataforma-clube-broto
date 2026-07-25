@@ -1,12 +1,20 @@
 import { prisma } from "@/infra/prisma/cliente";
 import { type AgregadoOferta, agregarTelemetria } from "@/dominio/integracao/agregados";
+import { lerRegua } from "@/infra/configuracao/servico-configuracao";
 
 /**
  * Leitura dos agregados de telemetria (RN07): derivam exclusivamente dos
  * eventos importados e do acumulado histórico da carga. Nada é gravado aqui.
+ *
+ * A janela da vitrine viva ("oferta sem resgate", 90 dias na implantação)
+ * é lida do Serviço de Configuração a cada consulta: alterá-la na T17 muda
+ * o KPI na próxima visita, sem deploy.
  */
 
-const JANELA_VITRINE_DIAS = 90;
+/** Janela vigente da vitrine viva, em dias (chave OFERTA_SEM_RESGATE_DIAS). */
+export async function janelaDaVitrineEmDias(): Promise<number> {
+  return lerRegua("OFERTA_SEM_RESGATE_DIAS");
+}
 
 function corteJanela(dias: number): Date {
   const corte = new Date();
@@ -43,6 +51,7 @@ export async function resumoTelemetriaPorOferta(
   const mapa = new Map<string, ResumoTelemetria>();
   if (ofertaIds.length === 0) return mapa;
 
+  const janelaEmDias = await janelaDaVitrineEmDias();
   const [porTipo, resgatesRecentes] = await Promise.all([
     prisma.telemetriaEvento.groupBy({
       by: ["ofertaId", "tipo"],
@@ -55,7 +64,7 @@ export async function resumoTelemetriaPorOferta(
       where: {
         ofertaId: { in: ofertaIds },
         tipo: "RESGATE_VOUCHER",
-        dataEvento: { gte: corteJanela(JANELA_VITRINE_DIAS) },
+        dataEvento: { gte: corteJanela(janelaEmDias) },
       },
       _count: { _all: true },
     }),
@@ -94,13 +103,15 @@ export async function resumoTelemetriaPorOferta(
 export async function kpiVitrineViva(): Promise<{
   publicadasComResgate: number;
   totalPublicadas: number;
+  janelaEmDias: number;
 }> {
+  const janelaEmDias = await janelaDaVitrineEmDias();
   const [totalPublicadas, comResgate] = await Promise.all([
     prisma.oferta.count({ where: { status: "PUBLICADA" } }),
     prisma.telemetriaEvento.findMany({
       where: {
         tipo: "RESGATE_VOUCHER",
-        dataEvento: { gte: corteJanela(JANELA_VITRINE_DIAS) },
+        dataEvento: { gte: corteJanela(janelaEmDias) },
         oferta: { status: "PUBLICADA" },
       },
       distinct: ["ofertaId"],
@@ -110,6 +121,7 @@ export async function kpiVitrineViva(): Promise<{
   return {
     publicadasComResgate: comResgate.filter((r) => r.ofertaId).length,
     totalPublicadas,
+    janelaEmDias,
   };
 }
 
