@@ -39,8 +39,6 @@ function cnpjValido(sufixo: number): string {
 describe.skipIf(!temBanco)("RN20 — anexos do pedido de promoção (F9)", () => {
   const prisma = new PrismaClient();
   let gestor: { id: string; papel: "GESTOR" };
-  let aprovador: { id: string; papel: "APROVADOR" };
-  let comercial: { id: string; papel: "COMERCIAL" };
   let empresaId = "";
 
   async function limparDadosDeTeste() {
@@ -157,8 +155,6 @@ describe.skipIf(!temBanco)("RN20 — anexos do pedido de promoção (F9)", () =>
       return usuario;
     };
     gestor = { id: porPapel("GESTOR").id, papel: "GESTOR" };
-    aprovador = { id: porPapel("APROVADOR").id, papel: "APROVADOR" };
-    comercial = { id: porPapel("COMERCIAL").id, papel: "COMERCIAL" };
     await limparDadosDeTeste();
   });
 
