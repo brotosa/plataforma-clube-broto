@@ -16,8 +16,9 @@ e idempotência, T4 completa), a F5 fecha a Onda 1 com:
 
 - **auditoria AAA** — o axe passa a rodar em modo AAA de verdade, com as três
   regras AAA que o axe-core traz desligadas por padrão ligadas nome a nome, e
-  cobrindo as telas que faltavam (abas da T2, formulários de T3/T5). Correções
-  e a única pendência que depende de decisão de marca estão em
+  cobrindo as telas que faltavam (abas da T2, formulários de T3/T5). O produto
+  declara **AAA integral com uma exceção nomeada — o azul institucional da
+  marca, que atende AA**; correções, medições e o caminho de saída estão em
   [`docs/acessibilidade-aaa.md`](docs/acessibilidade-aaa.md);
 - **navegação por teclado** com prova em teste para T2, T4, T5 e T6 (T7 e T8 já
   tinham desde F2/F6);
@@ -196,5 +197,6 @@ Dockerfile  imagem multi-stage de produção (standalone)
 - Pendências de negócio `[A CONFIRMAR]` ficam atrás de adapters/flags nomeadas —
   nunca resolvidas por suposição no código.
 - Nenhum dado inventado em seeds e fixtures: apenas `dados/` e as referências.
-- Acessibilidade AAA: método, correções e a pendência aberta estão em
+- Acessibilidade AAA: método, correções e a exceção nomeada do azul
+  institucional estão em
   [`docs/acessibilidade-aaa.md`](docs/acessibilidade-aaa.md).

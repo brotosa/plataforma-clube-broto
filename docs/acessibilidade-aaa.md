@@ -72,7 +72,14 @@ navegação por landmarks. Cada um recebeu `aria-label`: "Menu lateral",
 essas duas tinham ficado sem, e no colapso em cards a linha aparecia sem
 rótulo. Ver `docs/` do prompt, §Interface, item 1.
 
-## Pendência que não se resolve no código
+## Exceção decidida: o azul institucional
+
+> **Decisão (F5, revisão da TI Broto).** Mantida a **exceção documentada**. O
+> produto declara **AAA integral com uma exceção nomeada e justificada — o
+> azul institucional da marca, que atende AA**. O DSeed é patrimônio do grupo:
+> repintar a superfície interativa inteira não é mudança de engenharia, é
+> mudança de identidade visual, e não se faz por *replace* de CSS. A questão
+> segue para a próxima revisão do DSeed como item de acessibilidade.
 
 **Superfícies em azul puro da marca (`--azul` `#465EFF`) ficam em 4,87:1.**
 
@@ -84,8 +91,7 @@ branco).
 - Reprova em **AAA** (≥7:1).
 - Elevar para 7:1 **exige escurecer o azul da marca** em toda a superfície do
   produto — sidebar e todo botão primário de todas as telas. Isso é decisão de
-  identidade visual/especificação, não ajuste de CSS, e por isso **não foi
-  feito nesta fase**.
+  identidade visual, não ajuste de CSS, e por isso **não foi feito**.
 
 > Nota: o comentário original em `dseed-admin.css` justificava o azul puro
 > tratando "label 14px bold" como texto grande. Pelo WCAG, texto grande é
@@ -93,19 +99,31 @@ branco).
 > qualifica, então a isenção não se sustenta. O critério aplicável é o de
 > texto normal.
 
-Enquanto a definição não vem, a pendência fica **isolada e visível**, no mesmo
-padrão dos `[A CONFIRMAR]` do projeto: a constante `AZUL_PURO_DA_MARCA` em
-`e2e/ajudantes.ts` filtra da varredura **apenas** os nós cuja assinatura de cor
-seja esse azul, e **apenas** para `color-contrast-enhanced`. Qualquer outra
-regra, e qualquer outro par de cores, continua reprovando a suíte — o gate não
-deixou de existir, ele declara o que ainda não foi decidido.
+A exceção fica **isolada e visível**, no mesmo padrão dos `[A CONFIRMAR]` do
+projeto: a constante `AZUL_PURO_DA_MARCA` em `e2e/ajudantes.ts` filtra da
+varredura **apenas** os nós cuja assinatura de cor seja esse azul, e **apenas**
+para `color-contrast-enhanced`. Qualquer outra regra, e qualquer outro par de
+cores, continua reprovando a suíte — o gate não deixou de existir, ele declara
+o que foi decidido conscientemente.
 
-Duas saídas possíveis quando o negócio decidir:
+### Se a marca decidir AAA pleno: a saída já existe dentro do sistema
 
-1. **Escurecer o azul de superfície** para um tom que alcance 7:1 com branco
-   (a partir de ~`#2E3FCB`), aplicando em toda a marca — remove a exceção.
-2. **Assumir AA para superfícies de marca** e AAA para texto, registrando a
-   decisão na ficha — a exceção passa a ser política declarada, não pendência.
+O Design derivou, na Onda 6, um azul de superfície que atende AAA:
+**`--azul-superficie-aaa` `#3242C4`**. Medido nesta auditoria:
+
+| Par | Razão | AAA (≥7:1) |
+|---|---|---|
+| branco sobre `#3242C4` (sidebar, `.btn-azul`) | **7,74:1** | ✅ |
+| `#3242C4` sobre branco (item ativo da sidebar) | **7,74:1** | ✅ |
+| `#3242C4` sobre `--off` `#faf9f9` | **7,37:1** | ✅ |
+
+Ou seja: **é troca de um token, não redesenho**. Quando o dono da marca
+decidir, o caminho é apontar o alias `--azul` das *superfícies interativas*
+para `#3242C4` em `dseed-admin.css` e remover a exceção
+`AZUL_PURO_DA_MARCA` — a suíte AAA passa a cobrir também esses nós, sem
+nenhuma outra alteração de código ou de layout.
+
+Encaminhamento: item de acessibilidade na próxima revisão do DSeed.
 
 ## Navegação por teclado
 

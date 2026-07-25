@@ -140,15 +140,23 @@ const REGRAS_AAA_DESLIGADAS_POR_PADRAO = {
 };
 
 /**
- * EXCEÇÃO NOMEADA — superfícies em azul puro da marca (`--azul` #465eff).
+ * EXCEÇÃO NOMEADA E DECIDIDA — superfícies em azul puro da marca
+ * (`--azul` #465eff).
  *
  * Texto branco sobre o azul puro (sidebar, botões primários) e o azul puro
  * como cor do item ativo da sidebar ficam em 4,87:1: passam em AA (≥4,5:1) e
  * reprovam em AAA (≥7:1). Elevar exige ESCURECER O AZUL DA MARCA em toda a
- * superfície do produto — decisão de identidade visual/especificação, não
- * ajuste de CSS. Fica isolada e visível aqui até a definição do negócio
- * (ver `docs/acessibilidade-aaa.md`), no mesmo padrão dos `[A CONFIRMAR]`:
- * o gate não deixa de existir, ele declara o que ainda não foi decidido.
+ * superfície do produto — decisão de identidade visual, não ajuste de CSS.
+ *
+ * DECISÃO (F5, revisão da TI Broto): manter a exceção. O produto declara
+ * **AAA integral com uma exceção nomeada e justificada — o azul institucional
+ * da marca, que atende AA**. Não é dívida aberta, é escolha registrada.
+ *
+ * Caminho de saída, se a marca decidir AAA pleno: o Design já derivou
+ * `--azul-superficie-aaa` #3242C4, medido em 7,74:1 com branco nos dois
+ * sentidos — apontar o alias das superfícies interativas para ele e apagar
+ * esta exceção basta, sem redesenho. Detalhes e medições em
+ * `docs/acessibilidade-aaa.md`.
  *
  * A exceção é fechada pela ASSINATURA DE COR e só vale para
  * `color-contrast-enhanced` — qualquer outra regra, ou qualquer outro par de
