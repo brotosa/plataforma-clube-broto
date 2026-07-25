@@ -5,14 +5,14 @@ import {
   resumirRegras,
   validarEstruturaRegras,
 } from "@/dominio/segmentacao/compilador";
-import { formatarCpf } from "@/dominio/assinantes/cpf";
+import { formatarCpf, normalizarCpf, validarCpf } from "@/dominio/assinantes/cpf";
 import {
   mascararCpf,
   mascararEmail,
   mascararTelefone,
 } from "@/dominio/assinantes/mascara";
 import { janelaVencimento } from "@/dominio/assinantes/vencimento";
-import { decifrarCpf } from "@/infra/assinantes/protecao-cpf";
+import { decifrarCpf, hashCpf } from "@/infra/assinantes/protecao-cpf";
 
 /**
  * Consultas do módulo Assinantes (T18/T19/T21).
@@ -121,9 +121,18 @@ export async function listarCarteira(
   const pagina = Math.max(1, filtros.pagina ?? 1);
   const parametros: Array<string | number> = [...compilado.parametros];
   let sqlBusca = "";
-  if (filtros.busca?.trim()) {
-    parametros.push(`%${filtros.busca.trim()}%`);
-    sqlBusca = ` AND a.nome ILIKE $${parametros.length}`;
+  const busca = filtros.busca?.trim();
+  if (busca) {
+    // "Buscar por nome ou CPF": um CPF válido digitado vira busca exata
+    // pelo hash — nenhuma comparação em claro; o CPF digitado não é
+    // registrado. Qualquer outro texto busca por nome.
+    if (validarCpf(busca)) {
+      parametros.push(hashCpf(normalizarCpf(busca)));
+      sqlBusca = ` AND a.cpf_hash = $${parametros.length}`;
+    } else {
+      parametros.push(`%${busca}%`);
+      sqlBusca = ` AND a.nome ILIKE $${parametros.length}`;
+    }
   }
   const baseWhere = `a.status_base = 'ATIVO' AND (${compilado.sql})${sqlBusca}`;
 
