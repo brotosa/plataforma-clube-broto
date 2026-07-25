@@ -5,6 +5,7 @@ import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { avaliarPublicacao } from "@/infra/casos-de-uso/ofertas";
+import { agregadoDaOferta } from "@/infra/consultas/telemetria";
 import { FormularioComEstado } from "@/app/(plataforma)/aliados/formularios";
 import { acaoEncerrarOferta, acaoPausarOferta, acaoPublicarOferta } from "../acoes";
 
@@ -54,13 +55,26 @@ export default async function PaginaOferta({
   if (!existe) {
     notFound();
   }
-  const [{ oferta, completude, impedimentos }, solicitacaoPendente] = await Promise.all([
-    avaliarPublicacao(id),
-    prisma.aprovacaoSolicitacao.findFirst({
-      where: { tipoEntidade: "PUBLICACAO_OFERTA", entidadeId: id, estado: "SOLICITADA" },
-    }),
-  ]);
+  const [{ oferta, completude, impedimentos }, solicitacaoPendente, agregadoResultado] =
+    await Promise.all([
+      avaliarPublicacao(id),
+      prisma.aprovacaoSolicitacao.findFirst({
+        where: { tipoEntidade: "PUBLICACAO_OFERTA", entidadeId: id, estado: "SOLICITADA" },
+      }),
+      agregadoDaOferta(id),
+    ]);
   const empresa = oferta.solucao.empresa;
+  const agregado = agregadoResultado ?? {
+    emitidos: 0,
+    resgatados: 0,
+    comprasConfirmadas: 0,
+    receitaConfirmada: 0,
+    foraDaPlataforma: false,
+    historicoResgates: null,
+    historicoCompras: null,
+  };
+  const temHistorico =
+    agregado.historicoResgates !== null || agregado.historicoCompras !== null;
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1100 }}>
@@ -263,25 +277,50 @@ export default async function PaginaOferta({
 
           <div className="kpi">
             <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
-              Telemetria (somente leitura — RN07)
+              Telemetria por oferta (somente leitura — RN07)
             </div>
             <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 10 }}>
               <div>
-                <div className="kpi-n" style={{ fontSize: 22, color: "var(--paragrafo-aaa)" }}>—</div>
+                <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.emitidos}</div>
                 <div className="cap">emitidos</div>
               </div>
               <div>
-                <div className="kpi-n" style={{ fontSize: 22, color: "var(--paragrafo-aaa)" }}>—</div>
-                <div className="cap">resgatados</div>
+                <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.resgatados}</div>
+                <div className="cap">
+                  {agregado.foraDaPlataforma ? "resgatados (conciliação)" : "resgatados"}
+                </div>
               </div>
               <div>
-                <div className="kpi-n" style={{ fontSize: 22, color: "var(--paragrafo-aaa)" }}>—</div>
+                <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.comprasConfirmadas}</div>
                 <div className="cap">compras</div>
               </div>
             </div>
-            <p className="cap" style={{ margin: "10px 0 0" }}>
-              <span className="selo">disponível após a importação de telemetria (F4)</span>
-            </p>
+            {agregado.comprasConfirmadas > 0 ? (
+              <p className="cap" style={{ margin: "10px 0 0" }}>
+                Receita confirmada: <b className="num">{formatarMoeda(agregado.receitaConfirmada)}</b>
+              </p>
+            ) : null}
+            {agregado.foraDaPlataforma && agregado.resgatados > 0 ? (
+              <p className="cap" style={{ margin: "8px 0 0" }}>
+                Fora da Plataforma: resgates aguardam conciliação mensal, distintos de compra
+                confirmada (ficha §6).
+              </p>
+            ) : null}
+            {temHistorico ? (
+              <p className="cap" style={{ margin: "8px 0 0" }}>
+                Acumulado histórico da carga: {agregado.historicoResgates ?? 0} resgates ·{" "}
+                {agregado.historicoCompras ?? 0} compras{" "}
+                <span className="selo">rótulo A CONFIRMAR</span>
+              </p>
+            ) : null}
+            {agregado.emitidos === 0 &&
+            agregado.resgatados === 0 &&
+            agregado.comprasConfirmadas === 0 &&
+            !temHistorico ? (
+              <p className="cap" style={{ margin: "10px 0 0" }}>
+                Sem eventos importados para esta oferta ainda — nada é estimado (RN07).
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

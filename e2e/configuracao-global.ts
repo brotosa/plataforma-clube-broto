@@ -52,6 +52,15 @@ export default async function configuracaoGlobal() {
       console.log(`[e2e] ${empresas.length} aliado(s) de execuções anteriores removido(s)`);
     }
 
+    // Telemetria/publicações da própria suíte (fixtures SINTÉTICAS): vouchers
+    // com prefixo E2E- e todas as publicações (só a feature/testes as criam no
+    // banco de teste) — mantém a idempotência e o baseline do diff a cada run.
+    await prisma.telemetriaEvento.deleteMany({ where: { idVoucher: { startsWith: "E2E-" } } });
+    await prisma.importacao.deleteMany({
+      where: { tipo: "TELEMETRIA", nomeArquivo: { contains: "SINTETICO" } },
+    });
+    await prisma.publicacao.deleteMany({});
+
     await prisma.aprovacaoRegra.update({
       where: { tipoEntidade: "PROMOCAO_ALIADA_ATIVA" },
       data: { exigida: true },

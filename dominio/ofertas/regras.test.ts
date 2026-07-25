@@ -1,3 +1,4 @@
+import { StatusOferta } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import {
   type CondicoesPublicacao,
@@ -251,6 +252,26 @@ describe("RN03 — expiração automática por vigência", () => {
   it("fim vazio = prazo indeterminado, nunca expira", () => {
     expect(estaExpirada(null, hoje)).toBe(false);
   });
+
+  it("compara só o dia: fim ontem à noite, agora de manhã → expirada", () => {
+    expect(
+      estaExpirada(new Date("2026-07-24T23:59:59Z"), new Date("2026-07-25T00:00:01Z")),
+    ).toBe(true);
+  });
+
+  it("compara só o dia: fim hoje cedo, agora à noite → ainda não expirada", () => {
+    // Mesmo com o timestamp do fim MENOR que o de agora, é o mesmo dia:
+    // a oferta vale o dia inteiro do vencimento (guarda o setUTCHours).
+    expect(
+      estaExpirada(new Date("2026-07-25T00:00:00Z"), new Date("2026-07-25T23:59:59Z")),
+    ).toBe(false);
+  });
+
+  it("compara só o dia: fim hoje à noite, agora cedo → não expirada", () => {
+    expect(
+      estaExpirada(new Date("2026-07-25T23:59:59Z"), new Date("2026-07-25T00:00:01Z")),
+    ).toBe(false);
+  });
 });
 
 describe("RN10 — flag Pendente de republicação", () => {
@@ -266,5 +287,26 @@ describe("RN10 — flag Pendente de republicação", () => {
   it("não liga quando a oferta não está Publicada", () => {
     expect(deveMarcarRepublicacao("RASCUNHO", ["titulo"])).toBe(false);
     expect(deveMarcarRepublicacao("PAUSADA", ["titulo"])).toBe(false);
+  });
+
+  it("lista de alterações vazia nunca liga a flag", () => {
+    expect(deveMarcarRepublicacao("PUBLICADA", [])).toBe(false);
+  });
+
+  it("campo interno junto de um publicável ainda liga (basta um publicável)", () => {
+    expect(deveMarcarRepublicacao("PUBLICADA", ["limiteResgates", "precoPor"])).toBe(true);
+  });
+
+  it("campo desconhecido/não publicável não liga", () => {
+    expect(
+      deveMarcarRepublicacao("PUBLICADA", ["observacoesInternas", "atualizadoEm"]),
+    ).toBe(false);
+  });
+
+  it("nenhum status diferente de Publicada liga a flag, mesmo mexendo em publicáveis", () => {
+    for (const status of Object.values(StatusOferta)) {
+      if (status === "PUBLICADA") continue;
+      expect(deveMarcarRepublicacao(status, ["titulo", "precoPor"])).toBe(false);
+    }
   });
 });

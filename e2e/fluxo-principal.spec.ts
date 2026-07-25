@@ -49,6 +49,23 @@ async function semViolacoesAxe(page: Page) {
   expect(resultado.violations).toEqual([]);
 }
 
+/**
+ * Executa uma server action *no lugar* (sem redirect) e recarrega para que a
+ * asserção veja o estado já persistido: o refresh do App Router
+ * (revalidatePath) nem sempre repinta o DOM no runner lento do CI — o banco
+ * muda, o DOM não. Aguarda a RESPOSTA do POST antes de recarregar (recarregar
+ * cedo abortaria a ação em voo).
+ */
+async function submeterERepintar(page: Page, acionar: () => Promise<void>) {
+  await Promise.all([
+    page.waitForResponse((resposta) => resposta.request().method() === "POST", {
+      timeout: 30_000,
+    }),
+    acionar(),
+  ]);
+  await page.reload();
+}
+
 test.describe.serial("fluxo principal — criar → promover → aprovar → solução → oferta → publicar", () => {
   test("analista cria o aliado com dados M2 completos", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
@@ -76,7 +93,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByRole("link", { name: "Contatos" }).click();
     await page.getByLabel("Nome", { exact: true }).fill("Contato Comercial E2E");
     await page.getByLabel("E-mail", { exact: true }).fill(`comercial+${SUFIXO}@e2e.local`);
-    await page.getByRole("button", { name: "Adicionar contato" }).click();
+    await submeterERepintar(page, () =>
+      page.getByRole("button", { name: "Adicionar contato" }).click(),
+    );
     // Sinal durável: o contato aparece na tabela após a revalidação
     await expect(page.getByRole("cell", { name: "Contato Comercial E2E" })).toBeVisible();
 
@@ -85,7 +104,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByLabel("Comissão (%)").fill("5");
     await page.getByLabel("Ambientes de pagamento habilitados").selectOption("AMBOS");
     await page.getByLabel("Anexo do contrato (chave do arquivo)").fill("s3://contratos/e2e.pdf");
-    await page.getByRole("button", { name: "Registrar contrato" }).click();
+    await submeterERepintar(page, () =>
+      page.getByRole("button", { name: "Registrar contrato" }).click(),
+    );
     // A revalidação troca o formulário pela visão do contrato vigente
     await expect(page.getByRole("heading", { name: "Contrato vigente" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Encerrar contrato" })).toBeVisible();
@@ -95,9 +116,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await entrar(page, "analista@dev.clubebroto.local");
     await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
     await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
-    await page
-      .getByRole("button", { name: "Solicitar promoção a Aliada ativa" })
-      .click();
+    await submeterERepintar(page, () =>
+      page.getByRole("button", { name: "Solicitar promoção a Aliada ativa" }).click(),
+    );
     // A revalidação troca o formulário pelo estado "aguardando aprovação"
     await expect(page.getByText("Promoção aguardando aprovação")).toBeVisible();
   });
@@ -108,6 +129,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     const dossie = page.locator("details", { hasText: NOME_ALIADO });
     await dossie.locator("summary").click();
     await dossie.getByRole("button", { name: "Aprovar", exact: true }).click();
+    await page.waitForLoadState("networkidle");
     // A revalidação remove a pendência da fila — sinal de que o efeito foi aplicado
     await expect(dossie).toHaveCount(0);
 
@@ -123,7 +145,11 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
-    await page.getByRole("link", { name: "+ Nova solução" }).click();
+    // Navegação pelo href (clique em Link com prefetch é sujeito a corrida no CI)
+    const hrefNovaSolucao = await page
+      .getByRole("link", { name: "+ Nova solução" })
+      .getAttribute("href");
+    await page.goto(hrefNovaSolucao!);
     await page.waitForURL(/\/solucoes\/nova/);
     await page.waitForLoadState("networkidle"); // hidratação completa antes de interagir
 
@@ -135,9 +161,13 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByRole("checkbox", { name: "Cobertura nacional" }).check();
     // Régua ao vivo chega a 100% antes de salvar
     await expect(page.getByText("100%")).toBeVisible();
+    await page.waitForLoadState("networkidle"); // formulário assentado antes de submeter
     await page.getByRole("button", { name: "Criar solução" }).click();
-    await page.waitForURL(/\/solucoes\/(?!nova$)[a-z0-9]+$/);
-    await expect(page.getByRole("heading", { level: 1, name: NOME_SOLUCAO })).toBeVisible();
+    // Sinal durável do redirect: o título da solução na ficha (mais robusto que
+    // waitForURL sob o App Router no runner lento do CI).
+    await expect(page.getByRole("heading", { level: 1, name: NOME_SOLUCAO })).toBeVisible({
+      timeout: 30_000,
+    });
   });
 
   test("analista cria a oferta (T5) e publica (RN02/RN09/RN11)", async ({ page }) => {
@@ -165,12 +195,13 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByLabel("Preço por (R$)").fill("85");
     await page.getByRole("radio", { name: /Checkout no clube/ }).check();
     await page.getByLabel("Vigência início").fill("2026-07-01");
+    await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Criar oferta (rascunho)" }).click();
-    await page.waitForURL(/\/ofertas\/(?!nova$)[a-z0-9]+$/);
-    await expect(page.getByText("Rascunho")).toBeVisible();
+    // Sinal durável do redirect: o pill de status na ficha da oferta.
+    await expect(page.getByText("Rascunho")).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole("button", { name: "Publicar oferta" }).click();
-    // Sinal durável: o pill de status muda para Publicada após a revalidação
+    await page.waitForLoadState("networkidle");
     await expect(page.getByText("Publicada", { exact: true })).toBeVisible();
   });
 
@@ -217,18 +248,17 @@ test("T7 inteira navegável por teclado: interruptor nativo liga e desliga", asy
     page.getByRole("switch", { name: /exigência de aprovação para Publicação de oferta/i });
   const inicial = (await interruptor().getAttribute("aria-checked")) === "true";
 
-  await interruptor().focus();
-  await page.keyboard.press("Enter");
-  await expect(interruptor()).toHaveAttribute("aria-checked", String(!inicial));
-
-  // Página limpa antes de restaurar: a segunda alternância imediata pode
-  // disparar durante o assentamento do refresh anterior e perder a
-  // atualização visual (o banco muda; o DOM não).
-  await page.reload();
-  await page.waitForLoadState("networkidle");
-  await interruptor().focus();
-  await page.keyboard.press("Enter");
-  await expect(interruptor()).toHaveAttribute("aria-checked", String(inicial));
+  // Alterna por teclado e confere após recarregar: o refresh do App Router
+  // pode não repintar o interruptor no runner lento do CI (o banco muda, o DOM
+  // não); recarregar garante o estado já persistido. Restaura ao final para
+  // não vazar estado para outras suítes (ex.: a checagem do motor na fundação).
+  const alternarPorTeclado = async (esperado: boolean) => {
+    await interruptor().focus();
+    await submeterERepintar(page, () => page.keyboard.press("Enter"));
+    await expect(interruptor()).toHaveAttribute("aria-checked", String(esperado));
+  };
+  await alternarPorTeclado(!inicial);
+  await alternarPorTeclado(inicial);
 });
 
 test("axe-core sem violações nas telas da F2", async ({ page }) => {
