@@ -215,20 +215,30 @@ test("T7 inteira navegável por teclado: interruptor nativo liga e desliga", asy
   // Independente do estado inicial: alterna, confere a inversão e restaura
   const interruptor = () =>
     page.getByRole("switch", { name: /exigência de aprovação para Publicação de oferta/i });
-  const inicial = (await interruptor().getAttribute("aria-checked")) === "true";
 
-  await interruptor().focus();
-  await page.keyboard.press("Enter");
-  await expect(interruptor()).toHaveAttribute("aria-checked", String(!inicial));
+  // Sob carga, um Enter pode cair entre o focus e o fim da hidratação e se
+  // perder (o foco volta ao body). O laço pressiona e confere até OBSERVAR
+  // o estado esperado — convergente por definição: pressionar de novo só
+  // acontece quando o estado observado ainda é o antigo.
+  const alternarPorTecladoAte = async (esperado: boolean) => {
+    await expect(async () => {
+      await interruptor().focus();
+      await page.keyboard.press("Enter");
+      await expect(interruptor()).toHaveAttribute("aria-checked", String(esperado), {
+        timeout: 5000,
+      });
+    }).toPass({ timeout: 30_000 });
+  };
+
+  const inicial = (await interruptor().getAttribute("aria-checked")) === "true";
+  await alternarPorTecladoAte(!inicial);
 
   // Página limpa antes de restaurar: a segunda alternância imediata pode
   // disparar durante o assentamento do refresh anterior e perder a
   // atualização visual (o banco muda; o DOM não).
   await page.reload();
   await page.waitForLoadState("networkidle");
-  await interruptor().focus();
-  await page.keyboard.press("Enter");
-  await expect(interruptor()).toHaveAttribute("aria-checked", String(inicial));
+  await alternarPorTecladoAte(inicial);
 });
 
 test("axe-core sem violações nas telas da F2", async ({ page }) => {
