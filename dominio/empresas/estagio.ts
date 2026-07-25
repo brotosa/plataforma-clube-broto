@@ -2,11 +2,25 @@ import type { EstagioEmpresa } from "@prisma/client";
 import { validarCnpj } from "./cnpj";
 
 /**
- * Máquina de estados da Empresa (ficha §3.1) com os estágios documentados.
- * Estágios de prospecção pré-negociação entram por migração na Onda 2.
+ * Máquina de estados da Empresa — pipeline completo das fichas §3.1
+ * (Onda 1 v0.6 + Onda 2 v0.1) e do protótipo v6.1.
  *
+ * Funil pré-aliança (Onda 2):
+ * - MAPEADA → EM_AVALIACAO: ato do analista, que assume a empresa como
+ *   responsável de scout (RN14, garantida no caso de uso).
+ * - EM_AVALIACAO ⇄ MAPEADA e PRIORIZADA ⇄ EM_AVALIACAO: avanço e retorno
+ *   de correção — decisão humana explícita, sempre auditada.
+ * - PRIORIZADA → EM_NEGOCIACAO: handoff que exige responsável comercial
+ *   designado (RN16, garantida no caso de uso).
+ * - EM_NEGOCIACAO → EM_APROVACAO: somente pelo pedido de promoção ao motor
+ *   (RN06/RN20); EM_APROVACAO → EM_NEGOCIACAO é a devolução do aprovador.
+ * - Qualquer estágio do funil → DESCARTADA: exige motivo tipificado (RN17);
+ *   DESCARTADA → MAPEADA é a reativação preservando o histórico (RN17).
+ *
+ * Rede (Onda 1):
  * - EM_NEGOCIACAO → ALIADA_ATIVA: promoção (M2), sujeita ao motor de
- *   aprovação (RN06) e aos requisitos mínimos abaixo.
+ *   aprovação (RN06) e aos requisitos mínimos abaixo (com a regra do motor
+ *   desligada a promoção é direta, sem passar por EM_APROVACAO).
  * - ALIADA_ATIVA → SUSPENSA: exige motivo tipificado (RN12) e dispara a
  *   cascata da RN04.
  * - SUSPENSA → ALIADA_ATIVA: reativação (suspensão é temporária por
@@ -15,10 +29,15 @@ import { validarCnpj } from "./cnpj";
  *   cascata da RN04.
  */
 const TRANSICOES: Readonly<Record<EstagioEmpresa, ReadonlyArray<EstagioEmpresa>>> = {
-  EM_NEGOCIACAO: ["ALIADA_ATIVA", "ENCERRADA"],
+  MAPEADA: ["EM_AVALIACAO", "DESCARTADA"],
+  EM_AVALIACAO: ["MAPEADA", "PRIORIZADA", "DESCARTADA"],
+  PRIORIZADA: ["EM_AVALIACAO", "EM_NEGOCIACAO", "DESCARTADA"],
+  EM_NEGOCIACAO: ["PRIORIZADA", "EM_APROVACAO", "ALIADA_ATIVA", "ENCERRADA", "DESCARTADA"],
+  EM_APROVACAO: ["ALIADA_ATIVA", "EM_NEGOCIACAO"],
   ALIADA_ATIVA: ["SUSPENSA", "ENCERRADA"],
   SUSPENSA: ["ALIADA_ATIVA", "ENCERRADA"],
   ENCERRADA: [],
+  DESCARTADA: ["MAPEADA"],
 };
 
 export function podeTransicionar(
@@ -26,6 +45,11 @@ export function podeTransicionar(
   para: EstagioEmpresa,
 ): boolean {
   return TRANSICOES[de].includes(para);
+}
+
+/** Destinos válidos a partir de um estágio (consulta ao grafo acima). */
+export function transicoesValidasDe(de: EstagioEmpresa): ReadonlyArray<EstagioEmpresa> {
+  return TRANSICOES[de];
 }
 
 /** Dados mínimos avaliados na promoção a Aliada ativa (M2). */

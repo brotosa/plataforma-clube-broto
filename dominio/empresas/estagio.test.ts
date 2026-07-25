@@ -27,6 +27,40 @@ describe("máquina de estados da Empresa", () => {
     expect(podeTransicionar("ENCERRADA", "EM_NEGOCIACAO")).toBe(false);
     expect(podeTransicionar("ENCERRADA", "SUSPENSA")).toBe(false);
   });
+
+  it("funil pré-aliança avança e retorna pelo pipeline (Onda 2)", () => {
+    expect(podeTransicionar("MAPEADA", "EM_AVALIACAO")).toBe(true);
+    expect(podeTransicionar("EM_AVALIACAO", "PRIORIZADA")).toBe(true);
+    expect(podeTransicionar("EM_AVALIACAO", "MAPEADA")).toBe(true);
+    expect(podeTransicionar("PRIORIZADA", "EM_NEGOCIACAO")).toBe(true);
+    expect(podeTransicionar("PRIORIZADA", "EM_AVALIACAO")).toBe(true);
+    expect(podeTransicionar("EM_NEGOCIACAO", "PRIORIZADA")).toBe(true);
+  });
+
+  it("funil não pula estágios", () => {
+    expect(podeTransicionar("MAPEADA", "PRIORIZADA")).toBe(false);
+    expect(podeTransicionar("MAPEADA", "EM_NEGOCIACAO")).toBe(false);
+    expect(podeTransicionar("EM_AVALIACAO", "EM_NEGOCIACAO")).toBe(false);
+    expect(podeTransicionar("MAPEADA", "ALIADA_ATIVA")).toBe(false);
+  });
+
+  it("EM_APROVACAO conversa só com o motor: aprova para ALIADA_ATIVA ou devolve", () => {
+    expect(podeTransicionar("EM_NEGOCIACAO", "EM_APROVACAO")).toBe(true);
+    expect(podeTransicionar("EM_APROVACAO", "ALIADA_ATIVA")).toBe(true);
+    expect(podeTransicionar("EM_APROVACAO", "EM_NEGOCIACAO")).toBe(true);
+    expect(podeTransicionar("EM_APROVACAO", "DESCARTADA")).toBe(false);
+    expect(podeTransicionar("PRIORIZADA", "EM_APROVACAO")).toBe(false);
+  });
+
+  it("descarte sai de qualquer estágio do funil; reativação volta a MAPEADA (RN17)", () => {
+    expect(podeTransicionar("MAPEADA", "DESCARTADA")).toBe(true);
+    expect(podeTransicionar("EM_AVALIACAO", "DESCARTADA")).toBe(true);
+    expect(podeTransicionar("PRIORIZADA", "DESCARTADA")).toBe(true);
+    expect(podeTransicionar("EM_NEGOCIACAO", "DESCARTADA")).toBe(true);
+    expect(podeTransicionar("DESCARTADA", "MAPEADA")).toBe(true);
+    expect(podeTransicionar("DESCARTADA", "EM_AVALIACAO")).toBe(false);
+    expect(podeTransicionar("ALIADA_ATIVA", "DESCARTADA")).toBe(false);
+  });
 });
 
 function dadosCompletos(): DadosPromocao {
