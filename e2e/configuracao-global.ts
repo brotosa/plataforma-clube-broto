@@ -89,10 +89,18 @@ export default async function configuracaoGlobal() {
         where: { avaliacaoId: { in: avaliacaoIdsFunil } },
       });
       await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIdsFunil } } });
+      const dossieIdsFunil = (
+        await prisma.dossie.findMany({
+          where: { empresaId: { in: idsFunil } },
+          select: { id: true },
+        })
+      ).map((dossie) => dossie.id);
+      await prisma.dossieExecucao.deleteMany({ where: { dossieId: { in: dossieIdsFunil } } });
+      await prisma.dossie.deleteMany({ where: { id: { in: dossieIdsFunil } } });
       await prisma.notaRapida.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.registroNegociacao.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.auditoriaEvento.deleteMany({
-        where: { entidadeId: { in: [...idsFunil, ...avaliacaoIdsFunil] } },
+        where: { entidadeId: { in: [...idsFunil, ...avaliacaoIdsFunil, ...dossieIdsFunil] } },
       });
       await prisma.empresaCategoria.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.stagingEmpresa.deleteMany({

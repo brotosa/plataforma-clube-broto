@@ -163,7 +163,8 @@ async function idUsuarioPorPapel(papel: string): Promise<string> {
  * ofertas → telemetria/acumulados primeiro, depois vínculos de solução,
  * solução, contrato, contatos, categorias, solicitações e auditoria por
  * entidadeId — mais notas/registros/staging do funil e avaliações de scout
- * com suas notas (F7; no-op para aliados sem avaliação).
+ * com suas notas (F7) e dossiês com suas execuções (F8; no-op para
+ * aliados sem avaliação ou sem dossiê).
  */
 export async function limparAliadoPorNome(nome: string): Promise<void> {
   const empresas = await prisma.empresa.findMany({
@@ -183,6 +184,11 @@ export async function limparAliadoPorNome(nome: string): Promise<void> {
     ).map((avaliacao) => avaliacao.id);
     await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
     await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIds } } });
+    const dossieIds = (
+      await prisma.dossie.findMany({ where: { empresaId: empresa.id }, select: { id: true } })
+    ).map((dossie) => dossie.id);
+    await prisma.dossieExecucao.deleteMany({ where: { dossieId: { in: dossieIds } } });
+    await prisma.dossie.deleteMany({ where: { id: { in: dossieIds } } });
     await prisma.telemetriaEvento.deleteMany({ where: { ofertaId: { in: ofertaIds } } });
     await prisma.telemetriaAcumuladoInicial.deleteMany({ where: { ofertaId: { in: ofertaIds } } });
     await prisma.aprovacaoSolicitacao.deleteMany({
@@ -190,7 +196,9 @@ export async function limparAliadoPorNome(nome: string): Promise<void> {
     });
     await prisma.auditoriaEvento.deleteMany({
       where: {
-        entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds, ...avaliacaoIds] },
+        entidadeId: {
+          in: [empresa.id, ...solucaoIds, ...ofertaIds, ...avaliacaoIds, ...dossieIds],
+        },
       },
     });
     await prisma.oferta.deleteMany({ where: { id: { in: ofertaIds } } });
