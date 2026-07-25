@@ -13,6 +13,10 @@ export default defineConfig({
   // Server actions + revalidação podem levar alguns segundos no servidor
   // de teste; 15s evita falso-negativo sem mascarar defeito real.
   expect: { timeout: 15_000 },
+  // Em contêineres lentos, uma sequência de navegações do fluxo serial
+  // pode exceder os 30s padrão de teste sem defeito algum; 60s dá folga
+  // ao conjunto mantendo cada asserção limitada pelos 15s acima.
+  timeout: 60_000,
   // Uma repetição absorve corridas raras de hidratação sem esconder
   // regressões reais (a suíte roda serial, com estado resetado no setup).
   retries: 1,
