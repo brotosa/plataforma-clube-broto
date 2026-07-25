@@ -63,6 +63,7 @@ model Usuario {
   exportacoesLista      ExportacaoLista[]
   dossiesSolicitados    Dossie[] @relation("dossieSolicitante")
   dossiesRevisados      Dossie[] @relation("dossieRevisor")
+  indicadoresDeclarados IndicadorDeclarado[]
 
   @@map("usuarios")
 }
@@ -116,6 +117,7 @@ model TipoBeneficio {
   ativa Boolean @default(true)
 
   ofertas Oferta[]
+  ofertasPretendidas OfertaPretendida[]
 
   @@map("tipos_beneficio")
 }
@@ -128,6 +130,7 @@ model Mecanica {
   ativa Boolean @default(true)
 
   ofertas Oferta[]
+  ofertasPretendidas OfertaPretendida[]
 
   @@map("mecanicas")
 }
@@ -236,6 +239,16 @@ model Empresa {
   /// da última avaliação fechada; limpa ao fechar nova avaliação (ou pelo
   /// próprio job quando deixar de valer).
   reavaliacaoPendente Boolean @default(false) @map("reavaliacao_pendente")
+  // --- Ficha Cadastral do Aliado v1, seções A e B (M1, Onda 2/F9) ---
+  /// Até 5 itens curtos — substitui o parágrafo livre do Word (seção A).
+  diferenciais String[] @default([])
+  /// Taxonomia herdada do scouting (SaaS, serviço, contrato a prazo…),
+  /// texto livre tipado na v1; vira lista de domínio na Onda 3.
+  modeloNegocio String? @map("modelo_negocio")
+  /// Público-alvo em DOIS eixos (seção B): porte do produtor e natureza —
+  /// o caso Viasat mostrou que um eixo só não basta.
+  publicoPorte   PorteProdutor[] @map("publico_porte")
+  publicoNatureza NaturezaPublico? @map("publico_natureza")
   /// Preenchido na primeira publicação; na carga inicial vem da planilha ("Id do Seller").
   idExternoMinutrade String? @unique @map("id_externo_minutrade")
   criadoEm     DateTime @default(now()) @map("criado_em")
@@ -253,6 +266,8 @@ model Empresa {
   registrosNegociacao RegistroNegociacao[]
   avaliacoesScout     AvaliacaoScout[]
   dossies             Dossie[]
+  indicadoresDeclarados IndicadorDeclarado[]
+  ofertasPretendidas    OfertaPretendida[]
 
   @@index([estagio])
   @@map("empresas")
@@ -612,6 +627,7 @@ model Solucao {
   culturas  SolucaoCultura[]
   ufs       SolucaoUf[]
   ofertas   Oferta[]
+  ofertasPretendidas OfertaPretendida[]
 
   @@index([empresaId])
   @@map("solucoes")
@@ -705,6 +721,8 @@ model Oferta {
 
   @@index([solucaoId])
   @@index([status])
+  ofertaPretendida OfertaPretendida[]
+
   @@map("ofertas")
 }
 
@@ -1285,4 +1303,85 @@ model MetaPeriodo {
 
   @@index([inicio, fim])
   @@map("metas_periodo")
+}
+
+// ---------------------------------------------------------------------
+// Ficha Cadastral do Aliado v1 — seções D e F do M1 (Onda 2, F9)
+// docs/especificacao/ficha-cadastral-aliado-v1.md
+// ---------------------------------------------------------------------
+
+/// Natureza do público-alvo (seção B): pessoa física, jurídica ou ambas.
+enum NaturezaPublico {
+  PF
+  PJ
+  AMBAS
+}
+
+/// Seção D — indicadores DECLARADOS pelo aliado na negociação. O grau de
+/// confiança é distinto do apurado em pesquisa: são autodeclarados, e a
+/// data da declaração é parte do dado. Destino: aba Scouting da ficha —
+/// nunca o card público, e nunca nota de indicador (RN19 vale igual).
+model IndicadorDeclarado {
+  id             String   @id @default(cuid())
+  empresaId      String   @map("empresa_id")
+  /// Quando o aliado declarou — sem isso o número não se interpreta.
+  dataDeclaracao DateTime @map("data_declaracao") @db.Date
+  ticketMedio    Decimal? @map("ticket_medio") @db.Decimal(12, 2)
+  /// -100 a 100 (escala do NPS).
+  nps            Int?
+  churnMensalPct Decimal? @map("churn_mensal_pct") @db.Decimal(5, 2)
+  numeroClientes Int?     @map("numero_clientes")
+  anoFundacao    Int?     @map("ano_fundacao")
+  /// Quem registrou a declaração na plataforma (o analista, não o aliado).
+  registradoPorId String  @map("registrado_por_id")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  empresa      Empresa @relation(fields: [empresaId], references: [id])
+  registradoPor Usuario @relation(fields: [registradoPorId], references: [id])
+
+  @@index([empresaId])
+  @@map("indicadores_declarados")
+}
+
+enum StatusOfertaPretendida {
+  RASCUNHO
+  CONVERTIDA
+}
+
+/// Seção F — oferta pretendida, já estruturada nos campos mínimos do
+/// modelo de Oferta. Ao promover a empresa a Aliada ativa, cada linha
+/// vira um rascunho de Solução + Oferta pendente de curadoria: zero
+/// redigitação, completude visível.
+model OfertaPretendida {
+  id        String        @id @default(cuid())
+  empresaId String        @map("empresa_id")
+  natureza  NaturezaOferta
+  titulo    String
+  descricao String?
+  tipoBeneficioId String? @map("tipo_beneficio_id")
+  mecanicaId      String? @map("mecanica_id")
+  /// Valores pretendidos; Recompensa é gratuidade e mantém ambos vazios
+  /// (validado em domínio, mesma regra da oferta real).
+  precoDe  Decimal? @map("preco_de") @db.Decimal(12, 2)
+  precoPor Decimal? @map("preco_por") @db.Decimal(12, 2)
+  /// Texto operacional do pós-voucher (URL ou fluxo de contato/lead) — a
+  /// lacuna que o documento em Word não capturava.
+  instrucoesResgate String? @map("instrucoes_resgate")
+  vigenciaInicio DateTime? @map("vigencia_inicio") @db.Date
+  vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
+  status    StatusOfertaPretendida @default(RASCUNHO)
+  /// Preenchidos quando a promoção converte a linha em rascunho real.
+  solucaoId String? @map("solucao_id")
+  ofertaId  String? @map("oferta_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa       Empresa        @relation(fields: [empresaId], references: [id])
+  tipoBeneficio TipoBeneficio? @relation(fields: [tipoBeneficioId], references: [id])
+  mecanica      Mecanica?      @relation(fields: [mecanicaId], references: [id])
+  solucao       Solucao?       @relation(fields: [solucaoId], references: [id])
+  oferta        Oferta?        @relation(fields: [ofertaId], references: [id])
+
+  @@index([empresaId])
+  @@map("ofertas_pretendidas")
 }

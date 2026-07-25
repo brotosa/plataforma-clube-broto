@@ -12,6 +12,7 @@ import {
 import { exigeAprovacao } from "@/dominio/aprovacao/motor";
 import { calcularCascata } from "@/dominio/solucoes/regras";
 import { type Ator, ErroDeValidacao } from "./contexto";
+import { converterOfertasPretendidas } from "./ficha-m1";
 
 /** Campos editáveis da identidade da Empresa (ficha §3.1). */
 export interface DadosEmpresa {
@@ -238,6 +239,10 @@ export async function promoverDentroDaTransacao(
     anterior: estadoAuditavel(anterior),
     novo: estadoAuditavel(empresa),
   });
+  // Aproveitamento automático da Ficha Cadastral v1 (seção F): cada oferta
+  // pretendida vira rascunho de Solução + Oferta, pendente de curadoria —
+  // completude visível, zero redigitação. Nada nasce publicado.
+  await converterOfertasPretendidas(tx, autorId, empresaId);
   return empresa;
 }
 
