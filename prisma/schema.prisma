@@ -1,8 +1,9 @@
 // =====================================================================
-// Schema da Plataforma de Administração do Clube Broto — Ondas 1, 2 e 5
+// Schema da Plataforma de Administração do Clube Broto — Ondas 1, 2, 4 e 5
 // Fontes da verdade funcionais:
 //   Onda 1: docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md (v0.6)
 //   Onda 2: docs/especificacao/ficha-onda2-mercado-scout.md (v0.1)
+//   Onda 4: docs/especificacao/ficha-onda4-campanhas-cestas.md (v0.1, RN38–RN45)
 //   Onda 5: docs/especificacao/ficha-onda5-assinantes.md (v0.1, RN29–RN37)
 // Decisões estruturais: prompts das ondas em docs/especificacao/.
 //
@@ -70,6 +71,9 @@ model Usuario {
   indicadoresDeclarados IndicadorDeclarado[]
   alteracoesDeValor     ValorRegraHistorico[]
   versoesDeConfiguracao ConfiguracaoVersao[]
+  campanhas             Campanha[]
+  cestas                Cesta[]
+  kits                  KitCampanha[]
 
   @@map("usuarios")
 }
@@ -713,6 +717,13 @@ model Oferta {
   /// Fluxo operacional quando o resgate não é automático (recomendado
   /// para checkout externo).
   instrucoesResgate String? @map("instrucoes_resgate")
+  /// Onda 4 (ficha §3, extensão retroativa): onde a oferta vive. A vitrine
+  /// é uma só e a publicação Minutrade segue inalterada — o vínculo serve
+  /// à gestão e à medição. Quando destinada a campanha, a vigência dela é
+  /// SUGERIDA na T5 (editável), nunca imposta.
+  destinacao           DestinacaoOferta @default(VITRINE)
+  destinacaoCampanhaId String?          @map("destinacao_campanha_id")
+  destinacaoCestaId    String?          @map("destinacao_cesta_id")
   vigenciaInicio DateTime  @map("vigencia_inicio") @db.Date
   /// Fim vazio = prazo indeterminado; fim < hoje ⇒ EXPIRADA (RN03, job diário).
   vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
@@ -733,10 +744,16 @@ model Oferta {
   telemetriaEventos    TelemetriaEvento[]
   acumuladosIniciais   TelemetriaAcumuladoInicial[]
 
+  destinacaoCampanha Campanha? @relation("ofertasDestinadas", fields: [destinacaoCampanhaId], references: [id])
+  destinacaoCesta    Cesta?    @relation("ofertasDestinadas", fields: [destinacaoCestaId], references: [id])
+  cestas             CestaOferta[]
+  campanhasAvulsas   CampanhaOferta[]
+  ofertaPretendida   OfertaPretendida[]
+
   @@index([solucaoId])
   @@index([status])
-  ofertaPretendida OfertaPretendida[]
-
+  @@index([destinacaoCampanhaId])
+  @@index([destinacaoCestaId])
   @@map("ofertas")
 }
 
@@ -994,6 +1011,9 @@ enum TipoEntidadeAprovacao {
   /// pesos de indicadores, tetos do dossiê e metas. Nasce DESLIGADA; ligar
   /// na T7 passa a exigir aprovação dessas escritas sem código novo.
   PARAMETRO_SENSIVEL
+  /// Onda 4 (ficha §2): porta de aprovação da ativação de campanha —
+  /// ligável na T7, nasce DESLIGADA.
+  ATIVACAO_CAMPANHA
 }
 
 /// Regra por tipo de entidade: ligável/desligável em T7 sem código.
@@ -1237,6 +1257,8 @@ model Segmento {
 
   autor       Usuario           @relation(fields: [autorId], references: [id])
   exportacoes ExportacaoLista[]
+  campanhas   Campanha[]
+  cestas      Cesta[]
 
   @@map("segmentos")
 }
@@ -1259,6 +1281,9 @@ model ExportacaoLista {
 
   autor    Usuario   @relation(fields: [autorId], references: [id])
   segmento Segmento? @relation(fields: [segmentoId], references: [id])
+  /// Onda 4: quando a finalidade é a ativação de uma campanha, este é o
+  /// snapshot do público congelado (RN38 herdando RN34).
+  campanhasComPublicoCongelado Campanha[]
 
   @@map("exportacoes_lista")
 }
@@ -1520,4 +1545,237 @@ model OfertaPretendida {
 
   @@index([empresaId])
   @@map("ofertas_pretendidas")
+// Campanhas e Cestas (Onda 4, F12) — ficha-onda4-campanhas-cestas.md
+//
+// Modelo operacional (ficha §1.1): a Broto modela e ativa; a MINUTRADE
+// executa o disparo a partir do kit. Nenhum caminho de disparo existe
+// nesta plataforma (RN39) — o que sai daqui é o pacote versionado.
+// ---------------------------------------------------------------------
+
+/// Destinação da oferta (ficha §3, extensão retroativa da Onda 1).
+enum DestinacaoOferta {
+  VITRINE
+  CAMPANHA
+  CESTA
+}
+
+/// Ciclo de vida da campanha (ficha §3). A porta de aprovação entre
+/// Rascunho e Ativa é ligável na T7 (ATIVACAO_CAMPANHA, nasce desligada).
+enum EstadoCampanha {
+  RASCUNHO
+  ATIVA
+  ENCERRADA
+}
+
+/// Origem do público da campanha: segmento salvo da carteira (Onda 5) ou
+/// regras montadas na própria campanha. Em ambos os casos o que fica
+/// gravado é a REGRA declarativa — a lista só se materializa na ativação.
+enum OrigemPublicoCampanha {
+  SEGMENTO_SALVO
+  REGRAS_PROPRIAS
+}
+
+/// Tipos de meta (ficha §3): múltiplas e opcionais por campanha.
+enum TipoMetaCampanha {
+  RESGATES
+  CONVERSAO_PCT
+  ALIADOS_PARTICIPANTES
+  OFERTAS_ATIVAS
+}
+
+/// Nível de atribuição da medição (RN43) — gravado em cada número, nunca
+/// inferido na leitura. POR_PUBLICO depende da telemetria por CPF
+/// [A CONFIRMAR com a Minutrade]; enquanto não existir, a conversão %
+/// responde "indisponível" (RN44), jamais um número aproximado.
+enum NivelAtribuicao {
+  POR_OFERTA
+  POR_PUBLICO
+}
+
+/// Formato de peça — lista de domínio nova (ficha §6), com seed
+/// e-mail · banner · push · WhatsApp. Nasce como tabela porque a F10
+/// (Parametrizador, Onda 3) ainda não está na main; quando aquela trilha
+/// chegar, a T16 passa a editá-la sem migração — o mesmo padrão das
+/// demais taxonomias deste schema.
+model FormatoPeca {
+  id       String   @id @default(cuid())
+  slug     String   @unique
+  nome     String
+  ordem    Int
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  pecas PecaCampanha[]
+
+  @@map("formatos_peca")
+}
+
+model Campanha {
+  id       String @id @default(cuid())
+  nome     String
+  objetivo String?
+  /// Público: a regra declarativa (mesmo formato do Segmento, RN33) fica
+  /// aqui; copiar de um segmento salvo NÃO cria vínculo de edição — a
+  /// campanha passa a ter a regra dela.
+  origemPublico OrigemPublicoCampanha @default(SEGMENTO_SALVO)
+  segmentoId    String?               @map("segmento_id")
+  regrasPublico Json?                 @map("regras_publico")
+  /// Snapshot do público congelado na ativação (RN38): a exportação
+  /// auditada da F11, com autor, data, contagem e finalidade.
+  publicoSnapshotId String? @unique @map("publico_snapshot_id")
+  vigenciaInicio DateTime? @map("vigencia_inicio") @db.Date
+  vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
+  /// Instruções à operação da Minutrade — viajam no kit.
+  instrucoes String?
+  estado     EstadoCampanha @default(RASCUNHO)
+  ativadaEm  DateTime?      @map("ativada_em")
+  encerradaEm DateTime?     @map("encerrada_em")
+  autorId    String         @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor           Usuario          @relation(fields: [autorId], references: [id])
+  segmento        Segmento?        @relation(fields: [segmentoId], references: [id])
+  publicoSnapshot ExportacaoLista? @relation(fields: [publicoSnapshotId], references: [id])
+
+  cestas          CampanhaCesta[]
+  ofertasAvulsas  CampanhaOferta[]
+  pecas           PecaCampanha[]
+  metas           MetaCampanha[]
+  kits            KitCampanha[]
+  ofertasDestinadas Oferta[] @relation("ofertasDestinadas")
+
+  @@index([estado])
+  @@map("campanhas")
+}
+
+/// Cesta: conjunto nomeado e REUTILIZÁVEL de ofertas (ficha §3), com
+/// narrativa e indicação de perfil-alvo. O perfil-alvo alimenta o
+/// matching assistivo da RN42 — nunca uma aplicação automática.
+model Cesta {
+  id        String  @id @default(cuid())
+  nome      String
+  narrativa String?
+  /// Perfil-alvo: segmento salvo OU regra declarativa própria, mesma
+  /// escolha da campanha.
+  origemPerfil OrigemPublicoCampanha @default(SEGMENTO_SALVO)
+  segmentoId   String?               @map("segmento_id")
+  regrasPerfil Json?                 @map("regras_perfil")
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor    Usuario   @relation(fields: [autorId], references: [id])
+  segmento Segmento? @relation(fields: [segmentoId], references: [id])
+
+  ofertas   CestaOferta[]
+  campanhas CampanhaCesta[]
+  ofertasDestinadas Oferta[] @relation("ofertasDestinadas")
+
+  @@map("cestas")
+}
+
+model CestaOferta {
+  cestaId  String @map("cesta_id")
+  ofertaId String @map("oferta_id")
+  ordem    Int    @default(0)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  cesta  Cesta  @relation(fields: [cestaId], references: [id], onDelete: Cascade)
+  oferta Oferta @relation(fields: [ofertaId], references: [id])
+
+  @@id([cestaId, ofertaId])
+  @@index([ofertaId])
+  @@map("cesta_ofertas")
+}
+
+model CampanhaCesta {
+  campanhaId String @map("campanha_id")
+  cestaId    String @map("cesta_id")
+  ordem      Int    @default(0)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  cesta    Cesta    @relation(fields: [cestaId], references: [id])
+
+  @@id([campanhaId, cestaId])
+  @@index([cestaId])
+  @@map("campanha_cestas")
+}
+
+/// Ofertas avulsas da campanha — as que entram sem passar por cesta.
+model CampanhaOferta {
+  campanhaId String @map("campanha_id")
+  ofertaId   String @map("oferta_id")
+  ordem      Int    @default(0)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  oferta   Oferta   @relation(fields: [ofertaId], references: [id])
+
+  @@id([campanhaId, ofertaId])
+  @@index([ofertaId])
+  @@map("campanha_ofertas")
+}
+
+/// Peça criativa da campanha (RN39): viaja no kit, nunca é disparada
+/// daqui. A imagem vai ao armazenamento de objetos (S3; adapter local em
+/// desenvolvimento e teste), como o CSV da exportação da F11.
+model PecaCampanha {
+  id         String @id @default(cuid())
+  campanhaId String @map("campanha_id")
+  formatoId  String @map("formato_id")
+  titulo     String
+  texto      String?
+  imagemChave String? @map("imagem_chave")
+  imagemNome  String? @map("imagem_nome")
+  ordem       Int     @default(0)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  campanha Campanha    @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  formato  FormatoPeca @relation(fields: [formatoId], references: [id])
+
+  @@index([campanhaId])
+  @@map("pecas_campanha")
+}
+
+model MetaCampanha {
+  id         String           @id @default(cuid())
+  campanhaId String           @map("campanha_id")
+  tipo       TipoMetaCampanha
+  /// Alvo numérico; para CONVERSAO_PCT é o percentual pretendido.
+  alvo     Decimal  @db.Decimal(12, 2)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+
+  @@unique([campanhaId, tipo])
+  @@map("metas_campanha")
+}
+
+/// Kit de execução — VERSIONADO E IMUTÁVEL (RN45). Nada aqui é atualizado
+/// depois de gravado: ajuste pós-ativação gera a versão seguinte com o
+/// diff textual em relação à anterior, tudo auditado. O formato definitivo
+/// de entrega à Minutrade está [A CONFIRMAR] — ver KitAdapter.
+model KitCampanha {
+  id         String @id @default(cuid())
+  campanhaId String @map("campanha_id")
+  versao     Int
+  adapter    String
+  /// Manifesto gerado (ofertas/cestas com ids externos, vigências,
+  /// naturezas) — a base do diff entre versões.
+  manifesto Json
+  arquivoChave String  @map("arquivo_chave")
+  hashArquivo  String  @map("hash_arquivo")
+  /// Diff textual desta versão em relação à anterior (vazio na v1).
+  diffTexto String? @map("diff_texto")
+  autorId   String  @map("autor_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  autor    Usuario  @relation(fields: [autorId], references: [id])
+
+  @@unique([campanhaId, versao])
+  @@map("kits_campanha")
 }

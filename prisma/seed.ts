@@ -105,6 +105,19 @@ const MOTIVOS_DESCARTE: ReadonlyArray<[string, string]> = [
 ];
 
 /**
+ * Formatos de peça (Onda 4, ficha §6) — lista de domínio nova, com o seed
+ * exato da ficha. Nasce como tabela porque a F10 (Parametrizador) ainda
+ * não está na main; quando aquela trilha chegar, a T16 passa a editá-la
+ * sem migração, como as demais taxonomias.
+ */
+const FORMATOS_PECA: ReadonlyArray<[string, string]> = [
+  ["EMAIL", "E-mail"],
+  ["BANNER", "Banner"],
+  ["PUSH", "Push"],
+  ["WHATSAPP", "WhatsApp"],
+];
+
+/**
  * Indicadores de scouting (F7) — transposição fiel de
  * docs/especificacao/indicadores-scoutcb-seed.md, tabelas "Indicadores a
  * serem medidos — Empresa" e "— Produto" do ScoutCB, na ordem do documento:
@@ -233,6 +246,14 @@ async function main() {
     });
   }
 
+  for (const [ordem, [slug, nome]] of FORMATOS_PECA.entries()) {
+    await prisma.formatoPeca.upsert({
+      where: { slug },
+      update: { nome, ordem },
+      create: { slug, nome, ordem },
+    });
+  }
+
   // Indicadores do ScoutCB (F7): a dimensão de cada linha precisa ser uma
   // das 14 dimensões canônicas e pertencer ao grupo da tabela de origem —
   // divergência aqui é erro de transcrição, e o seed para em vez de gravar.
@@ -272,6 +293,13 @@ async function main() {
     where: { tipoEntidade: "PUBLICACAO_OFERTA" },
     update: {},
     create: { tipoEntidade: "PUBLICACAO_OFERTA", exigida: false },
+  });
+  // Onda 4 (ficha §2): a porta de ativação de campanha nasce DESLIGADA e
+  // é ligável na T7, sem código.
+  await prisma.aprovacaoRegra.upsert({
+    where: { tipoEntidade: "ATIVACAO_CAMPANHA" },
+    update: {},
+    create: { tipoEntidade: "ATIVACAO_CAMPANHA", exigida: false },
   });
   // RN27 (Onda 3): a família sensível — comissão-padrão, pesos de
   // indicadores, tetos do dossiê e metas — nasce DESLIGADA. Ligá-la na T7
@@ -363,7 +391,6 @@ async function main() {
       },
     });
   }
-
   // Usuários de teste nunca entram em produção por padrão. Ambientes de
   // DEMONSTRAÇÃO hospedados (ex.: Vercel) habilitam explicitamente com
   // PERMITIR_USUARIOS_DEV="true" — flag nomeada, decisão consciente.
