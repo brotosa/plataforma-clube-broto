@@ -36,12 +36,16 @@ const NOME_SEGMENTO = `Segmento E2E ${runId()}`;
  * estabilização, aplicada ao que muda por transição.
  */
 async function axeComUiAssentada(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    Array.from(document.querySelectorAll("*")).every((elemento) =>
-      elemento
-        .getAnimations()
-        .every((animacao) => animacao.playState !== "running"),
-    ),
+  await page.waitForFunction(
+    () =>
+      // O <title> do App Router é aplicado depois do commit da navegação;
+      // varrer antes disso acusa "document-title" vazio (visto no CI lento).
+      document.title.trim().length > 0 &&
+      Array.from(document.querySelectorAll("*")).every((elemento) =>
+        elemento
+          .getAnimations()
+          .every((animacao) => animacao.playState !== "running"),
+      ),
   );
   await semViolacoesAxe(page);
 }
@@ -119,7 +123,7 @@ test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 �
       page.getByText("assinantes na base — nenhum filtro aplicado"),
     ).toBeVisible();
     await expect(page.getByText(/CPF \*\*\*\.___\.\*\*\*-\d{2}/).first()).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
 
     // Regra UF é MT → contagem esperada do gerador determinístico.
     await page.getByRole("button", { name: "+ Adicionar regra" }).click();
@@ -156,7 +160,7 @@ test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 �
     await expect(cartao.getByText("UF é MT")).toBeVisible();
     await expect(cartao.locator(".kpi-n")).toHaveText(String(ESPERADO_MT));
     await expect(cartao.getByText("assinantes hoje")).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
   });
 
   test("exportação exige finalidade, baixa o snapshot e o evento de auditoria fica conferível", async ({
@@ -210,14 +214,21 @@ test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 �
     await expect(page.getByText("CPF e contato mascarados.")).toBeVisible();
     await expect(page.getByText("aguardando telemetria por assinante")).toBeVisible();
     await expect(page.getByText("origem do dado em definição")).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
 
+    // A exibição plena é uma NAVEGAÇÃO (o servidor decide a máscara e audita
+    // o acesso, RN30): esperar a URL com ?plenos=1 antes de asserir — sem
+    // isso, no runner lento a asserção corre contra o DOM mascarado anterior.
     await page.getByRole("link", { name: "Exibir dados plenos" }).click();
+    // toHaveURL (e não waitForURL): a navegação do App Router é soft — não
+    // dispara "load", então esperar por lifecycle estoura o timeout. Aqui
+    // basta observar a URL assentar antes de asserir o conteúdo.
+    await expect(page).toHaveURL(/\?plenos=1$/);
     await expect(
       page.getByText("Exibição plena de dados pessoais — este acesso gerou evento de auditoria"),
     ).toBeVisible();
     await expect(page.getByText(/\d{3}\.\d{3}\.\d{3}-\d{2}/).first()).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
   });
 
   test("papel Leitura consulta contagens mas não vê alternância de dados plenos", async ({
@@ -244,7 +255,7 @@ test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 �
     await page.getByLabel("Campo da regra 1").selectOption("uf");
     await page.getByLabel("Valor da regra 1").selectOption("MT");
     await expect(page.locator(".viva-n")).toHaveText(String(ESPERADO_MT));
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
   });
 });
 
