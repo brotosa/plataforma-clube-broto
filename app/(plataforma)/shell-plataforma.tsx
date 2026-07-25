@@ -22,7 +22,7 @@ interface ItemNavegacao {
 /** Ordem e ícones idênticos ao navDefs do protótipo v2.1. */
 const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
   { rotulo: "Dashboard", href: null, icone: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" },
-  { rotulo: "Mercado & Scout", href: null, icone: "m21 21-4.3-4.3M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0" },
+  { rotulo: "Mercado & Scout", href: "/mercado", icone: "m21 21-4.3-4.3M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0" },
   {
     rotulo: "Aliados & Soluções",
     href: "/aliados",
@@ -185,7 +185,7 @@ export function ShellPlataforma({
               o azul); branco é o maior contraste possível neste fundo */}
           {!recolhida ? (
             <div style={{ paddingLeft: 20, color: "var(--branco)" }} className="cap">
-              Onda 1 · Aliados, Soluções e Ofertas
+              Ondas 1–2 · Aliados, Ofertas e Mercado
             </div>
           ) : null}
           <button

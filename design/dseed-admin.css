@@ -126,6 +126,16 @@ button{font-family:var(--font-family-body)}
   transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease)}
 .seg button:hover{color:var(--preto)}
 .seg button.on{background:var(--branco);color:var(--azul);box-shadow:var(--shadow)}
+/* ---- Extensão (F6): alternador de visão como link (Kanban ⇄ Tabela na T8) ----
+   Mesmo desenho do .seg button; âncoras porque a troca de visão é navegação
+   por querystring (sem JS), preservando histórico e foco do teclado. Estado
+   ativo com o token derivado --azul-texto-aaa (14px bold sobre --branco,
+   mesmo racional do fix AAA das abas). */
+.seg a{font:var(--font-body-label-bold);color:var(--paragrafo-aaa);border:0;background:transparent;
+  border-radius:var(--r-pill);padding:7px 16px;cursor:pointer;text-decoration:none;
+  transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease)}
+.seg a:hover{color:var(--preto)}
+.seg a.on{background:var(--branco);color:var(--azul-texto-aaa);box-shadow:var(--shadow)}
 
 /* interruptor (T7) */
 .sw{position:relative;width:44px;height:24px;border-radius:var(--r-pill);background:var(--cinza);
