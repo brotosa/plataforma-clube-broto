@@ -3,24 +3,38 @@
 Aplicação web administrativa do Clube Broto (Broto S.A.). **Onda 1**: módulo de
 Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch
 (Minutrade) e carga inicial. **Onda 2**: Mercado & Scout — funil de prospecção,
-avaliação com score, dossiê assistido, cobertura e metas.
+avaliação com score, dossiê assistido, cobertura e metas. **Onda 3**:
+Parametrizador — listas de domínio, valores de regra e metas editáveis sem
+código.
 
-- Fonte da verdade funcional: `docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md` (v0.6)
-  e `docs/especificacao/ficha-onda2-mercado-scout.md` (v0.1)
-- Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md` e
-  `docs/especificacao/prompt-claude-code-onda2.md`
+- Fontes da verdade funcionais: `docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md`
+  (v0.6), `ficha-onda2-mercado-scout.md` (v0.1) e `ficha-onda3-parametrizador.md` (v0.2)
+- Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md` e os prompts
+  das ondas 2 e 3
 - Especificação visual: `docs/referencias/Plataforma_Broto_-_Prototipo_v6.1.html`
 
-**Estado atual: Onda 2 concluída (F6 a F9)**, sobre a Onda 1 inteira
-(RN01–RN12, motor de aprovação, T1–T7, publicação e telemetria batch, carga
-inicial pelas planilhas de `dados/`). A Onda 2 entregou o radar e o funil
+**Estado atual: Onda 2 concluída (F6 a F9) e Onda 3 na F10.** Sobre a Onda 1
+inteira (RN01–RN12, motor de aprovação, T1–T7, publicação e telemetria batch,
+carga inicial pelas planilhas de `dados/`), a Onda 2 entregou o radar e o funil
 (T8/T9), a avaliação com score do ScoutCB (T10), o dossiê de due diligence
 assistido (T11), a ficha da empresa com Scouting, Dossiê e o formulário M1
 (T12), o mapa de cobertura (T13) e o painel de metas (T14) — e levou a
 avaliação e o dossiê para dentro da fila de aprovação (RN20), de modo que a
-promoção a Aliada ativa é decidida com o caso completo à vista. As demais ondas
-avançam em frentes próprias (o módulo de Assinantes, da Onda 5, já vive no
-repositório).
+promoção a Aliada ativa é decidida com o caso completo à vista.
+
+A **F10** fecha o círculo: as réguas, a comissão-padrão e as metas deixaram de
+ser constantes de código e passam por um **Serviço de Configuração** com
+leitura cacheada e invalidação na escrita, editadas nas telas T15–T17 pelo novo
+papel **Administrador da Plataforma** (RN23), sempre com auditoria e histórico
+por valor. Toda alteração é **prospectiva** (RN25): mudar um peso não re-pontua
+avaliação fechada — cada avaliação guarda a versão de configuração que a
+produziu. Itens de lista nunca são excluídos, só inativados, e a contagem de
+uso é exibida antes (RN24). A família sensível — comissão-padrão, pesos, tetos
+e metas — pode passar a exigir aprovação ligando a regra na T7, sem deploy
+(RN27). As metas que a T14 lê são as mesmas que a T17 escreve: uma tabela só.
+
+As demais ondas avançam em frentes próprias (o módulo de Assinantes, da Onda 5,
+já vive no repositório).
 
 ## Stack
 
@@ -87,6 +101,7 @@ segredo conhecido.
 | `comercial@dev.clubebroto.local` | Comercial (Onda 2) |
 | `aprovador@dev.clubebroto.local` | Aprovador |
 | `leitura@dev.clubebroto.local` | Leitura |
+| `administrador@dev.clubebroto.local` | Administrador da Plataforma |
 
 Senha de todos: `clube-broto-dev` (sobrescrevível com `SENHA_USUARIOS_DEV`).
 
@@ -100,8 +115,8 @@ Senha de todos: `clube-broto-dev` (sobrescrevível com `SENHA_USUARIOS_DEV`).
 | `pnpm e2e` | e2e Playwright + axe-core (exige build e banco com seed) |
 | `pnpm db:migrate` | aplica migrations (produção/CI) |
 | `pnpm db:migrate:dev` | cria/aplica migrations (desenvolvimento) |
-| `pnpm db:seed` | seed de taxonomias, regras RN06 e usuários dev |
-| `pnpm job:diario` | job diário: expira vigências (RN03) e marca a janela contratual |
+| `pnpm db:seed` | seed de taxonomias, indicadores, regras do motor, valores de regra, meta vigente e usuários dev |
+| `pnpm job:diario` | job diário: expira vigências (RN03), janela contratual e reavaliação (RN21) |
 
 \* os testes de integração (auditoria com banco) só executam quando
 `DATABASE_URL` está definida; sem banco, são pulados.
@@ -111,7 +126,7 @@ Cada migration tem `down.sql` verificado — ver `prisma/migrations/LEIA-ME.md`.
 ## Estrutura
 
 ```
-app/        rotas e telas (App Router); shell fiel ao protótipo v2.1
+app/        rotas e telas (App Router); shell fiel ao protótipo v6.1
 dominio/    regras de negócio puras e testáveis (RBAC, auditoria, identidade)
 infra/      Prisma, Auth.js, gravador de auditoria, logger
 prisma/     schema completo da Onda 1, migrations reversíveis, seed
@@ -172,6 +187,41 @@ resta. Durante a pesquisa, o custo é reapurado a cada rodada de busca e a
 execução é interrompida ao ultrapassar o teto unitário, com o gasto
 registrado. Os valores dos tetos passam a ser editáveis sem código no
 Parametrizador (Onda 3, T17).
+## Parametrizador — o que é configurável e o que não é
+
+O hub (`/parametrizador`) separa três classes de parâmetro, conforme a ficha da
+Onda 3 §3:
+
+- **Listas de domínio** (T16): categorias, culturas, abrangência, motivos de
+  suspensão e de descarte, tipos de benefício, indicadores de scout e perfil de
+  cliente. Editáveis, com integridade referencial. *Abrangência* não recebe
+  itens novos: a malha de UFs é fato público e fechado — inventar uma unidade
+  federativa não é configurar. *Perfil de cliente* nasce **vazia**: o seed de
+  porte × natureza (PF/PJ) ainda não foi definido pelo negócio.
+- **Valores de regra** (T17): réguas de 14/30 dias (funil), 90 (oferta sem
+  resgate), 15 (vigência a vencer) e 12 meses (reavaliação); comissão-padrão de
+  **5%** (confirmada em 24/07); metas por período; tetos do dossiê.
+- **Estruturais** (somente leitura no hub): naturezas da oferta, estágios do
+  pipeline, status, mecânicas de resgate, dimensões de medição e ambientes de
+  pagamento. A contagem de cada um vem dos metadados do schema, não de números
+  digitados na tela — acrescentar um estágio muda o hub sozinho.
+
+### Pendências declaradas (não resolvidas no código)
+
+| Parâmetro | Situação |
+|---|---|
+| Tetos do dossiê (mensal em R$ e custo máximo unitário) | **[A CONFIRMAR TI]** — nascem **sem valor**. A T17 exibe o campo vazio com etiqueta de pendência, e nenhum default plausível é gravado no lugar de uma decisão que o negócio não tomou. Enquanto não forem definidos, não há teto configurado para a geração de dossiês: o Administrador precisa defini-los antes de a geração automática (F8/F9) entrar em operação. |
+| Comissão do Cupom de desconto | **[A CONFIRMAR]** desde a Onda 1 — segue aberta atrás de `COMISSAO_CUPOM: "EM_CONFIRMACAO"`. Não confundir com a comissão-padrão do contrato-modelo, que foi confirmada em 5%. |
+| Taxas transacionais do meio de pagamento | **Em standby** por decisão de 24/07: exibidas como referência informativa, sem edição habilitada. |
+| Seed do perfil de cliente (porte × natureza PF/PJ) | A definir com o negócio; a lista nasce vazia com o estado explicado na tela. |
+
+### Regiões de cobertura
+
+A ficha cita "cobertura (UFs/regiões)". Estão implementadas as **UFs**, que são
+o que o schema referencia hoje (`solucao_ufs`) e o que as telas consomem.
+Regiões não foram criadas: nenhuma entidade as consome, e uma lista editável
+que não governa nada seria configuração morta. Quando a cobertura por região
+entrar em alguma onda, ela se pluga aqui como mais uma família.
 
 ## Cobertura, metas e ficha cadastral (Onda 2 — F9)
 
