@@ -29,14 +29,16 @@ describe.skipIf(!temBanco)("carga inicial — staging, conferência e efetivaç�
     await prisma.stagingOferta.deleteMany();
     await prisma.stagingAgrupamento.deleteMany();
     await prisma.stagingSeller.deleteMany();
-    // Filhas de importacoes/empresas criadas pela F6 (funil) e pela F7
-    // (avaliações de scout): sem elas o deleteMany das mães viola as FKs
-    // quando sobra resíduo de outra suíte.
+    // Filhas de importacoes/empresas criadas pela F6 (funil), pela F7
+    // (avaliações de scout) e pela F8 (dossiês): sem elas o deleteMany das
+    // mães viola as FKs quando sobra resíduo de outra suíte.
     await prisma.stagingEmpresa.deleteMany();
     await prisma.notaRapida.deleteMany();
     await prisma.registroNegociacao.deleteMany();
     await prisma.avaliacaoNota.deleteMany();
     await prisma.avaliacaoScout.deleteMany();
+    await prisma.dossieExecucao.deleteMany();
+    await prisma.dossie.deleteMany();
     await prisma.importacao.deleteMany();
     await prisma.oferta.deleteMany();
     await prisma.solucaoCultura.deleteMany();
