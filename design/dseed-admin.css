@@ -26,10 +26,25 @@
   --shadow:0 5px 10px 0 rgba(40,35,19,.10);
   --shadow-lg:0 16px 48px -12px rgba(40,35,19,.16);
   --dur-1:160ms; --dur-2:480ms; --ease:cubic-bezier(.22,.61,.21,1);
-  /* AAA (rodada 2, red team): tokens de TEXTO derivados dos matizes da marca — ≥7:1 sobre branco.
-     O azul/laranja puros seguem em botões, superfícies e ícones (labels 14px bold = texto grande, ≥4,5:1).
-     O laranja de alerta NUNCA é usado como cor de texto — só como fundo claro com texto no preto da marca. */
-  --azul-texto-aaa:#1735FF; --paragrafo-aaa:#5C5950; --erro-texto-aaa:#B00000;
+  /* AAA (rodada 2, red team): tokens de TEXTO derivados dos matizes da marca.
+     O azul/laranja puros seguem em botões, superfícies e ícones.
+     O laranja de alerta NUNCA é usado como cor de texto — só como fundo claro com texto no preto da marca.
+
+     fix AAA (F5): os valores da rodada 2 foram calibrados em ≥7:1 sobre BRANCO
+     PURO, mas o produto quase nunca pinta texto sobre #fff — o fundo real é
+     --off (#faf9f9), os fundos de pill (#f9f7ff, #fff7f7) e a lane do kanban
+     (#f0efee). Nesses fundos os mesmos tokens caíam para 6,10–7,00:1 e a
+     auditoria AAA (axe: color-contrast-enhanced) acusava 130+ nós. Escurecidos
+     mantendo o matiz, agora ≥7:1 no PIOR fundo de cada um (medições em
+     `docs/acessibilidade-aaa.md`):
+       --paragrafo-aaa   #5C5950 → #524F47  (6,10 → 7,12 sobre #f0efee)
+       --azul-texto-aaa  #1735FF → #1632F2  (6,61 → 7,13 sobre #f9f7ff)
+       --erro-texto-aaa  #B00000 → #AE0000  (6,99 → 7,11 sobre #fff7f7) */
+  --azul-texto-aaa:#1632F2; --paragrafo-aaa:#524F47; --erro-texto-aaa:#AE0000;
+  /* fix AAA (F5): azul de texto sobre a superfície --azul-claro (#dbe0ff), onde
+     nem o token acima chega a 7:1 (5,39 antes, 5,81 depois de escurecido).
+     Usado só nesses casos (iniciais do avatar do header) — 7,09:1. */
+  --azul-texto-aaa-forte:#132BCF;
 }
 *{box-sizing:border-box}
 body{margin:0;font:var(--font-body-base-regular);color:var(--preto);background:var(--off);
@@ -277,9 +292,12 @@ button{font-family:var(--font-family-body)}
 .logo-ini{width:32px;height:32px;border-radius:50%;background:var(--off);border:1px solid var(--borda);
   color:var(--paragrafo-aaa);font:var(--font-body-caption-bold);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
 /* fix AAA (F1): iniciais em --azul puro sobre --azul-claro ficavam em 3,7:1;
-   o token de texto derivado --azul-texto-aaa eleva a 5,3:1 sem sair da marca
-   — reaplicado sobre a entrega v6.1 do Design. */
-.dot-avatar{width:34px;height:34px;border-radius:50%;background:var(--azul-claro);color:var(--azul-texto-aaa);
+   o token de texto derivado --azul-texto-aaa elevava a 5,3:1 sem sair da marca
+   — reaplicado sobre a entrega v6.1 do Design.
+   fix AAA (F5): 5,39:1 ainda reprova no critério AAA (1.4.6) — e escurecer o
+   token de texto comum só levaria a 5,81:1. Sobre a superfície --azul-claro
+   apenas o token forte alcança o limiar: 7,09:1. */
+.dot-avatar{width:34px;height:34px;border-radius:50%;background:var(--azul-claro);color:var(--azul-texto-aaa-forte);
   font:var(--font-body-caption-bold);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 
 .menu-btn{display:none}
