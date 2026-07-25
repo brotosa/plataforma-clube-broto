@@ -100,6 +100,28 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     permitidos: ["GESTOR"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
+  // Onda 5 — ficha §2. Administrador da Plataforma entra nas duas
+  // primeiras quando a trilha da Onda 3 criar o papel (RN23).
+  {
+    acao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
+    permitidos: ["GESTOR"],
+    negados: ["ANALISTA", "APROVADOR", "LEITURA"],
+  },
+  {
+    acao: "EXPORTAR_LISTAS_CONTATO",
+    permitidos: ["GESTOR"],
+    negados: ["ANALISTA", "APROVADOR", "LEITURA"],
+  },
+  {
+    acao: "IMPORTAR_ASSINANTES",
+    permitidos: ["GESTOR", "ANALISTA"],
+    negados: ["APROVADOR", "LEITURA"],
+  },
+  {
+    acao: "GERIR_SEGMENTOS",
+    permitidos: ["GESTOR", "ANALISTA"],
+    negados: ["APROVADOR", "LEITURA"],
+  },
 ];
 
 describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 e 2)", () => {

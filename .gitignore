@@ -22,3 +22,6 @@ test-results/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# exportações locais (snapshots RN34 em desenvolvimento)
+var/

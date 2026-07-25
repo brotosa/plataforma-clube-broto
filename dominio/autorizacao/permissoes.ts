@@ -1,9 +1,10 @@
 import type { Papel } from "@prisma/client";
 
 /**
- * Ações de negócio das Ondas 1 e 2, conforme as tabelas de permissões das
- * fichas §2. Os papéis da Onda 1 permanecem com suas permissões; a Onda 2
- * acrescenta ANALISTA_SCOUT e COMERCIAL com a matriz própria do funil.
+ * Ações de negócio das Ondas 1, 2 e 5, conforme as tabelas de permissões
+ * das fichas §2. Os papéis da Onda 1 permanecem com suas permissões; a
+ * Onda 2 acrescenta ANALISTA_SCOUT e COMERCIAL com a matriz própria do
+ * funil; a Onda 5 acrescenta as ações de dados de PF dos Assinantes.
  * A segregação solicitante ≠ aprovador (RN06) não é uma permissão estática:
  * é garantida no serviço do motor de aprovação.
  */
@@ -24,9 +25,22 @@ export type Acao =
   | "GERAR_REVISAR_DOSSIE"
   | "VER_DOSSIE"
   | "ASSUMIR_NEGOCIACAO"
-  | "DEFINIR_METAS_E_DESIGNAR";
+  | "DEFINIR_METAS_E_DESIGNAR"
+  // Onda 5 — Assinantes (ficha §2). Contagens e agregados são VISUALIZAR.
+  | "VISUALIZAR_DADOS_PESSOAIS_PLENOS"
+  | "EXPORTAR_LISTAS_CONTATO"
+  | "IMPORTAR_ASSINANTES"
+  | "GERIR_SEGMENTOS";
 
-/** Tabelas das fichas §2 — papéis × ações (fonte da verdade). */
+/**
+ * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
+ *
+ * Onda 5, v1: "visualizar dados pessoais plenos" e "exportar listas de
+ * contato" pertencem a Gestor e Administrador. O papel Administrador da
+ * Plataforma nasce na trilha da Onda 3 (RN23 — migração daquela onda);
+ * quando aquela trilha chegar à main, incluí-lo nas duas linhas abaixo é
+ * a única mudança necessária aqui.
+ */
 const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Onda 1. VISUALIZAR ganha os papéis novos: o fluxo do funil abre a
   // ficha da empresa (T2/T12) e a ficha Onda 2 dá leitura geral a todos.
@@ -49,6 +63,15 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   VER_DOSSIE: ["GESTOR", "ANALISTA_SCOUT", "COMERCIAL"],
   ASSUMIR_NEGOCIACAO: ["GESTOR", "COMERCIAL"],
   DEFINIR_METAS_E_DESIGNAR: ["GESTOR"],
+  // Onda 5 — os papéis do funil (Onda 2) não operam dados de PF.
+  VISUALIZAR_DADOS_PESSOAIS_PLENOS: ["GESTOR"],
+  EXPORTAR_LISTAS_CONTATO: ["GESTOR"],
+  // Cargas de assinantes seguem o padrão operacional das demais
+  // importações da plataforma (Gestor e Analista).
+  IMPORTAR_ASSINANTES: ["GESTOR", "ANALISTA"],
+  // Salvar/editar segmentos segue CRIAR_EDITAR; contagem é aberta a
+  // todos os papéis (RN33) e por isso fica sob VISUALIZAR.
+  GERIR_SEGMENTOS: ["GESTOR", "ANALISTA"],
 };
 
 /** Verifica se o papel pode executar a ação. */
