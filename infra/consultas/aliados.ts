@@ -46,6 +46,19 @@ export interface FiltrosAliados {
 
 export const TAMANHO_PAGINA = 8;
 
+/**
+ * T1 é a rede de aliados: sem filtro explícito, a lista cobre da
+ * negociação em diante. Os estágios anteriores do funil (Mapeada, Em
+ * avaliação, Priorizada, Descartada) vivem na T8 — Mercado & Scout.
+ */
+export const ESTAGIOS_DA_REDE: ReadonlyArray<EstagioEmpresa> = [
+  "EM_NEGOCIACAO",
+  "EM_APROVACAO",
+  "ALIADA_ATIVA",
+  "SUSPENSA",
+  "ENCERRADA",
+];
+
 export async function listarAliados(filtros: FiltrosAliados) {
   const onde: Prisma.EmpresaWhereInput = {};
   if (filtros.busca?.trim()) {
@@ -57,9 +70,7 @@ export async function listarAliados(filtros: FiltrosAliados) {
   if (filtros.categoriaId) {
     onde.categorias = { some: { categoriaId: filtros.categoriaId } };
   }
-  if (filtros.estagio) {
-    onde.estagio = filtros.estagio;
-  }
+  onde.estagio = filtros.estagio ?? { in: [...ESTAGIOS_DA_REDE] };
   if (filtros.semOfertaAtiva) {
     onde.solucoes = { none: { ofertas: { some: { status: "PUBLICADA" } } } };
   }

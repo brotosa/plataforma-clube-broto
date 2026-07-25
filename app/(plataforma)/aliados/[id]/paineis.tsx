@@ -37,6 +37,17 @@ export function AcoesDeEstagio({
         Estágio e ciclo de vida
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {estagio === "EM_APROVACAO" ? (
+          // Onda 2 (pipeline da ficha §3.1): pedido pendente = Em aprovação.
+          <p className="cap" style={{ margin: 0 }}>
+            <span className="pill pill-info">
+              <i aria-hidden="true" />
+              Promoção aguardando aprovação
+            </span>{" "}
+            A decisão acontece na fila de Aprovações (RN06); a devolução traz a
+            empresa de volta a Em negociação.
+          </p>
+        ) : null}
         {estagio === "EM_NEGOCIACAO" ? (
           <div>
             {temSolicitacaoPendente ? (

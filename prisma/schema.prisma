@@ -1,7 +1,10 @@
 // =====================================================================
-// Schema da Plataforma de Administração do Clube Broto — Onda 1
-// Fonte da verdade funcional: docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md (v0.6)
+// Schema da Plataforma de Administração do Clube Broto — Ondas 1 e 2
+// Fontes da verdade funcionais:
+//   Onda 1: docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md (v0.6)
+//   Onda 2: docs/especificacao/ficha-onda2-mercado-scout.md (v0.1)
 // Decisões estruturais: docs/especificacao/prompt-claude-code-onda1.md
+//   e docs/especificacao/prompt-claude-code-onda2.md
 //
 // Convenções:
 // - Modelos e campos em português; tabelas/colunas em snake_case via @map.
@@ -27,6 +30,10 @@ datasource db {
 enum Papel {
   GESTOR
   ANALISTA
+  /// Onda 2 (ficha §2): scout — radar, avaliação, priorização, dossiê.
+  ANALISTA_SCOUT
+  /// Onda 2 (ficha §2): negociação, registro de andamento e pedido de promoção.
+  COMERCIAL
   APROVADOR
   LEITURA
 }
@@ -47,6 +54,10 @@ model Usuario {
   regrasDesignadas      AprovacaoRegraAprovador[]
   publicacoes           Publicacao[]
   importacoes           Importacao[]
+  empresasComoScout     Empresa[] @relation("responsavelScout")
+  empresasComoComercial Empresa[] @relation("responsavelComercial")
+  notasRapidas          NotaRapida[]
+  registrosNegociacao   RegistroNegociacao[]
 
   @@map("usuarios")
 }
@@ -129,18 +140,47 @@ model MotivoSuspensao {
   @@map("motivos_suspensao")
 }
 
+/// Motivos tipificados de descarte no funil (RN17, ficha Onda 2 §4).
+/// Lista editável no Parametrizador (Onda 3); "OUTRO" exige descrição.
+model MotivoDescarte {
+  id    String  @id @default(cuid())
+  slug  String  @unique
+  nome  String  @unique
+  ordem Int
+  ativa Boolean @default(true)
+
+  empresas Empresa[]
+
+  @@map("motivos_descarte")
+}
+
 // ---------------------------------------------------------------------
 // Empresa (Aliado quando estágio = ALIADA_ATIVA) — ficha §3.1
 // ---------------------------------------------------------------------
 
-/// Estágios documentados do pipeline (ficha v0.6 + ficha cadastral v1).
-/// Os estágios de prospecção pré-negociação serão acrescentados por
-/// migração quando a Onda 2 (Mercado & Scout) os especificar.
+/// Estágios do pipeline completo (ficha v0.6 + ficha Onda 2 §3.1 e
+/// protótipo v6.1): funil pré-aliança MAPEADA → EM_AVALIACAO → PRIORIZADA →
+/// EM_NEGOCIACAO → EM_APROVACAO → ALIADA_ATIVA; DESCARTADA sai do funil com
+/// motivo tipificado (RN17) e pode ser reativada para MAPEADA.
 enum EstagioEmpresa {
+  MAPEADA
+  EM_AVALIACAO
+  PRIORIZADA
   EM_NEGOCIACAO
+  EM_APROVACAO
   ALIADA_ATIVA
   SUSPENSA
   ENCERRADA
+  DESCARTADA
+}
+
+/// Origem da entrada no radar (RN13). Valores da ficha da Onda 2 §3.1 —
+/// os exemplos do protótipo são ilustrativos; a ficha vence.
+enum OrigemEmpresa {
+  SCOUTING_ATIVO
+  INDICACAO
+  PROCURA_ESPONTANEA
+  LISTA_IMPORTADA
 }
 
 model Empresa {
@@ -166,7 +206,24 @@ model Empresa {
   /// Suspensão exige motivo tipificado (RN12); "outros" exige descrição.
   motivoSuspensaoId        String? @map("motivo_suspensao_id")
   motivoSuspensaoDescricao String? @map("motivo_suspensao_descricao")
-  /// Somente leitura na Onda 1; calculado na Onda 2.
+  // --- Funil de mercado (Onda 2, ficha §3.1) ---
+  /// Obrigatória na entrada pelo radar (RN13, validada em serviço); vazia
+  /// nas empresas anteriores à Onda 2 (carga inicial e cadastro T2).
+  origem OrigemEmpresa?
+  /// Um dos 2 analistas de scout — atribuído ao assumir a avaliação (RN14).
+  responsavelScoutId String? @map("responsavel_scout_id")
+  /// Um dos 8 comerciais — designado no handoff para negociação (RN16).
+  responsavelComercialId String? @map("responsavel_comercial_id")
+  dataEntradaRadar DateTime? @map("data_entrada_radar") @db.Date
+  /// Início do estágio atual ("há N dias" na T8). Nulo para empresas
+  /// anteriores ao rastreamento da F6 — exibido como "—", nunca estimado.
+  estagioDesde DateTime? @map("estagio_desde")
+  /// Descarte exige motivo tipificado (RN17); "OUTRO" exige descrição.
+  /// Limpos na reativação (histórico preservado na auditoria).
+  motivoDescarteId         String? @map("motivo_descarte_id")
+  motivoDescarteDescricao  String? @map("motivo_descarte_descricao")
+  motivoDescarteComentario String? @map("motivo_descarte_comentario")
+  /// Somente leitura na Onda 1; calculado na Onda 2 (F7 — avaliação).
   scoreScouting Int?    @map("score_scouting")
   /// Preenchido na primeira publicação; na carga inicial vem da planilha ("Id do Seller").
   idExternoMinutrade String? @unique @map("id_externo_minutrade")
@@ -174,12 +231,59 @@ model Empresa {
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   motivoSuspensao MotivoSuspensao? @relation(fields: [motivoSuspensaoId], references: [id])
+  motivoDescarte  MotivoDescarte?  @relation(fields: [motivoDescarteId], references: [id])
+  responsavelScout     Usuario? @relation("responsavelScout", fields: [responsavelScoutId], references: [id])
+  responsavelComercial Usuario? @relation("responsavelComercial", fields: [responsavelComercialId], references: [id])
   categorias      EmpresaCategoria[]
   contatos        ContatoEmpresa[]
   contratos       ContratoComercial[]
   solucoes        Solucao[]
+  notasRapidas        NotaRapida[]
+  registrosNegociacao RegistroNegociacao[]
 
+  @@index([estagio])
   @@map("empresas")
+}
+
+/// Notas rápidas da empresa no funil (ficha Onda 2 §3.1): texto livre
+/// curto, em histórico — corrigir é acrescentar nova nota.
+model NotaRapida {
+  id        String   @id @default(cuid())
+  empresaId String   @map("empresa_id")
+  autorId   String   @map("autor_id")
+  texto     String
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  autor   Usuario @relation(fields: [autorId], references: [id])
+
+  @@index([empresaId])
+  @@map("notas_rapidas")
+}
+
+enum TipoRegistroNegociacao {
+  REUNIAO
+  PROPOSTA_ENVIADA
+  FOLLOW_UP
+  OUTRO
+}
+
+/// Registro simples de andamento da negociação (ficha Onda 2 §3.5) —
+/// deliberadamente NÃO é um CRM (limite de escopo, ficha §9).
+model RegistroNegociacao {
+  id            String                 @id @default(cuid())
+  empresaId     String                 @map("empresa_id")
+  responsavelId String                 @map("responsavel_id")
+  data          DateTime               @db.Date
+  tipo          TipoRegistroNegociacao
+  nota          String
+  criadoEm      DateTime               @default(now()) @map("criado_em")
+
+  empresa     Empresa @relation(fields: [empresaId], references: [id])
+  responsavel Usuario @relation(fields: [responsavelId], references: [id])
+
+  @@index([empresaId])
+  @@map("registros_negociacao")
 }
 
 model EmpresaCategoria {
@@ -476,6 +580,8 @@ enum TipoImportacao {
   TELEMETRIA
   CARGA_SELLERS
   CARGA_OFERTAS
+  /// Onda 2 (T9): importação de listas de prospects para o radar.
+  CARGA_PROSPECTS
 }
 
 model Importacao {
@@ -486,6 +592,10 @@ model Importacao {
   linhasErro  Int            @default(0) @map("linhas_erro")
   /// Linhas rejeitadas com motivo (relatório pós-carga).
   relatorioQuarentena Json?   @map("relatorio_quarentena")
+  /// T9 (Onda 2): mapeamento de colunas escolhido no passo 2 — o layout
+  /// real das listas de prospects é [A CONFIRMAR] e vive como
+  /// configuração por importação, nunca como código rígido.
+  configuracaoMapeamento Json? @map("configuracao_mapeamento")
   autorId             String  @map("autor_id")
   criadoEm            DateTime @default(now()) @map("criado_em")
 
@@ -495,6 +605,7 @@ model Importacao {
   stagingSellers     StagingSeller[]
   stagingOfertas     StagingOferta[]
   stagingAgrupamentos StagingAgrupamento[]
+  stagingEmpresas     StagingEmpresa[]
 
   @@map("importacoes")
 }
@@ -561,6 +672,34 @@ model StagingOferta {
 
   @@index([importacaoId])
   @@map("staging_ofertas")
+}
+
+/// Staging da importação de prospects (T9, Onda 2): linha crua + campos
+/// extraídos pelo mapeamento de colunas configurado na importação. A
+/// deduplicação por CNPJ/nome (contra o radar e as aliadas) marca a linha
+/// antes do resumo; a efetivação cria Empresas MAPEADA.
+model StagingEmpresa {
+  id           String @id @default(cuid())
+  importacaoId String @map("importacao_id")
+  linhaOrigem  Int    @map("linha_origem")
+  dadosOriginais Json @map("dados_originais")
+  // Campos extraídos conforme a configuração de mapeamento
+  nomeFantasia    String? @map("nome_fantasia")
+  site            String?
+  cnpj            String?
+  categoriasTexto String? @map("categorias_texto")
+  /// Preenchido quando a deduplicação encontra a empresa já cadastrada.
+  duplicataDeEmpresaId String? @map("duplicata_de_empresa_id")
+  estado       EstadoStaging @default(PENDENTE)
+  mensagemErro String?       @map("mensagem_erro")
+  empresaIdEfetivada String? @map("empresa_id_efetivada")
+  criadoEm     DateTime      @default(now()) @map("criado_em")
+  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+
+  importacao Importacao @relation(fields: [importacaoId], references: [id])
+
+  @@index([importacaoId])
+  @@map("staging_empresas")
 }
 
 /// Agrupamentos produto→solução propostos pela heurística

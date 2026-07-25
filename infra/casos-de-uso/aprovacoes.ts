@@ -4,7 +4,7 @@ import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
 import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import { validarDecisao } from "@/dominio/aprovacao/motor";
-import { promoverDentroDaTransacao } from "./empresas";
+import { estadoAuditavel, promoverDentroDaTransacao } from "./empresas";
 import { publicarDentroDaTransacao } from "./ofertas";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
@@ -62,6 +62,25 @@ export async function decidirSolicitacao(
 
     if (decisao === "APROVADA") {
       await aplicarEfeito(tx, ator.id, solicitacao.tipoEntidade, solicitacao.entidadeId);
+    } else if (solicitacao.tipoEntidade === "PROMOCAO_ALIADA_ATIVA") {
+      // Onda 2 (pipeline da ficha §3.1): a devolução tira a empresa de
+      // Em aprovação e a devolve a Em negociação, com auditoria.
+      const empresa = await tx.empresa.findUniqueOrThrow({
+        where: { id: solicitacao.entidadeId },
+      });
+      if (empresa.estagio === "EM_APROVACAO") {
+        const devolvida = await tx.empresa.update({
+          where: { id: empresa.id },
+          data: { estagio: "EM_NEGOCIACAO", estagioDesde: new Date() },
+        });
+        await registrarMutacao(criarGravadorPrisma(tx), {
+          entidade: "empresa",
+          entidadeId: empresa.id,
+          autorId: ator.id,
+          anterior: estadoAuditavel(empresa),
+          novo: estadoAuditavel(devolvida),
+        });
+      }
     }
     return decidida;
   });

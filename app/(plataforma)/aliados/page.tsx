@@ -4,6 +4,7 @@ import type { EstagioEmpresa } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import {
   contadoresAliados,
+  ESTAGIOS_DA_REDE,
   listarAliados,
 } from "@/infra/consultas/aliados";
 import { BarraCompletude, PillEstagio, iniciaisDoNome } from "./componentes";
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 
 const ESTAGIOS_VALIDOS: ReadonlyArray<EstagioEmpresa> = [
   "EM_NEGOCIACAO",
+  "EM_APROVACAO",
   "ALIADA_ATIVA",
   "SUSPENSA",
   "ENCERRADA",
@@ -41,7 +43,8 @@ export default async function PaginaAliados({
     contadoresAliados(),
     listarAliados({ busca, categoriaId: categoriaId || undefined, estagio, semOfertaAtiva, pagina }),
     prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
-    prisma.empresa.count(),
+    // Rede (T1): estágios do funil pré-negociação ficam na T8.
+    prisma.empresa.count({ where: { estagio: { in: [...ESTAGIOS_DA_REDE] } } }),
   ]);
 
   const inicio = resultado.total === 0 ? 0 : (resultado.pagina - 1) * resultado.tamanhoPagina + 1;
@@ -183,6 +186,7 @@ export default async function PaginaAliados({
         >
           <option value="">Estágio</option>
           <option value="EM_NEGOCIACAO">Em negociação</option>
+          <option value="EM_APROVACAO">Em aprovação</option>
           <option value="ALIADA_ATIVA">Aliado ativo</option>
           <option value="SUSPENSA">Suspenso</option>
           <option value="ENCERRADA">Encerrado</option>

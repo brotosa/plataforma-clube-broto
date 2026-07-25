@@ -47,16 +47,17 @@ test("login como Gestor aplica papel e monta o shell do protótipo", async ({ pa
   await expect(page.getByText("Gestor (desenvolvimento)")).toBeVisible();
   await expect(page.getByText("Gestor do Clube")).toBeVisible();
 
-  // Navegação: módulos da Onda 1 ativos…
+  // Navegação: módulos das Ondas 1 e 2 ativos…
   const nav = page.getByRole("navigation", { name: "Módulos" });
   await expect(nav.getByRole("link", { name: "Aliados & Soluções" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Ofertas" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Aprovações" })).toBeVisible();
+  // F6: Mercado & Scout ganhou o funil (T8) e deixou de ser onda futura
+  await expect(nav.getByRole("link", { name: "Mercado & Scout" })).toBeVisible();
 
   // …e módulos de ondas futuras presentes porém desabilitados
   for (const modulo of [
     "Dashboard",
-    "Mercado & Scout",
     "Campanhas & Cestas",
     "Assinantes",
     "Parametrizador",

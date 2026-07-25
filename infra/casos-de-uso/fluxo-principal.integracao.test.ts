@@ -143,8 +143,10 @@ describe.skipIf(!temBanco)("fluxo principal — casos de uso integrados", () => 
   it("solicitar promoção cria solicitação pendente (regra nasce LIGADA — RN06)", async () => {
     const resultado = await solicitarPromocao(analista, empresaId);
     expect(resultado.resultado).toBe("SOLICITADA");
+    // Onda 2 (pipeline da ficha §3.1): com o pedido pendente a empresa
+    // fica Em aprovação — lane própria da T8.
     const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: empresaId } });
-    expect(empresa.estagio).toBe("EM_NEGOCIACAO");
+    expect(empresa.estagio).toBe("EM_APROVACAO");
   });
 
   it("solicitante não aprova o próprio item (RN06)", async () => {
@@ -265,7 +267,8 @@ describe.skipIf(!temBanco)("fluxo principal — casos de uso integrados", () => 
     });
     expect(eventos.map((evento) => `${evento.valorAnterior}→${evento.valorNovo}`)).toEqual([
       "null→EM_NEGOCIACAO", // criação audita o estado inicial
-      "EM_NEGOCIACAO→ALIADA_ATIVA",
+      "EM_NEGOCIACAO→EM_APROVACAO", // pedido de promoção pendente (Onda 2)
+      "EM_APROVACAO→ALIADA_ATIVA",
       "ALIADA_ATIVA→SUSPENSA",
     ]);
   });
