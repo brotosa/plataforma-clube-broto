@@ -58,6 +58,9 @@ jobs:
       DATABASE_URL: postgresql://broto:broto@localhost:5432/clube_broto?schema=public
       AUTH_SECRET: apenas-para-ci-nao-usar-em-producao
       AUTH_TRUST_HOST: "true"
+      # Proteção de CPF (Onda 5) — valores exclusivos de CI
+      CPF_HASH_KEY: apenas-para-ci-hmac-cpf
+      APP_ENCRYPTION_KEY: apenas-para-ci-cifra-cpf
     steps:
       - uses: actions/checkout@v4
 
