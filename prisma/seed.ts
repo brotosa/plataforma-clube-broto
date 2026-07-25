@@ -90,14 +90,26 @@ const MOTIVOS_SUSPENSAO: ReadonlyArray<[string, string]> = [
   ["OUTROS", "Outros (descrever)"],
 ];
 
+/** Motivos tipificados de descarte no funil (RN17, ficha Onda 2 §4). */
+const MOTIVOS_DESCARTE: ReadonlyArray<[string, string]> = [
+  ["SEM_FIT_DE_NEGOCIO", "Sem fit de negócio"],
+  ["IMATURIDADE", "Imaturidade"],
+  ["SOBREPOSICAO_COM_ALIADO_ATUAL", "Sobreposição com aliado atual"],
+  ["RECUSOU_CONDICOES", "Recusou condições"],
+  ["SEM_RESPOSTA", "Sem resposta"],
+  ["OUTRO", "Outro (descrever)"],
+];
+
 /** Usuários de desenvolvimento — um por papel; nunca em produção. */
 const USUARIOS_DEV: ReadonlyArray<{
   nome: string;
   email: string;
-  papel: "GESTOR" | "ANALISTA" | "APROVADOR" | "LEITURA";
+  papel: "GESTOR" | "ANALISTA" | "ANALISTA_SCOUT" | "COMERCIAL" | "APROVADOR" | "LEITURA";
 }> = [
   { nome: "Gestor (desenvolvimento)", email: "gestor@dev.clubebroto.local", papel: "GESTOR" },
   { nome: "Analista (desenvolvimento)", email: "analista@dev.clubebroto.local", papel: "ANALISTA" },
+  { nome: "Scout (desenvolvimento)", email: "scout@dev.clubebroto.local", papel: "ANALISTA_SCOUT" },
+  { nome: "Comercial (desenvolvimento)", email: "comercial@dev.clubebroto.local", papel: "COMERCIAL" },
   { nome: "Aprovador (desenvolvimento)", email: "aprovador@dev.clubebroto.local", papel: "APROVADOR" },
   { nome: "Leitura (desenvolvimento)", email: "leitura@dev.clubebroto.local", papel: "LEITURA" },
 ];
@@ -154,6 +166,14 @@ async function main() {
 
   for (const [ordem, [slug, nome]] of MOTIVOS_SUSPENSAO.entries()) {
     await prisma.motivoSuspensao.upsert({
+      where: { slug },
+      update: { nome, ordem },
+      create: { slug, nome, ordem },
+    });
+  }
+
+  for (const [ordem, [slug, nome]] of MOTIVOS_DESCARTE.entries()) {
+    await prisma.motivoDescarte.upsert({
       where: { slug },
       update: { nome, ordem },
       create: { slug, nome, ordem },
