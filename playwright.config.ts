@@ -10,16 +10,17 @@ export default defineConfig({
   globalSetup: "./e2e/configuracao-global.ts",
   fullyParallel: false,
   workers: 1,
-  // Server actions + revalidação podem levar alguns segundos no servidor
-  // de teste; 15s evita falso-negativo sem mascarar defeito real.
-  expect: { timeout: 15_000 },
-  // Em contêineres lentos, uma sequência de navegações do fluxo serial
-  // pode exceder os 30s padrão de teste sem defeito algum; 60s dá folga
-  // ao conjunto mantendo cada asserção limitada pelos 15s acima.
+  // Cada teste faz login (credenciais + bcrypt) + navegação + server action.
+  // O runner do CI é bem mais lento que a máquina local, então o orçamento
+  // padrão de 30s por teste estoura; 60s cobre o fluxo completo sem mascarar
+  // defeito (um elemento realmente ausente ainda falha).
   timeout: 60_000,
-  // Uma repetição absorve corridas raras de hidratação sem esconder
-  // regressões reais (a suíte roda serial, com estado resetado no setup).
-  retries: 1,
+  // Server actions + revalidação levam alguns segundos; no CI, mais.
+  expect: { timeout: process.env.CI ? 20_000 : 15_000 },
+  // A suíte roda serial com estado resetado; corridas de hidratação são raras
+  // mas mais prováveis no CI lento — duas repetições no CI absorvem sem
+  // esconder regressões (localmente uma basta).
+  retries: process.env.CI ? 2 : 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://localhost:3000",

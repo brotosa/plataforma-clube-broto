@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
+import { podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { kpiVitrineViva, resumoTelemetriaPorOferta } from "@/infra/consultas/telemetria";
 
 export const metadata: Metadata = {
   title: "Ofertas",
@@ -26,37 +29,60 @@ function formatarData(data: Date | null): string {
 }
 
 /**
- * T4 — Lista transversal de ofertas. Na F2 a lista traz título, aliado,
- * natureza, mecânica, benefício, vigência e status; telemetria, filtros
- * avançados, destaques (sem resgate 90d+ / vigências a vencer) e o KPI
- * "vitrine viva" chegam com a F4.
+ * T4 — Lista transversal de ofertas com telemetria por oferta (F4): vouchers
+ * emitidos/resgatados, compras confirmadas, KPI "vitrine viva" (resgate em
+ * 90 d) e a distinção fora-da-Plataforma (resgate aguardando conciliação) ×
+ * compra confirmada. Ações de publicação e importação no topo (por papel).
  */
 export default async function PaginaOfertas() {
-  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas] = await Promise.all([
-    prisma.oferta.count(),
-    prisma.oferta.count({ where: { status: "PUBLICADA" } }),
-    prisma.oferta.count({ where: { pendenteRepublicacao: true } }),
-    prisma.oferta.findMany({
-      orderBy: { atualizadoEm: "desc" },
-      take: 50,
-      include: {
-        tipoBeneficio: true,
-        mecanica: true,
-        solucao: { include: { empresa: { select: { id: true, nomeFantasia: true } } } },
-      },
-    }),
-  ]);
+  const sessao = await auth();
+  const papel = sessao?.user?.papel ?? "LEITURA";
+  const podeGerarExport = podeExecutar(papel, "GERAR_EXPORTACAO");
+  const podeImportar = podeExecutar(papel, "IMPORTAR_TELEMETRIA");
+
+  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas, vitrine] =
+    await Promise.all([
+      prisma.oferta.count(),
+      prisma.oferta.count({ where: { status: "PUBLICADA" } }),
+      prisma.oferta.count({ where: { pendenteRepublicacao: true } }),
+      prisma.oferta.findMany({
+        orderBy: { atualizadoEm: "desc" },
+        take: 50,
+        include: {
+          tipoBeneficio: true,
+          mecanica: true,
+          solucao: { include: { empresa: { select: { id: true, nomeFantasia: true } } } },
+        },
+      }),
+      kpiVitrineViva(),
+    ]);
+
+  const telemetria = await resumoTelemetriaPorOferta(ofertas.map((oferta) => oferta.id));
+  const percentualVivo =
+    vitrine.totalPublicadas > 0
+      ? Math.round((vitrine.publicadasComResgate / vitrine.totalPublicadas) * 100)
+      : null;
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
         <div>
           <h1 className="h-page">Ofertas</h1>
           <div className="cap" style={{ marginTop: 4 }}>
-            Visão transversal de todas as ofertas da vitrine, com vigências e status
+            Visão transversal da vitrine, com telemetria por oferta, vigências e status
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        {podeGerarExport ? (
+          <Link href="/ofertas/publicacao" className="btn btn-azul" style={{ textDecoration: "none" }}>
+            Publicar catálogo
+          </Link>
+        ) : null}
+        {podeImportar ? (
+          <Link href="/ofertas/telemetria" className="btn btn-ghost" style={{ textDecoration: "none" }}>
+            Importar telemetria
+          </Link>
+        ) : null}
       </div>
 
       <div className="contadores" style={{ marginBottom: 18 }}>
@@ -91,11 +117,11 @@ export default async function PaginaOfertas() {
           <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
             Vitrine viva (resgate em 90 d)
           </div>
-          <div className="kpi-n" style={{ marginTop: 6, color: "var(--paragrafo-aaa)" }}>
-            —
+          <div className="kpi-n num" style={{ marginTop: 6 }}>
+            {percentualVivo === null ? "—" : `${percentualVivo}%`}
           </div>
-          <div style={{ marginTop: 4 }}>
-            <span className="selo">pendente de telemetria (F4)</span>
+          <div className="cap" style={{ marginTop: 2 }}>
+            {vitrine.publicadasComResgate} de {vitrine.totalPublicadas} publicadas
           </div>
         </div>
       </div>
@@ -111,7 +137,7 @@ export default async function PaginaOfertas() {
             <h2 className="h-el">Nenhuma oferta cadastrada</h2>
             <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
               Ofertas nascem dentro de uma solução, na ficha do aliado. A carga inicial
-              (F3) também povoa esta lista.
+              também povoa esta lista.
             </p>
             <Link href="/aliados" className="btn btn-ghost" style={{ marginTop: 8, textDecoration: "none" }}>
               Ir para Aliados
@@ -123,59 +149,93 @@ export default async function PaginaOfertas() {
           <table className="tbl tbl-resp">
             <thead>
               <tr>
-                <th style={{ width: "28%" }}>Título</th>
+                <th style={{ width: "24%" }}>Título</th>
                 <th>Aliado</th>
                 <th>Natureza</th>
-                <th>Mecânica</th>
-                <th>Benefício</th>
-                <th>Vigência</th>
                 <th>Status</th>
+                <th style={{ textAlign: "right" }}>Emitidos</th>
+                <th style={{ textAlign: "right" }}>Resgatados</th>
+                <th style={{ textAlign: "right" }}>Compras</th>
+                <th>Vigência</th>
               </tr>
             </thead>
             <tbody>
-              {ofertas.map((oferta) => (
-                <tr key={oferta.id} className="click">
-                  <td>
-                    <Link href={`/ofertas/${oferta.id}`} style={{ fontWeight: 600, color: "inherit", textDecoration: "none" }}>
-                      {oferta.titulo}
-                    </Link>
-                    {oferta.pendenteRepublicacao ? (
-                      <span className="pill pill-warn" style={{ marginLeft: 8 }}>
+              {ofertas.map((oferta) => {
+                const resumo = telemetria.get(oferta.id);
+                const foraDaPlataforma = oferta.mecanica.slug === "CHECKOUT_EXTERNO";
+                const numero = (valor: number | undefined) =>
+                  valor && valor > 0 ? valor.toLocaleString("pt-BR") : "—";
+                return (
+                  <tr key={oferta.id} className="click">
+                    <td data-label="Título">
+                      <Link href={`/ofertas/${oferta.id}`} style={{ fontWeight: 600, color: "inherit", textDecoration: "none" }}>
+                        {oferta.titulo}
+                      </Link>
+                      {oferta.pendenteRepublicacao ? (
+                        <span className="pill pill-warn" style={{ marginLeft: 8 }}>
+                          <i aria-hidden="true" />
+                          republicar
+                        </span>
+                      ) : null}
+                      {resumo?.resgateRecente ? (
+                        <span className="pill pill-ok" style={{ marginLeft: 8 }}>
+                          <i aria-hidden="true" />
+                          viva
+                        </span>
+                      ) : null}
+                    </td>
+                    <td data-label="Aliado">
+                      <Link href={`/aliados/${oferta.solucao.empresa.id}`} style={{ color: "inherit" }}>
+                        {oferta.solucao.empresa.nomeFantasia}
+                      </Link>
+                    </td>
+                    <td data-label="Natureza" className="cap">
+                      {ROTULO_NATUREZA[oferta.natureza]}
+                    </td>
+                    <td data-label="Status">
+                      <span className={oferta.status === "PUBLICADA" ? "pill pill-ok" : "pill pill-neutra"}>
                         <i aria-hidden="true" />
-                        republicar
+                        {ROTULO_STATUS[oferta.status]}
                       </span>
-                    ) : null}
-                  </td>
-                  <td data-label="Aliado">
-                    <Link href={`/aliados/${oferta.solucao.empresa.id}`} style={{ color: "inherit" }}>
-                      {oferta.solucao.empresa.nomeFantasia}
-                    </Link>
-                  </td>
-                  <td data-label="Natureza" className="cap">
-                    {ROTULO_NATUREZA[oferta.natureza]}
-                  </td>
-                  <td data-label="Mecânica" className="cap">{oferta.mecanica.nome}</td>
-                  <td data-label="Benefício" className="cap">{oferta.tipoBeneficio.nome}</td>
-                  <td data-label="Vigência" className="num cap">
-                    {formatarData(oferta.vigenciaInicio)} –{" "}
-                    {oferta.vigenciaFim ? formatarData(oferta.vigenciaFim) : "indeterminado"}
-                  </td>
-                  <td data-label="Status">
-                    <span className={oferta.status === "PUBLICADA" ? "pill pill-ok" : "pill pill-neutra"}>
-                      <i aria-hidden="true" />
-                      {ROTULO_STATUS[oferta.status]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td data-label="Emitidos" className="num" style={{ textAlign: "right" }}>
+                      {numero(resumo?.emitidos)}
+                    </td>
+                    <td
+                      data-label="Resgatados"
+                      className="num"
+                      style={{ textAlign: "right" }}
+                      title={
+                        foraDaPlataforma && (resumo?.resgatados ?? 0) > 0
+                          ? "Fora da Plataforma: resgate aguardando conciliação mensal (ficha §6)."
+                          : undefined
+                      }
+                    >
+                      {numero(resumo?.resgatados)}
+                      {foraDaPlataforma && (resumo?.resgatados ?? 0) > 0 ? (
+                        <span className="cap" style={{ marginLeft: 4 }}>
+                          *
+                        </span>
+                      ) : null}
+                    </td>
+                    <td data-label="Compras" className="num" style={{ textAlign: "right" }}>
+                      {numero(resumo?.comprasConfirmadas)}
+                    </td>
+                    <td data-label="Vigência" className="num cap">
+                      {formatarData(oferta.vigenciaInicio)} –{" "}
+                      {oferta.vigenciaFim ? formatarData(oferta.vigenciaFim) : "indeterminado"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
-      <p className="cap" style={{ marginTop: 10 }}>
-        Telemetria por oferta (vouchers emitidos/resgatados, compras), destaques de
-        vitrine e filtros avançados chegam com a importação de telemetria (F4) — valores
-        ausentes aparecem como “—”, nunca estimados.
+      <p className="cap" style={{ marginTop: 10, maxWidth: "80ch" }}>
+        Telemetria por oferta deriva exclusivamente dos eventos importados (RN07); ofertas
+        sem eventos aparecem como “—”, nunca estimadas. <b>*</b> resgates fora da Plataforma
+        aguardam conciliação mensal — distintos de compra confirmada (ficha §6).
       </p>
     </div>
   );

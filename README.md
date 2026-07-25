@@ -8,11 +8,16 @@ Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria 
 - Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md`
 - Especificação visual: `docs/referencias/Plataforma_Broto_-_Prototipo_v2.1.html`
 
-**Estado atual: F3 — Carga inicial** (F1 e F2 concluídas). Além do domínio
-completo (RN01–RN12, motor de aprovação, T1–T7 exceto T4 plena), a base real
-entra pelas planilhas de `dados/`: staging → tela de conferência
-(`/carga-inicial`, com ajuste de agrupamentos) → efetivação transacional com
-telemetria acumulada. A integração batch (F4) é a próxima fase.
+**Estado atual: F4 — Integração** (F1, F2 e F3 concluídas). Sobre o domínio
+completo (RN01–RN12, motor de aprovação, T1–T7) e a carga inicial pelas
+planilhas de `dados/`, a F4 fecha o ciclo batch com a operadora: **publicação**
+do catálogo atrás de `ExportAdapter` (`GenericJsonCsvAdapter` até o layout
+Minutrade [A CONFIRMAR]), com diff (RN10) e despublicações em cascata (RN04);
+**importação de telemetria** (parser tolerante, quarentena com motivo,
+idempotência por `idVoucher+tipo`, CPF só como hash); e a **T4 completa** com
+agregados por oferta (RN07 — derivam só dos eventos importados), KPI de vitrine
+viva e a distinção fora-da-Plataforma (aguardando conciliação) × compra
+confirmada. O endurecimento final (F5) é a próxima fase.
 
 ## Stack
 
