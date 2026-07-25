@@ -2,7 +2,7 @@
 
 ## O que é este repositório
 
-Aplicação web administrativa do Clube Broto (Broto S.A.). Onda 1: módulo de Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch (Minutrade) e carga inicial. Onda 2: Mercado & Scout — funil de prospecção, avaliação com score, dossiê assistido, cobertura e metas. Ondas 3 (Parametrizador) e 5 (Assinantes) especificadas para execução futura. Mantida pela TI Broto com apoio do Claude Code.
+Aplicação web administrativa do Clube Broto (Broto S.A.). Onda 1: módulo de Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch (Minutrade) e carga inicial. Onda 2: Mercado & Scout — funil de prospecção, avaliação com score, dossiê assistido, cobertura e metas. Ondas 3 (Parametrizador), 4 (Campanhas & Cestas) e 5 (Assinantes) especificadas para execução futura. Mantida pela TI Broto com apoio do Claude Code.
 
 ## Fontes da verdade — nesta ordem
 
