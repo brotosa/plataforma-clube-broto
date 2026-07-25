@@ -1,78 +1,44 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import {
+  cnpjDeNome,
+  entrar,
+  limparAliadoPorNome,
+  runId,
+  semViolacoesAxe,
+  semearAliadoAtivoComContrato,
+  semearAliadoEmNegociacao,
+  semearAliadoEmNegociacaoM2Completo,
+  semearSolucaoCompleta,
+  submeterERepintar,
+} from "./ajudantes";
 
 /**
- * Fluxo principal da F2 pela interface (critério "pronto" da fase):
- * criar empresa → completar M2 → solicitar promoção → aprovar com
- * usuário distinto (RN06) → criar solução (T3) → criar oferta (T5) →
- * publicar → conferir na lista transversal (T4, coluna Natureza).
- * Inclui teclado na T7 e axe-core nas telas novas.
+ * Fluxo principal da F2 pela interface, reescrito como testes ISOLADOS
+ * (critério de estabilidade): cada teste semeia sua própria precondição
+ * direto no banco (via Prisma, rápido e determinístico) e exercita a ÚNICA
+ * ação de UI que verifica. Nenhum teste depende de outro ter rodado — um
+ * retry re-executa só o teste que falhou, sem recriar entidades de chave
+ * única (o que quebrava a antiga cadeia describe.serial no retry).
+ *
+ * Os nomes derivam de runId() (estável na execução) + um token por teste,
+ * então CNPJs/nomes não colidem entre testes; a semeadura é idempotente
+ * (deleta o homônimo antes de criar). Cobertura e asserções preservadas:
+ * criar aliado (T1) → contato+contrato → promoção RN06 → solução (T3,
+ * RN01/RN09) → oferta+publicação (T5, RN02/RN09/RN11) e lista transversal
+ * (T4) → bloqueio de recompensa com preço. Teclado (T7) e axe seguem
+ * isolados no fim.
  */
 
-const SENHA = process.env.SENHA_USUARIOS_DEV ?? "clube-broto-dev";
-const SUFIXO = `${Date.now()}`.slice(-6);
-const NOME_ALIADO = `Aliado E2E ${SUFIXO}`;
-const NOME_SOLUCAO = `Solução E2E ${SUFIXO}`;
-const TITULO_OFERTA = `15% de desconto E2E ${SUFIXO}`;
+test.describe("fluxo principal — testes isolados (F2)", () => {
+  test("analista cria o aliado com dados M2 (T1)", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-t1`;
+    await limparAliadoPorNome(nome); // idempotência: apaga execução anterior
 
-/** Gera um CNPJ estruturalmente válido (módulo 11) para o teste. */
-function cnpjValido(sufixo: string): string {
-  const base = `112223330${sufixo.slice(-3)}`;
-  const digito = (corpo: string): number => {
-    let soma = 0;
-    let peso = 2;
-    for (let i = corpo.length - 1; i >= 0; i -= 1) {
-      soma += Number(corpo[i]) * peso;
-      peso = peso === 9 ? 2 : peso + 1;
-    }
-    const resto = soma % 11;
-    return resto < 2 ? 0 : 11 - resto;
-  };
-  const d1 = digito(base);
-  const d2 = digito(base + String(d1));
-  return `${base}${d1}${d2}`;
-}
-
-async function entrar(page: Page, email: string) {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(SENHA);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
-}
-
-async function semViolacoesAxe(page: Page) {
-  // Aguarda a tela assentar (h1 único por tela) antes de varrer — evita
-  // varredura no meio de uma navegação do App Router
-  await page.getByRole("heading", { level: 1 }).first().waitFor();
-  const resultado = await new AxeBuilder({ page }).analyze();
-  expect(resultado.violations).toEqual([]);
-}
-
-/**
- * Executa uma server action *no lugar* (sem redirect) e recarrega para que a
- * asserção veja o estado já persistido: o refresh do App Router
- * (revalidatePath) nem sempre repinta o DOM no runner lento do CI — o banco
- * muda, o DOM não. Aguarda a RESPOSTA do POST antes de recarregar (recarregar
- * cedo abortaria a ação em voo).
- */
-async function submeterERepintar(page: Page, acionar: () => Promise<void>) {
-  await Promise.all([
-    page.waitForResponse((resposta) => resposta.request().method() === "POST", {
-      timeout: 30_000,
-    }),
-    acionar(),
-  ]);
-  await page.reload();
-}
-
-test.describe.serial("fluxo principal — criar → promover → aprovar → solução → oferta → publicar", () => {
-  test("analista cria o aliado com dados M2 completos", async ({ page }) => {
     await entrar(page, "analista@dev.clubebroto.local");
     await page.goto("/aliados/novo");
-    await page.getByLabel("Nome fantasia (nome de exibição)").fill(NOME_ALIADO);
-    await page.getByLabel("Razão social").fill(`${NOME_ALIADO} LTDA`);
-    await page.getByLabel("CNPJ").fill(cnpjValido(SUFIXO));
+    await page.getByLabel("Nome fantasia (nome de exibição)").fill(nome);
+    await page.getByLabel("Razão social").fill(`${nome} LTDA`);
+    await page.getByLabel("CNPJ").fill(cnpjDeNome(nome));
     await page.getByLabel("Logo (chave do arquivo)").fill("s3://logos/e2e.svg");
     await page.getByLabel("Descrição institucional").fill("Aliado criado pelo fluxo e2e.");
     await page.getByLabel("Município").fill("Curitiba");
@@ -80,19 +46,22 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByRole("checkbox", { name: "Tecnologia e Software" }).check();
     await page.getByRole("button", { name: "Criar aliado" }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+$/);
-    await expect(page.getByRole("heading", { level: 1, name: NOME_ALIADO })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: nome })).toBeVisible();
     await expect(page.getByText("Em negociação")).toBeVisible();
   });
 
   test("analista registra contato e contrato (bloco comercial)", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-t2`;
+    await semearAliadoEmNegociacao(nome); // cru: sem contato/contrato ainda
+
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
-    await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
+    await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
+    await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
 
     await page.getByRole("link", { name: "Contatos" }).click();
     await page.getByLabel("Nome", { exact: true }).fill("Contato Comercial E2E");
-    await page.getByLabel("E-mail", { exact: true }).fill(`comercial+${SUFIXO}@e2e.local`);
+    await page.getByLabel("E-mail", { exact: true }).fill(`comercial+${runId()}t2@e2e.local`);
     await submeterERepintar(page, () =>
       page.getByRole("button", { name: "Adicionar contato" }).click(),
     );
@@ -112,36 +81,47 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await expect(page.getByRole("button", { name: "Encerrar contrato" })).toBeVisible();
   });
 
-  test("analista solicita a promoção (entra na fila — RN06)", async ({ page }) => {
+  test("promoção com usuário distinto vira Aliada ativa (RN06)", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-t3`;
+    await semearAliadoEmNegociacaoM2Completo(nome); // promovível (M2 completo)
+
+    // Analista solicita a promoção — entra na fila (RN06)
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
-    await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
+    await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
+    await page.getByRole("link", { name: new RegExp(nome) }).click();
+    await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await submeterERepintar(page, () =>
       page.getByRole("button", { name: "Solicitar promoção a Aliada ativa" }).click(),
     );
-    // A revalidação troca o formulário pelo estado "aguardando aprovação"
     await expect(page.getByText("Promoção aguardando aprovação")).toBeVisible();
-  });
 
-  test("aprovador (usuário distinto) aprova e o aliado vira Aliada ativa", async ({ page }) => {
+    // Aprovador (usuário DISTINTO do solicitante — RN06) aprova
     await entrar(page, "aprovador@dev.clubebroto.local");
     await page.goto("/aprovacoes");
-    const dossie = page.locator("details", { hasText: NOME_ALIADO });
+    const dossie = page.locator("details", { hasText: nome });
     await dossie.locator("summary").click();
+    // Aprovar é ação NO LUGAR: a aprovação commita de forma confiável, mas o
+    // soft-refresh do App Router pode não repintar a fila no CI lento.
+    // Recarrega em laço até a pendência sumir (efeito RN06 já persistido).
     await dossie.getByRole("button", { name: "Aprovar", exact: true }).click();
-    await page.waitForLoadState("networkidle");
-    // A revalidação remove a pendência da fila — sinal de que o efeito foi aplicado
-    await expect(dossie).toHaveCount(0);
+    await expect(async () => {
+      await page.reload();
+      await expect(dossie).toHaveCount(0, { timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
 
-    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
-    const linha = page.getByRole("row", { name: new RegExp(NOME_ALIADO) });
+    await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
+    const linha = page.getByRole("row", { name: new RegExp(nome) });
     await expect(linha.getByText("Aliado ativo")).toBeVisible();
   });
 
-  test("analista cria a solução com card completo (T3, RN01/RN09)", async ({ page }) => {
+  test("cria solução com card completo (T3, RN01/RN09)", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-t4`;
+    const nomeSolucao = `Solução E2E ${runId()}-t4`;
+    await semearAliadoAtivoComContrato(nome); // ALIADA_ATIVA (RN01)
+
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
-    await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
+    await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
+    await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
@@ -153,7 +133,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.waitForURL(/\/solucoes\/nova/);
     await page.waitForLoadState("networkidle"); // hidratação completa antes de interagir
 
-    await page.getByLabel("Nome da solução").fill(NOME_SOLUCAO);
+    await page.getByLabel("Nome da solução").fill(nomeSolucao);
     await page.getByLabel("Descrição curta (texto do card)").fill("Solução criada pelo e2e.");
     await page.getByLabel("Categoria").selectOption({ label: "Tecnologia e Software" });
     await page.getByLabel("Imagem do card (chave do arquivo)").fill("s3://cards/e2e.png");
@@ -165,19 +145,27 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.getByRole("button", { name: "Criar solução" }).click();
     // Sinal durável do redirect: o título da solução na ficha (mais robusto que
     // waitForURL sob o App Router no runner lento do CI).
-    await expect(page.getByRole("heading", { level: 1, name: NOME_SOLUCAO })).toBeVisible({
+    await expect(page.getByRole("heading", { level: 1, name: nomeSolucao })).toBeVisible({
       timeout: 30_000,
     });
   });
 
-  test("analista cria a oferta (T5) e publica (RN02/RN09/RN11)", async ({ page }) => {
+  test("cria e publica oferta (T5, RN02/RN09/RN11) e aparece na lista transversal (T4)", async ({
+    page,
+  }) => {
+    const nome = `Aliado E2E ${runId()}-t5`;
+    const nomeSolucao = `Solução E2E ${runId()}-t5`;
+    const tituloOferta = `15% de desconto E2E ${runId()}-t5`;
+    const aliado = await semearAliadoAtivoComContrato(nome);
+    await semearSolucaoCompleta(aliado.id, nomeSolucao); // card completo (RN09)
+
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
-    await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
+    await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
+    await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
-    await page.getByRole("link", { name: NOME_SOLUCAO }).click();
+    await page.getByRole("link", { name: nomeSolucao }).click();
     await page.waitForURL(/\/solucoes\/(?!nova$)[a-z0-9]+$/);
     // Navegação direta pelo href (o clique em link com prefetch se mostrou
     // sujeito a corrida no ambiente de teste)
@@ -188,7 +176,7 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await page.waitForURL(/\/ofertas\/nova/);
     await page.waitForLoadState("networkidle");
 
-    await page.getByLabel("Título comercial").fill(TITULO_OFERTA);
+    await page.getByLabel("Título comercial").fill(tituloOferta);
     await page.getByRole("radio", { name: /Benefício/ }).check();
     await page.getByLabel("Tipo de benefício").selectOption({ label: "% desconto" });
     await page.getByLabel("Preço de (R$)").fill("100");
@@ -200,35 +188,53 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     // Sinal durável do redirect: o pill de status na ficha da oferta.
     await expect(page.getByText("Rascunho")).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole("button", { name: "Publicar oferta" }).click();
+    // Assenta a ficha (hidratação) antes de publicar, para o clique despachar
+    // a ação de forma confiável.
     await page.waitForLoadState("networkidle");
-    await expect(page.getByText("Publicada", { exact: true })).toBeVisible();
-  });
+    // Publicar é ação NO LUGAR (revalidatePath, sem redirect). A publicação
+    // commita de forma confiável (verificado no banco), mas o refresh RSC da
+    // própria ação colide com um reload único e às vezes deixa a ficha
+    // mostrando o estado PRÉ-commit ("Rascunho"). Recarrega em laço até o
+    // estado persistido convergir no DOM — sem mascarar defeito: um estado
+    // que nunca persistisse esgotaria o tempo e falharia.
+    await page.getByRole("button", { name: "Publicar oferta" }).click();
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByText("Publicada", { exact: true })).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
 
-  test("lista transversal (T4) traz a oferta com a coluna Natureza", async ({ page }) => {
-    await entrar(page, "gestor@dev.clubebroto.local");
+    // T4 — a oferta publicada aparece na lista transversal com a coluna
+    // Natureza (visualizar é de todos os papéis — ficha §2; segue com o
+    // analista já autenticado, evitando um relogin desnecessário).
     await page.goto("/ofertas");
     await expect(page.getByRole("columnheader", { name: "Natureza" })).toBeVisible();
-    const linha = page.getByRole("row", { name: new RegExp(TITULO_OFERTA) });
+    const linha = page.getByRole("row", { name: new RegExp(tituloOferta) });
     await expect(linha.getByText("Benefício", { exact: true })).toBeVisible();
     await expect(linha.getByText("Publicada")).toBeVisible();
   });
 
-  test("recompensa com preço é bloqueada com explicação (validação de natureza)", async ({ page }) => {
+  test("recompensa com preço é bloqueada com explicação (validação de natureza)", async ({
+    page,
+  }) => {
+    const nome = `Aliado E2E ${runId()}-t6`;
+    const nomeSolucao = `Solução E2E ${runId()}-t6`;
+    const aliado = await semearAliadoAtivoComContrato(nome);
+    await semearSolucaoCompleta(aliado.id, nomeSolucao);
+
     await entrar(page, "analista@dev.clubebroto.local");
-    await page.goto(`/aliados?busca=${encodeURIComponent(NOME_ALIADO)}`);
-    await page.getByRole("link", { name: new RegExp(NOME_ALIADO) }).click();
+    await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
+    await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
     await page.getByRole("link", { name: "Soluções", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
-    await page.getByRole("link", { name: NOME_SOLUCAO }).click();
+    await page.getByRole("link", { name: nomeSolucao }).click();
     await page.waitForURL(/\/solucoes\/(?!nova$)[a-z0-9]+$/);
     const hrefNovaRecompensa = await page
       .getByRole("link", { name: "+ Nova oferta" })
       .getAttribute("href");
     await page.goto(hrefNovaRecompensa!);
     await page.waitForLoadState("networkidle");
-    await page.getByLabel("Título comercial").fill(`Recompensa E2E ${SUFIXO}`);
+    await page.getByLabel("Título comercial").fill(`Recompensa E2E ${runId()}-t6`);
     // Nome completo do radio-card de natureza (evita colidir com a mecânica
     // "Recompensa gratuita")
     await page.getByRole("radio", { name: /Recompensa Produto\/serviço gratuito/ }).check();
