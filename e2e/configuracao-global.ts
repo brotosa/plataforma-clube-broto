@@ -52,6 +52,31 @@ export default async function configuracaoGlobal() {
       console.log(`[e2e] ${empresas.length} aliado(s) de execuções anteriores removido(s)`);
     }
 
+    // Dados da suíte do funil (F6): empresas do radar ("Radar E2E"/"Prospect
+    // E2E") e o staging da importação de prospects.
+    const empresasFunil = await prisma.empresa.findMany({
+      where: {
+        OR: [
+          { nomeFantasia: { startsWith: "Radar E2E" } },
+          { nomeFantasia: { startsWith: "Prospect E2E" } },
+        ],
+      },
+      select: { id: true },
+    });
+    const idsFunil = empresasFunil.map((empresa) => empresa.id);
+    if (idsFunil.length > 0) {
+      await prisma.notaRapida.deleteMany({ where: { empresaId: { in: idsFunil } } });
+      await prisma.registroNegociacao.deleteMany({ where: { empresaId: { in: idsFunil } } });
+      await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: { in: idsFunil } } });
+      await prisma.empresaCategoria.deleteMany({ where: { empresaId: { in: idsFunil } } });
+      await prisma.stagingEmpresa.deleteMany({
+        where: { empresaIdEfetivada: { in: idsFunil } },
+      });
+      await prisma.empresa.deleteMany({ where: { id: { in: idsFunil } } });
+      console.log(`[e2e] ${idsFunil.length} empresa(s) do funil de execuções anteriores removida(s)`);
+    }
+    await prisma.stagingEmpresa.deleteMany({ where: { estado: { not: "EFETIVADA" } } });
+
     await prisma.aprovacaoRegra.update({
       where: { tipoEntidade: "PROMOCAO_ALIADA_ATIVA" },
       data: { exigida: true },
