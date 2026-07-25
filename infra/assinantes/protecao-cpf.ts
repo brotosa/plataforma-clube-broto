@@ -1,10 +1,14 @@
 /**
- * Proteção do CPF em repouso (RN30 / prompt da Onda 5):
+ * Serviço CANÔNICO de proteção do CPF (RN30 / prompt da Onda 5) — único
+ * ponto de hash de CPF da plataforma; a telemetria (Onda 1/F4) delega
+ * para cá via infra/integracao/hash-cpf.ts.
  *
- * - Identidade: HMAC-SHA-256 do CPF normalizado com chave própria
- *   (env CPF_HASH_KEY). Determinístico — é a chave de junção com a
- *   telemetria e o alvo do upsert idempotente. Girar a chave
- *   re-identifica a base: não trocar sem plano de recarga.
+ * - Identidade: HMAC-SHA-256 com chave única (env CPF_HASH_KEY, SEM
+ *   fallback — ausência falha alto). Determinístico — alvo do upsert
+ *   idempotente do cadastro E do cpf_hash da telemetria: mesma chave e
+ *   mesmo pipeline garantem a junção da RN36 (um CPF válido produz o
+ *   MESMO hash nos dois lados). Girar a chave re-identifica a base
+ *   inteira e desliga a junção: não trocar sem plano de recarga.
  * - Sigilo: AES-256-GCM (env APP_ENCRYPTION_KEY; a chave de 32 bytes é
  *   derivada por SHA-256 do valor da env, aceitando qualquer formato).
  *   Formato armazenado: "v1:<iv>:<tag>:<dados>" em base64 — o prefixo
@@ -42,11 +46,31 @@ function exigirCpfNormalizado(cpf: string): void {
   }
 }
 
-/** HMAC-SHA-256 (hex) do CPF normalizado — identidade do assinante. */
+/**
+ * HMAC-SHA-256 (hex) do CPF normalizado — caminho do CADASTRO (RN30):
+ * exige exatamente 11 dígitos; a validação de dígito verificador
+ * acontece antes, na importação.
+ */
 export function hashCpf(cpfNormalizado: string): string {
   exigirCpfNormalizado(cpfNormalizado);
   return createHmac("sha256", valorDaEnv("CPF_HASH_KEY"))
     .update(cpfNormalizado)
+    .digest("hex");
+}
+
+/**
+ * HMAC-SHA-256 (hex) de um CPF BRUTO — caminho dos FATOS DE TELEMETRIA
+ * (RN07/RN36): normaliza para dígitos e hasheia o que veio no arquivo,
+ * sem validar comprimento nem dígito verificador — o fato é imutável e
+ * entra como recebido; a validação de CPF pertence ao cadastro. Mesma
+ * chave e mesmo pipeline do caminho estrito: para um CPF válido, os dois
+ * caminhos produzem o MESMO hash — é isso que sustenta a junção
+ * telemetria ↔ assinante da RN36.
+ */
+export function hashCpfBruto(entrada: string): string {
+  const digitos = entrada.replace(/\D/g, "");
+  return createHmac("sha256", valorDaEnv("CPF_HASH_KEY"))
+    .update(digitos)
     .digest("hex");
 }
 

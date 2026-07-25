@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cifrarCpf, decifrarCpf, hashCpf } from "./protecao-cpf";
+import { cifrarCpf, decifrarCpf, hashCpf, hashCpfBruto } from "./protecao-cpf";
+import { hashCpf as hashCpfTelemetria } from "@/infra/integracao/hash-cpf";
 
 const CPF = "11144477735";
 let ambienteOriginal: { hash?: string; cifra?: string };
@@ -36,6 +37,31 @@ describe("hashCpf — identidade determinística (HMAC com chave própria)", () 
     expect(() => hashCpf("111.444.777-35")).toThrow("11 dígitos");
     delete process.env.CPF_HASH_KEY;
     expect(() => hashCpf(CPF)).toThrow("CPF_HASH_KEY ausente");
+  });
+});
+
+describe("hashCpfBruto — caminho dos fatos de telemetria (serviço canônico único)", () => {
+  it("um CPF válido produz o MESMO hash nos dois caminhos — a junção da RN36", () => {
+    expect(hashCpfBruto("111.444.777-35")).toBe(hashCpf(CPF));
+    expect(hashCpfBruto(CPF)).toBe(hashCpf(CPF));
+  });
+
+  it("a delegação da telemetria (infra/integracao) usa o mesmo serviço e chave", () => {
+    expect(hashCpfTelemetria("111.444.777-35")).toBe(hashCpf(CPF));
+  });
+
+  it("fato com CPF malformado ainda vira identidade opaca — sem validar, sem lançar", () => {
+    // O fato de telemetria entra como recebido (RN07); um CPF que reprova
+    // o DV nunca casará com assinante algum, mas continua rastreável.
+    expect(hashCpfBruto("111.111.111-11")).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashCpfBruto("123")).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashCpfBruto("123")).not.toBe(hashCpfBruto("124"));
+  });
+
+  it("sem CPF_HASH_KEY no ambiente, falha alto — nenhum fallback embutido", () => {
+    delete process.env.CPF_HASH_KEY;
+    expect(() => hashCpfBruto(CPF)).toThrow("CPF_HASH_KEY ausente");
+    expect(() => hashCpfTelemetria(CPF)).toThrow("CPF_HASH_KEY ausente");
   });
 });
 

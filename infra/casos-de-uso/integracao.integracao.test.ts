@@ -21,6 +21,10 @@ import type { PacoteExport } from "@/dominio/integracao/export";
  */
 const temBanco = Boolean(process.env.DATABASE_URL);
 
+// O hash de CPF da telemetria delega ao serviço canônico (CPF_HASH_KEY,
+// sem fallback — decisão do PR da F11): chave de teste para a suíte.
+process.env.CPF_HASH_KEY ??= "chave-de-teste-integracao-hmac";
+
 const ID_EXTERNO_OFERTA = "TESTE-F4-OF-1";
 const ARQUIVO_TELEMETRIA = "[TESTE-F4] telemetria_uso_20260720.csv";
 const CPF_SINTETICO = "111.111.111-11";

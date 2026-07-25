@@ -1,5 +1,5 @@
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { entrar, runId, semViolacoesAxe } from "./ajudantes";
 import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sinteticas";
@@ -26,13 +26,57 @@ const ESPERADO_MT = SINTETICOS.filter((s) => s.uf === "MT").length;
 // muda se um worker reiniciar no meio da cadeia serial.
 const NOME_SEGMENTO = `Segmento E2E ${runId()}`;
 
+/**
+ * Varredura axe com a UI ASSENTADA: as transições do dseed-admin (160ms
+ * em background/color) fazem o axe medir cores intermediárias e acusar
+ * contraste falso — o chip do passo ativo da T20, por exemplo, mede
+ * 3,14:1 no meio da transição e 4,88:1 assentado. `getAnimations()`
+ * inclui transições CSS, então esperar nenhuma em execução é preciso
+ * (sem sleep fixo). Mesma disciplina de "esperar o repintar" da
+ * estabilização, aplicada ao que muda por transição.
+ */
+async function axeComUiAssentada(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    Array.from(document.querySelectorAll("*")).every((elemento) =>
+      elemento
+        .getAnimations()
+        .every((animacao) => animacao.playState !== "running"),
+    ),
+  );
+  await semViolacoesAxe(page);
+}
+
+/**
+ * Semeadura idempotente do módulo (padrão dos ajudantes da estabilização):
+ * o teste de importação zera a base antes de importar, para que o retry
+ * encontre o mesmo estado inicial da primeira tentativa — sem isso, a
+ * segunda tentativa veria "atualizados" onde a asserção espera "novos".
+ */
+async function zerarModuloAssinantes(): Promise<void> {
+  const prisma = new PrismaClient();
+  try {
+    await prisma.atributoEnriquecimento.deleteMany({});
+    await prisma.assinatura.deleteMany({});
+    await prisma.exportacaoLista.deleteMany({});
+    await prisma.segmento.deleteMany({});
+    await prisma.stagingAssinante.deleteMany({});
+    await prisma.assinante.deleteMany({});
+    await prisma.importacao.deleteMany({
+      where: { tipo: { in: ["ASSINANTES_NUCLEO", "ASSINANTES_ENRIQUECIMENTO"] } },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 → exportação)", () => {
   test("gestor importa a base sintética pela T20 (família → arquivo → mapeamento → política → resumo)", async ({
     page,
   }) => {
+    await zerarModuloAssinantes(); // idempotência do retry
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/assinantes/importacoes");
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
 
     // Passo 1 — família (Base de assinantes já selecionada)
     await page.getByRole("button", { name: "Continuar" }).click();
@@ -46,7 +90,7 @@ test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 �
     // Passo 3 — sugestão automática cobre o dicionário de exemplo
     await expect(page.getByText("Pré-visualização — 5 primeiras linhas")).toBeVisible();
     await expect(page.getByText("12 linhas · 7 colunas reconhecidas")).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
     await page.getByRole("button", { name: "Escolher política" }).click();
 
     // Passo 4 — política incremental (padrão da RN29)
@@ -54,13 +98,13 @@ test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 �
       page.getByText("A ausência de um CPF no arquivo não inativa ninguém por padrão"),
     ).toBeVisible();
     await expect(page.getByText("12 novos · 0 atualizados · 0 em quarentena")).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
     await page.getByRole("button", { name: "Processar carga" }).click();
 
     // Passo 5 — resumo real da efetivação
     await expect(page.getByText("assinantes criados")).toBeVisible();
     await expect(page.getByText("Nenhuma linha em quarentena nesta carga.")).toBeVisible();
-    await semViolacoesAxe(page);
+    await axeComUiAssentada(page);
   });
 
   test("carteira nasce mascarada, contagem viva reage ao filtro e RN36 nunca estima", async ({
