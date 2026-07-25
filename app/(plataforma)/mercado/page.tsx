@@ -154,7 +154,7 @@ export default async function PaginaMercado({
             {contadores.avaliadas}
           </div>
           <div className="cap" style={{ marginTop: 2 }}>
-            com score ScoutCB (a partir da F7)
+            com score ScoutCB
           </div>
         </div>
         <div className="c">
@@ -308,8 +308,9 @@ export default async function PaginaMercado({
       <p className="cap" style={{ margin: "10px 0 0", maxWidth: "80ch" }}>
         Envelhecimento por estágio: leve ≥ {REGUA_ENVELHECIMENTO.leveDias} dias, forte ≥{" "}
         {REGUA_ENVELHECIMENTO.forteDias} (régua parametrizável). Mover registra autor e data na
-        auditoria; descartar exige motivo tipificado (RN17). Score chega com a avaliação (F7) —
-        valores ausentes aparecem como “—”, nunca estimados.
+        auditoria; descartar exige motivo tipificado (RN17); priorizar exige avaliação fechada
+        (RN15) — avalie pelo menu do card. Score vem da avaliação ScoutCB (T10); valores
+        ausentes aparecem como “—”, nunca estimados.
       </p>
     </div>
   );

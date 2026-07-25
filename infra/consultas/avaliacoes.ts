@@ -64,6 +64,12 @@ export interface TelaAvaliacao {
   } | null;
   /** Versões fechadas, da mais recente para a mais antiga. */
   fechadas: VersaoFechada[];
+  /**
+   * Notas da última versão fechada, por indicador — espelha na tela o
+   * pré-preenchimento que iniciarAvaliacao fará na próxima versão e
+   * explica o score fechado quando não há rascunho.
+   */
+  notasDaUltimaFechada: Record<string, NotaDaTela> | null;
   /** Estágio atual permite avaliar (abrir/continuar rascunho)? */
   podeAvaliarAgora: boolean;
 }
@@ -133,6 +139,10 @@ export async function telaAvaliacao(empresaId: string): Promise<TelaAvaliacao | 
     orderBy: { versao: "desc" },
     include: { avaliador: { select: { nome: true } } },
   });
+  const notasUltimaFechada =
+    fechadas.length > 0
+      ? await prisma.avaliacaoNota.findMany({ where: { avaliacaoId: fechadas[0]!.id } })
+      : null;
 
   return {
     empresa: {
@@ -166,6 +176,14 @@ export async function telaAvaliacao(empresaId: string): Promise<TelaAvaliacao | 
       avaliadorNome: avaliacao.avaliador.nome,
       subtotais: subtotaisDoJson(avaliacao.subtotais),
     })),
+    notasDaUltimaFechada: notasUltimaFechada
+      ? Object.fromEntries(
+          notasUltimaFechada.map((nota) => [
+            nota.indicadorId,
+            { nota: nota.nota, evidencia: nota.evidencia },
+          ]),
+        )
+      : null,
     podeAvaliarAgora: podeAvaliarNoEstagio(empresa.estagio),
   };
 }
