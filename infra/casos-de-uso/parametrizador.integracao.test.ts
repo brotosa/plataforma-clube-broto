@@ -70,7 +70,7 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
     await prisma.empresa.deleteMany({ where: { id: { in: ids } } });
 
     await prisma.aprovacaoSolicitacao.deleteMany({ where: { tipoEntidade: "PARAMETRO_SENSIVEL" } });
-    await prisma.meta.deleteMany({ where: { periodo: { in: ["MENSAL", "TRIMESTRAL"] } } });
+    await prisma.metaPeriodo.deleteMany({ where: { periodo: { in: ["MENSAL", "TRIMESTRAL"] } } });
     const criadas = await prisma.cultura.findMany({ where: { nome: { startsWith: PREFIXO } } });
     await prisma.cultura.deleteMany({ where: { id: { in: criadas.map((c) => c.id) } } });
     await prisma.auditoriaEvento.deleteMany({
@@ -289,7 +289,7 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
   });
 
   it("a meta vigente de 24 novos aliados/ano está viva no produto", async () => {
-    const meta = await prisma.meta.findFirstOrThrow({
+    const meta = await prisma.metaPeriodo.findFirstOrThrow({
       where: { periodo: "ANUAL", categoriaId: null },
     });
     expect(meta.valor).toBe(24);

@@ -106,7 +106,7 @@ export async function contarUsos(
       const [solucoes, aliados, metas] = await Promise.all([
         cliente.solucao.count({ where: { categoriaId: itemId } }),
         cliente.empresaCategoria.count({ where: { categoriaId: itemId } }),
-        cliente.meta.count({ where: { categoriaId: itemId } }),
+        cliente.metaPeriodo.count({ where: { categoriaId: itemId } }),
       ]);
       return [
         { singular: "solução", plural: "soluções", quantidade: solucoes },

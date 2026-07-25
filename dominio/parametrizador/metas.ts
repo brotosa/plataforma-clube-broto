@@ -8,6 +8,11 @@ import type { PeriodoMeta } from "@prisma/client";
  * mensais do mesmo escopo ou coincidem (mesmo mês, conflito) ou são
  * disjuntas; não existe meta "de 10 de março a 9 de abril" para negociar.
  *
+ * **A janela é semiaberta: `inicio` inclusivo, `fim` exclusivo** — o
+ * primeiro instante do período seguinte. É a convenção da tabela
+ * `metas_periodo`, criada pela F9 e escrita por este editor; o mesmo
+ * recorte que a T14 usa para contar o realizado. Duas fases, um contrato.
+ *
  * As datas são construídas em UTC porque a coluna é DATE: sem isso, um
  * fuso a oeste jogaria "1º de janeiro" para 31 de dezembro do ano anterior.
  */
@@ -28,9 +33,10 @@ function dataUtc(ano: number, mesZeroBase: number, dia: number): Date {
 }
 
 /**
- * Intervalo do período do calendário que CONTÉM a data de referência.
- * Normalizar aqui é o que impede meia-sobreposição: a UI pode receber
- * qualquer dia do mês e a meta nasce grudada nas bordas do período.
+ * Intervalo do período do calendário que CONTÉM a data de referência, com
+ * `fim` EXCLUSIVO. Normalizar aqui é o que impede meia-sobreposição: a UI
+ * pode receber qualquer dia do mês e a meta nasce grudada nas bordas do
+ * período.
  */
 export function intervaloDoPeriodo(
   periodo: PeriodoMeta,
@@ -40,16 +46,16 @@ export function intervaloDoPeriodo(
   const mes = referencia.getUTCMonth();
   switch (periodo) {
     case "MENSAL":
-      return { inicio: dataUtc(ano, mes, 1), fim: dataUtc(ano, mes + 1, 0) };
+      return { inicio: dataUtc(ano, mes, 1), fim: dataUtc(ano, mes + 1, 1) };
     case "TRIMESTRAL": {
       const primeiroMesDoTrimestre = Math.floor(mes / 3) * 3;
       return {
         inicio: dataUtc(ano, primeiroMesDoTrimestre, 1),
-        fim: dataUtc(ano, primeiroMesDoTrimestre + 3, 0),
+        fim: dataUtc(ano, primeiroMesDoTrimestre + 3, 1),
       };
     }
     case "ANUAL":
-      return { inicio: dataUtc(ano, 0, 1), fim: dataUtc(ano, 12, 0) };
+      return { inicio: dataUtc(ano, 0, 1), fim: dataUtc(ano, 12, 1) };
   }
 }
 
@@ -95,8 +101,9 @@ function mesmoEscopo(a: EscopoMeta, b: EscopoMeta): boolean {
   return (a.categoriaId ?? null) === (b.categoriaId ?? null);
 }
 
+/** Cruzamento de janelas SEMIABERTAS: [início, fim). */
 function intervalosSeCruzam(a: IntervaloPeriodo, b: IntervaloPeriodo): boolean {
-  return a.inicio.getTime() <= b.fim.getTime() && b.inicio.getTime() <= a.fim.getTime();
+  return a.inicio.getTime() < b.fim.getTime() && b.inicio.getTime() < a.fim.getTime();
 }
 
 /**

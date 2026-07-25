@@ -161,33 +161,48 @@ export async function valoresDeRegraExibidos(): Promise<ValorExibido[]> {
 export interface MetaExibida {
   id: string;
   periodo: PeriodoMeta;
+  /** Janela semiaberta: `inicio` inclusivo, `fim` exclusivo (F9). */
   inicio: Date;
   fim: Date;
   valor: number;
   categoriaId: string | null;
   categoriaNome: string | null;
-  autorNome: string | null;
+  /** Procedência do número, exigida pela F9 — nunca vazia. */
+  origem: string;
+  /** Quem definiu, quando a meta nasceu na T17; vem da auditoria. */
+  ultimoAjuste: string;
 }
 
-/** T17 — metas vigentes e futuras, mais recentes primeiro. */
+/**
+ * T17 — metas de `metas_periodo` (a mesma tabela que a T14 lê), mais
+ * recentes primeiro. O autor não é coluna: a meta da carga inicial não tem
+ * um, e a criada na T17 já fica registrada na trilha de auditoria — ler de
+ * lá evita uma segunda fonte para o mesmo fato.
+ */
 export async function metasExibidas(): Promise<MetaExibida[]> {
-  const metas = await prisma.meta.findMany({
+  const metas = await prisma.metaPeriodo.findMany({
     orderBy: [{ inicio: "desc" }, { periodo: "asc" }],
-    include: {
-      categoria: { select: { nome: true } },
-      autor: { select: { nome: true } },
-    },
+    include: { categoria: { select: { nome: true } } },
   });
-  return metas.map((meta) => ({
-    id: meta.id,
-    periodo: meta.periodo,
-    inicio: meta.inicio,
-    fim: meta.fim,
-    valor: meta.valor,
-    categoriaId: meta.categoriaId,
-    categoriaNome: meta.categoria?.nome ?? null,
-    autorNome: meta.autor?.nome ?? null,
-  }));
+  return Promise.all(
+    metas.map(async (meta) => ({
+      id: meta.id,
+      periodo: meta.periodo,
+      inicio: meta.inicio,
+      fim: meta.fim,
+      valor: meta.valor,
+      categoriaId: meta.categoriaId,
+      categoriaNome: meta.categoria?.nome ?? null,
+      origem: meta.origem,
+      ultimoAjuste: textoDeAjuste(
+        await prisma.auditoriaEvento.findFirst({
+          where: { entidade: "meta_periodo", entidadeId: meta.id },
+          orderBy: { criadoEm: "desc" },
+          include: { autor: { select: { nome: true } } },
+        }),
+      ),
+    })),
+  );
 }
 
 /** T16 — itens da família com as frentes de uso já apuradas (RN24). */

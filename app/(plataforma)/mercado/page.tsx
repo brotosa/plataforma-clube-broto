@@ -172,6 +172,20 @@ export default async function PaginaMercado({
 
       {aba === "cobertura" && cobertura ? <MapaDeCobertura cobertura={cobertura} /> : null}
       {aba === "metas" && metas ? <PainelDeMetas metas={metas} /> : null}
+      {aba === "cobertura" || aba === "metas" ? (
+        // A T13 e a T14 LEEM o que a T17 escreve — inclusive a meta: é uma
+        // tabela só (`metas_periodo`), não uma cópia. O link fecha o
+        // caminho de quem olha o número e quer mudá-lo.
+        <p className="cap" style={{ margin: "12px 0 0", maxWidth: "80ch" }}>
+          {aba === "metas"
+            ? "As metas exibidas aqui são as mesmas que o Administrador da Plataforma define no "
+            : "As listas que recortam esta cobertura (categorias e abrangência) são mantidas no "}
+          <Link href={aba === "metas" ? "/parametrizador/valores" : "/parametrizador"}>
+            {aba === "metas" ? "Parametrizador › Valores de regra" : "Parametrizador"}
+          </Link>
+          . Toda alteração vale a partir da mudança, sem recalcular período fechado (RN25).
+        </p>
+      ) : null}
 
       {aba === "funil" ? (
       <>

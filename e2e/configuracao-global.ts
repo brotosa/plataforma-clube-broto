@@ -196,7 +196,7 @@ export default async function configuracaoGlobal() {
     if (culturasE2E.length > 0) {
       await prisma.cultura.deleteMany({ where: { id: { in: culturasE2E.map((c) => c.id) } } });
     }
-    await prisma.meta.deleteMany({ where: { periodo: { in: ["MENSAL", "TRIMESTRAL"] } } });
+    await prisma.metaPeriodo.deleteMany({ where: { periodo: { in: ["MENSAL", "TRIMESTRAL"] } } });
     console.log("[e2e] parâmetros no estado de implantação (F10)");
 
     // F11 — módulo de assinantes zerado (a spec importa tudo pela T20).

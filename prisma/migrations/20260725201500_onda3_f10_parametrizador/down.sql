@@ -48,5 +48,8 @@ DROP TABLE "perfis_cliente";
 -- AlterTable
 ALTER TABLE "avaliacoes_scout" DROP COLUMN "configuracao_versao_id";
 
+-- AlterTable
+ALTER TABLE "aprovacao_solicitacoes" DROP COLUMN "payload";
+
 -- DropEnum
 DROP TYPE "TipoValorRegra";

@@ -165,9 +165,7 @@ export default async function PaginaValoresDeRegra() {
                   </span>
                 </div>
                 <div className="cap pm-hist">
-                  {meta.autorNome
-                    ? `definida por ${meta.autorNome}`
-                    : "definida pelo negócio — carga inicial"}
+                  {meta.origem} · {meta.ultimoAjuste}
                 </div>
               </div>
             ))

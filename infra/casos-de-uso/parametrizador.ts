@@ -38,6 +38,10 @@ import { type Ator, ErroDeValidacao } from "./contexto";
 /**
  * Casos de uso do Parametrizador (F10 — T15, T16 e T17).
  *
+ * As metas vivem em `metas_periodo`, tabela criada pela F9 já no formato
+ * que este editor espera (janela semiaberta, unicidade da RN28 por índices
+ * parciais). A T14 lê e a T17 escreve a MESMA tabela — não há cópia.
+ *
  * Três invariantes atravessam tudo o que está aqui:
  *  RN23 — escrita só do Administrador da Plataforma, sempre auditada;
  *  RN25 — efeito prospectivo: nada aqui recalcula registro fechado, e
@@ -478,6 +482,14 @@ export interface NovaMeta {
   valor: number;
 }
 
+/**
+ * Procedência gravada em `metas_periodo.origem`. A F9 exige que nenhum
+ * valor de meta nasça sem dizer de onde veio; a meta criada aqui vem da
+ * T17, e o autor humano fica na trilha de auditoria — é de lá que a tela
+ * lê "definida por X em D", como faz com todo item de lista.
+ */
+const ORIGEM_T17 = "Definida no Parametrizador (Onda 3, T17)";
+
 export async function criarMeta(ator: Ator, nova: NovaMeta): Promise<ResultadoDeEscrita> {
   // Errata da ficha Onda 3 v0.2: metas são do Administrador da Plataforma.
   exigirPermissao(ator.papel, "DEFINIR_METAS");
@@ -485,7 +497,7 @@ export async function criarMeta(ator: Ator, nova: NovaMeta): Promise<ResultadoDe
   const { inicio, fim } = intervaloDoPeriodo(nova.periodo, nova.referencia);
 
   return prisma.$transaction(async (tx) => {
-    const existentes = await tx.meta.findMany({ where: { periodo: nova.periodo } });
+    const existentes = await tx.metaPeriodo.findMany({ where: { periodo: nova.periodo } });
     const categoria = nova.categoriaId
       ? await tx.categoria.findUnique({ where: { id: nova.categoriaId } })
       : null;
@@ -520,18 +532,18 @@ export async function criarMeta(ator: Ator, nova: NovaMeta): Promise<ResultadoDe
       return { aplicado: false, solicitacaoId: solicitacao.id };
     }
 
-    const criada = await tx.meta.create({
+    const criada = await tx.metaPeriodo.create({
       data: {
         periodo: nova.periodo,
         inicio,
         fim,
         categoriaId: nova.categoriaId,
         valor: nova.valor,
-        autorId: ator.id,
+        origem: ORIGEM_T17,
       },
     });
     await registrarMutacao(criarGravadorPrisma(tx), {
-      entidade: "meta",
+      entidade: "meta_periodo",
       entidadeId: criada.id,
       autorId: ator.id,
       anterior: null,
@@ -541,6 +553,7 @@ export async function criarMeta(ator: Ator, nova: NovaMeta): Promise<ResultadoDe
         fim: criada.fim,
         categoriaId: criada.categoriaId,
         valor: criada.valor,
+        origem: criada.origem,
       },
     });
     return { aplicado: true };
@@ -594,7 +607,7 @@ export async function aplicarParametroSensivelDentroDaTransacao(
     case "META": {
       const inicio = new Date(mudanca.inicio);
       const fim = new Date(mudanca.fim);
-      const existentes = await tx.meta.findMany({ where: { periodo: mudanca.periodo } });
+      const existentes = await tx.metaPeriodo.findMany({ where: { periodo: mudanca.periodo } });
       const erros = validarMeta(
         {
           periodo: mudanca.periodo,
@@ -616,18 +629,18 @@ export async function aplicarParametroSensivelDentroDaTransacao(
       if (erros.length > 0) {
         throw new ErroDeValidacao(erros);
       }
-      const criada = await tx.meta.create({
+      const criada = await tx.metaPeriodo.create({
         data: {
           periodo: mudanca.periodo,
           inicio,
           fim,
           categoriaId: mudanca.categoriaId,
           valor: mudanca.valor,
-          autorId,
+          origem: ORIGEM_T17,
         },
       });
       await registrarMutacao(criarGravadorPrisma(tx), {
-        entidade: "meta",
+        entidade: "meta_periodo",
         entidadeId: criada.id,
         autorId,
         anterior: null,
@@ -637,6 +650,7 @@ export async function aplicarParametroSensivelDentroDaTransacao(
           fim: criada.fim,
           categoriaId: criada.categoriaId,
           valor: criada.valor,
+          origem: criada.origem,
         },
       });
       return;

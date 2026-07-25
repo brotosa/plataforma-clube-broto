@@ -199,7 +199,7 @@ test("RN28 — a T17 avisa do conflito antes de enviar e o serviço recusa", asy
     await page.getByRole("button", { name: "Criar meta" }).click();
   });
   await expect(page.getByText("RN28", { exact: false }).first()).toBeVisible();
-  expect(await prisma.meta.count({ where: { periodo: "ANUAL", categoriaId: null } })).toBe(1);
+  expect(await prisma.metaPeriodo.count({ where: { periodo: "ANUAL", categoriaId: null } })).toBe(1);
 });
 
 test("RN27 — ligar a família sensível na T7 muda o comportamento sem deploy", async ({ page }) => {

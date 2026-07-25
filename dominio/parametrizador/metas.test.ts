@@ -9,37 +9,55 @@ import {
 
 const dia = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
-/** Meta vigente confirmada em 24/07 (ficha §3.2): 24 novos aliados/ano. */
+/**
+ * Meta vigente confirmada em 24/07 (ficha §3.2): 24 novos aliados/ano.
+ * Janela semiaberta — `fim` é 1º de janeiro do ano seguinte, convenção da
+ * tabela `metas_periodo` que a F9 criou e a T17 escreve.
+ */
 const META_ANUAL_2026: MetaExistente = {
   id: "meta-anual-geral",
   periodo: "ANUAL",
   inicio: dia("2026-01-01"),
-  fim: dia("2026-12-31"),
+  fim: dia("2027-01-01"),
   categoriaId: null,
 };
 
-describe("RN28 — períodos alinhados ao calendário", () => {
-  it("mensal cobre o mês inteiro que contém a referência", () => {
+describe("RN28 — períodos alinhados ao calendário, com fim exclusivo", () => {
+  it("mensal cobre o mês inteiro; o fim é o 1º do mês seguinte", () => {
     const intervalo = intervaloDoPeriodo("MENSAL", dia("2026-03-17"));
     expect(intervalo.inicio.toISOString()).toBe("2026-03-01T00:00:00.000Z");
-    expect(intervalo.fim.toISOString()).toBe("2026-03-31T00:00:00.000Z");
+    expect(intervalo.fim.toISOString()).toBe("2026-04-01T00:00:00.000Z");
   });
 
   it("mensal acerta fevereiro de ano bissexto", () => {
     const intervalo = intervaloDoPeriodo("MENSAL", dia("2028-02-10"));
-    expect(intervalo.fim.toISOString()).toBe("2028-02-29T00:00:00.000Z");
+    expect(intervalo.fim.toISOString()).toBe("2028-03-01T00:00:00.000Z");
   });
 
   it("trimestral cobre o trimestre civil que contém a referência", () => {
     const intervalo = intervaloDoPeriodo("TRIMESTRAL", dia("2026-08-30"));
     expect(intervalo.inicio.toISOString()).toBe("2026-07-01T00:00:00.000Z");
-    expect(intervalo.fim.toISOString()).toBe("2026-09-30T00:00:00.000Z");
+    expect(intervalo.fim.toISOString()).toBe("2026-10-01T00:00:00.000Z");
   });
 
   it("anual cobre o ano civil", () => {
     const intervalo = intervaloDoPeriodo("ANUAL", dia("2026-07-24"));
     expect(intervalo.inicio.toISOString()).toBe("2026-01-01T00:00:00.000Z");
-    expect(intervalo.fim.toISOString()).toBe("2026-12-31T00:00:00.000Z");
+    expect(intervalo.fim.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+  });
+
+  // A borda é o ponto sensível do fim exclusivo: dezembro e janeiro são
+  // meses vizinhos e não podem se cruzar.
+  it("meses consecutivos não se cruzam na virada do ano", () => {
+    const dezembro = intervaloDoPeriodo("MENSAL", dia("2026-12-15"));
+    const janeiro = intervaloDoPeriodo("MENSAL", dia("2027-01-15"));
+    expect(dezembro.fim.toISOString()).toBe(janeiro.inicio.toISOString());
+    expect(
+      conflitoDeMeta(
+        { periodo: "MENSAL", ...janeiro, categoriaId: null, valor: 2 },
+        [{ id: "dez", periodo: "MENSAL", ...dezembro, categoriaId: null }],
+      ),
+    ).toBeNull();
   });
 
   it("não desloca o 1º de janeiro por causa de fuso", () => {
@@ -64,7 +82,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       {
         periodo: "ANUAL",
         inicio: dia("2026-01-01"),
-        fim: dia("2026-12-31"),
+        fim: dia("2027-01-01"),
         categoriaId: null,
         valor: 24,
       },
@@ -78,7 +96,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       {
         periodo: "ANUAL",
         inicio: dia("2026-01-01"),
-        fim: dia("2026-12-31"),
+        fim: dia("2027-01-01"),
         categoriaId: null,
         valor: 30,
       },
@@ -94,7 +112,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       {
         periodo: "ANUAL",
         inicio: dia("2027-01-01"),
-        fim: dia("2027-12-31"),
+        fim: dia("2028-01-01"),
         categoriaId: null,
         valor: 30,
       },
@@ -108,7 +126,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       {
         periodo: "MENSAL",
         inicio: dia("2026-03-01"),
-        fim: dia("2026-03-31"),
+        fim: dia("2026-04-01"),
         categoriaId: null,
         valor: 2,
       },
@@ -122,7 +140,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       {
         periodo: "ANUAL",
         inicio: dia("2026-01-01"),
-        fim: dia("2026-12-31"),
+        fim: dia("2027-01-01"),
         categoriaId: "cat-tecnologia",
         valor: 6,
       },
@@ -136,14 +154,14 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       id: "meta-cat",
       periodo: "ANUAL",
       inicio: dia("2026-01-01"),
-      fim: dia("2026-12-31"),
+      fim: dia("2027-01-01"),
       categoriaId: "cat-tecnologia",
     };
     const erros = validarMeta(
       {
         periodo: "ANUAL",
         inicio: dia("2026-01-01"),
-        fim: dia("2026-12-31"),
+        fim: dia("2027-01-01"),
         categoriaId: "cat-tecnologia",
         valor: 8,
       },
@@ -159,7 +177,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       id: "meta-3t",
       periodo: "TRIMESTRAL",
       inicio: dia("2026-07-01"),
-      fim: dia("2026-09-30"),
+      fim: dia("2026-10-01"),
       categoriaId: null,
     };
     expect(
@@ -167,7 +185,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
         {
           periodo: "TRIMESTRAL",
           inicio: dia("2026-07-01"),
-          fim: dia("2026-09-30"),
+          fim: dia("2026-10-01"),
           categoriaId: null,
           valor: 5,
         },
@@ -181,7 +199,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
       {
         periodo: "ANUAL",
         inicio: dia("2026-01-01"),
-        fim: dia("2026-12-31"),
+        fim: dia("2027-01-01"),
         categoriaId: null,
         valor: 28,
       },
@@ -211,7 +229,7 @@ describe("RN28 — metas não se sobrepõem para o mesmo escopo e período", () 
         {
           periodo: "ANUAL",
           inicio: dia("2027-01-01"),
-          fim: dia("2027-12-31"),
+          fim: dia("2028-01-01"),
           categoriaId: null,
           valor,
         },

@@ -20,6 +20,15 @@ ALTER TYPE "TipoEntidadeAprovacao" ADD VALUE 'PARAMETRO_SENSIVEL';
 -- AlterTable
 ALTER TABLE "avaliacoes_scout" ADD COLUMN     "configuracao_versao_id" TEXT;
 
+-- AlterTable
+-- RN27 — conteúdo da mudança de parâmetro que aguarda decisão. As entidades
+-- das Ondas 1 e 2 já existem no banco quando entram na fila (promover uma
+-- empresa, publicar uma oferta), então `entidade_id` bastava. Uma escrita
+-- de parâmetro, não: o valor proposto NÃO pode tocar `valores_regra` antes
+-- de aprovado — a configuração vigente continua valendo —, e é aqui que ele
+-- espera.
+ALTER TABLE "aprovacao_solicitacoes" ADD COLUMN     "payload" JSONB;
+
 -- CreateTable
 CREATE TABLE "perfis_cliente" (
     "id" TEXT NOT NULL,
