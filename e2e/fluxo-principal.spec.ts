@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cnpjDeNome,
   entrar,
@@ -12,6 +12,24 @@ import {
   semearSolucaoCompleta,
   submeterERepintar,
 } from "./ajudantes";
+
+/**
+ * Abre a aba Soluções da ficha navegando pelo `href`, não pelo clique.
+ *
+ * O clique num `<Link>` do App Router com prefetch é sujeito a corrida sob
+ * carga: a navegação não acontece e o teste espera por um cabeçalho que nunca
+ * chega ("Soluções do aliado" não encontrado). O arquivo já usava este padrão
+ * duas linhas adiante, para "+ Nova solução"/"+ Nova oferta"; aqui ele fecha
+ * a última fonte de flakiness da suíte (F5). O clique em si segue coberto —
+ * `teclado.spec.ts` navega as abas por Enter e verifica o efeito.
+ */
+async function irParaAbaSolucoes(page: Page): Promise<void> {
+  const href = await page
+    .getByRole("link", { name: "Soluções", exact: true })
+    .getAttribute("href");
+  await page.goto(href!);
+  await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
+}
 
 /** Abas da T2 (ficha do aliado) — espelham `ABAS` em app/(plataforma)/aliados/[id]/page.tsx. */
 const ABAS_DA_FICHA = [
@@ -135,8 +153,7 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
     await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
-    await page.getByRole("link", { name: "Soluções", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
+    await irParaAbaSolucoes(page);
     // Navegação pelo href (clique em Link com prefetch é sujeito a corrida no CI)
     const hrefNovaSolucao = await page
       .getByRole("link", { name: "+ Nova solução" })
@@ -175,8 +192,7 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
     await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
-    await page.getByRole("link", { name: "Soluções", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
+    await irParaAbaSolucoes(page);
     await page.getByRole("link", { name: nomeSolucao }).click();
     await page.waitForURL(/\/solucoes\/(?!nova$)[a-z0-9]+$/);
     // Navegação direta pelo href (o clique em link com prefetch se mostrou
@@ -237,8 +253,7 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.goto(`/aliados?busca=${encodeURIComponent(nome)}`);
     await page.getByRole("link", { name: new RegExp(nome) }).click();
     await page.waitForURL(/\/aliados\/[a-z0-9]+/);
-    await page.getByRole("link", { name: "Soluções", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Soluções do aliado" })).toBeVisible();
+    await irParaAbaSolucoes(page);
     await page.getByRole("link", { name: nomeSolucao }).click();
     await page.waitForURL(/\/solucoes\/(?!nova$)[a-z0-9]+$/);
     const hrefNovaRecompensa = await page
