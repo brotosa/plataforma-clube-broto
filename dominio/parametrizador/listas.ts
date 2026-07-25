@@ -38,6 +38,12 @@ export interface DefinicaoFamilia {
    * editor e o único que dispara nova versão de configuração (RN25).
    */
   afetaScore?: boolean;
+  /**
+   * `false` onde criar item não faria sentido — a malha de UFs é fato
+   * público e fechado; inventar uma unidade federativa não é configurar.
+   * Renomear, inativar e reativar seguem disponíveis.
+   */
+  permiteCriar: boolean;
 }
 
 export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
@@ -48,6 +54,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     descricao:
       "Nome, grupo, dimensão de medição e peso · seed = as duas tabelas do ScoutCB com pesos v1",
     unidade: "indicadores",
+    permiteCriar: true,
     afetaScore: true,
   },
   {
@@ -56,6 +63,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Categorias de solução",
     descricao: "As categorias da vitrine · renomear propaga para soluções, ofertas e filtros",
     unidade: "categorias",
+    permiteCriar: true,
   },
   {
     id: "culturas",
@@ -63,6 +71,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Culturas",
     descricao: "Lista simples — usada na ficha da solução",
     unidade: "culturas",
+    permiteCriar: true,
   },
   {
     id: "cobertura",
@@ -70,6 +79,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Abrangência",
     descricao: "UFs usadas na abrangência de atuação de aliados e soluções",
     unidade: "UFs",
+    permiteCriar: false,
   },
   {
     id: "motivos-suspensao",
@@ -77,6 +87,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Motivos de suspensão",
     descricao: "Motivos tipificados exigidos ao suspender um aliado (RN12)",
     unidade: "motivos",
+    permiteCriar: true,
   },
   {
     id: "motivos-descarte",
@@ -84,6 +95,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Motivos de descarte",
     descricao: "Motivos tipificados exigidos ao descartar no funil (RN17)",
     unidade: "motivos",
+    permiteCriar: true,
   },
   {
     id: "tipos-beneficio",
@@ -91,6 +103,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Tipos de benefício",
     descricao: "Natureza do benefício oferecido na vitrine",
     unidade: "tipos",
+    permiteCriar: true,
   },
   {
     id: "perfil-cliente",
@@ -98,6 +111,7 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Perfil de cliente",
     descricao: "Porte × natureza (PF/PJ) — seed a definir com o negócio",
     unidade: "perfis",
+    permiteCriar: true,
     textoVazio:
       "O seed de porte × natureza (PF/PJ) ainda não foi definido pelo negócio. Criar itens aqui já os disponibiliza nas seleções.",
   },
@@ -114,23 +128,38 @@ export function familiaDe(id: string): DefinicaoFamilia | null {
 export const MENSAGEM_RN24_SEM_EXCLUSAO =
   "Itens em uso nunca são excluídos — apenas inativados (RN24). Inativos saem das seleções novas e permanecem nos registros históricos com etiqueta.";
 
+/** Uma frente de uso do item ("12 soluções", "3 aliados"). */
+export interface UsoDeItem {
+  singular: string;
+  plural: string;
+  quantidade: number;
+}
+
 /**
  * RN24 — Frase de uso exibida ANTES de inativar. A contagem vem sempre de
- * uma consulta viva; a ficha proíbe desnormalizar contadores, justamente
- * para que ninguém decida sobre um número velho.
+ * consulta viva; a ficha proíbe desnormalizar contadores, justamente para
+ * que ninguém decida sobre um número velho. Um item pode ser usado em mais
+ * de uma frente (uma categoria vive em soluções e em aliados), e cada uma
+ * é dita pelo nome — "em 12 registros" esconderia onde está o risco.
  */
-export function textoDeUso(
-  quantidade: number,
-  unidadeDeUso: string,
-  unidadePlural: string,
-): string {
-  if (quantidade === 0) {
+export function textoDeUso(usos: ReadonlyArray<UsoDeItem>): string {
+  const comUso = usos.filter((uso) => uso.quantidade > 0);
+  if (comUso.length === 0) {
     return "Sem uso registrado — inativar não afeta nenhum registro.";
   }
-  if (quantidade === 1) {
-    return `Em uso em 1 ${unidadeDeUso}.`;
-  }
-  return `Em uso em ${quantidade} ${unidadePlural}.`;
+  const partes = comUso.map(
+    (uso) => `${uso.quantidade} ${uso.quantidade === 1 ? uso.singular : uso.plural}`,
+  );
+  const listado =
+    partes.length === 1
+      ? partes[0]
+      : `${partes.slice(0, -1).join(", ")} e ${partes[partes.length - 1]}`;
+  return `Em uso em ${listado}.`;
+}
+
+/** Soma das frentes — é o número que a RN24 exige ter em mãos. */
+export function totalDeUsos(usos: ReadonlyArray<UsoDeItem>): number {
+  return usos.reduce((total, uso) => total + uso.quantidade, 0);
 }
 
 /**

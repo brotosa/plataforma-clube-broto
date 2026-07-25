@@ -12,7 +12,13 @@ import {
   validarCoerenciaDasReguas,
   validarValorRegra,
 } from "./valores-regra";
-import { FAMILIAS_DE_LISTA, textoDeUso, validarInativacao, validarNomeDeItem } from "./listas";
+import {
+  FAMILIAS_DE_LISTA,
+  textoDeUso,
+  totalDeUsos,
+  validarInativacao,
+  validarNomeDeItem,
+} from "./listas";
 import { PARAMETROS_ESTRUTURAIS } from "./estruturais";
 
 const INDICADOR: CamposDeIndicador = {
@@ -165,9 +171,28 @@ describe("RN24 — inativar exige contagem de uso; excluir não existe", () => {
   });
 
   it("redige a contagem de uso em singular, plural e ausência", () => {
-    expect(textoDeUso(0, "solução", "soluções")).toContain("Sem uso registrado");
-    expect(textoDeUso(1, "solução", "soluções")).toBe("Em uso em 1 solução.");
-    expect(textoDeUso(12, "solução", "soluções")).toBe("Em uso em 12 soluções.");
+    const solucoes = (quantidade: number) => [
+      { singular: "solução", plural: "soluções", quantidade },
+    ];
+    expect(textoDeUso(solucoes(0))).toContain("Sem uso registrado");
+    expect(textoDeUso(solucoes(1))).toBe("Em uso em 1 solução.");
+    expect(textoDeUso(solucoes(12))).toBe("Em uso em 12 soluções.");
+  });
+
+  it("nomeia cada frente de uso em vez de somar tudo num número cego", () => {
+    const usos = [
+      { singular: "solução", plural: "soluções", quantidade: 12 },
+      { singular: "aliado", plural: "aliados", quantidade: 1 },
+      { singular: "oferta", plural: "ofertas", quantidade: 0 },
+    ];
+    expect(textoDeUso(usos)).toBe("Em uso em 12 soluções e 1 aliado.");
+    expect(totalDeUsos(usos)).toBe(13);
+  });
+
+  it("não permite criar unidade federativa — a malha é fato fechado", () => {
+    expect(FAMILIAS_DE_LISTA.filter((f) => !f.permiteCriar).map((f) => f.id)).toEqual([
+      "cobertura",
+    ]);
   });
 
   it("recusa nome vazio e duplicata, ignorando acento e caixa", () => {

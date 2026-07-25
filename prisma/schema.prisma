@@ -1034,6 +1034,13 @@ model AprovacaoSolicitacao {
   estado        EstadoSolicitacao    @default(SOLICITADA)
   /// Obrigatório na devolução (validado em serviço).
   comentario String?
+  /// Onda 3 (RN27) — conteúdo da mudança que aguarda decisão. As entidades
+  /// das Ondas 1 e 2 já existem no banco quando entram na fila (promover
+  /// uma empresa, publicar uma oferta), então `entidadeId` bastava. Uma
+  /// escrita de parâmetro, não: o valor proposto NÃO pode tocar
+  /// `valores_regra` antes de aprovado — a configuração vigente continua
+  /// valendo —, e é aqui que ele espera.
+  payload Json?
   /// Segregação RN06 (solicitante ≠ aprovador) garantida em serviço.
   aprovadorId String?   @map("aprovador_id")
   decididoEm  DateTime? @map("decidido_em")
