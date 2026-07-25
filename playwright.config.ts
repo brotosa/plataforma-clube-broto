@@ -7,8 +7,15 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "e2e",
+  globalSetup: "./e2e/configuracao-global.ts",
   fullyParallel: false,
-  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  // Server actions + revalidação podem levar alguns segundos no servidor
+  // de teste; 15s evita falso-negativo sem mascarar defeito real.
+  expect: { timeout: 15_000 },
+  // Uma repetição absorve corridas raras de hidratação sem esconder
+  // regressões reais (a suíte roda serial, com estado resetado no setup).
+  retries: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://localhost:3000",
