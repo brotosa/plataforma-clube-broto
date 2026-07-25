@@ -178,7 +178,7 @@ describe("KitAdapter genérico (v1) — formato definitivo [A CONFIRMAR]", () =>
   it("inclui a imagem da peça e a referencia pelo mesmo nome do manifesto", () => {
     const conteudo = conteudoDoKit();
     const peca = {
-      ...conteudo.pecas[0],
+      ...conteudo.pecas[0]!,
       imagem: { nomeArquivo: "banner.png", conteudo: Buffer.from([137, 80, 78, 71]) },
     };
     const nomes = nomesDosArquivosDaPeca(peca, 0);

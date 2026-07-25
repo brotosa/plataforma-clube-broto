@@ -54,8 +54,8 @@ describe("RN42 — sugestões assistivas", () => {
       publico,
     );
     expect(sugestoes).toHaveLength(1);
-    expect(sugestoes[0].sinais).toContain("cultura");
-    expect(sugestoes[0].motivo).toContain("cultura café");
+    expect(sugestoes[0]!.sinais).toContain("cultura");
+    expect(sugestoes[0]!.motivo).toContain("cultura café");
   });
 
   it("sugere por cobertura nacional", () => {
@@ -63,7 +63,7 @@ describe("RN42 — sugestões assistivas", () => {
       [candidato("of-2", "Seguro agrícola", { coberturaNacional: true })],
       publico,
     );
-    expect(sugestoes[0].motivo).toContain("cobertura nacional");
+    expect(sugestoes[0]!.motivo).toContain("cobertura nacional");
   });
 
   it("sugere por UF atendida", () => {
@@ -71,7 +71,7 @@ describe("RN42 — sugestões assistivas", () => {
       [candidato("of-3", "Assistência técnica", { ufs: ["MT", "GO"] })],
       publico,
     );
-    expect(sugestoes[0].motivo).toContain("MT");
+    expect(sugestoes[0]!.motivo).toContain("MT");
   });
 
   it('trata a cultura "Todas" como atendimento a qualquer cultura', () => {
@@ -79,7 +79,7 @@ describe("RN42 — sugestões assistivas", () => {
       [candidato("of-4", "Gestão financeira", { culturas: ["Todas"] })],
       publico,
     );
-    expect(sugestoes[0].motivo).toContain("atende todas as culturas");
+    expect(sugestoes[0]!.motivo).toContain("atende todas as culturas");
   });
 
   it("casa preferência pecuária com solução de cultura Pecuária", () => {
@@ -87,7 +87,7 @@ describe("RN42 — sugestões assistivas", () => {
       [candidato("of-5", "Nutrição animal", { culturas: ["Pecuária"] })],
       { ufs: [], culturas: [], preferencias: ["pecuaria"] },
     );
-    expect(sugestoes[0].motivo).toContain("preferência pecuária");
+    expect(sugestoes[0]!.motivo).toContain("preferência pecuária");
   });
 
   it("não casa preferência pecuária com solução só de cultura agrícola", () => {
