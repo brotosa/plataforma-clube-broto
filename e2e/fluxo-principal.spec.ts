@@ -170,7 +170,9 @@ test.describe.serial("fluxo principal — criar → promover → aprovar → sol
     await expect(page.getByText("Rascunho")).toBeVisible();
 
     await page.getByRole("button", { name: "Publicar oferta" }).click();
-    // Sinal durável: o pill de status muda para Publicada após a revalidação
+    // Aguarda a revalidação concluir (a ficha da oferta agora também carrega os
+    // agregados de telemetria) antes de checar o sinal durável do pill.
+    await page.waitForLoadState("networkidle");
     await expect(page.getByText("Publicada", { exact: true })).toBeVisible();
   });
 
