@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
 import type { ConteudoDossie } from "@/dominio/dossie/schema";
-import type { DossieProvider, PedidoDeDossie } from "@/infra/dossie/provedor";
+import type { DossieProvider } from "@/infra/dossie/provedor";
 import { ErroDeProvedor } from "@/infra/dossie/provedor";
 import { telaDossie } from "@/infra/consultas/dossies";
 import { ErroDeValidacao } from "./contexto";
@@ -93,7 +93,7 @@ function provedorFalso(
     async estimarCustoMaximo() {
       return 1;
     },
-    async gerar(_pedido: PedidoDeDossie) {
+    async gerar() {
       if (comportamento.tipo === "falha") {
         throw comportamento.erro;
       }
