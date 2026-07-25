@@ -397,7 +397,12 @@ export function Importador({
                     : ""}
                   . Colunas sem correspondência ficam de fora e aparecem no resumo.
                 </p>
-                <div style={{ overflowX: "auto" }}>
+                <div
+                  style={{ overflowX: "auto" }}
+                  tabIndex={0}
+                  role="region"
+                  aria-label="De/para das colunas do arquivo"
+                >
                   <table className="tbl">
                     <thead>
                       <tr>
@@ -491,7 +496,12 @@ export function Importador({
                 <h2 className="h-el" style={{ marginBottom: 12 }}>
                   Pré-visualização — 5 primeiras linhas
                 </h2>
-                <div style={{ overflowX: "auto" }}>
+                <div
+                  style={{ overflowX: "auto" }}
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Pré-visualização das 5 primeiras linhas"
+                >
                   <table className="tbl">
                     <thead>
                       <tr>
@@ -766,7 +776,12 @@ export function Importador({
             Nenhuma carga ainda — a base nasce da primeira importação.
           </p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div
+            style={{ overflowX: "auto" }}
+            tabIndex={0}
+            role="region"
+            aria-label="Histórico de cargas"
+          >
             <table className="tbl">
               <thead>
                 <tr>
@@ -776,7 +791,9 @@ export function Importador({
                   <th>Autor</th>
                   <th>Data</th>
                   <th style={{ textAlign: "right" }}>Resultado</th>
-                  <th style={{ width: 120 }} />
+                  <th style={{ width: 120 }}>
+                    <span className="sr-oculto">Ações da carga</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>

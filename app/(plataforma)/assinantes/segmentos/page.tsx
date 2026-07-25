@@ -85,9 +85,9 @@ export default async function PaginaSegmentos() {
           {segmentos.map((segmento) => (
             <div className="pm-card" key={segmento.id}>
               <div className="pm-secao">Assinantes</div>
-              <h3 className="h-el" style={{ fontSize: 16, marginTop: 6 }}>
+              <h2 className="h-el" style={{ fontSize: 16, marginTop: 6 }}>
                 {segmento.nome}
-              </h3>
+              </h2>
               <p className="cap" style={{ margin: "8px 0 0" }}>
                 {segmento.resumo}
               </p>

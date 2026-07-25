@@ -320,7 +320,13 @@ export function CarteiraAssinantes({
         </div>
       ) : (
         <>
-          <div className="card" style={{ overflowX: "auto" }}>
+          <div
+            className="card"
+            style={{ overflowX: "auto" }}
+            tabIndex={0}
+            role="region"
+            aria-label="Tabela da carteira de assinantes"
+          >
             <table className="tbl tbl-resp">
               <thead>
                 <tr>
@@ -330,7 +336,9 @@ export function CarteiraAssinantes({
                   <th>Preferência</th>
                   <th>Cultura</th>
                   <th>Uso 90 d</th>
-                  <th style={{ width: 34 }} />
+                  <th style={{ width: 34 }}>
+                    <span className="sr-oculto">Abrir perfil</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>

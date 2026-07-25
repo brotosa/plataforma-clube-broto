@@ -1,0 +1,255 @@
+import path from "node:path";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
+import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sinteticas";
+
+/**
+ * E2e da F11 (critérios do prompt da Onda 5):
+ *
+ * 1. Fluxo incremental completo: importar arquivo sintético → mapear →
+ *    política incremental → carteira → montar filtro → contagem →
+ *    salvar segmento → exportar com finalidade → evento de auditoria
+ *    conferido.
+ * 2. Foto completa: arquivo parcial exige a confirmação em duas etapas
+ *    mostrando quantos sairiam (cenário do desastre, RN29).
+ *
+ * As contagens esperadas vêm do MESMO gerador determinístico (semente
+ * 21) usado pelo setup global — nenhum número inventado. Axe-core roda
+ * nas quatro telas novas; a T18 é verificada a 380px.
+ */
+
+const SENHA = process.env.SENHA_USUARIOS_DEV ?? "clube-broto-dev";
+const SINTETICOS = gerarAssinantesSinteticos(12, 21);
+const ESPERADO_MT = SINTETICOS.filter((s) => s.uf === "MT").length;
+const NOME_SEGMENTO = `Segmento E2E ${`${Date.now()}`.slice(-6)}`;
+
+async function entrar(page: Page, email: string) {
+  await page.goto("/entrar");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill(SENHA);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.waitForURL("**/aliados");
+}
+
+async function semViolacoesAxe(page: Page) {
+  await page.getByRole("heading", { level: 1 }).first().waitFor();
+  const resultado = await new AxeBuilder({ page }).analyze();
+  expect(resultado.violations).toEqual([]);
+}
+
+test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 → exportação)", () => {
+  test("gestor importa a base sintética pela T20 (família → arquivo → mapeamento → política → resumo)", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/assinantes/importacoes");
+    await semViolacoesAxe(page);
+
+    // Passo 1 — família (Base de assinantes já selecionada)
+    await page.getByRole("button", { name: "Continuar" }).click();
+
+    // Passo 2 — arquivo sintético gerado no setup global
+    await page
+      .locator("#arquivo-carga")
+      .setInputFiles(path.join(process.cwd(), "e2e", ".tmp", "assinantes-nucleo.csv"));
+    await page.getByRole("button", { name: "Mapear colunas" }).click();
+
+    // Passo 3 — sugestão automática cobre o dicionário de exemplo
+    await expect(page.getByText("Pré-visualização — 5 primeiras linhas")).toBeVisible();
+    await expect(page.getByText("12 linhas · 7 colunas reconhecidas")).toBeVisible();
+    await semViolacoesAxe(page);
+    await page.getByRole("button", { name: "Escolher política" }).click();
+
+    // Passo 4 — política incremental (padrão da RN29)
+    await expect(
+      page.getByText("A ausência de um CPF no arquivo não inativa ninguém por padrão"),
+    ).toBeVisible();
+    await expect(page.getByText("12 novos · 0 atualizados · 0 em quarentena")).toBeVisible();
+    await semViolacoesAxe(page);
+    await page.getByRole("button", { name: "Processar carga" }).click();
+
+    // Passo 5 — resumo real da efetivação
+    await expect(page.getByText("assinantes criados")).toBeVisible();
+    await expect(page.getByText("Nenhuma linha em quarentena nesta carga.")).toBeVisible();
+    await semViolacoesAxe(page);
+  });
+
+  test("carteira nasce mascarada, contagem viva reage ao filtro e RN36 nunca estima", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/assinantes");
+
+    // Base completa na contagem viva e CPFs mascarados na tabela.
+    await expect(page.locator(".viva-n")).toHaveText("12");
+    await expect(
+      page.getByText("assinantes na base — nenhum filtro aplicado"),
+    ).toBeVisible();
+    await expect(page.getByText(/CPF \*\*\*\.___\.\*\*\*-\d{2}/).first()).toBeVisible();
+    await semViolacoesAxe(page);
+
+    // Regra UF é MT → contagem esperada do gerador determinístico.
+    await page.getByRole("button", { name: "+ Adicionar regra" }).click();
+    await page.getByLabel("Campo da regra 1").selectOption("uf");
+    await page.getByLabel("Valor da regra 1").selectOption("MT");
+    await expect(page.locator(".viva-n")).toHaveText(String(ESPERADO_MT));
+    await expect(page.getByText("assinantes correspondem aos filtros")).toBeVisible();
+
+    // Regra de uso em 90 dias: contagem INDISPONÍVEL, nunca estimada.
+    await page.getByRole("button", { name: "+ Adicionar regra" }).click();
+    await page.getByLabel("Campo da regra 2").selectOption("uso-90-dias");
+    await expect(page.getByText(/contagem indisponível/)).toBeVisible();
+    await expect(page.locator(".viva").getByText("aguardando telemetria por assinante")).toBeVisible();
+    await page.getByRole("button", { name: "Remover regra 2" }).click();
+    await expect(page.locator(".viva-n")).toHaveText(String(ESPERADO_MT));
+  });
+
+  test("filtro vira segmento salvo e a T21 recalcula a contagem", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/assinantes");
+    await page.getByRole("button", { name: "+ Adicionar regra" }).click();
+    await page.getByLabel("Campo da regra 1").selectOption("uf");
+    await page.getByLabel("Valor da regra 1").selectOption("MT");
+    await expect(page.locator(".viva-n")).toHaveText(String(ESPERADO_MT));
+
+    await page.getByRole("button", { name: "Salvar como segmento" }).click();
+    await page.getByLabel("Nome do segmento").fill(NOME_SEGMENTO);
+    await page.getByRole("button", { name: "Salvar segmento" }).last().click();
+    await expect(page.getByText("Segmento salvo — disponível em Segmentos salvos")).toBeVisible();
+
+    await page.goto("/assinantes/segmentos");
+    await expect(page.getByRole("heading", { name: NOME_SEGMENTO })).toBeVisible();
+    const cartao = page.locator(".pm-card", { hasText: NOME_SEGMENTO });
+    await expect(cartao.getByText("UF é MT")).toBeVisible();
+    await expect(cartao.locator(".kpi-n")).toHaveText(String(ESPERADO_MT));
+    await expect(cartao.getByText("assinantes hoje")).toBeVisible();
+    await semViolacoesAxe(page);
+  });
+
+  test("exportação exige finalidade, baixa o snapshot e o evento de auditoria fica conferível", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(
+      `/assinantes?regras=${encodeURIComponent(JSON.stringify([{ campo: "uf", operador: "e", valor: "MT" }]))}`,
+    );
+    await expect(page.locator(".viva-n")).toHaveText(String(ESPERADO_MT));
+
+    await page.getByRole("button", { name: "Exportar lista" }).first().click();
+    const confirmar = page.getByRole("dialog").getByRole("button", { name: "Exportar lista" });
+    // Sem finalidade, o botão fica bloqueado (RN34).
+    await expect(confirmar).toBeDisabled();
+    await page
+      .getByLabel(/Finalidade da exportação/)
+      .fill("Convite sintético do e2e — lista para o time de relacionamento");
+    const aguardaDownload = page.waitForEvent("download");
+    await confirmar.click();
+    const download = await aguardaDownload;
+    expect(download.suggestedFilename()).toMatch(/^lista-contato-.+\.csv$/);
+
+    // Evento de auditoria conferido (RN34): finalidade + contagem gravadas.
+    const prisma = new PrismaClient();
+    try {
+      const exportacao = await prisma.exportacaoLista.findFirstOrThrow({
+        orderBy: { criadoEm: "desc" },
+      });
+      expect(exportacao.finalidade).toContain("Convite sintético do e2e");
+      expect(exportacao.contagem).toBe(ESPERADO_MT);
+      const evento = await prisma.auditoriaEvento.findFirst({
+        where: { entidade: "exportacao_lista", entidadeId: exportacao.id },
+      });
+      expect(evento).not.toBeNull();
+      expect(evento?.valorNovo).toContain("Convite sintético do e2e");
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
+
+  test("perfil mascarado por padrão; exibição plena com aviso de auditoria (T19)", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/assinantes");
+    await page.getByRole("row").nth(1).click();
+    await page.waitForURL(/\/assinantes\/[a-z0-9]+$/);
+
+    await expect(page.getByText(/\*\*\*\.___\.\*\*\*-\d{2}/)).toBeVisible();
+    await expect(page.getByText("CPF e contato mascarados.")).toBeVisible();
+    await expect(page.getByText("aguardando telemetria por assinante")).toBeVisible();
+    await expect(page.getByText("origem do dado em definição")).toBeVisible();
+    await semViolacoesAxe(page);
+
+    await page.getByRole("link", { name: "Exibir dados plenos" }).click();
+    await expect(
+      page.getByText("Exibição plena de dados pessoais — este acesso gerou evento de auditoria"),
+    ).toBeVisible();
+    await expect(page.getByText(/\d{3}\.\d{3}\.\d{3}-\d{2}/).first()).toBeVisible();
+    await semViolacoesAxe(page);
+  });
+
+  test("papel Leitura consulta contagens mas não vê alternância de dados plenos", async ({
+    page,
+  }) => {
+    await entrar(page, "leitura@dev.clubebroto.local");
+    await page.goto("/assinantes");
+    await expect(page.locator(".viva-n")).toHaveText("12");
+    await expect(
+      page.getByText(
+        "Exibição plena de CPF e contato depende da permissão “visualizar dados pessoais plenos”.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Exibir dados plenos" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Exportar lista" })).toHaveCount(0);
+  });
+
+  test("T18 consultável a 380px: contagem viva e construtor operáveis", async ({ page }) => {
+    await page.setViewportSize({ width: 380, height: 800 });
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/assinantes");
+    await expect(page.locator(".viva-n")).toHaveText("12");
+    await page.getByRole("button", { name: "+ Adicionar regra" }).click();
+    await page.getByLabel("Campo da regra 1").selectOption("uf");
+    await page.getByLabel("Valor da regra 1").selectOption("MT");
+    await expect(page.locator(".viva-n")).toHaveText(String(ESPERADO_MT));
+    await semViolacoesAxe(page);
+  });
+});
+
+test.describe.serial("F11 — foto completa em duas etapas (cenário do desastre, RN29)", () => {
+  test("arquivo parcial como foto completa exige o texto digitado mostrando quantos sairiam", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/assinantes/importacoes");
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await page
+      .locator("#arquivo-carga")
+      .setInputFiles(path.join(process.cwd(), "e2e", ".tmp", "assinantes-parcial.csv"));
+    await page.getByRole("button", { name: "Mapear colunas" }).click();
+    await page.getByRole("button", { name: "Escolher política" }).click();
+
+    // Troca para foto completa: o dry-run mostra QUANTOS sairiam.
+    await page.getByRole("radio", { name: /Foto completa/ }).check();
+    await expect(page.getByText(`${12 - 2} assinante(s)`)).toBeVisible();
+    await expect(page.getByText(/seriam marcados como “fora da base”/)).toBeVisible();
+
+    // Sem o texto exato, o processamento fica bloqueado.
+    const processar = page.getByRole("button", { name: "Processar carga" });
+    await expect(processar).toBeDisabled();
+    await page.getByRole("textbox", { name: "Confirmação" }).fill("CONFIRMO");
+    await expect(processar).toBeDisabled();
+
+    // Com o texto exato, processa e reporta os que saíram.
+    await page.getByRole("textbox", { name: "Confirmação" }).fill("foto completa");
+    await expect(processar).toBeEnabled();
+    await processar.click();
+    await expect(
+      page.getByText(/Foto completa confirmada: 10 assinante\(s\) marcados como “fora da base”/),
+    ).toBeVisible();
+
+    // A carteira passa a contar somente os 2 do arquivo.
+    await page.goto("/assinantes");
+    await expect(page.locator(".viva-n")).toHaveText("2");
+  });
+});
