@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { ErroDeValidacao } from "./contexto";
+import { fecharAvaliacao, iniciarAvaliacao, salvarNotas } from "./avaliacoes";
 import {
   adicionarNotaRapida,
   descartarEmpresa,
@@ -41,6 +42,15 @@ describe.skipIf(!temBanco)("funil de mercado — casos de uso integrados (F6)", 
       where: { nomeFantasia: { startsWith: "[TESTE-F6]" } },
     });
     const ids = empresas.map((empresa) => empresa.id);
+    const avaliacoes = await prisma.avaliacaoScout.findMany({
+      where: { empresaId: { in: ids } },
+    });
+    const avaliacaoIds = avaliacoes.map((avaliacao) => avaliacao.id);
+    await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
+    await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIds } } });
+    await prisma.auditoriaEvento.deleteMany({
+      where: { entidade: "avaliacao_scout", entidadeId: { in: avaliacaoIds } },
+    });
     await prisma.notaRapida.deleteMany({ where: { empresaId: { in: ids } } });
     await prisma.registroNegociacao.deleteMany({ where: { empresaId: { in: ids } } });
     await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: { in: ids } } });
@@ -137,7 +147,19 @@ describe.skipIf(!temBanco)("funil de mercado — casos de uso integrados (F6)", 
     );
   });
 
-  it("scout prioriza (decisão humana explícita; RN15 completa na F7)", async () => {
+  it("priorizar sem avaliação fechada é barrado (RN15, completa na F7)", async () => {
+    await expect(moverNoFunil(scout, empresaId, "PRIORIZADA")).rejects.toThrow(/RN15/);
+  });
+
+  it("scout fecha a avaliação e prioriza — decisão humana explícita (RN15)", async () => {
+    const indicador = await prisma.indicador.findUniqueOrThrow({
+      where: { slug: "PRESENCA_GEOGRAFICA_UFS_ATENDIDAS" },
+    });
+    const rascunho = await iniciarAvaliacao(scout, empresaId);
+    await salvarNotas(scout, rascunho.id, [{ indicadorId: indicador.id, nota: 3 }]);
+    const fechada = await fecharAvaliacao(scout, rascunho.id, "AVANCAR");
+    expect(fechada.total).toBe(60); // nota 3 × 20, única dimensão avaliada
+
     const empresa = await moverNoFunil(scout, empresaId, "PRIORIZADA");
     expect(empresa.estagio).toBe("PRIORIZADA");
   });
@@ -232,7 +254,7 @@ describe.skipIf(!temBanco)("funil de mercado — casos de uso integrados (F6)", 
     expect(mapeada?.cards.some((card) => card.id === empresaId)).toBe(true);
     expect(contadores.identificadas).toBeGreaterThanOrEqual(1);
     const card = tabela.find((linha) => linha.id === empresaId);
-    expect(card?.score).toBeNull();
+    expect(card?.score).toBe(60); // score da avaliação fechada na F7
     expect(card?.rotuloDias).toBe("hoje");
   });
 

@@ -25,8 +25,8 @@ describe("calcularScore — subtotal da dimensão = média 1–5 × 20", () => {
       { dimensao: "Fit de Negócio", peso: 1, nota: 3 },
       { dimensao: "Fit de Negócio", peso: 1, nota: 4 },
     ]);
-    expect(score.subtotais[0].media).toBe(3.5);
-    expect(score.subtotais[0].subtotal).toBe(70);
+    expect(score.subtotais[0]!.media).toBe(3.5);
+    expect(score.subtotais[0]!.subtotal).toBe(70);
     expect(score.total).toBe(70);
   });
 
@@ -60,8 +60,8 @@ describe("calcularScore — subtotal da dimensão = média 1–5 × 20", () => {
       { dimensao: "Saúde do caixa", peso: 2, nota: 4 },
       { dimensao: "Saúde do caixa", peso: 1, nota: 2 },
     ]);
-    expect(score.subtotais[0].peso).toBe(1.5);
-    expect(score.subtotais[0].media).toBe(3);
+    expect(score.subtotais[0]!.peso).toBe(1.5);
+    expect(score.subtotais[0]!.media).toBe(3);
   });
 
   it("extremos da escala: todas 1 dá 20; todas 5 dá 100", () => {
@@ -137,7 +137,7 @@ describe("compararSubtotais — comparação com a versão anterior (T10)", () =
       subtotalAtual: 80,
       delta: 40,
     });
-    expect(comparacao[1].delta).toBe(0);
+    expect(comparacao[1]!.delta).toBe(0);
   });
 
   it("dimensão avaliada só em uma das versões aparece com delta null", () => {
