@@ -115,6 +115,59 @@ e2e/        Playwright + axe-core (fluxos e acessibilidade)
 dados/      planilhas reais da carga inicial (consumidas na F3)
 ```
 
+## Dossiê assistido (Onda 2 — F8)
+
+Due diligence **pública** da empresa em dez etapas, na tela T11
+(`/mercado/{empresaId}/dossie`, também alcançável pelo menu do card no
+funil). Duas formas de produzir o dossiê, pela mesma porta `DossieProvider`:
+
+- **Automática** — API da Anthropic com busca na web. O prompt é montado a
+  partir do template versionado `docs/especificacao/prompt-dossie-due-diligence.md`
+  (alterar o arquivo é alterar produto: a versão usada fica registrada em
+  cada execução) e a resposta é validada contra o schema do template antes
+  de ser gravada.
+- **Manual** — o analista cola o dossiê produzido fora da plataforma. A
+  T11 mostra o prompt pronto para copiar. Sempre disponível: é a
+  alternativa permanente e o caminho quando a chave não está configurada.
+
+Regras que valem em qualquer caminho:
+
+- **Só sob demanda.** A geração parte sempre de um analista, uma por
+  empresa de cada vez; não existe rotina que gere dossiês em lote.
+- **RN19.** O dossiê nasce marcado "gerado automaticamente — requer
+  revisão" e só sai desse estado pela ação "marcar como revisado", que
+  grava autor e data. **Nenhum campo do dossiê preenche nota de
+  indicador** — ele alimenta evidência; a pontuação é sempre humana. Um
+  teste de arquitetura (`infra/arquitetura/independencia-dossie.test.ts`)
+  falha se a avaliação passar a enxergar dossiê.
+- **Custo e duração por execução**, inclusive nas tentativas que falham —
+  visíveis na própria T11.
+
+### Configuração (variáveis de ambiente, nunca commitadas)
+
+| Variável | O que é |
+|---|---|
+| `ANTHROPIC_API_KEY` | Chave da API (secret do ambiente/CI) |
+| `DOSSIE_TETO_MENSAL_BRL` | Teto de gasto do mês **[A CONFIRMAR TI]** |
+| `DOSSIE_CUSTO_MAX_UNITARIO_BRL` | Teto por dossiê **[A CONFIRMAR TI]** |
+| `DOSSIE_CUSTO_ENTRADA_BRL_MTOK` | Tarifa de entrada, R$ por milhão de tokens **[A CONFIRMAR TI]** |
+| `DOSSIE_CUSTO_SAIDA_BRL_MTOK` | Tarifa de saída, R$ por milhão de tokens **[A CONFIRMAR TI]** |
+
+Não há valor padrão embutido para nenhuma delas — e não haverá: sem tarifa
+não se apura custo, e sem custo o teto seria decoração. **Faltando
+qualquer variável, a geração automática fica indisponível** com mensagem
+clara na T11 (dizendo o que falta) e a inserção manual segue operando. É
+esse o estado esperado em desenvolvimento: nenhuma chave de teste é
+embutida no repositório.
+
+Como os tetos agem: antes de chamar a API, o custo do pior caso da
+execução é comparado ao teto por dossiê e ao consumo já realizado no mês —
+acima de qualquer um, a geração é bloqueada com a mensagem dizendo quanto
+resta. Durante a pesquisa, o custo é reapurado a cada rodada de busca e a
+execução é interrompida ao ultrapassar o teto unitário, com o gasto
+registrado. Os valores dos tetos passam a ser editáveis sem código no
+Parametrizador (Onda 3, T17).
+
 ## Convenções
 
 - Idioma de UI, mensagens, commits e documentação: português do Brasil.
