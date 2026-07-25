@@ -58,6 +58,7 @@ model Usuario {
   empresasComoComercial Empresa[] @relation("responsavelComercial")
   notasRapidas          NotaRapida[]
   registrosNegociacao   RegistroNegociacao[]
+  avaliacoesScout       AvaliacaoScout[]
 
   @@map("usuarios")
 }
@@ -223,8 +224,13 @@ model Empresa {
   motivoDescarteId         String? @map("motivo_descarte_id")
   motivoDescarteDescricao  String? @map("motivo_descarte_descricao")
   motivoDescarteComentario String? @map("motivo_descarte_comentario")
-  /// Somente leitura na Onda 1; calculado na Onda 2 (F7 — avaliação).
+  /// Total 0–100 da avaliação fechada vigente (F7); recalculado a cada
+  /// fechamento de versão. Nulo = sem avaliação fechada ("pendente").
   scoreScouting Int?    @map("score_scouting")
+  /// RN21 — ligada pelo job diário quando a aliada ativa completa 12 meses
+  /// da última avaliação fechada; limpa ao fechar nova avaliação (ou pelo
+  /// próprio job quando deixar de valer).
+  reavaliacaoPendente Boolean @default(false) @map("reavaliacao_pendente")
   /// Preenchido na primeira publicação; na carga inicial vem da planilha ("Id do Seller").
   idExternoMinutrade String? @unique @map("id_externo_minutrade")
   criadoEm     DateTime @default(now()) @map("criado_em")
@@ -240,6 +246,7 @@ model Empresa {
   solucoes        Solucao[]
   notasRapidas        NotaRapida[]
   registrosNegociacao RegistroNegociacao[]
+  avaliacoesScout     AvaliacaoScout[]
 
   @@index([estagio])
   @@map("empresas")
@@ -284,6 +291,106 @@ model RegistroNegociacao {
 
   @@index([empresaId])
   @@map("registros_negociacao")
+}
+
+// ---------------------------------------------------------------------
+// Avaliação de scout (Onda 2, F7) — ficha §3.2/§3.3, RN15/RN18/RN21
+// ---------------------------------------------------------------------
+
+/// As duas tabelas do ScoutCB (ficha §3.3): indicadores de Empresa e de
+/// Produto.
+enum GrupoIndicador {
+  EMPRESA
+  PRODUTO
+}
+
+/// Indicador de scouting — taxonomia com seed fiel a
+/// docs/especificacao/indicadores-scoutcb-seed.md (16 de Empresa e 7 de
+/// Produto nas 14 dimensões de medição); edição chega com o Parametrizador
+/// (Onda 3, T16).
+model Indicador {
+  id        String         @id @default(cuid())
+  slug      String         @unique
+  nome      String         @unique
+  /// Coluna "O que mede" da tabela do ScoutCB.
+  descricao String
+  grupo     GrupoIndicador
+  /// Uma das 14 dimensões de medição (constante em
+  /// dominio/avaliacao/dimensoes.ts, validada em serviço); vira lista
+  /// editável na Onda 3.
+  dimensao  String
+  /// Pesos v1 = 1 uniforme (o ScoutCB não define pesos); a ponderação
+  /// torna-se editável por dimensão no Parametrizador (F10/RN25).
+  peso      Decimal        @default(1) @db.Decimal(5, 2)
+  ordem     Int
+  ativo     Boolean        @default(true)
+
+  notas AvaliacaoNota[]
+
+  @@map("indicadores")
+}
+
+enum StatusAvaliacao {
+  RASCUNHO
+  FECHADA
+}
+
+/// As três recomendações da ficha §3.2 — o score recomenda, nunca decide
+/// (RN15): priorização e descarte seguem sendo atos humanos no funil.
+enum RecomendacaoAvaliacao {
+  AVANCAR
+  MONITORAR
+  DESCARTAR
+}
+
+/// Avaliação de scout versionada (ficha §3.2). Imutável após fechamento
+/// (RN18, garantida em serviço): correção = nova versão. Subtotais e total
+/// são CONGELADOS no fechamento — mudança futura de peso nunca re-pontua
+/// avaliação fechada (antecipação da RN25, Onda 3).
+model AvaliacaoScout {
+  id           String                 @id @default(cuid())
+  empresaId    String                 @map("empresa_id")
+  /// Sequencial por empresa; a vigente é a FECHADA de maior versão.
+  versao       Int
+  avaliadorId  String                 @map("avaliador_id")
+  status       StatusAvaliacao        @default(RASCUNHO)
+  recomendacao RecomendacaoAvaliacao?
+  /// Congelado no fechamento: [{dimensao, grupo, media, peso, subtotal}] —
+  /// subtotal = média 1–5 das notas da dimensão × 20 (nota de consistência
+  /// do seed dos indicadores).
+  subtotais    Json?
+  /// Total 0–100 congelado no fechamento: média dos subtotais das
+  /// dimensões avaliadas ponderada pelos pesos (v1 todos 1).
+  total        Int?
+  fechadaEm    DateTime?              @map("fechada_em")
+  criadoEm     DateTime               @default(now()) @map("criado_em")
+  atualizadoEm DateTime               @updatedAt @map("atualizado_em")
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  avaliador Usuario @relation(fields: [avaliadorId], references: [id])
+  notas     AvaliacaoNota[]
+
+  @@unique([empresaId, versao])
+  @@index([empresaId, status])
+  @@map("avaliacoes_scout")
+}
+
+/// Nota 1–5 por indicador com evidência opcional (ficha §3.2). A evidência
+/// pode citar o dossiê, mas nenhum campo de dossiê preenche nota — a
+/// pontuação é sempre humana (RN19).
+model AvaliacaoNota {
+  id          String  @id @default(cuid())
+  avaliacaoId String  @map("avaliacao_id")
+  indicadorId String  @map("indicador_id")
+  /// 1–5 (validada em domínio e por CHECK no banco).
+  nota        Int
+  evidencia   String?
+
+  avaliacao AvaliacaoScout @relation(fields: [avaliacaoId], references: [id])
+  indicador Indicador      @relation(fields: [indicadorId], references: [id])
+
+  @@unique([avaliacaoId, indicadorId])
+  @@map("avaliacao_notas")
 }
 
 model EmpresaCategoria {
