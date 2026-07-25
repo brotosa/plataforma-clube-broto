@@ -39,7 +39,11 @@ export type Acao =
   | "VISUALIZAR_DADOS_PESSOAIS_PLENOS"
   | "EXPORTAR_LISTAS_CONTATO"
   | "IMPORTAR_ASSINANTES"
-  | "GERIR_SEGMENTOS";
+  | "GERIR_SEGMENTOS"
+  // Onda 4 — Campanhas e Cestas (ficha §2).
+  | "MODELAR_CAMPANHA"
+  | "ATIVAR_ENCERRAR_CAMPANHA"
+  | "GERIR_CESTAS";
 
 /**
  * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
@@ -113,6 +117,12 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Salvar/editar segmentos segue CRIAR_EDITAR; contagem é aberta a
   // todos os papéis (RN33) e por isso fica sob VISUALIZAR.
   GERIR_SEGMENTOS: ["GESTOR", "ANALISTA"],
+  // Onda 4 (ficha §2): "modelagem e ativação: Gestor e Analista". Se um
+  // papel de marketing for criado ([A CONFIRMAR] da ficha §2), ele entra
+  // nestas três linhas e em mais nada.
+  MODELAR_CAMPANHA: ["GESTOR", "ANALISTA"],
+  ATIVAR_ENCERRAR_CAMPANHA: ["GESTOR", "ANALISTA"],
+  GERIR_CESTAS: ["GESTOR", "ANALISTA"],
 };
 
 /** Verifica se o papel pode executar a ação. */
