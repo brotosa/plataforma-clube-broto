@@ -13,5 +13,19 @@ if (!process.env.DATABASE_URL) {
   process.exit(0);
 }
 
-execSync("prisma migrate deploy", { stdio: "inherit" });
+// O lock consultivo do migrate pode estar ocupado por um deploy anterior
+// (P1002, transitório) — tentar algumas vezes antes de falhar o build.
+const TENTATIVAS = 3;
+for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa += 1) {
+  try {
+    execSync("prisma migrate deploy", { stdio: "inherit" });
+    break;
+  } catch (erro) {
+    if (tentativa === TENTATIVAS) {
+      throw erro;
+    }
+    console.warn(`migrate deploy falhou (tentativa ${tentativa}/${TENTATIVAS}); aguardando 20 s…`);
+    execSync("sleep 20");
+  }
+}
 execSync("prisma db seed", { stdio: "inherit" });
