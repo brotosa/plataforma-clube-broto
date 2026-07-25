@@ -32,6 +32,10 @@ export default async function PaginaAvaliacao({
       <div className="cap" style={{ marginBottom: 14 }}>
         <Link href="/mercado">Mercado &amp; Scout</Link> / {empresa.nomeFantasia} /{" "}
         <b style={{ color: "var(--preto)" }}>Avaliação</b>
+        {" · "}
+        {/* O dossiê é evidência para a leitura humana: nenhum campo dele
+            preenche nota de indicador (RN19). */}
+        <Link href={`/mercado/${empresa.id}/dossie`}>Dossiê</Link>
       </div>
 
       {empresa.reavaliacaoPendente ? (

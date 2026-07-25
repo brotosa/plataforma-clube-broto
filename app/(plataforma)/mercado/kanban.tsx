@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { EstagioEmpresa } from "@prisma/client";
 import type { CardFunil } from "@/infra/consultas/funil";
 import { podeAvaliarNoEstagio } from "@/dominio/avaliacao/regras";
+import { podeTerDossieNoEstagio } from "@/dominio/dossie/regras";
 import {
   acaoDescartarEmpresa,
   acaoHandoffParaNegociacao,
@@ -136,6 +137,10 @@ export function KanbanFunil({
     roteador.push(`/mercado/${id}/avaliacao`);
   }
 
+  function abrirDossie(id: string) {
+    roteador.push(`/mercado/${id}/dossie`);
+  }
+
   return (
     <>
       {visao === "kanban" ? (
@@ -168,6 +173,7 @@ export function KanbanFunil({
                     }}
                     aoAbrirFicha={abrirFicha}
                     aoAbrirAvaliacao={abrirAvaliacao}
+                    aoAbrirDossie={abrirDossie}
                   />
                 ))}
               </div>
@@ -333,6 +339,7 @@ function CardDoFunil({
   aoDescartar,
   aoAbrirFicha,
   aoAbrirAvaliacao,
+  aoAbrirDossie,
 }: {
   card: CardFunil;
   aberto: boolean;
@@ -344,6 +351,7 @@ function CardDoFunil({
   aoDescartar: (card: CardFunil) => void;
   aoAbrirFicha: (id: string) => void;
   aoAbrirAvaliacao: (id: string) => void;
+  aoAbrirDossie: (id: string) => void;
 }) {
   const primeiroItemRef = useRef<HTMLButtonElement | null>(null);
 
@@ -495,6 +503,11 @@ function CardDoFunil({
               onClick={() => aoAbrirAvaliacao(card.id)}
             >
               Avaliar (ScoutCB)
+            </button>
+          ) : null}
+          {podeTerDossieNoEstagio(card.estagio) ? (
+            <button type="button" role="menuitem" onClick={() => aoAbrirDossie(card.id)}>
+              Dossiê de due diligence
             </button>
           ) : null}
         </div>
