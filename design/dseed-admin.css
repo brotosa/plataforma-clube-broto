@@ -240,6 +240,12 @@ button{font-family:var(--font-family-body)}
 .chip-alerta{border-color:var(--alerta);background:var(--alerta-claro)}
 .chip-alerta:hover{background:var(--alerta-claro);border-color:var(--alerta);filter:brightness(.97)}
 
+/* ---- Extensão (F2): texto presente só para leitores de tela ----
+   Usado em cabeçalhos de coluna de ação (ex.: coluna do chevron da T1),
+   onde o rótulo visual seria ruído mas o leitor precisa de contexto. */
+.sr-oculto{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
 /* estado vazio */
 .vazio{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:56px 24px}
 .vazio .ic{width:56px;height:56px;border-radius:50%;background:var(--azul-lightest);
