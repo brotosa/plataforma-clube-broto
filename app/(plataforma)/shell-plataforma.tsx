@@ -34,7 +34,11 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
     href: "/ofertas",
     icone: "M12 2H2v10l9.3 9.3a1.5 1.5 0 0 0 2.1 0l7.9-7.9a1.5 1.5 0 0 0 0-2.1zM7 7h.01",
   },
-  { rotulo: "Campanhas & Cestas", href: null, icone: "m5 11 4-7M19 11l-4-7M2 11h20l-2 9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" },
+  {
+    rotulo: "Campanhas & Cestas",
+    href: "/campanhas",
+    icone: "m5 11 4-7M19 11l-4-7M2 11h20l-2 9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z",
+  },
   {
     rotulo: "Assinantes",
     href: "/assinantes",
