@@ -1,0 +1,36 @@
+# Fora do contexto de build da imagem (ver Dockerfile).
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+
+# Segredos e ambiente local — nunca entram na imagem.
+.env
+.env.local
+.env.*.local
+
+# Histórico, CI e ferramentas de desenvolvimento
+.git
+.github
+.devcontainer
+.vscode
+
+# Documentação e referências — não fazem parte do runtime.
+docs
+
+# ATENÇÃO: `dados/` NÃO entra aqui. A carga inicial lê as planilhas reais em
+# tempo de execução, por `process.cwd()/dados` (infra/casos-de-uso/carga-inicial.ts),
+# e o rastreamento de arquivos do Next as inclui no standalone durante o build.
+# Excluí-las do contexto quebra a carga inicial dentro do contêiner.
+
+# Testes
+e2e
+playwright.config.ts
+vitest.config.ts
+
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
