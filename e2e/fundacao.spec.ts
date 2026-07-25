@@ -52,7 +52,7 @@ test("login como Gestor aplica papel e monta o shell do protótipo", async ({ pa
   await expect(page.getByText("Gestor (desenvolvimento)")).toBeVisible();
   await expect(page.getByText("Gestor do Clube")).toBeVisible();
 
-  // Navegação: módulos das Ondas 1, 2 e 5 ativos…
+  // Navegação: módulos das Ondas 1, 2, 4 e 5 ativos…
   const nav = page.getByRole("navigation", { name: "Módulos" });
   await expect(nav.getByRole("link", { name: "Aliados & Soluções" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Ofertas" })).toBeVisible();
@@ -63,14 +63,11 @@ test("login como Gestor aplica papel e monta o shell do protótipo", async ({ pa
   await expect(nav.getByRole("link", { name: "Assinantes" })).toBeVisible();
   // F10: Parametrizador (T15) deixou de ser onda futura
   await expect(nav.getByRole("link", { name: "Parametrizador" })).toBeVisible();
+  // F12: Campanhas & Cestas ganhou a lista (T22) e deixou de ser onda futura
+  await expect(nav.getByRole("link", { name: "Campanhas & Cestas" })).toBeVisible();
 
   // …e módulos de ondas futuras presentes porém desabilitados
-  for (const modulo of [
-    "Dashboard",
-    "Campanhas & Cestas",
-    "Usuários",
-    "Auditoria",
-  ]) {
+  for (const modulo of ["Dashboard", "Usuários", "Auditoria"]) {
     const botao = nav.getByRole("button", { name: modulo });
     await expect(botao).toBeVisible();
     await expect(botao).toHaveAttribute("aria-disabled", "true");

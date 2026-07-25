@@ -30,15 +30,28 @@ import { expect, type Page } from "@playwright/test";
  * integracao.spec.ts / configuracao-global.ts.
  */
 export function resolverDatabaseUrl(): void {
-  if (process.env.DATABASE_URL) return;
+  resolverDoArquivoEnv(["DATABASE_URL"]);
+}
+
+/**
+ * Completa variáveis ausentes a partir do `.env` local. No CI elas vêm do
+ * ambiente do job e nada acontece aqui; localmente, o Playwright (que não
+ * lê o .env) passa a enxergar as mesmas chaves do servidor — necessário
+ * para os seeders que hasheiam CPF (Onda 5) direto no teste.
+ */
+export function resolverDoArquivoEnv(nomes: ReadonlyArray<string>): void {
+  const faltando = nomes.filter((nome) => !process.env[nome]);
+  if (faltando.length === 0) return;
   try {
     const env = readFileSync(".env", "utf8");
-    const linha = env.split("\n").find((l) => l.startsWith("DATABASE_URL="));
-    if (linha) {
-      process.env.DATABASE_URL = linha.slice("DATABASE_URL=".length).replace(/^"|"$/g, "");
+    for (const nome of faltando) {
+      const linha = env.split("\n").find((l) => l.startsWith(`${nome}=`));
+      if (linha) {
+        process.env[nome] = linha.slice(`${nome}=`.length).replace(/^"|"$/g, "");
+      }
     }
   } catch {
-    /* sem banco: os próprios testes falharão com contexto */
+    /* sem .env: os próprios testes falharão com contexto */
   }
 }
 
