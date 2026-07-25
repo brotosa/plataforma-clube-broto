@@ -261,6 +261,33 @@ async function main() {
     create: { tipoEntidade: "PUBLICACAO_OFERTA", exigida: false },
   });
 
+  // Meta vigente de novos aliados (Onda 2, RN22 / ficha da Onda 3 §3.2):
+  // 24 novos aliados por ano, geral, sem abertura por categoria —
+  // decisão de negócio registrada em 24/07/2026. O valor mora na tabela,
+  // nunca no código: a T14 apenas o lê e a edição chega no Parametrizador
+  // (Onda 3, T17). O upsert não sobrescreve o valor em re-execuções, para
+  // que uma meta ajustada pelo negócio sobreviva ao seed.
+  const anoDaMetaVigente = 2026;
+  const metaGeralVigente = await prisma.metaPeriodo.findFirst({
+    where: {
+      periodo: "ANUAL",
+      categoriaId: null,
+      inicio: new Date(Date.UTC(anoDaMetaVigente, 0, 1)),
+    },
+  });
+  if (!metaGeralVigente) {
+    await prisma.metaPeriodo.create({
+      data: {
+        periodo: "ANUAL",
+        inicio: new Date(Date.UTC(anoDaMetaVigente, 0, 1)),
+        fim: new Date(Date.UTC(anoDaMetaVigente + 1, 0, 1)),
+        categoriaId: null,
+        valor: 24,
+        origem: "Decisão de negócio de 24/07/2026 (ficha da Onda 3 §3.2)",
+      },
+    });
+  }
+
   // Usuários de teste nunca entram em produção por padrão. Ambientes de
   // DEMONSTRAÇÃO hospedados (ex.: Vercel) habilitam explicitamente com
   // PERMITIR_USUARIOS_DEV="true" — flag nomeada, decisão consciente.
@@ -284,7 +311,7 @@ async function main() {
     });
   }
   console.log(
-    `Seed: taxonomias, regras de aprovação, ${ordemIndicador} indicadores do ScoutCB e ${USUARIOS_DEV.length} usuários de desenvolvimento gravados.`,
+    `Seed: taxonomias, regras de aprovação, ${ordemIndicador} indicadores do ScoutCB, meta vigente de novos aliados e ${USUARIOS_DEV.length} usuários de desenvolvimento gravados.`,
   );
 }
 

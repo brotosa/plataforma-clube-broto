@@ -10,6 +10,8 @@ import { buscarAliado, trilhaDeAuditoria } from "@/infra/consultas/aliados";
 import { avaliarPromocao } from "@/infra/casos-de-uso/empresas";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
 import { AcoesDeEstagio, AcoesContrato, FormularioContato, FormularioContrato } from "./paineis";
+import { AbaDossie, AbaScouting } from "./abas-scout";
+import { FormularioM1 } from "./formulario-m1";
 import { acaoRemoverContato } from "../acoes";
 
 export const metadata: Metadata = {
@@ -22,6 +24,8 @@ const ABAS = [
   { id: "ofertas", rotulo: "Ofertas" },
   { id: "comercial", rotulo: "Comercial" },
   { id: "scouting", rotulo: "Scouting" },
+  { id: "dossie", rotulo: "Dossiê" },
+  { id: "m1", rotulo: "Ficha M1" },
   { id: "contatos", rotulo: "Contatos" },
   { id: "integracao", rotulo: "Integração" },
 ] as const;
@@ -91,6 +95,24 @@ export default async function PaginaFichaAliado({
   const ofertasDoAliado = empresa.solucoes.flatMap((solucao) =>
     solucao.ofertas.map((oferta) => ({ ...oferta, solucaoNome: solucao.nome })),
   );
+
+  // Aba Ficha M1 (F9): a régua da negociação lê o cadastro-mestre + o que
+  // só existe no M1 (declarações e ofertas pretendidas).
+  const dadosDaAbaM1 =
+    aba === "m1"
+      ? await (async () => {
+          const [ofertasPretendidas, tiposBeneficio, mecanicas, declaracoes] = await Promise.all([
+            prisma.ofertaPretendida.findMany({
+              where: { empresaId: id },
+              orderBy: { criadoEm: "asc" },
+            }),
+            prisma.tipoBeneficio.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+            prisma.mecanica.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+            prisma.indicadorDeclarado.count({ where: { empresaId: id } }),
+          ]);
+          return { ofertasPretendidas, tiposBeneficio, mecanicas, declaracoes };
+        })()
+      : null;
 
   const endereco = [
     empresa.enderecoLogradouro,
@@ -551,18 +573,71 @@ export default async function PaginaFichaAliado({
         </div>
       ) : null}
 
-      {aba === "scouting" ? (
-        <div className="card">
-          <div className="vazio">
-            <h2 className="h-el">Scouting chega na Onda 2</h2>
-            <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
-              O dossiê de qualificação (indicadores autodeclarados, score e funil de
-              prospecção) é do módulo Mercado &amp; Scout. O score aparece na ficha como
-              somente leitura quando existir.
-            </p>
-            <span className="selo" style={{ marginTop: 8 }}>Onda 2 · Mercado &amp; Scout</span>
+      {aba === "scouting" ? <AbaScouting empresaId={empresa.id} /> : null}
+
+      {aba === "dossie" ? <AbaDossie empresaId={empresa.id} /> : null}
+
+      {aba === "m1" && dadosDaAbaM1 ? (
+        podeEditar ? (
+          <FormularioM1
+            empresa={{
+              id: empresa.id,
+              razaoSocial: empresa.razaoSocial,
+              nomeFantasia: empresa.nomeFantasia,
+              site: empresa.site,
+              descricaoInstitucional: empresa.descricaoInstitucional,
+              diferenciais: empresa.diferenciais,
+              modeloNegocio: empresa.modeloNegocio,
+              publicoPorte: empresa.publicoPorte,
+              publicoNatureza: empresa.publicoNatureza,
+            }}
+            dadosDaRegua={{
+              nomeFantasia: empresa.nomeFantasia,
+              razaoSocial: empresa.razaoSocial,
+              site: empresa.site,
+              descricaoInstitucional: empresa.descricaoInstitucional,
+              diferenciais: empresa.diferenciais,
+              categorias: empresa.categorias.length,
+              modeloNegocio: empresa.modeloNegocio,
+              publicoPorte: empresa.publicoPorte,
+              publicoNatureza: empresa.publicoNatureza,
+              contatos: empresa.contatos.length,
+              temIndicadoresDeclarados: dadosDaAbaM1.declaracoes > 0,
+              comissaoDefinida: contratoVigente?.comissaoPct !== null &&
+                contratoVigente?.comissaoPct !== undefined,
+              ambientesDefinidos: Boolean(contratoVigente),
+              ofertasPretendidas: dadosDaAbaM1.ofertasPretendidas.length,
+            }}
+            ofertasPretendidas={dadosDaAbaM1.ofertasPretendidas.map((pretendida) => ({
+              id: pretendida.id,
+              natureza: pretendida.natureza,
+              titulo: pretendida.titulo,
+              precoDe: pretendida.precoDe === null ? null : Number(pretendida.precoDe),
+              precoPor: pretendida.precoPor === null ? null : Number(pretendida.precoPor),
+              instrucoesResgate: pretendida.instrucoesResgate,
+              status: pretendida.status,
+            }))}
+            tiposBeneficio={dadosDaAbaM1.tiposBeneficio.map((tipo) => ({
+              id: tipo.id,
+              nome: tipo.nome,
+            }))}
+            mecanicas={dadosDaAbaM1.mecanicas.map((mecanica) => ({
+              id: mecanica.id,
+              nome: mecanica.nome,
+            }))}
+          />
+        ) : (
+          <div className="card">
+            <div className="vazio">
+              <h2 className="h-el">Ficha Cadastral · M1 — somente leitura</h2>
+              <p className="cap" style={{ maxWidth: "52ch", margin: 0 }}>
+                O preenchimento da ficha de pré-onboarding é feito pelos papéis com permissão
+                de edição. Os dados já informados aparecem nas abas Visão geral, Scouting e
+                Comercial.
+              </p>
+            </div>
           </div>
-        </div>
+        )
       ) : null}
 
       {aba === "contatos" ? (
