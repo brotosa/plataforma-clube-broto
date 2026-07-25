@@ -105,6 +105,32 @@ export function estadoAuditavel(empresa: {
   };
 }
 
+/**
+ * RN08 — CNPJ **único** e validado. A validação de dígito já vive em
+ * `validarDadosEmpresa`; a unicidade era garantida só pelo índice UNIQUE do
+ * banco, que estoura como erro cru do Prisma (P2002) e chega ao operador como
+ * falha genérica. Aqui ela vira regra de serviço com mensagem que diz de quem
+ * é o CNPJ — dentro da mesma transação da escrita, então o índice continua
+ * sendo a rede de segurança contra corrida.
+ */
+async function exigirCnpjInedito(
+  tx: Prisma.TransactionClient,
+  cnpj: string | null | undefined,
+  empresaIdAtual: string | null,
+): Promise<void> {
+  if (!cnpj) return;
+  const normalizado = normalizarCnpj(cnpj);
+  const existente = await tx.empresa.findUnique({
+    where: { cnpj: normalizado },
+    select: { id: true, nomeFantasia: true },
+  });
+  if (existente && existente.id !== empresaIdAtual) {
+    throw new ErroDeValidacao([
+      `CNPJ já cadastrado para "${existente.nomeFantasia}" (RN08 — CNPJ é único).`,
+    ]);
+  }
+}
+
 /** Cria empresa em estágio EM_NEGOCIACAO (pré-aliança). */
 export async function criarEmpresa(ator: Ator, dados: DadosEmpresa) {
   exigirPermissao(ator.papel, "CRIAR_EDITAR");
@@ -115,6 +141,7 @@ export async function criarEmpresa(ator: Ator, dados: DadosEmpresa) {
   const { categoriaIds, ...campos } = dados;
 
   return prisma.$transaction(async (tx) => {
+    await exigirCnpjInedito(tx, dados.cnpj, null);
     const empresa = await tx.empresa.create({
       data: {
         ...campos,
@@ -148,6 +175,7 @@ export async function atualizarEmpresa(
 
   return prisma.$transaction(async (tx) => {
     const anterior = await tx.empresa.findUniqueOrThrow({ where: { id: empresaId } });
+    await exigirCnpjInedito(tx, dados.cnpj, empresaId);
     const empresa = await tx.empresa.update({
       where: { id: empresaId },
       data: {

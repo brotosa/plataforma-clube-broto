@@ -219,6 +219,30 @@ describe.skipIf(!temBanco)("integração F4 — publicação e telemetria", () =
     }
   });
 
+  // A RN07 não é só "não editável": a ficha exige "origem, data e arquivo de
+  // importação RASTREÁVEIS". A imutabilidade já tinha teste de arquitetura;
+  // a rastreabilidade do fato gravado, não — sem ela um número na tela não
+  // teria como ser reconciliado com a linha do arquivo que o gerou.
+  it("todo evento gravado é rastreável até o arquivo e a importação (RN07)", async () => {
+    const importacao = await prisma.importacao.findFirstOrThrow({
+      where: { nomeArquivo: ARQUIVO_TELEMETRIA },
+      orderBy: { criadoEm: "desc" },
+    });
+    const eventos = await prisma.telemetriaEvento.findMany({
+      where: { arquivoOrigem: ARQUIVO_TELEMETRIA },
+    });
+    expect(eventos.length).toBeGreaterThan(0);
+    for (const evento of eventos) {
+      expect(evento.arquivoOrigem).toBe(ARQUIVO_TELEMETRIA);
+      expect(evento.importacaoId).toBe(importacao.id);
+      expect(evento.dataEvento).toBeInstanceOf(Date);
+      expect(Number.isNaN(evento.dataEvento.getTime())).toBe(false);
+      // O identificador externo cru é preservado mesmo com a oferta resolvida
+      // — é ele que permite reconciliar com a origem.
+      expect(evento.idVoucher).not.toBe("");
+    }
+  });
+
   it("agregados por oferta derivam só dos eventos importados (RN07)", async () => {
     const agregado = await agregadoDaOferta(ofertaId);
     expect(agregado).toMatchObject({
