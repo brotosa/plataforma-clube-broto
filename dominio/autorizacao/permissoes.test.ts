@@ -105,22 +105,22 @@ const TABELA_DA_FICHA: ReadonlyArray<{
   {
     acao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
     permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "EXPORTAR_LISTAS_CONTATO",
     permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "APROVADOR", "LEITURA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "IMPORTAR_ASSINANTES",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["APROVADOR", "LEITURA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "GERIR_SEGMENTOS",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["APROVADOR", "LEITURA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
 ];
 

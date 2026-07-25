@@ -1,7 +1,7 @@
 import path from "node:path";
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { entrar, runId, semViolacoesAxe } from "./ajudantes";
 import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sinteticas";
 
 /**
@@ -15,28 +15,16 @@ import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sintetic
  *    mostrando quantos sairiam (cenário do desastre, RN29).
  *
  * As contagens esperadas vêm do MESMO gerador determinístico (semente
- * 21) usado pelo setup global — nenhum número inventado. Axe-core roda
- * nas quatro telas novas; a T18 é verificada a 380px.
+ * 21) usado pelo setup global — nenhum número inventado. Ajudantes
+ * compartilhados da estabilização (entrar/axe/runId); axe-core roda nas
+ * quatro telas novas e a T18 é verificada a 380px.
  */
 
-const SENHA = process.env.SENHA_USUARIOS_DEV ?? "clube-broto-dev";
 const SINTETICOS = gerarAssinantesSinteticos(12, 21);
 const ESPERADO_MT = SINTETICOS.filter((s) => s.uf === "MT").length;
-const NOME_SEGMENTO = `Segmento E2E ${`${Date.now()}`.slice(-6)}`;
-
-async function entrar(page: Page, email: string) {
-  await page.goto("/entrar");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(SENHA);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
-}
-
-async function semViolacoesAxe(page: Page) {
-  await page.getByRole("heading", { level: 1 }).first().waitFor();
-  const resultado = await new AxeBuilder({ page }).analyze();
-  expect(resultado.violations).toEqual([]);
-}
+// runId estável do globalSetup (padrão da estabilização): o sufixo não
+// muda se um worker reiniciar no meio da cadeia serial.
+const NOME_SEGMENTO = `Segmento E2E ${runId()}`;
 
 test.describe.serial("F11 — fluxo incremental completo (T20 → T18 → T21 → exportação)", () => {
   test("gestor importa a base sintética pela T20 (família → arquivo → mapeamento → política → resumo)", async ({

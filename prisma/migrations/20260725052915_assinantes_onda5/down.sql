@@ -1,6 +1,6 @@
 -- AlterEnum
 BEGIN;
-CREATE TYPE "TipoImportacao_new" AS ENUM ('TELEMETRIA', 'CARGA_SELLERS', 'CARGA_OFERTAS');
+CREATE TYPE "TipoImportacao_new" AS ENUM ('TELEMETRIA', 'CARGA_SELLERS', 'CARGA_OFERTAS', 'CARGA_PROSPECTS');
 ALTER TABLE "importacoes" ALTER COLUMN "tipo" TYPE "TipoImportacao_new" USING ("tipo"::text::"TipoImportacao_new");
 ALTER TYPE "TipoImportacao" RENAME TO "TipoImportacao_old";
 ALTER TYPE "TipoImportacao_new" RENAME TO "TipoImportacao";
