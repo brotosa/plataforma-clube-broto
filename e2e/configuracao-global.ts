@@ -72,9 +72,21 @@ export default async function configuracaoGlobal() {
     });
     const idsFunil = empresasFunil.map((empresa) => empresa.id);
     if (idsFunil.length > 0) {
+      const avaliacaoIdsFunil = (
+        await prisma.avaliacaoScout.findMany({
+          where: { empresaId: { in: idsFunil } },
+          select: { id: true },
+        })
+      ).map((avaliacao) => avaliacao.id);
+      await prisma.avaliacaoNota.deleteMany({
+        where: { avaliacaoId: { in: avaliacaoIdsFunil } },
+      });
+      await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIdsFunil } } });
       await prisma.notaRapida.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.registroNegociacao.deleteMany({ where: { empresaId: { in: idsFunil } } });
-      await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: { in: idsFunil } } });
+      await prisma.auditoriaEvento.deleteMany({
+        where: { entidadeId: { in: [...idsFunil, ...avaliacaoIdsFunil] } },
+      });
       await prisma.empresaCategoria.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.stagingEmpresa.deleteMany({
         where: { empresaIdEfetivada: { in: idsFunil } },

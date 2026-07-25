@@ -1,6 +1,6 @@
 /**
- * Executor do job diário (RN03 + janela contratual) para agendadores
- * externos (cron do ambiente): `pnpm job:diario`.
+ * Executor do job diário (RN03 + janela contratual + reavaliação anual
+ * RN21) para agendadores externos (cron do ambiente): `pnpm job:diario`.
  */
 import { executarJobDiario } from "@/infra/jobs/job-diario";
 
@@ -9,7 +9,9 @@ executarJobDiario()
     console.log(
       `Job diário: ${resultado.ofertasExpiradas} oferta(s) expirada(s); ` +
         `${resultado.contratosMarcados} contrato(s) entrando na janela; ` +
-        `${resultado.contratosDesmarcados} saindo.`,
+        `${resultado.contratosDesmarcados} saindo; ` +
+        `${resultado.reavaliacoesMarcadas} reavaliação(ões) anual(is) marcada(s) (RN21); ` +
+        `${resultado.reavaliacoesDesmarcadas} desmarcada(s).`,
     );
   })
   .catch((erro) => {
