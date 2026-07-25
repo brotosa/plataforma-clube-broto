@@ -185,8 +185,14 @@ execução é comparado ao teto por dossiê e ao consumo já realizado no mês �
 acima de qualquer um, a geração é bloqueada com a mensagem dizendo quanto
 resta. Durante a pesquisa, o custo é reapurado a cada rodada de busca e a
 execução é interrompida ao ultrapassar o teto unitário, com o gasto
-registrado. Os valores dos tetos passam a ser editáveis sem código no
-Parametrizador (Onda 3, T17).
+registrado.
+
+**Desde a F10, os dois tetos são editáveis sem código no Parametrizador
+(T17).** A precedência é: teto definido na T17 vence o do ambiente; ausente
+lá, o ambiente responde; ausente nos dois, falta configuração e a geração
+automática segue indisponível. A chave da API e as duas tarifas continuam
+exclusivamente no ambiente — são segredo e conversão cambial da TI, não
+parâmetro de produto, e por isso não aparecem na T17.
 ## Parametrizador — o que é configurável e o que não é
 
 O hub (`/parametrizador`) separa três classes de parâmetro, conforme a ficha da
@@ -210,7 +216,7 @@ Onda 3 §3:
 
 | Parâmetro | Situação |
 |---|---|
-| Tetos do dossiê (mensal em R$ e custo máximo unitário) | **[A CONFIRMAR TI]** — nascem **sem valor**. A T17 exibe o campo vazio com etiqueta de pendência, e nenhum default plausível é gravado no lugar de uma decisão que o negócio não tomou. Enquanto não forem definidos, não há teto configurado para a geração de dossiês: o Administrador precisa defini-los antes de a geração automática (F8/F9) entrar em operação. |
+| Tetos do dossiê (mensal em R$ e custo máximo unitário) | **[A CONFIRMAR TI]** — nascem **sem valor** no Parametrizador. A T17 exibe o campo vazio com etiqueta de pendência, e nenhum default plausível é gravado no lugar de uma decisão que o negócio não tomou. Definir o teto na T17 **ou** na variável de ambiente correspondente habilita a geração automática do dossiê; enquanto os dois estiverem vazios, a T11 segue dizendo o que falta e só a inserção manual opera. |
 | Comissão do Cupom de desconto | **[A CONFIRMAR]** desde a Onda 1 — segue aberta atrás de `COMISSAO_CUPOM: "EM_CONFIRMACAO"`. Não confundir com a comissão-padrão do contrato-modelo, que foi confirmada em 5%. |
 | Taxas transacionais do meio de pagamento | **Em standby** por decisão de 24/07: exibidas como referência informativa, sem edição habilitada. |
 | Seed do perfil de cliente (porte × natureza PF/PJ) | A definir com o negócio; a lista nasce vazia com o estado explicado na tela. |

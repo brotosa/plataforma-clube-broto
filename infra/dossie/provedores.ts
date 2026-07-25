@@ -1,9 +1,11 @@
 import type { TetosDossie } from "@/dominio/dossie/custo";
 import {
   type AmbienteDoDossie,
+  type TetosDoParametrizador,
   ambienteDoProcesso,
   lerConfiguracaoDossie,
 } from "./configuracao";
+import { lerValor } from "@/infra/configuracao/servico-configuracao";
 import { AnthropicDossieProvider } from "./provedor-anthropic";
 import { ManualDossieProvider } from "./provedor-manual";
 import type { DossieProvider } from "./provedor";
@@ -39,8 +41,9 @@ export function provedorManual(): DossieProvider {
 /** Provedor automático, se e somente se o ambiente estiver configurado. */
 export function provedorAutomatico(
   ambiente: AmbienteDoDossie = ambienteDoProcesso(),
+  tetosDoParametrizador?: TetosDoParametrizador,
 ): EstadoDoProvedorAutomatico {
-  const estado = lerConfiguracaoDossie(ambiente);
+  const estado = lerConfiguracaoDossie(ambiente, tetosDoParametrizador);
   if (!estado.disponivel) {
     return { disponivel: false, mensagem: estado.mensagem, faltando: estado.faltando };
   }
@@ -56,4 +59,26 @@ export function provedorAutomatico(
 export function tarifaConfigurada(ambiente: AmbienteDoDossie = ambienteDoProcesso()) {
   const estado = lerConfiguracaoDossie(ambiente);
   return estado.disponivel ? estado.configuracao.tarifa : null;
+}
+
+/**
+ * Tetos vigentes: o Parametrizador (T17) primeiro, o ambiente como
+ * retaguarda. É a ponte que a F8 antecipou ao escrever que "os valores dos
+ * tetos passam a ser editáveis sem código no Parametrizador".
+ */
+export async function tetosVigentes(): Promise<TetosDoParametrizador> {
+  const [mensalBrl, unitarioBrl] = await Promise.all([
+    lerValor("DOSSIE_TETO_MENSAL_BRL"),
+    lerValor("DOSSIE_CUSTO_MAXIMO_UNITARIO_BRL"),
+  ]);
+  return { mensalBrl, unitarioBrl };
+}
+
+/**
+ * Provedor automático com os tetos vigentes. É esta a porta que o produto
+ * usa; `provedorAutomatico` continua síncrona e pura para os testes e para
+ * quem já tem os tetos em mãos.
+ */
+export async function provedorAutomaticoVigente(): Promise<EstadoDoProvedorAutomatico> {
+  return provedorAutomatico(ambienteDoProcesso(), await tetosVigentes());
 }
