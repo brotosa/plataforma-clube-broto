@@ -22,6 +22,11 @@ import { calcularReceitaBroto } from "@/dominio/receita/comissao";
 import { diasNoEstagio, ESTAGIOS_FUNIL, nivelEnvelhecimento } from "@/dominio/funil/regras";
 import { JANELAS_VENCIMENTO, venceEm } from "@/dominio/assinantes/vencimento";
 import { lerRegua, lerReguaDeEnvelhecimento } from "@/infra/configuracao/servico-configuracao";
+import {
+  type JanelaDashboard,
+  type PeriodoDashboard,
+  janelaDoDashboard,
+} from "@/dominio/dashboard/periodo";
 
 /**
  * Consultas agregadas da T26 (Onda 6, ficha §2).
@@ -43,43 +48,20 @@ import { lerRegua, lerReguaDeEnvelhecimento } from "@/infra/configuracao/servico
 // ---------------------------------------------------------------------
 
 /**
- * Os três períodos computáveis. O protótipo v8.1 mostra um quarto —
- * "Safra 25/26" —, mas o recorte de safra é definição de negócio: início e
- * fim variam por cultura e por região, e a plataforma não tem essa janela
- * declarada em ficha nem no Parametrizador. Fica como [A CONFIRMAR] no
- * README em vez de virar um Jul→Jun inventado aqui.
+ * As definições do seletor moram em `dominio/dashboard/periodo.ts`: o
+ * componente do seletor é de cliente, e importá-las daqui arrastaria
+ * Prisma e node:crypto para o bundle do navegador. Reexportadas para que
+ * quem já lê o painel por este módulo continue lendo.
  */
-export const PERIODOS_DASHBOARD = ["30", "90", "12m"] as const;
-export type PeriodoDashboard = (typeof PERIODOS_DASHBOARD)[number];
-
-export const ROTULOS_PERIODO: Readonly<Record<PeriodoDashboard, string>> = {
-  "30": "Últimos 30 dias",
-  "90": "Últimos 90 dias",
-  "12m": "Últimos 12 meses",
-};
-
-export interface JanelaDashboard {
-  inicio: Date;
-  fim: Date;
-  dias: number;
-  rotulo: string;
-}
-
-export function periodoValido(valor: unknown): PeriodoDashboard {
-  return PERIODOS_DASHBOARD.includes(valor as PeriodoDashboard)
-    ? (valor as PeriodoDashboard)
-    : "90";
-}
-
-export function janelaDoDashboard(
-  periodo: PeriodoDashboard,
-  agora: Date = new Date(),
-): JanelaDashboard {
-  const dias = periodo === "30" ? 30 : periodo === "90" ? 90 : 365;
-  const inicio = new Date(agora);
-  inicio.setUTCDate(inicio.getUTCDate() - dias);
-  return { inicio, fim: agora, dias, rotulo: ROTULOS_PERIODO[periodo] };
-}
+export {
+  PERIODOS_DASHBOARD,
+  PERIODO_PADRAO,
+  ROTULOS_PERIODO,
+  janelaDoDashboard,
+  periodoValido,
+  type JanelaDashboard,
+  type PeriodoDashboard,
+} from "@/dominio/dashboard/periodo";
 
 // ---------------------------------------------------------------------
 // Faixa "Exige ação hoje"

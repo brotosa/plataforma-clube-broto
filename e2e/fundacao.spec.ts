@@ -17,7 +17,8 @@ async function entrarComoGestor(page: Page) {
   await page.getByLabel("E-mail").fill(CREDENCIAIS.email);
   await page.getByLabel("Senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
+  // F13: a HOME passou a ser a T26 (rota `/`).
+  await page.waitForURL((url) => new URL(url).pathname === "/");
 }
 
 /**
@@ -133,7 +134,8 @@ test("papel Leitura entra e visualiza (ficha §2: visualizar é de todos)", asyn
   await page.getByLabel("E-mail").fill("leitura@dev.clubebroto.local");
   await page.getByLabel("Senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
+  // F13: a HOME passou a ser a T26 (rota `/`).
+  await page.waitForURL((url) => new URL(url).pathname === "/");
   await expect(page.getByText("Leitura (desenvolvimento)")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Aliados" })).toBeVisible();
 });

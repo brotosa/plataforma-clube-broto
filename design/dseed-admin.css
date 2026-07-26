@@ -529,10 +529,17 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .dash-cap{font:var(--font-body-caption-regular);color:#fff}
 .dash-lab{display:block;font:var(--font-body-caption-bold);letter-spacing:.08em;text-transform:uppercase;color:var(--amarelo)}
 .dash-main{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2fr);gap:20px;align-items:stretch;margin-top:22px;position:relative}
-.dash-star{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--color-transparency-white-on-dark-10,rgba(255,255,255,.08));
+/* fix AAA (F13): a v8.1 destacava o cartão do hero CLAREANDO a superfície
+   (branco a 8%), o que sobe o fundo de #3242C4 para ~#4251C9 — e ali o
+   amarelo cai para 5,87:1 e o branco para 6,45:1 (axe:
+   color-contrast-enhanced acusou os dois). O cartão continua se destacando
+   do hero, mas ESCURECENDO em vez de clarear: sobre ~#3140B6 o branco mede
+   8,27:1 e o amarelo 7,52:1. A borda clara segue dando o contorno — borda
+   não é texto e não entra na régua de contraste. */
+.dash-star{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--color-transparency-black-on-light-10,rgba(40,35,19,.08));
   border:1px solid var(--color-transparency-white-on-dark-30,rgba(255,255,255,.25));border-radius:var(--r-lg);padding:18px 20px;cursor:pointer;color:#fff;
   transition:background var(--dur-1) var(--ease)}
-.dash-star:hover{background:var(--color-transparency-white-on-dark-30,rgba(255,255,255,.18))}
+.dash-star:hover{background:var(--color-transparency-black-on-light-20,rgba(40,35,19,.16))}
 .dash-star:focus-visible{outline-color:var(--amarelo)}
 .dash-big{font-family:var(--font-family-headline);font-weight:700;font-size:clamp(44px,5.4vw,64px);line-height:.98;
   letter-spacing:-.02em;color:var(--amarelo);font-variant-numeric:tabular-nums}
