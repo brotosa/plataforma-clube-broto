@@ -203,7 +203,16 @@ export function ShellPlataforma({
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
+              // fix de fidelidade (pós-Onda 7): sem isto o `align-items` do
+              // flex é `stretch`, o <img> ocupa a largura inteira da lateral
+              // (216px) e o SVG — que não declara `preserveAspectRatio` —
+              // assume o padrão `xMidYMid` e desenha a marca CENTRADA dentro
+              // dessa caixa. O logo aparecia ~58px à direita do recuo dos
+              // itens do menu. `flex-start` faz caixa e conteúdo coincidirem.
+              alignItems: "flex-start",
               gap: 3,
+              // Mesmo recuo dos ícones do menu (`.sidebar-it`), para a marca
+              // e a navegação compartilharem a mesma coluna de leitura.
               paddingLeft: 20,
               margin: "0 -12px 14px 0",
             }}
@@ -213,7 +222,10 @@ export function ShellPlataforma({
               alt="Broto"
               width={100}
               height={19}
-              style={{ height: 19, width: "auto", display: "block" }}
+              // `max-content` é o que o protótipo v9.1 usa: com a altura
+              // definida, a largura sai da proporção do SVG (295×56 → 100px),
+              // e não da caixa disponível.
+              style={{ height: 19, width: "max-content", display: "block" }}
             />
             {/* fix AAA (F14): o protótipo pinta este descritivo em
                 --azul-claro, que mede 3,7:1 sobre o azul da lateral e reprova
