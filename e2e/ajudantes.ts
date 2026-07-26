@@ -115,11 +115,19 @@ export function cnpjDeNome(nome: string): string {
  * está autenticado para /aliados e o formulário some.
  */
 export async function entrar(page: Page, email: string): Promise<void> {
-  // Se uma sessão anterior sobrevive à limpeza (corrida de cookie observada
-  // ao trocar de usuário no mesmo teste), /entrar redireciona para /aliados e
-  // o formulário some. Limpa e recarrega até o campo aparecer — uma única
-  // repetição não bastava no teste que troca de papel quatro vezes.
-  for (let tentativa = 0; tentativa < 5; tentativa += 1) {
+  // Limpar o cookie e ir para /entrar NÃO é atômico: o navegador pode reenviar
+  // a sessão anterior e o servidor redireciona para /aliados, sumindo com o
+  // formulário. Observado ao TROCAR de usuário dentro do mesmo teste (RN06).
+  //
+  // Cinco tentativas (contagem da F9: o percurso da Onda 2 troca de papel
+  // quatro vezes e uma única repetição não bastava), cada uma ESPERANDO o
+  // formulário aparecer — tolera hidratação lenta sem repetir à toa.
+  //
+  // O esgotamento FALHA NOMEANDO a causa (F5): antes o laço apenas terminava e
+  // o `fill` abaixo morria 60s depois apontando o campo de e-mail, escondendo
+  // que o problema era a sessão anterior sobrevivente.
+  const TENTATIVAS = 5;
+  for (let tentativa = 1; ; tentativa += 1) {
     await page.context().clearCookies();
     await page.goto("/entrar");
     const apareceu = await page
@@ -128,6 +136,13 @@ export async function entrar(page: Page, email: string): Promise<void> {
       .then(() => true)
       .catch(() => false);
     if (apareceu) break;
+    if (tentativa === TENTATIVAS) {
+      throw new Error(
+        `[e2e] o formulário de login não apareceu em ${TENTATIVAS} tentativas; a página ` +
+          `parou em ${page.url()}. A sessão anterior sobreviveu à limpeza de cookies ` +
+          `(corrida ao trocar de usuário — RN06).`,
+      );
+    }
   }
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(SENHA);
@@ -135,11 +150,119 @@ export async function entrar(page: Page, email: string): Promise<void> {
   await page.waitForURL("**/aliados");
 }
 
-/** Varredura axe-core após a tela assentar (h1 único por tela). */
+/**
+ * Tags da varredura AAA (F5). O padrão do AxeBuilder cobre A e AA; a política
+ * do projeto é AAA, então as tags entram explicitamente — e as três regras AAA
+ * que o axe-core traz DESLIGADAS por padrão são ligadas nome a nome, porque
+ * `runOnly` por tag não as acorda sozinho.
+ */
+const TAGS_AAA = [
+  "wcag2a",
+  "wcag2aa",
+  "wcag2aaa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag22aa",
+  "best-practice",
+];
+
+const REGRAS_AAA_DESLIGADAS_POR_PADRAO = {
+  "color-contrast-enhanced": { enabled: true }, // 1.4.6 — contraste 7:1
+  "identical-links-same-purpose": { enabled: true }, // 2.4.9
+  "meta-refresh-no-exceptions": { enabled: true }, // 3.2.5
+};
+
+/**
+ * EXCEÇÃO NOMEADA E DECIDIDA — superfícies em azul puro da marca
+ * (`--azul` #465eff).
+ *
+ * Texto branco sobre o azul puro (sidebar, botões primários) e o azul puro
+ * como cor do item ativo da sidebar ficam em 4,87:1: passam em AA (≥4,5:1) e
+ * reprovam em AAA (≥7:1). Elevar exige ESCURECER O AZUL DA MARCA em toda a
+ * superfície do produto — decisão de identidade visual, não ajuste de CSS.
+ *
+ * DECISÃO (F5, revisão da TI Broto): manter a exceção. O produto declara
+ * **AAA integral com uma exceção nomeada e justificada — o azul institucional
+ * da marca, que atende AA**. Não é dívida aberta, é escolha registrada.
+ *
+ * Caminho de saída, se a marca decidir AAA pleno: o Design já derivou
+ * `--azul-superficie-aaa` #3242C4, medido em 7,74:1 com branco nos dois
+ * sentidos — apontar o alias das superfícies interativas para ele e apagar
+ * esta exceção basta, sem redesenho. Detalhes e medições em
+ * `docs/acessibilidade-aaa.md`.
+ *
+ * A exceção é fechada pela ASSINATURA DE COR e só vale para
+ * `color-contrast-enhanced` — qualquer outra regra, ou qualquer outro par de
+ * cores, continua reprovando a suíte.
+ */
+export const AZUL_PURO_DA_MARCA = "#465eff";
+
+function ehExcecaoDeSuperficieDaMarca(regra: string, resumo: string): boolean {
+  if (regra !== "color-contrast-enhanced") return false;
+  return (
+    resumo.includes(`foreground color: ${AZUL_PURO_DA_MARCA}`) ||
+    resumo.includes(`background color: ${AZUL_PURO_DA_MARCA}`)
+  );
+}
+
+/**
+ * Espera a animação de entrada `.tela` (`@keyframes tela-in`, 160ms) terminar.
+ *
+ * Sem isso a varredura de contraste é uma corrida: durante o fade a opacidade
+ * ainda não é 1, o navegador compõe a cor do texto com o fundo e o axe mede
+ * um valor que NÃO é o que o usuário enxerga (observado: --azul-texto-aaa
+ * #1632F2 lido como #203af2, --paragrafo-aaa #524F47 como #59564f e o próprio
+ * azul da marca #465EFF como #475FFF — este último escapando até da exceção
+ * nomeada por assinatura de cor). O critério AAA vale para a tela assentada.
+ */
+async function telaAssentada(page: Page): Promise<void> {
+  // Varre o DOCUMENTO INTEIRO, não só `.tela` (espera ampla que veio da F11 e
+  // da F4 pela main, absorvida aqui para valer em TODA varredura). As
+  // transições de 160ms do dseed-admin não vivem só no contêiner da tela: o
+  // chip do passo ativo da T20 mede 3,14:1 no meio da transição e 4,88:1
+  // assentado, e as telas das Ondas 3 e 4 trouxeram mais superfícies com
+  // transição própria. `getAnimations()` inclui transições CSS, então esperar
+  // nenhuma em execução é preciso — sem sleep fixo.
+  await page.waitForFunction(() =>
+    Array.from(document.querySelectorAll("*")).every((elemento) =>
+      elemento.getAnimations().every((animacao) => animacao.playState !== "running"),
+    ),
+  );
+}
+
+/**
+ * Varredura axe-core em modo AAA, após a tela assentar (h1 único por tela).
+ * Descarta apenas os nós cobertos pela exceção nomeada acima; todo o resto
+ * precisa estar zerado.
+ */
 export async function semViolacoesAxe(page: Page): Promise<void> {
   await page.getByRole("heading", { level: 1 }).first().waitFor();
-  const resultado = await new AxeBuilder({ page }).analyze();
-  expect(resultado.violations).toEqual([]);
+  await telaAssentada(page);
+  const resultado = await new AxeBuilder({ page })
+    .options({
+      runOnly: { type: "tag", values: TAGS_AAA },
+      rules: REGRAS_AAA_DESLIGADAS_POR_PADRAO,
+    })
+    .analyze();
+
+  const violacoes = resultado.violations
+    .map((violacao) => ({
+      ...violacao,
+      nodes: violacao.nodes.filter(
+        (no) => !ehExcecaoDeSuperficieDaMarca(violacao.id, no.failureSummary ?? ""),
+      ),
+    }))
+    .filter((violacao) => violacao.nodes.length > 0);
+
+  // Mensagem legível: regra + alvo + resumo, em vez do dump inteiro do axe.
+  const relatorio = violacoes.flatMap((violacao) =>
+    violacao.nodes.map(
+      (no) =>
+        `${violacao.id} (${violacao.impact}) em ${no.target.join(" ")}: ` +
+        `${(no.failureSummary ?? "").split("\n").slice(1).join(" ").trim()}`,
+    ),
+  );
+  expect(relatorio, `axe AAA em ${page.url()}`).toEqual([]);
 }
 
 /**
@@ -375,6 +498,119 @@ export async function semearSolucaoCompleta(empresaId: string, nome: string) {
       coberturaNacional: true,
       status: "ATIVA",
       culturas: { create: [{ culturaId: cultura.id }] },
+    },
+  });
+}
+
+/**
+ * Oferta PUBLICADA de benefício com % de desconto (mecânica Checkout no
+ * clube — compatível com o contrato AMBOS dos seeders acima, RN11). Serve às
+ * telas que só existem com uma oferta real: ficha da oferta, edição da oferta
+ * e as abas Ofertas da T2. Idempotente por título dentro da solução.
+ */
+export async function semearOfertaPublicada(solucaoId: string, titulo: string) {
+  const existentes = await prisma.oferta.findMany({ where: { solucaoId, titulo } });
+  for (const oferta of existentes) {
+    await prisma.telemetriaEvento.deleteMany({ where: { ofertaId: oferta.id } });
+    await prisma.telemetriaAcumuladoInicial.deleteMany({ where: { ofertaId: oferta.id } });
+    await prisma.aprovacaoSolicitacao.deleteMany({ where: { entidadeId: oferta.id } });
+    await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: oferta.id } });
+    await prisma.oferta.delete({ where: { id: oferta.id } });
+  }
+  const tipoBeneficio = await prisma.tipoBeneficio.findUniqueOrThrow({
+    where: { slug: "PCT_DESCONTO" },
+  });
+  const mecanica = await prisma.mecanica.findUniqueOrThrow({
+    where: { slug: "CHECKOUT_CLUBE" },
+  });
+  return prisma.oferta.create({
+    data: {
+      solucaoId,
+      titulo,
+      natureza: "BENEFICIO",
+      tipoBeneficioId: tipoBeneficio.id,
+      mecanicaId: mecanica.id,
+      precoDe: 100,
+      precoPor: 85,
+      vigenciaInicio: new Date("2026-01-01T00:00:00Z"),
+      status: "PUBLICADA",
+    },
+  });
+}
+
+/* --------------------------------------------------------------------------
+ * Sinais objetivos de responsividade a 380px (F5)
+ *
+ * Moraram em `responsividade.spec.ts` enquanto só aquela suíte media 380px.
+ * Com as Ondas 3 e 4 no produto, a suíte da F12 também precisa cobrá-los no
+ * cenário que ela já semeia (o painel da campanha só existe depois da
+ * ativação), então os dois viraram ajudantes compartilhados. A regra não
+ * mudou — mudou quem pode aplicá-la.
+ * ----------------------------------------------------------------------- */
+
+/** Nenhum estouro horizontal: o documento cabe na viewport. */
+export async function semRolagemHorizontal(page: Page): Promise<void> {
+  const estouro = await page.evaluate(() => {
+    const raiz = document.documentElement;
+    return raiz.scrollWidth - raiz.clientWidth;
+  });
+  expect(estouro, `estouro horizontal em ${page.url()}`).toBeLessThanOrEqual(0);
+}
+
+/**
+ * Tabela colapsada em cards: `thead` fora do fluxo visual e nenhuma célula
+ * sem `data-label` — exceto a coluna do chevron (`td.chev`), que o próprio
+ * CSS esconde no mobile por ser decorativa.
+ */
+export async function tabelaColapsadaEmCards(page: Page): Promise<void> {
+  const tabela = page.locator("table.tbl-resp").first();
+  await expect(tabela).toBeVisible();
+  await expect(tabela.locator("thead")).toBeHidden();
+
+  const semRotulo = await tabela.locator("tbody td:not(.chev):not([data-label])").count();
+  expect(semRotulo, "células sem data-label no colapso mobile").toBe(0);
+
+  // O rótulo é renderizado pelo ::before a partir do data-label — confere que
+  // ele realmente aparece (regra de CSS presente, não só o atributo no HTML).
+  const primeira = tabela.locator("tbody td[data-label]").first();
+  const rotulo = await primeira.evaluate(
+    (celula) => getComputedStyle(celula, "::before").content,
+  );
+  expect(rotulo).not.toBe("none");
+}
+
+/**
+ * Campanha em RASCUNHO (Onda 4) — só o necessário para a T22 renderizar a
+ * TABELA, que é o que a auditoria de 380px precisa medir. Sem público, cesta
+ * ou peça: quem exercita o ciclo é `campanhas.spec.ts`; aqui a campanha é
+ * precondição de layout, não de regra. Idempotente por nome.
+ */
+export async function semearCampanhaRascunho(nome: string) {
+  await prisma.campanha.deleteMany({ where: { nome } });
+  return prisma.campanha.create({
+    data: { nome, estado: "RASCUNHO", autorId: await idUsuarioPorPapel("GESTOR") },
+  });
+}
+
+/**
+ * Solicitação de aprovação já DECIDIDA sobre uma entidade — enche o histórico
+ * da T6, que só renderiza a tabela quando há decisão registrada. Respeita a
+ * RN06 no dado semeado (solicitante ≠ aprovador). Idempotente por entidade.
+ */
+export async function semearDecisaoDeAprovacao(entidadeId: string) {
+  await prisma.aprovacaoSolicitacao.deleteMany({ where: { entidadeId } });
+  const [solicitante, aprovador] = await Promise.all([
+    idUsuarioPorPapel("ANALISTA"),
+    idUsuarioPorPapel("APROVADOR"),
+  ]);
+  return prisma.aprovacaoSolicitacao.create({
+    data: {
+      tipoEntidade: "PROMOCAO_ALIADA_ATIVA",
+      entidadeId,
+      solicitanteId: solicitante,
+      aprovadorId: aprovador,
+      estado: "APROVADA",
+      decididoEm: new Date(),
     },
   });
 }

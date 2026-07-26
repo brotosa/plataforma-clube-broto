@@ -272,7 +272,10 @@ export default async function PaginaAprovacoes() {
             <tbody>
               {historico.map((solicitacao) => (
                 <tr key={solicitacao.id}>
-                  <td className="cap">{ROTULO_TIPO[solicitacao.tipoEntidade]}</td>
+                  {/* data-label na primeira célula (F5): ver comentário em T1. */}
+                  <td data-label="Tipo" className="cap">
+                    {ROTULO_TIPO[solicitacao.tipoEntidade]}
+                  </td>
                   <td data-label="Solicitante" className="cap">{solicitacao.solicitante.nome}</td>
                   <td data-label="Decisão">
                     {solicitacao.estado === "APROVADA" ? (

@@ -183,7 +183,7 @@ export default async function PaginaPainel({ params }: { params: Promise<{ id: s
                 ) : (
                   desempenho.map((oferta) => (
                     <tr key={oferta.id}>
-                      <td>
+                      <td data-label="Oferta">
                         <span style={{ fontWeight: 600 }}>{oferta.titulo}</span>
                       </td>
                       <td data-label="Aliado">{oferta.aliado}</td>

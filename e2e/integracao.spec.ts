@@ -1,7 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
 import { expect, test, type Page } from "@playwright/test";
-import { entrar, resolverDatabaseUrl } from "./ajudantes";
+import { entrar, resolverDatabaseUrl, semViolacoesAxe } from "./ajudantes";
 
 /**
  * Ciclo da F4 pela interface: publicar catálogo → importar telemetria →
@@ -50,13 +49,24 @@ async function enviarFixture(page: Page) {
   // sob runner lento, ora não repintava, ora era varrida pelo revalidatePath
   // — origem de flakiness. Recarregar assenta o histórico (persistido no
   // banco), que é o sinal DURÁVEL usado nas asserções abaixo.
-  await Promise.all([
+  //
+  // O casamento é pela ROTA da action, não por `status === 200`: esperar só
+  // pelo 200 fazia uma action que respondesse 500 (ou redirecionasse) nunca
+  // casar — 30s de espera muda, e a falha só aparecia lá embaixo, como
+  // "element(s) not found" no cartão do histórico, escondendo a causa. Agora
+  // o status é ASSERÇÃO explícita: erro de servidor no upload falha aqui,
+  // com o código à vista. Nenhuma asserção do teste foi afrouxada — esta é
+  // uma a mais.
+  const [resposta] = await Promise.all([
     page.waitForResponse(
-      (resposta) => resposta.request().method() === "POST" && resposta.status() === 200,
+      (resposta) =>
+        resposta.request().method() === "POST" &&
+        new URL(resposta.url()).pathname === "/ofertas/telemetria",
       { timeout: 30_000 },
     ),
     page.getByRole("button", { name: "Importar arquivo" }).click(),
   ]);
+  expect(resposta.status(), "resposta da server action de importação de telemetria").toBe(200);
   await page.reload();
   await page.waitForLoadState("networkidle");
 }
@@ -138,22 +148,14 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
       .toBe(antes);
   });
 
-  test("axe-core sem violações nas telas de integração", async ({ page }) => {
+  test("axe-core (AAA) sem violações nas telas de integração", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     for (const rota of ["/ofertas", "/ofertas/publicacao", "/ofertas/telemetria"]) {
       await page.goto(rota);
-      await page.getByRole("heading", { level: 1 }).first().waitFor();
-      // Espera a UI assentar antes de medir (disciplina da F11): as
-      // transições de 160ms do dseed-admin fazem o axe ler cores
-      // intermediárias — o botão azul mede 4,3:1 no meio da transição e
-      // 4,6:1 assentado, e a varredura acusava contraste falso.
-      await page.waitForFunction(() =>
-        Array.from(document.querySelectorAll("*")).every((elemento) =>
-          elemento.getAnimations().every((animacao) => animacao.playState !== "running"),
-        ),
-      );
-      const resultado = await new AxeBuilder({ page }).analyze();
-      expect(resultado.violations, `axe em ${rota}`).toEqual([]);
+      // `semViolacoesAxe` é a varredura AAA da F5 e já espera a UI assentar —
+      // a espera ampla que a main trazia aqui foi absorvida pelo ajudante, de
+      // modo que TODA tela varrida ganha a mesma disciplina, não só estas três.
+      await semViolacoesAxe(page);
     }
   });
 });

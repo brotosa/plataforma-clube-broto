@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { semViolacoesAxe } from "./ajudantes";
 
 /**
  * Carga inicial (F3) pela interface, com as PLANILHAS REAIS: iniciar →
@@ -46,12 +46,10 @@ test.describe.serial("carga inicial — conferência demonstrável", () => {
     await expect(page.getByText(`${nomeOriginal} (conferida)`).first()).toBeVisible();
   });
 
-  test("axe-core sem violações na tela de conferência", async ({ page }) => {
+  test("axe-core (AAA) sem violações na tela de conferência", async ({ page }) => {
     await entrarComoGestor(page);
     await page.goto("/carga-inicial");
-    await page.getByRole("heading", { level: 1 }).first().waitFor();
-    const resultado = await new AxeBuilder({ page }).analyze();
-    expect(resultado.violations).toEqual([]);
+    await semViolacoesAxe(page);
   });
 
   test("aprovar tudo e efetivar cria a base real", async ({ page }) => {

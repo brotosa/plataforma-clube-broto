@@ -23,6 +23,20 @@ process.env.APP_ENCRYPTION_KEY ??= "chave-de-teste-integracao-cifra";
 const prisma = new PrismaClient();
 const VOLUME = 50_000;
 const TETO_MEDIANA_MS = 250;
+/**
+ * Timeout EXPLÍCITO dos casos que medem (F5). Cada um dispara oito consultas
+ * sobre 50 mil linhas — a de corretude, duas de aquecimento e cinco medidas —
+ * e os `it` usavam o padrão de 5s do vitest. Em contêiner sob contenção o que
+ * estourava era esse teto do harness, ANTES de a medição terminar: o teste
+ * morria por timeout sem nunca reportar a mediana, sintoma que não distingue
+ * "consulta lenta" de "máquina ocupada".
+ *
+ * Nada foi afrouxado: as contagens seguem exatas e `TETO_MEDIANA_MS` continua
+ * em 250ms. O que muda é que uma máquina lenta agora produz uma MEDIÇÃO — que
+ * reprova no teto de verdade, com os números à vista — em vez de um timeout
+ * mudo.
+ */
+const TIMEOUT_MEDICAO_MS = 120_000;
 
 const SINTETICOS = gerarAssinantesSinteticos(VOLUME, 42);
 
@@ -70,7 +84,7 @@ describe.skipIf(!temBanco)("F11 — contagem do construtor com 50 mil sintético
     const contagem = await contarAssinantes([]);
     expect(contagem).toEqual({ status: "OK", total: VOLUME });
     expect(await medirMediana([])).toBeLessThan(TETO_MEDIANA_MS);
-  });
+  }, TIMEOUT_MEDICAO_MS);
 
   it("fixtures inseridas direto levam TODAS a marca SINTÉTICO (regra do CLAUDE.md)", async () => {
     const marcados = await prisma.assinante.count({ where: { marcaSintetico: true } });
@@ -82,7 +96,7 @@ describe.skipIf(!temBanco)("F11 — contagem do construtor com 50 mil sintético
     const esperado = SINTETICOS.filter((s) => s.uf === "MT").length;
     expect(await contarAssinantes(regras)).toEqual({ status: "OK", total: esperado });
     expect(await medirMediana(regras)).toBeLessThan(TETO_MEDIANA_MS);
-  });
+  }, TIMEOUT_MEDICAO_MS);
 
   it("núcleo E atributo EAV (índice catalogo+valor): contagem confere e responde no teto", async () => {
     const regras = [
@@ -94,7 +108,7 @@ describe.skipIf(!temBanco)("F11 — contagem do construtor com 50 mil sintético
     ).length;
     expect(await contarAssinantes(regras)).toEqual({ status: "OK", total: esperado });
     expect(await medirMediana(regras)).toBeLessThan(TETO_MEDIANA_MS);
-  });
+  }, TIMEOUT_MEDICAO_MS);
 
   it("vencimento (RN37, janela cumulativa em assinaturas): contagem confere", async () => {
     const regras = [{ campo: "vencimento", operador: "vence_em", valor: "60" }];
@@ -103,7 +117,7 @@ describe.skipIf(!temBanco)("F11 — contagem do construtor com 50 mil sintético
     ).length;
     expect(await contarAssinantes(regras)).toEqual({ status: "OK", total: esperado });
     expect(await medirMediana(regras)).toBeLessThan(TETO_MEDIANA_MS);
-  });
+  }, TIMEOUT_MEDICAO_MS);
 
   it('estado honesto do "não derivado": nem "é", nem "não é" contam quem não tem UF', async () => {
     const semUf = SINTETICOS.filter((s) => s.uf === null).length;

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/infra/prisma/cliente";
 import type { MecanicaSlug } from "@/dominio/ofertas/regras";
 import { FormularioOferta } from "../../formulario-oferta";
+import { AvisoEdicaoDesktop } from "../../../aviso-desktop";
 
 export const metadata: Metadata = {
   title: "Editar oferta",
@@ -60,6 +61,7 @@ export default async function PaginaEditarOferta({
           Alterar campos publicáveis de oferta publicada liga a flag de republicação (RN10)
         </div>
       </div>
+      <AvisoEdicaoDesktop />
       <FormularioOferta
         solucaoId={oferta.solucaoId}
         contexto={{

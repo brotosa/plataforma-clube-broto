@@ -10,6 +10,7 @@ import { buscarAliado, trilhaDeAuditoria } from "@/infra/consultas/aliados";
 import { avaliarPromocao } from "@/infra/casos-de-uso/empresas";
 import { lerValor } from "@/infra/configuracao/servico-configuracao";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
+import { AvisoEdicaoDesktop } from "../../aviso-desktop";
 import { AcoesDeEstagio, AcoesContrato, FormularioContato, FormularioContrato } from "./paineis";
 import { AbaDossie, AbaScouting } from "./abas-scout";
 import { FormularioM1 } from "./formulario-m1";
@@ -233,6 +234,7 @@ export default async function PaginaFichaAliado({
           </Link>
         ))}
       </nav>
+      <AvisoEdicaoDesktop />
 
       {aba === "visao" ? (
         <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 18, alignItems: "start" }}>

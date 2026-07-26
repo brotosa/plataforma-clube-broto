@@ -104,7 +104,10 @@ export function ShellPlataforma({
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--off)" }}>
-      <aside className={classeAside}>
+      {/* fix AAA (F5): há mais de um landmark `complementary` nas telas com
+          painel lateral (régua da T3, pré-visualização da T5) — sem nome
+          acessível eles ficam indistinguíveis (axe: landmark-unique). */}
+      <aside className={classeAside} aria-label="Menu lateral">
         {recolhida ? (
           <div
             style={{

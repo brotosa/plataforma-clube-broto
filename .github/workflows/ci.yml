@@ -38,7 +38,7 @@ jobs:
         run: pnpm test
 
   e2e-acessibilidade:
-    name: Build, e2e e axe-core (AAA)
+    name: Build, e2e, axe-core (AAA) e responsividade 380px
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -95,5 +95,24 @@ jobs:
       - name: Instalar navegador do Playwright
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: E2E + axe-core
-        run: pnpm e2e
+      # Dois projetos do Playwright, em passos separados só para a falha ficar
+      # atribuída na hora de ler o log. AMBOS BLOQUEIAM: nada de
+      # `continue-on-error` aqui — o gate voltou a valer no PR #7 e não volta
+      # a mentir.
+      - name: E2E + axe-core (AAA) — desktop
+        run: pnpm e2e --project=desktop
+
+      - name: E2E — responsividade a 380px
+        run: pnpm e2e --project=mobile-380
+
+      # Diagnóstico de falha: sem isso, um e2e vermelho no CI só mostra o texto
+      # do erro, e a estabilização vira adivinhação.
+      - name: Guardar artefatos do Playwright (só em falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-resultados
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

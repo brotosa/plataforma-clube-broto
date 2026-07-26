@@ -116,6 +116,28 @@ describe.skipIf(!temBanco)("fluxo principal — casos de uso integrados", () => 
     ).rejects.toThrow(/RN08/);
   });
 
+  // A RN08 tem duas metades — "único E validado". A validação de dígito já
+  // tinha teste; a unicidade dependia só do índice do banco, que estoura como
+  // erro cru do Prisma. Casos positivo e negativo, mais o falso positivo
+  // (regravar o próprio CNPJ) que uma checagem ingênua quebraria.
+  it("CNPJ duplicado é recusado na criação e na edição, com mensagem que aponta o dono (RN08)", async () => {
+    await atualizarEmpresa(analista, empresaId, { cnpj: CNPJ_TESTE });
+
+    await expect(
+      criarEmpresa(analista, { nomeFantasia: "[TESTE-F2] Homônima", cnpj: CNPJ_TESTE }),
+    ).rejects.toThrow(/já cadastrado/);
+
+    const outra = await criarEmpresa(analista, { nomeFantasia: "[TESTE-F2] Outra empresa" });
+    await expect(
+      atualizarEmpresa(analista, outra.id, { cnpj: CNPJ_TESTE }),
+    ).rejects.toThrow(/RN08/);
+
+    // Falso positivo: salvar de novo o MESMO CNPJ na MESMA empresa é válido.
+    await expect(
+      atualizarEmpresa(analista, empresaId, { cnpj: CNPJ_TESTE }),
+    ).resolves.toMatchObject({ id: empresaId });
+  });
+
   it("dados M2 completos: identificação, contato e contrato", async () => {
     await atualizarEmpresa(analista, empresaId, {
       cnpj: CNPJ_TESTE,
@@ -258,6 +280,23 @@ describe.skipIf(!temBanco)("fluxo principal — casos de uso integrados", () => 
 
   it("publicação com aliado suspenso é impedida (RN02)", async () => {
     await expect(publicarOferta(gestor, ofertaId)).rejects.toThrow(/RN02/);
+  });
+
+  // RN12 fecha em "registrado na auditoria" — até a F4 o teste provava a
+  // recusa sem motivo e a cascata, mas não que o motivo tipificado chega à
+  // trilha. Sem isso, uma suspensão poderia pausar as ofertas sem deixar
+  // registro de POR QUÊ.
+  it("o motivo tipificado da suspensão fica na trilha de auditoria (RN12)", async () => {
+    const curadoria = await prisma.motivoSuspensao.findUniqueOrThrow({
+      where: { slug: "DECISAO_CURADORIA" },
+    });
+    const evento = await prisma.auditoriaEvento.findFirstOrThrow({
+      where: { entidade: "empresa", entidadeId: empresaId, campo: "motivoSuspensaoId" },
+      orderBy: { criadoEm: "desc" },
+    });
+    expect(evento.valorAnterior).toBeNull();
+    expect(evento.valorNovo).toBe(curadoria.id);
+    expect(evento.autorId).toBe(gestor.id);
   });
 
   it("trilha de auditoria da empresa registra before/after das transições", async () => {

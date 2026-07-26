@@ -275,7 +275,10 @@ export default async function PaginaAliados({
               <tbody>
                 {resultado.linhas.map((linha) => (
                   <tr key={linha.id} className="click">
-                    <td>
+                    {/* data-label também na primeira célula (F5): no colapso
+                        mobile toda célula vira linha rotulada do card — a T4 já
+                        fazia, a T1 tinha ficado sem. */}
+                    <td data-label="Aliado">
                       <Link
                         href={`/aliados/${linha.id}`}
                         style={{
