@@ -219,7 +219,12 @@ test.describe("responsividade a 380px — Onda 6", () => {
     await entrar(page, ADMIN_ONDA6);
 
     await expect(page.getByRole("heading", { level: 1, name: "O Clube hoje" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Exige ação hoje" })).toBeVisible();
+    // O título da camada 2 mudou na F14 ("Pendências · exige ação hoje",
+    // ficha Onda 7 §6) porque as pendências saíram do hero e viraram seção
+    // própria; a exigência a 380px é a mesma.
+    await expect(page.getByRole("heading", { name: /Pendências/ })).toBeVisible();
+    // O panorama de oito células cabe na coluna única (Onda 7 §6).
+    await expect(page.locator(".dash-stats .dash-stat")).toHaveCount(8);
     // Os quatro blocos da ficha §2 continuam presentes — a 380px o grid
     // vira uma coluna, mas nenhum bloco é escondido.
     for (const bloco of ["Rede e Aliados", "Mercado e Funil", "Assinantes e Uso", "Campanhas"]) {
@@ -249,6 +254,71 @@ test.describe("responsividade a 380px — Onda 6", () => {
 
     await semRolagemHorizontal(page);
     await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+  });
+});
+
+/**
+ * Onda 7 a 380px (F14) — as duas telas novas entram sob os mesmos sinais
+ * objetivos das anteriores: nada some fora da viewport, tabela colapsa em
+ * cards, axe AAA limpo.
+ *
+ * A T30 tem uma exigência extra e própria: o mapa é SVG com `viewBox`, e
+ * SVG mal contido é a causa clássica de rolagem horizontal no estreito. O
+ * teste mede o desenho, não confia no CSS.
+ *
+ * O sino também é medido aqui: a 380px o painel deixa de flutuar estreito e
+ * passa a ocupar a largura útil (`.not-pop` na consulta de 420px). Sem essa
+ * verificação, "painel acessível" valeria só no desktop.
+ */
+test.describe("responsividade a 380px — Onda 7", () => {
+  const GESTOR = "gestor@dev.clubebroto.local";
+
+  test("T29 — Cobertura cabe a 380px e passa em AAA", async ({ page }) => {
+    await entrar(page, GESTOR);
+    await page.goto("/aliados/cobertura");
+    await page.getByRole("heading", { level: 1, name: "Cobertura do portfólio" }).waitFor();
+
+    // A faixa de indicadores vira coluna única, sem esconder célula.
+    await expect(page.locator(".kpi-cel")).toHaveCount(4);
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T30 — Mapa cabe a 380px, a tabela por UF colapsa e passa em AAA", async ({ page }) => {
+    await entrar(page, GESTOR);
+    await page.goto("/aliados/mapa");
+    await page.getByRole("heading", { level: 1, name: "Distribuição geográfica" }).waitFor();
+
+    // O SVG do mapa não pode estourar a viewport.
+    const largura = await page.locator("svg.mapa-svg").evaluate((no) => no.getBoundingClientRect().width);
+    expect(largura).toBeLessThanOrEqual(380);
+
+    // O alternador de modo (RN52) continua operável no estreito.
+    await expect(page.getByRole("link", { name: "Abrangência declarada" })).toBeVisible();
+
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("sino de pendências: painel usa a largura útil a 380px e passa em AAA", async ({ page }) => {
+    await entrar(page, GESTOR);
+
+    await page.getByRole("button", { name: /abrir o painel/i }).click();
+    const painel = page.getByRole("dialog", { name: "Ações pendentes" });
+    await expect(painel).toBeVisible();
+
+    const caixa = await painel.evaluate((no) => {
+      const r = no.getBoundingClientRect();
+      return { largura: r.width, esquerda: r.left, direita: r.right };
+    });
+    // Largura ÚTIL: nem estreito demais, nem estourando a viewport.
+    expect(caixa.largura).toBeGreaterThan(280);
+    expect(caixa.esquerda).toBeGreaterThanOrEqual(0);
+    expect(caixa.direita).toBeLessThanOrEqual(380);
+
+    await semRolagemHorizontal(page);
     await semViolacoesAxe(page);
   });
 });

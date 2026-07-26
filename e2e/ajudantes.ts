@@ -620,6 +620,29 @@ export async function semearDecisaoDeAprovacao(entidadeId: string) {
 }
 
 /**
+ * Solicitação de aprovação PENDENTE (estado SOLICITADA) — a precondição do
+ * cartão "Aprovações pendentes" da camada 2 da HOME.
+ *
+ * Existe desde a F14: até a Onda 7 as pendências ocupavam as células do hero
+ * e apareciam mesmo zeradas, então bastava abrir a HOME para encontrá-las.
+ * Com a estrutura da ficha §6 elas viraram cartões próprios que só aparecem
+ * quando há o que fazer — comportamento correto, e que obriga o teste a
+ * semear a própria precondição em vez de contar com a tela.
+ */
+export async function semearAprovacaoPendente(entidadeId: string) {
+  await prisma.aprovacaoSolicitacao.deleteMany({ where: { entidadeId } });
+  const solicitante = await idUsuarioPorPapel("ANALISTA");
+  return prisma.aprovacaoSolicitacao.create({
+    data: {
+      tipoEntidade: "PROMOCAO_ALIADA_ATIVA",
+      entidadeId,
+      solicitanteId: solicitante,
+      estado: "SOLICITADA",
+    },
+  });
+}
+
+/**
  * Empresa no radar/funil (F6) em estágio configurável. Sem CNPJ (entrada de
  * radar), categoria vinculada, datas de radar preenchidas. Idempotente.
  * Em EM_AVALIACAO já atribui um responsável de scout (RN14); em DESCARTADA

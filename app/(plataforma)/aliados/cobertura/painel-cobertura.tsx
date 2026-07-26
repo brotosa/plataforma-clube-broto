@@ -363,7 +363,16 @@ export function PainelCobertura({
             sem culturas ou categorias ativas na taxonomia para cruzar
           </p>
         ) : (
-          <table className="tbl" style={{ minWidth: 560 }}>
+          <table
+            className="tbl"
+            style={{ minWidth: 560 }}
+            // fix AAA (F14): abaixo de 760px `.tbl:not(.tbl-resp)` vira
+            // `display:block; overflow-x:auto` e a TABELA passa a ser a região
+            // rolável. Região que rola precisa ser alcançável por teclado, ou
+            // quem não usa ponteiro não chega às colunas da direita (axe:
+            // scrollable-region-focusable). O nome acessível vem da <caption>.
+            tabIndex={0}
+          >
             <caption className="sr-oculto">
               Soluções publicadas por categoria e cultura declarada. A linha soma mais que o
               total da categoria porque uma solução pode servir mais de uma cultura.

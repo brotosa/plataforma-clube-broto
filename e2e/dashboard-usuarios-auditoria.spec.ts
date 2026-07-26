@@ -1,5 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
-import { entrar, prisma, runId, SENHA, semViolacoesAxe } from "./ajudantes";
+import {
+  entrar,
+  limparAliadoPorNome,
+  prisma,
+  runId,
+  SENHA,
+  semViolacoesAxe,
+  semearAliadoEmNegociacao,
+  semearAprovacaoPendente,
+} from "./ajudantes";
 
 /**
  * E2E da Onda 6 (F13) — T26, T27 e T28.
@@ -108,16 +117,27 @@ test("T26 — RN50: indicador sem fonte diz o que falta, em vez de exibir númer
 });
 
 test("T26 — clicar uma pendência leva à tela de origem", async ({ page }) => {
-  await entrar(page, "gestor@dev.clubebroto.local");
+  // Ajuste da F14: até a Onda 6 as pendências ocupavam as células do hero e
+  // apareciam mesmo zeradas, então abrir a HOME bastava. A ficha da Onda 7 §6
+  // as tirou do hero e transformou em cartões que só existem quando há o que
+  // fazer — então o teste passa a semear a própria precondição. O que ele
+  // prova continua o mesmo: a pendência leva à tela de origem.
+  const nome = `Aliado E2E ${runId()}-pendencia-t26`;
+  const aliado = await semearAliadoEmNegociacao(nome);
+  try {
+    await semearAprovacaoPendente(aliado.id);
 
-  // A faixa só existe quando há pendência; o cartão de aprovações está
-  // sempre presente no hero, e é o caminho garantido para a origem.
-  const cartao = page.getByRole("link", { name: /Aprovações pendentes/ }).first();
-  await expect(cartao).toBeVisible();
-  await cartao.click();
+    await entrar(page, "gestor@dev.clubebroto.local");
 
-  await page.waitForURL(/\/aprovacoes/);
-  await expect(page.getByRole("heading", { level: 1, name: "Aprovações" })).toBeVisible();
+    const cartao = page.getByRole("link", { name: /Aprovações pendentes/ }).first();
+    await expect(cartao).toBeVisible();
+    await cartao.click();
+
+    await page.waitForURL(/\/aprovacoes/);
+    await expect(page.getByRole("heading", { level: 1, name: "Aprovações" })).toBeVisible();
+  } finally {
+    await limparAliadoPorNome(nome);
+  }
 });
 
 test("T26 — o seletor de período recarrega o painel", async ({ page }) => {
