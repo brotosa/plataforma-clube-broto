@@ -538,6 +538,60 @@ export async function semearOfertaPublicada(solucaoId: string, titulo: string) {
   });
 }
 
+/* --------------------------------------------------------------------------
+ * Sinais objetivos de responsividade a 380px (F5)
+ *
+ * Moraram em `responsividade.spec.ts` enquanto só aquela suíte media 380px.
+ * Com as Ondas 3 e 4 no produto, a suíte da F12 também precisa cobrá-los no
+ * cenário que ela já semeia (o painel da campanha só existe depois da
+ * ativação), então os dois viraram ajudantes compartilhados. A regra não
+ * mudou — mudou quem pode aplicá-la.
+ * ----------------------------------------------------------------------- */
+
+/** Nenhum estouro horizontal: o documento cabe na viewport. */
+export async function semRolagemHorizontal(page: Page): Promise<void> {
+  const estouro = await page.evaluate(() => {
+    const raiz = document.documentElement;
+    return raiz.scrollWidth - raiz.clientWidth;
+  });
+  expect(estouro, `estouro horizontal em ${page.url()}`).toBeLessThanOrEqual(0);
+}
+
+/**
+ * Tabela colapsada em cards: `thead` fora do fluxo visual e nenhuma célula
+ * sem `data-label` — exceto a coluna do chevron (`td.chev`), que o próprio
+ * CSS esconde no mobile por ser decorativa.
+ */
+export async function tabelaColapsadaEmCards(page: Page): Promise<void> {
+  const tabela = page.locator("table.tbl-resp").first();
+  await expect(tabela).toBeVisible();
+  await expect(tabela.locator("thead")).toBeHidden();
+
+  const semRotulo = await tabela.locator("tbody td:not(.chev):not([data-label])").count();
+  expect(semRotulo, "células sem data-label no colapso mobile").toBe(0);
+
+  // O rótulo é renderizado pelo ::before a partir do data-label — confere que
+  // ele realmente aparece (regra de CSS presente, não só o atributo no HTML).
+  const primeira = tabela.locator("tbody td[data-label]").first();
+  const rotulo = await primeira.evaluate(
+    (celula) => getComputedStyle(celula, "::before").content,
+  );
+  expect(rotulo).not.toBe("none");
+}
+
+/**
+ * Campanha em RASCUNHO (Onda 4) — só o necessário para a T22 renderizar a
+ * TABELA, que é o que a auditoria de 380px precisa medir. Sem público, cesta
+ * ou peça: quem exercita o ciclo é `campanhas.spec.ts`; aqui a campanha é
+ * precondição de layout, não de regra. Idempotente por nome.
+ */
+export async function semearCampanhaRascunho(nome: string) {
+  await prisma.campanha.deleteMany({ where: { nome } });
+  return prisma.campanha.create({
+    data: { nome, estado: "RASCUNHO", autorId: await idUsuarioPorPapel("GESTOR") },
+  });
+}
+
 /**
  * Solicitação de aprovação já DECIDIDA sobre uma entidade — enche o histórico
  * da T6, que só renderiza a tabela quando há decisão registrada. Respeita a

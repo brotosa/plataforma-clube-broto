@@ -1,9 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   entrar,
   runId,
+  semRolagemHorizontal,
   semViolacoesAxe,
+  tabelaColapsadaEmCards,
   semearAliadoAtivoComContrato,
+  semearCampanhaRascunho,
   semearDecisaoDeAprovacao,
   semearOfertaPublicada,
   semearSolucaoCompleta,
@@ -29,39 +32,6 @@ import {
  *     `data-label` (o rótulo que substitui a coluna);
  *  3. a navegação por gaveta abre e fecha, inclusive por teclado.
  */
-
-/** Nenhum estouro horizontal: o documento cabe na viewport. */
-async function semRolagemHorizontal(page: Page): Promise<void> {
-  const estouro = await page.evaluate(() => {
-    const raiz = document.documentElement;
-    return raiz.scrollWidth - raiz.clientWidth;
-  });
-  expect(estouro, `estouro horizontal em ${page.url()}`).toBeLessThanOrEqual(0);
-}
-
-/**
- * Tabela colapsada em cards: `thead` fora do fluxo visual e nenhuma célula
- * sem `data-label` — exceto a coluna do chevron (`td.chev`), que o próprio
- * CSS esconde no mobile por ser decorativa.
- */
-async function tabelaColapsadaEmCards(page: Page): Promise<void> {
-  const tabela = page.locator("table.tbl-resp").first();
-  await expect(tabela).toBeVisible();
-  await expect(tabela.locator("thead")).toBeHidden();
-
-  const semRotulo = await tabela
-    .locator("tbody td:not(.chev):not([data-label])")
-    .count();
-  expect(semRotulo, "células sem data-label no colapso mobile").toBe(0);
-
-  // O rótulo é renderizado pelo ::before a partir do data-label — confere que
-  // ele realmente aparece (regra de CSS presente, não só o atributo no HTML).
-  const primeira = tabela.locator("tbody td[data-label]").first();
-  const rotulo = await primeira.evaluate(
-    (celula) => getComputedStyle(celula, "::before").content,
-  );
-  expect(rotulo).not.toBe("none");
-}
 
 test.describe("responsividade a 380px — T1/T4/T6 plenamente usáveis", () => {
   for (const [tela, rota] of [
@@ -122,6 +92,65 @@ test.describe("responsividade a 380px — T1/T4/T6 plenamente usáveis", () => {
       await page.goto(rota);
       await semViolacoesAxe(page);
     }
+  });
+});
+
+/**
+ * Ondas 3 e 4 a 380px (F5 sobre o produto completo).
+ *
+ * O critério do prompt da Onda 1 nomeia T1–T7 porque era o que existia; a
+ * disciplina, não a lista, é que é o entregável da F5 — toda tela do produto
+ * cabe na viewport, e o que for tabela colapsa em cards. As telas novas
+ * entram aqui sob os MESMOS sinais objetivos.
+ *
+ * O axe AAA das Ondas 3 e 4 já roda em `parametrizador.spec.ts` e
+ * `campanhas.spec.ts`, que adotaram o ajudante `semViolacoesAxe` da F5 — mas
+ * no viewport de desktop. A 380px o layout é outro (gaveta no lugar da
+ * sidebar, tabela em cards), então a varredura precisa acontecer AQUI também:
+ * é literalmente outra árvore de acessibilidade.
+ */
+test.describe("responsividade a 380px — Ondas 3 e 4", () => {
+  const ADMIN = "administrador@dev.clubebroto.local";
+
+  // T15 (hub), T16 (editor de lista) e T17 (valores de regra). Sem tabela:
+  // o Parametrizador usa cartões, então o sinal é caber e passar em AAA.
+  for (const [tela, rota] of [
+    ["T15 — hub do Parametrizador", "/parametrizador"],
+    ["T16 — editor de lista (culturas)", "/parametrizador/listas/culturas"],
+    ["T17 — valores de regra", "/parametrizador/valores"],
+  ] as const) {
+    test(`${tela} cabe a 380px e passa em AAA`, async ({ page }) => {
+      await entrar(page, ADMIN);
+      await page.goto(rota);
+      await page.getByRole("heading", { level: 1 }).first().waitFor();
+      await semRolagemHorizontal(page);
+      await semViolacoesAxe(page);
+    });
+  }
+
+  test("T22 — Campanhas colapsa em cards, sem rolagem horizontal, e passa em AAA", async ({
+    page,
+  }) => {
+    // Precondição PRÓPRIA: sem uma campanha a T22 mostra só o estado vazio e
+    // não haveria tabela para medir. Semear aqui evita a asserção condicional
+    // que "passa" sem ter verificado nada — a F12 cobre a T22 a 380px, mas em
+    // visibilidade e AAA; o colapso em cards e o estouro horizontal, não.
+    await semearCampanhaRascunho(`Campanha E2E ${runId()}-380`);
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/campanhas");
+    await page.getByRole("heading", { level: 1 }).first().waitFor();
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("Cestas cabe a 380px e passa em AAA", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/campanhas/cestas");
+    await page.getByRole("heading", { level: 1 }).first().waitFor();
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
   });
 });
 

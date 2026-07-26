@@ -5,7 +5,9 @@ import {
   resolverDoArquivoEnv,
   submeterERepintar,
   runId,
+  semRolagemHorizontal,
   semViolacoesAxe,
+  tabelaColapsadaEmCards,
   semearAliadoAtivoComContrato,
   semearSolucaoCompleta,
 } from "./ajudantes";
@@ -337,11 +339,19 @@ test.describe.serial("F12 — ciclo completo da campanha (T22 → T23 → T25)",
     await page.goto("/campanhas");
     await expect(page.getByRole("heading", { name: "Campanhas" })).toBeVisible();
     await expect(page.getByText(NOME_CAMPANHA)).toBeVisible();
+    // Sinais objetivos da F5, além da consulta: a tela cabe na viewport e a
+    // tabela vira cards com rótulo em toda célula. Foi esta checagem que
+    // encontrou a coluna "Campanha" sem `data-label` aqui e a "Oferta" sem
+    // rótulo no painel — no colapso a linha aparecia sem dizer o que era.
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
     await axeComUiAssentada(page);
 
     await page.getByRole("link", { name: NOME_CAMPANHA }).click();
     await expect(page).toHaveURL(/\/painel$/);
     await expect(page.getByText(/público congelado/).first()).toBeVisible();
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
     await axeComUiAssentada(page);
   });
 });

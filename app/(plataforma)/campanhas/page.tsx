@@ -37,7 +37,7 @@ function LinhaDaCampanha({ campanha }: { campanha: LinhaCampanha }) {
       : `/campanhas/${campanha.id}/painel`;
   return (
     <tr>
-      <td>
+      <td data-label="Campanha">
         <Link href={destino} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ fontWeight: 600 }}>{campanha.nome}</span>
           <span className="cap">{campanha.objetivo ?? "sem objetivo declarado"}</span>
