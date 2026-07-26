@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { PapelContato } from "@prisma/client";
+import type { EstagioEmpresa, PapelContato } from "@prisma/client";
 import { auth } from "@/infra/auth";
 import type { Ator } from "@/infra/casos-de-uso/contexto";
 import {
@@ -19,6 +19,12 @@ import {
   mudarStatusContrato,
   removerContato,
 } from "@/infra/casos-de-uso/contatos-contratos";
+import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
+import {
+  listarAliados,
+  TAMANHO_BLOCO_ROLAGEM,
+  type LinhaDeAliado,
+} from "@/infra/consultas/aliados";
 import { enviarMarca, removerMarca } from "@/infra/casos-de-uso/marca-aliado";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
@@ -331,4 +337,39 @@ export async function acaoRemoverMarca(
   revalidatePath("/aliados");
   revalidatePath("/mercado");
   return { sucesso: "Marca removida. O aliado volta a exibir a inicial." };
+}
+
+// ---------------------------------------------------------------------
+// RN56 — rolagem contínua da lista de aliados
+// ---------------------------------------------------------------------
+
+/** Filtros da T1 que a rolagem precisa repetir a cada bloco. */
+export interface FiltrosDaRolagem {
+  busca?: string;
+  categoriaId?: string;
+  estagio?: EstagioEmpresa;
+  semOfertaAtiva?: boolean;
+}
+
+/**
+ * Devolve o bloco seguinte da lista (RN56). A consulta continua paginada
+ * no servidor — o que mudou é a leitura, não o jeito de consultar: quem
+ * rola pede o bloco n+1 com os MESMOS filtros, e o total permanece o da
+ * consulta, nunca a contagem do que já foi carregado.
+ */
+export async function acaoCarregarMaisAliados(
+  filtros: FiltrosDaRolagem,
+  pagina: number,
+): Promise<{ linhas: LinhaDeAliado[]; total: number }> {
+  const ator = await atorDaSessao();
+  exigirPermissao(ator.papel, "VISUALIZAR");
+  const resultado = await listarAliados({
+    busca: filtros.busca,
+    categoriaId: filtros.categoriaId || undefined,
+    estagio: filtros.estagio,
+    semOfertaAtiva: filtros.semOfertaAtiva,
+    pagina: Math.max(1, pagina),
+    tamanho: TAMANHO_BLOCO_ROLAGEM,
+  });
+  return { linhas: resultado.linhas, total: resultado.total };
 }

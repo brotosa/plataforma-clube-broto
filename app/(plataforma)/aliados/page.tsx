@@ -6,8 +6,9 @@ import {
   contadoresAliados,
   ESTAGIOS_DA_REDE,
   listarAliados,
+  TAMANHO_BLOCO_ROLAGEM,
 } from "@/infra/consultas/aliados";
-import { BarraCompletude, MarcaDoAliado, PillEstagio } from "./componentes";
+import { ListaDeAliadosComRolagem } from "./lista-rolagem";
 import { SegmentadoDaSecao, VISOES_DE_ALIADOS } from "@/app/(plataforma)/segmentado-secao";
 
 export const metadata: Metadata = {
@@ -37,32 +38,32 @@ export default async function PaginaAliados({
       ? (parametros.estagio as EstagioEmpresa)
       : undefined;
   const semOfertaAtiva = parametros.semOferta === "1";
-  const pagina = Number(parametros.pagina ?? "1") || 1;
   const temFiltros = Boolean(busca || categoriaId || estagio || semOfertaAtiva);
 
   const [contadores, resultado, categorias, totalGeral] = await Promise.all([
     contadoresAliados(),
-    listarAliados({ busca, categoriaId: categoriaId || undefined, estagio, semOfertaAtiva, pagina }),
+    // RN56 — a T1 lê por rolagem contínua: o servidor entrega o PRIMEIRO
+    // bloco (a tela pinta com conteúdo, sem esperar JavaScript) e os
+    // seguintes chegam por server action, sempre paginados por baixo.
+    listarAliados({
+      busca,
+      categoriaId: categoriaId || undefined,
+      estagio,
+      semOfertaAtiva,
+      pagina: 1,
+      tamanho: TAMANHO_BLOCO_ROLAGEM,
+    }),
     prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     // Rede (T1): estágios do funil pré-negociação ficam na T8.
     prisma.empresa.count({ where: { estagio: { in: [...ESTAGIOS_DA_REDE] } } }),
   ]);
 
-  const inicio = resultado.total === 0 ? 0 : (resultado.pagina - 1) * resultado.tamanhoPagina + 1;
-  const fim = Math.min(resultado.total, resultado.pagina * resultado.tamanhoPagina);
-  const totalPaginas = Math.max(1, Math.ceil(resultado.total / resultado.tamanhoPagina));
 
   const parametrosBase = new URLSearchParams();
   if (busca) parametrosBase.set("busca", busca);
   if (categoriaId) parametrosBase.set("categoria", categoriaId);
   if (estagio) parametrosBase.set("estagio", estagio);
   if (semOfertaAtiva) parametrosBase.set("semOferta", "1");
-  const urlComPagina = (novaPagina: number) => {
-    const query = new URLSearchParams(parametrosBase);
-    if (novaPagina > 1) query.set("pagina", String(novaPagina));
-    const texto = query.toString();
-    return texto ? `/aliados?${texto}` : "/aliados";
-  };
   const urlAlternarSemOferta = () => {
     const query = new URLSearchParams(parametrosBase);
     if (semOfertaAtiva) {
@@ -225,8 +226,11 @@ export default async function PaginaAliados({
           {semOfertaAtiva ? <span className="sr-oculto"> (filtro ativo — remover)</span> : null}
         </Link>
         <div style={{ flex: 1 }} />
+        {/* RN56 — sem páginas, o intervalo "1–8 de 46" perdeu o sentido; a
+            CONTAGEM TOTAL permanece, que é o que a régua exige preservar.
+            Quanto já foi carregado fica no texto de situação da lista. */}
         <span className="cap num">
-          {inicio}–{fim} de {resultado.total}
+          {resultado.total} {resultado.total === 1 ? "aliado" : "aliados"}
         </span>
       </form>
 
@@ -277,127 +281,24 @@ export default async function PaginaAliados({
         </div>
       ) : (
         <>
-          <div className="card" style={{ overflowX: "auto" }}>
-            <table className="tbl tbl-resp">
-              <thead>
-                <tr>
-                  <th style={{ width: "30%" }}>Aliado</th>
-                  <th>Categorias</th>
-                  <th>Estágio</th>
-                  <th style={{ textAlign: "right" }}>Soluções</th>
-                  <th style={{ textAlign: "right" }}>Ofertas ativas</th>
-                  <th style={{ textAlign: "right" }}>Vouchers 90d</th>
-                  <th>Completude</th>
-                  <th style={{ width: 36 }}>
-                    <span className="sr-oculto">Abrir ficha</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {resultado.linhas.map((linha) => (
-                  <tr key={linha.id} className="click">
-                    {/* data-label também na primeira célula (F5): no colapso
-                        mobile toda célula vira linha rotulada do card — a T4 já
-                        fazia, a T1 tinha ficado sem. */}
-                    <td data-label="Aliado">
-                      <Link
-                        href={`/aliados/${linha.id}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          color: "inherit",
-                          textDecoration: "none",
-                        }}
-                      >
-                        <MarcaDoAliado
-                          empresaId={linha.id}
-                          nomeFantasia={linha.nomeFantasia}
-                          hash={linha.marcaHash}
-                        />
-                        <span style={{ fontWeight: 600 }}>{linha.nomeFantasia}</span>
-                        {linha.emJanelaNaoRenovacao ? (
-                          <span className="pill pill-warn">
-                            <i aria-hidden="true" />
-                            janela contratual
-                          </span>
-                        ) : null}
-                      </Link>
-                    </td>
-                    <td data-label="Categorias">
-                      {linha.categorias.length === 0 ? (
-                        <span className="pill pill-warn">
-                          <i aria-hidden="true" />
-                          obrigatório · não preenchido
-                        </span>
-                      ) : (
-                        <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
-                          {linha.categorias.map((nome) => (
-                            <span key={nome} className="tag-cat">
-                              {nome}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                    </td>
-                    <td data-label="Estágio">
-                      <PillEstagio estagio={linha.estagio} />
-                    </td>
-                    <td data-label="Soluções" className="num" style={{ textAlign: "right" }}>
-                      {linha.quantidadeSolucoes}
-                    </td>
-                    <td data-label="Ofertas ativas" className="num" style={{ textAlign: "right" }}>
-                      {linha.quantidadeOfertasAtivas}
-                    </td>
-                    <td
-                      data-label="Vouchers 90d"
-                      className="num"
-                      style={{ textAlign: "right", color: "var(--paragrafo-aaa)" }}
-                    >
-                      —
-                    </td>
-                    <td data-label="Completude">
-                      <BarraCompletude percentual={linha.completude} />
-                    </td>
-                    <td className="chev" style={{ color: "var(--paragrafo-aaa)" }}>
-                      <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-            <span className="cap">
-              Vouchers e telemetria ficam disponíveis após a primeira importação (F4) — valores
-              ausentes aparecem como “—”, nunca estimados.
-              {totalGeral > contadores.totalAtivos
-                ? " A lista inclui empresas pré-aliança (em negociação)."
-                : ""}
-            </span>
-            <span style={{ display: "flex", gap: 6 }}>
-              {resultado.pagina > 1 ? (
-                <Link href={urlComPagina(resultado.pagina - 1)} className="btn btn-ghost btn-sm" aria-label="Página anterior" style={{ textDecoration: "none" }}>
-                  ‹
-                </Link>
-              ) : (
-                <button type="button" className="btn btn-ghost btn-sm" disabled aria-label="Página anterior">
-                  ‹
-                </button>
-              )}
-              {resultado.pagina < totalPaginas ? (
-                <Link href={urlComPagina(resultado.pagina + 1)} className="btn btn-ghost btn-sm" aria-label="Próxima página" style={{ textDecoration: "none" }}>
-                  ›
-                </Link>
-              ) : (
-                <button type="button" className="btn btn-ghost btn-sm" disabled aria-label="Próxima página">
-                  ›
-                </button>
-              )}
-            </span>
-          </div>
+          <ListaDeAliadosComRolagem
+            blocoInicial={resultado.linhas}
+            total={resultado.total}
+            filtros={{
+              busca: busca || undefined,
+              categoriaId: categoriaId || undefined,
+              estagio,
+              semOfertaAtiva,
+            }}
+            tamanhoDoBloco={resultado.tamanhoPagina}
+          />
+          <p className="cap" style={{ marginTop: 10 }}>
+            Vouchers e telemetria ficam disponíveis após a primeira importação (F4) — valores
+            ausentes aparecem como “—”, nunca estimados.
+            {totalGeral > contadores.totalAtivos
+              ? " A lista inclui empresas pré-aliança (em negociação)."
+              : ""}
+          </p>
         </>
       )}
     </div>

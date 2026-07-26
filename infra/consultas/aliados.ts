@@ -45,9 +45,40 @@ export interface FiltrosAliados {
   estagio?: EstagioEmpresa;
   semOfertaAtiva?: boolean;
   pagina?: number;
+  /** Tamanho do bloco; a T1 usa o da rolagem contínua (RN56). */
+  tamanho?: number;
 }
 
+/**
+ * Tamanho de página herdado da F2, quando a T1 tinha controles de página.
+ * Segue sendo o padrão da consulta para qualquer outro consumidor.
+ */
 export const TAMANHO_PAGINA = 8;
+
+/**
+ * RN56 — bloco da rolagem contínua da T1.
+ *
+ * A lista de aliados é conjunto contido (46 hoje, algumas centenas no
+ * horizonte) e ler a rede inteira é gesto frequente, então a paginação de
+ * 8 saiu. O que NÃO saiu é a consulta paginada no servidor por baixo: 20
+ * por vez mantém a primeira pintura barata e o banco fora de um SELECT
+ * sem limite — a rolagem é da leitura, não do jeito de consultar.
+ */
+export const TAMANHO_BLOCO_ROLAGEM = 20;
+
+/** Uma linha da T1 — o que a tela e a rolagem contínua consomem. */
+export interface LinhaDeAliado {
+  id: string;
+  nomeFantasia: string;
+  /** Versão da marca para a URL da rota; null = sem marca (RN54). */
+  marcaHash: string | null;
+  categorias: string[];
+  estagio: EstagioEmpresa;
+  quantidadeSolucoes: number;
+  quantidadeOfertasAtivas: number;
+  emJanelaNaoRenovacao: boolean;
+  completude: number;
+}
 
 /**
  * T1 é a rede de aliados: sem filtro explícito, a lista cobre da
@@ -79,13 +110,14 @@ export async function listarAliados(filtros: FiltrosAliados) {
   }
 
   const pagina = Math.max(1, filtros.pagina ?? 1);
+  const tamanho = filtros.tamanho ?? TAMANHO_PAGINA;
   const [total, empresas] = await Promise.all([
     prisma.empresa.count({ where: onde }),
     prisma.empresa.findMany({
       where: onde,
       orderBy: { nomeFantasia: "asc" },
-      skip: (pagina - 1) * TAMANHO_PAGINA,
-      take: TAMANHO_PAGINA,
+      skip: (pagina - 1) * tamanho,
+      take: tamanho,
       include: {
         categorias: { include: { categoria: true } },
         contatos: { select: { id: true } },
@@ -104,7 +136,7 @@ export async function listarAliados(filtros: FiltrosAliados) {
     }),
   ]);
 
-  const linhas = empresas.map((empresa) => {
+  const linhas: LinhaDeAliado[] = empresas.map((empresa) => {
     const ofertas = empresa.solucoes.flatMap((solucao) => solucao.ofertas);
     return {
       id: empresa.id,
@@ -131,7 +163,7 @@ export async function listarAliados(filtros: FiltrosAliados) {
     };
   });
 
-  return { linhas, total, pagina, tamanhoPagina: TAMANHO_PAGINA };
+  return { linhas, total, pagina, tamanhoPagina: tamanho };
 }
 
 export async function contadoresAliados() {
