@@ -352,12 +352,30 @@ export default async function PaginaMercado({
               </svg>
             </div>
             <h2 className="h-el">Nenhuma empresa neste filtro</h2>
-            <p className="cap" style={{ margin: 0 }}>
-              Limpe os filtros aplicados ou inclua uma nova empresa no radar.
+            <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
+              {categoriaFiltrada
+                ? `Nenhuma empresa em prospecção para ${categoriaFiltrada.nome}. É um vazio de funil: a categoria não tem ninguém caminhando para preenchê-la.`
+                : "Limpe os filtros aplicados ou inclua uma nova empresa no radar."}
             </p>
-            <Link href="/mercado" className="btn btn-ghost" style={{ marginTop: 8, textDecoration: "none" }}>
-              Limpar filtros
-            </Link>
+            <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+              {/* F14 (ficha Onda 7 §2/RN51): quem chega aqui pelo "Buscar no
+                  radar" da T29 veio verificar antes de prospectar e encontrou
+                  o vazio. O caminho natural é entrar no radar AGORA, com a
+                  categoria já preenchida — sem esse atalho, o gesto termina
+                  num beco e a verificação vira atrito em vez de economia. */}
+              {categoriaFiltrada ? (
+                <Link
+                  href={`/mercado/radar?categoria=${categoriaFiltrada.id}`}
+                  className="btn btn-azul"
+                  style={{ textDecoration: "none" }}
+                >
+                  + Entrar no radar
+                </Link>
+              ) : null}
+              <Link href="/mercado" className="btn btn-ghost" style={{ textDecoration: "none" }}>
+                Limpar filtros
+              </Link>
+            </div>
           </div>
         </div>
       ) : (

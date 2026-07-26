@@ -22,6 +22,15 @@ export default async function PaginaRadar({
     orderBy: { ordem: "asc" },
   });
 
+  // F14: chegada pelo estado vazio da T8 filtrada (ou pelo "Buscar no radar"
+  // da T29) traz a categoria já marcada. Id desconhecido é ignorado em
+  // silêncio — querystring é entrada de usuário, e um id inválido não pode
+  // marcar checkbox nenhum.
+  const categoriaPedida = typeof parametros.categoria === "string" ? parametros.categoria : "";
+  const categoriasPreSelecionadas = categorias
+    .filter((categoria) => categoria.id === categoriaPedida)
+    .map((categoria) => categoria.id);
+
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
       <div className="cap" style={{ marginBottom: 14 }}>
@@ -44,6 +53,7 @@ export default async function PaginaRadar({
         <FormularioRadar
           categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
           origens={Object.entries(ROTULOS_ORIGEM).map(([valor, rotulo]) => ({ valor, rotulo }))}
+          categoriasPreSelecionadas={categoriasPreSelecionadas}
         />
         <ImportacaoDeLista focoInicial={focoNaImportacao} />
       </div>
