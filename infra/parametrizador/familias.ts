@@ -35,6 +35,7 @@ export const ENTIDADE_AUDITORIA: Readonly<Record<FamiliaLista, string>> = {
   "motivos-descarte": "motivo_descarte",
   "tipos-beneficio": "tipo_beneficio",
   "perfil-cliente": "perfil_cliente",
+  "formatos-peca": "formato_peca",
 };
 
 export async function listarItens(
@@ -88,6 +89,10 @@ export async function listarItens(
       const linhas = await cliente.perfilCliente.findMany({ orderBy: { ordem: "asc" } });
       return linhas.map((p) => ({ id: p.id, nome: p.nome, ativo: p.ativo, ordem: p.ordem }));
     }
+    case "formatos-peca": {
+      const linhas = await cliente.formatoPeca.findMany({ orderBy: { ordem: "asc" } });
+      return linhas.map((f) => ({ id: f.id, nome: f.nome, ativo: f.ativo, ordem: f.ordem }));
+    }
   }
 }
 
@@ -140,6 +145,10 @@ export async function contarUsos(
       // A lista nasce vazia e ainda não é consumida por nenhuma entidade —
       // o vínculo chega com a Onda 5 (Assinantes).
       return [];
+    case "formatos-peca": {
+      const pecas = await cliente.pecaCampanha.count({ where: { formatoId: itemId } });
+      return [{ singular: "peça de campanha", plural: "peças de campanha", quantidade: pecas }];
+    }
   }
 }
 
@@ -242,6 +251,15 @@ export async function atualizarItem(
         },
       });
       break;
+    case "formatos-peca":
+      await cliente.formatoPeca.update({
+        where: { id: itemId },
+        data: {
+          ...(nome === undefined ? {} : { nome }),
+          ...(campos.ativo === undefined ? {} : { ativo: campos.ativo }),
+        },
+      });
+      break;
   }
   const itens = await listarItens(cliente, familia);
   const atualizado = itens.find((item) => item.id === itemId);
@@ -328,6 +346,10 @@ export async function criarItem(
     }
     case "perfil-cliente": {
       const criado = await cliente.perfilCliente.create({ data: { slug, nome, ordem } });
+      return { id: criado.id, nome: criado.nome, ativo: criado.ativo, ordem: criado.ordem };
+    }
+    case "formatos-peca": {
+      const criado = await cliente.formatoPeca.create({ data: { slug, nome, ordem } });
       return { id: criado.id, nome: criado.nome, ativo: criado.ativo, ordem: criado.ordem };
     }
     case "cobertura":

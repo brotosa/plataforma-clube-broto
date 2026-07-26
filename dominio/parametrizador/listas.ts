@@ -20,7 +20,8 @@ export type FamiliaLista =
   | "motivos-suspensao"
   | "motivos-descarte"
   | "tipos-beneficio"
-  | "perfil-cliente";
+  | "perfil-cliente"
+  | "formatos-peca";
 
 export interface DefinicaoFamilia {
   id: FamiliaLista;
@@ -103,6 +104,15 @@ export const FAMILIAS_DE_LISTA: ReadonlyArray<DefinicaoFamilia> = [
     rotulo: "Tipos de benefício",
     descricao: "Natureza do benefício oferecido na vitrine",
     unidade: "tipos",
+    permiteCriar: true,
+  },
+  {
+    id: "formatos-peca",
+    secao: "Campanhas & Cestas",
+    rotulo: "Formatos de peça",
+    descricao:
+      "Formatos das peças criativas da campanha (ficha da Onda 4 §6) · seed = e-mail · banner · push · WhatsApp",
+    unidade: "formatos",
     permiteCriar: true,
   },
   {
