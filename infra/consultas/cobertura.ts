@@ -172,6 +172,85 @@ export async function apurarCobertura(
 }
 
 // ---------------------------------------------------------------------
+// Matriz Categoria × cultura (ficha §2)
+// ---------------------------------------------------------------------
+
+export interface MatrizCategoriaCultura {
+  culturas: ReadonlyArray<{ id: string; nome: string }>;
+  linhas: ReadonlyArray<{
+    categoriaId: string;
+    categoriaNome: string;
+    /** Contagem por cultura, na ordem de `culturas`. */
+    valores: ReadonlyArray<number>;
+    /** Soluções publicadas da categoria — o total que NÃO é a soma da linha. */
+    totalDaCategoria: number;
+  }>;
+  /** Soluções publicadas sem nenhuma cultura declarada — ficam fora (RN53). */
+  solucoesSemCultura: number;
+}
+
+/**
+ * Soluções publicadas por categoria e cultura declarada.
+ *
+ * Duas notas que a ficha §2 torna **obrigatórias** na tela, e que esta
+ * consulta materializa:
+ *
+ * (a) uma solução pode servir mais de uma cultura, então a linha soma mais
+ *     que o total da categoria — por isso `totalDaCategoria` viaja junto, em
+ *     vez de deixar quem lê somar a linha e concluir errado;
+ * (b) a matriz **independe do filtro de região**, porque cultura é
+ *     característica declarada da solução, não da sede do aliado. Daí esta
+ *     função não receber recorte algum: o recorte não se aplica a ela.
+ */
+export async function matrizCategoriaCultura(): Promise<MatrizCategoriaCultura> {
+  const publicada = ondeDaSolucaoPublicada({});
+
+  const [categorias, culturas, vinculos, porCategoria, solucoesSemCultura] = await Promise.all([
+    prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+    prisma.cultura.findMany({
+      where: { ativa: true },
+      orderBy: { ordem: "asc" },
+      select: { id: true, nome: true },
+    }),
+    prisma.solucaoCultura.findMany({
+      where: { solucao: { ...publicada, categoriaId: { not: null } } },
+      select: { culturaId: true, solucao: { select: { categoriaId: true } } },
+    }),
+    prisma.solucao.groupBy({
+      by: ["categoriaId"],
+      where: { ...publicada, categoriaId: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.solucao.count({ where: { ...publicada, culturas: { none: {} } } }),
+  ]);
+
+  const contagens = new Map<string, number>();
+  for (const vinculo of vinculos) {
+    const categoriaId = vinculo.solucao.categoriaId;
+    if (!categoriaId) {
+      continue;
+    }
+    const chave = `${categoriaId}::${vinculo.culturaId}`;
+    contagens.set(chave, (contagens.get(chave) ?? 0) + 1);
+  }
+
+  const totais = new Map<string, number>(
+    porCategoria.map((linha) => [linha.categoriaId as string, linha._count._all]),
+  );
+
+  return {
+    culturas,
+    linhas: categorias.map((categoria) => ({
+      categoriaId: categoria.id,
+      categoriaNome: categoria.nome,
+      valores: culturas.map((cultura) => contagens.get(`${categoria.id}::${cultura.id}`) ?? 0),
+      totalDaCategoria: totais.get(categoria.id) ?? 0,
+    })),
+    solucoesSemCultura,
+  };
+}
+
+// ---------------------------------------------------------------------
 // Listas de apoio aos filtros
 // ---------------------------------------------------------------------
 

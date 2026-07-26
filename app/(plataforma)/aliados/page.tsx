@@ -75,7 +75,14 @@ export default async function PaginaAliados({
   };
 
   return (
-    <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+    <div
+      className="tela"
+      // `data-tela` marca as três leituras da seção (T1/T29/T30): o CSS
+      // desliga a animação de entrada entre elas, porque alternar aba não é
+      // trocar de tela.
+      data-tela="T1 Lista de aliados"
+      style={{ padding: "26px 32px 40px", maxWidth: 1240 }}
+    >
       <div
         style={{
           display: "flex",

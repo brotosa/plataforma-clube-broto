@@ -576,3 +576,114 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .dash-marca{height:200px}
 }
 @media (prefers-reduced-motion:reduce){.dash-star,.dash-stat,.acao-card,.aud-row{transition:none}}
+
+/* ---- Extensão (Onda 7 · Cobertura do portfólio e mapa da rede) ----
+   Mesclado por união a partir do protótipo v9.1: só entraram os seletores
+   ausentes daqui. `.dash-stats` já existe acima com `auto-fit`; a v9.1 o
+   redeclara em quatro colunas fixas para o panorama de oito células nunca
+   fechar uma linha pela metade, e essa redeclaração está no bloco do
+   panorama, adiante. */
+
+/* Lista, Cobertura e Mapa são abas do mesmo módulo (T1/T29/T30): alternam
+   sem transição de tela, como as abas de Mercado & Scout. */
+.tela[data-tela^="T1 "],
+.tela[data-tela^="T29"],
+.tela[data-tela^="T30"]{animation:none}
+
+/* ---- Faixa de indicadores: células regradas, sem cartão por número ---- */
+.kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;
+  background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
+.kpi-cel{background:var(--branco);padding:16px 18px;display:flex;flex-direction:column;gap:3px;min-width:0;
+  border-left:1px solid var(--borda)}
+.kpi-cel:first-child{border-left:0}
+@media (max-width:1000px){
+  .kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-cel:nth-child(odd){border-left:0}
+  .kpi-cel:nth-child(n+3){border-top:1px solid var(--borda)}
+}
+@media (max-width:560px){
+  .kpi-row{grid-template-columns:minmax(0,1fr)}
+  .kpi-cel{border-left:0}
+  .kpi-cel:nth-child(n+2){border-top:1px solid var(--borda)}
+}
+.kpi-cel .v{font-family:var(--font-family-headline);font-weight:700;font-size:29px;line-height:1.05;
+  color:var(--preto);font-variant-numeric:tabular-nums;letter-spacing:-.015em}
+/* alerta usa o token de TEXTO derivado, não o --erro puro: 29px bold sobre
+   --branco mede 7,11:1 em #AE0000 (medição em docs/acessibilidade-aaa.md) */
+.kpi-cel.alerta .v{color:var(--erro-texto-aaa)}
+.kpi-cel.calma .v{color:var(--azul)}
+/* indisponibilidade na célula: texto, nunca número (RN53) */
+.kpi-cel .v.indisp-v{font-family:var(--font-family-body);font-size:15px;font-weight:400;
+  color:var(--paragrafo-aaa);line-height:1.3}
+
+/* ---- Distribuição por categoria: barra dupla (aliados sobre soluções) ---- */
+.cov-lin{display:grid;grid-template-columns:minmax(0,196px) minmax(0,1fr) 96px 132px;gap:14px;
+  align-items:center;padding:11px 0;border-bottom:1px solid var(--borda)}
+.cov-lin:last-child{border-bottom:0}
+.cov-nome{font:var(--font-body-label-bold);min-width:0;text-wrap:pretty}
+.cov-bars{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cov-trk{height:15px;background:var(--off);border-radius:var(--r-xs);overflow:hidden;position:relative}
+.cov-trk.sec{height:6px}
+.cov-fill{display:block;height:100%;background:var(--azul);border-radius:var(--r-xs);
+  transition:width var(--dur-2) var(--ease)}
+.cov-fill.sec{background:var(--azul-claro)}
+.cov-lin.zero .cov-trk{background:repeating-linear-gradient(90deg,var(--off) 0 6px,transparent 6px 12px);
+  border:1px dashed var(--alerta)}
+.cov-n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.cov-n .s{display:block;font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);font-weight:400}
+.cov-leg{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.cov-leg span{display:inline-flex;align-items:center;gap:7px;font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
+.cov-leg i{width:16px;height:9px;border-radius:var(--r-xs);background:var(--azul);flex:none}
+.cov-leg i.sec{background:var(--azul-claro);height:6px}
+.cov-leg i.gap{background:transparent;border:1px dashed var(--alerta);height:12px}
+
+/* ---- Matriz categoria × cultura ---- */
+.mx{display:grid;gap:2px;min-width:560px}
+.mx-h{font:var(--font-body-caption-bold);text-transform:uppercase;letter-spacing:.05em;
+  color:var(--paragrafo-aaa);text-align:center;padding-bottom:4px}
+.mx-h.on{color:var(--azul-texto-aaa)}
+.mx-nome{font-size:13px;display:flex;align-items:center;min-width:0;padding-right:10px}
+.mx-cel{height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-xs);
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;transition:opacity var(--dur-1) var(--ease)}
+.mx-cel.n0{background:var(--off);color:var(--paragrafo-aaa);border:1px dashed var(--borda)}
+.mx-cel.n1{background:var(--azul-lightest);color:var(--azul-texto-aaa)}
+.mx-cel.n2{background:var(--azul-claro);color:var(--preto)}
+.mx-cel.n3{background:var(--azul);color:#fff}
+/* o degrau mais escuro reusa a superfície de hover do hero (--azul-superficie-hover,
+   #2A38A8): branco mede 9,42:1 sobre ela, aferido na F13 */
+.mx-cel.n4{background:var(--azul-superficie-hover);color:#fff}
+
+/* ---- Mapa: geometria real (Natural Earth) + bolhas proporcionais ---- */
+.mapa-svg{display:block;width:100%;height:auto}
+.mapa-pt{transition:opacity var(--dur-1) var(--ease)}
+.mapa-pt:hover{opacity:1}
+.mapa-leg{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-top:10px}
+.mapa-leg .b{display:inline-flex;align-items:center;gap:8px;font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
+.mapa-leg .b em{display:inline-block;border-radius:50%;background:var(--azul);opacity:.8;font-style:normal}
+
+/* ---- Ranking de regiões ---- */
+.rk{display:flex;flex-direction:column}
+.rk-lin{display:grid;grid-template-columns:minmax(0,104px) minmax(0,1fr) 62px;gap:10px;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--borda)}
+.rk-lin:last-child{border-bottom:0}
+.rk-trk{height:12px;background:var(--off);border-radius:var(--r-xs);overflow:hidden}
+.rk-fill{display:block;height:100%;background:var(--azul);border-radius:var(--r-xs);transition:width var(--dur-2) var(--ease)}
+.rk-lin.vazio .rk-fill{background:var(--alerta)}
+.rk-n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;font-size:14px}
+.rk-n .s{display:block;font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);font-weight:400}
+
+/* Os dois grids da Onda 7 precisam de ~1150px para caber com o painel
+   lateral: abaixo disso a coluna principal colapsa antes de espremer barras
+   e mapa. */
+@media (max-width:1150px){
+  .cob-grid{display:flex!important;flex-direction:column!important}
+}
+.cov-lin{min-width:480px}
+.cov-card{overflow-x:auto}
+.mapa-caixa{min-width:320px}
+@media (max-width:760px){
+  .cov-lin{min-width:0;grid-template-columns:minmax(0,1fr) 84px;grid-template-areas:"nome n" "bars bars" "pill pill";gap:8px}
+  .cov-nome{grid-area:nome}.cov-bars{grid-area:bars}.cov-n{grid-area:n}.cov-lin > span:last-child{grid-area:pill}
+  .mx{min-width:520px}
+}
+@media (prefers-reduced-motion:reduce){.cov-fill,.rk-fill,.mapa-pt,.mx-cel{transition:none}}
