@@ -7,7 +7,7 @@ import {
   ESTAGIOS_DA_REDE,
   listarAliados,
 } from "@/infra/consultas/aliados";
-import { BarraCompletude, PillEstagio, iniciaisDoNome } from "./componentes";
+import { BarraCompletude, MarcaDoAliado, PillEstagio } from "./componentes";
 import { SegmentadoDaSecao, VISOES_DE_ALIADOS } from "@/app/(plataforma)/segmentado-secao";
 
 export const metadata: Metadata = {
@@ -310,7 +310,11 @@ export default async function PaginaAliados({
                           textDecoration: "none",
                         }}
                       >
-                        <span className="logo-ini">{iniciaisDoNome(linha.nomeFantasia)}</span>
+                        <MarcaDoAliado
+                          empresaId={linha.id}
+                          nomeFantasia={linha.nomeFantasia}
+                          hash={linha.marcaHash}
+                        />
                         <span style={{ fontWeight: 600 }}>{linha.nomeFantasia}</span>
                         {linha.emJanelaNaoRenovacao ? (
                           <span className="pill pill-warn">

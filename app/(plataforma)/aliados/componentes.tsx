@@ -59,3 +59,59 @@ export function PendenteObrigatorio() {
     </span>
   );
 }
+
+/**
+ * RN54 — a marca do aliado, no lugar em que ela aparece: ficha, lista de
+ * aliados, card do funil. Um componente só para os três, porque "onde não
+ * houver logo, o lugar exibe a inicial em placa neutra, nunca um espaço
+ * quebrado" é a mesma regra nos três — e regra repetida é regra que se
+ * perde num deles.
+ *
+ * `hash` é a versão da marca: entra na URL como parâmetro de consulta para
+ * que a troca apareça imediatamente, mesmo com a resposta anterior ainda
+ * no cache do navegador. `null` significa aliado sem marca.
+ */
+export function MarcaDoAliado({
+  empresaId,
+  nomeFantasia,
+  hash,
+  tamanho = 32,
+}: {
+  empresaId: string;
+  nomeFantasia: string;
+  hash: string | null;
+  /** Lado da placa em px; a imagem se ajusta dentro dela. */
+  tamanho?: number;
+}) {
+  if (hash === null) {
+    return (
+      <span
+        className="logo-ini"
+        style={tamanho === 32 ? undefined : { width: tamanho, height: tamanho, fontSize: Math.round(tamanho * 0.34) }}
+      >
+        {iniciaisDoNome(nomeFantasia)}
+      </span>
+    );
+  }
+  return (
+    /* Rota própria com ETag pelo hash: o otimizador do next/image não
+       acrescenta nada a um arquivo de até 200 KB e atrapalharia a
+       revalidação. `<img>` também é onde script em SVG não executa. */
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/api/aliados/${empresaId}/marca?v=${hash.slice(0, 12)}`}
+      alt={`Marca de ${nomeFantasia}`}
+      width={tamanho}
+      height={tamanho}
+      style={{
+        width: tamanho,
+        height: tamanho,
+        borderRadius: "50%",
+        border: "1px solid var(--borda)",
+        background: "var(--branco)",
+        objectFit: "contain",
+        flex: "none",
+      }}
+    />
+  );
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { EstagioEmpresa } from "@prisma/client";
 import type { CardFunil } from "@/infra/consultas/funil";
 import { podeAvaliarNoEstagio } from "@/dominio/avaliacao/regras";
+import { MarcaDoAliado } from "../aliados/componentes";
 import { podeTerDossieNoEstagio } from "@/dominio/dossie/regras";
 import {
   acaoDescartarEmpresa,
@@ -365,6 +366,14 @@ function CardDoFunil({
   return (
     <div className={aberto ? "kb-card menu-aberto" : "kb-card"}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+        {/* RN54 — a marca do aliado no card do funil; sem marca, a placa
+            com a inicial, o mesmo tratamento da lista. */}
+        <MarcaDoAliado
+          empresaId={card.id}
+          nomeFantasia={card.nomeFantasia}
+          hash={card.marcaHash}
+          tamanho={22}
+        />
         <a
           href={`/aliados/${card.id}`}
           style={{

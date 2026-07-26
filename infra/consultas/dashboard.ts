@@ -174,7 +174,14 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
           imagemCardUrl: true,
           categoriaId: true,
           coberturaNacional: true,
-          empresa: { select: { nomeFantasia: true, logoUrl: true } },
+          empresa: {
+            select: {
+              nomeFantasia: true,
+              logoUrl: true,
+              // Só a existência: o binário não entra em consulta de painel.
+              marca: { select: { empresaId: true } },
+            },
+          },
           _count: { select: { culturas: true, ufs: true } },
         },
       },
@@ -184,7 +191,7 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
   return rascunhos.filter(({ solucao }) => {
     const itens = [
       Boolean(solucao.empresa.nomeFantasia?.trim()),
-      Boolean(solucao.empresa.logoUrl?.trim()),
+      solucao.empresa.marca !== null || Boolean(solucao.empresa.logoUrl?.trim()),
       Boolean(solucao.nome?.trim()),
       Boolean(solucao.descricaoCurta?.trim()),
       Boolean(solucao.categoriaId),
@@ -492,6 +499,7 @@ async function indicadoresDeRede(janela: JanelaDashboard): Promise<ParDeIndicado
         cnpj: true,
         enderecoMunicipio: true,
         logoUrl: true,
+        marca: { select: { empresaId: true } },
         descricaoInstitucional: true,
         _count: { select: { categorias: true, contatos: true } },
         contratos: { where: { status: "VIGENTE" }, select: { id: true }, take: 1 },
@@ -520,6 +528,7 @@ async function indicadoresDeRede(janela: JanelaDashboard): Promise<ParDeIndicado
         nomeFantasia: aliada.nomeFantasia,
         cnpj: aliada.cnpj,
         enderecoMunicipio: aliada.enderecoMunicipio,
+        temMarca: aliada.marca !== null,
         logoUrl: aliada.logoUrl,
         descricaoInstitucional: aliada.descricaoInstitucional,
         quantidadeCategorias: aliada._count.categorias,

@@ -39,6 +39,8 @@ const FAIXAS_SCORE: Readonly<Record<FaixaScore, Prisma.IntFilter>> = {
 export interface CardFunil {
   id: string;
   nomeFantasia: string;
+  /** RN54 — versão da marca para a URL; null = sem marca (placa inicial). */
+  marcaHash: string | null;
   estagio: EstagioEmpresa;
   rotuloEstagio: string;
   categorias: string[];
@@ -85,6 +87,8 @@ export async function funilDeMercado(filtros: FiltrosFunil = {}) {
       responsavelScout: { select: { id: true, nome: true } },
       responsavelComercial: { select: { id: true, nome: true } },
       motivoDescarte: { select: { nome: true } },
+      // Hash da marca, jamais o binário: o funil monta dezenas de cards.
+      marca: { select: { hash: true } },
     },
   });
 
@@ -100,6 +104,7 @@ export async function funilDeMercado(filtros: FiltrosFunil = {}) {
     return {
       id: empresa.id,
       nomeFantasia: empresa.nomeFantasia,
+      marcaHash: empresa.marca?.hash ?? null,
       estagio: empresa.estagio,
       rotuloEstagio: ROTULOS_ESTAGIO_FUNIL[empresa.estagio],
       categorias: empresa.categorias.map((vinculo) => vinculo.categoria.nome),

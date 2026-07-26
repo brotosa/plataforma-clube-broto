@@ -16,6 +16,9 @@ export function calcularCompletudeAliado(aliado: {
   nomeFantasia: string | null;
   cnpj: string | null;
   enderecoMunicipio: string | null;
+  /** F15 (RN54) — marca guardada pela plataforma; fonte a partir daqui. */
+  temMarca: boolean;
+  /** OBSOLETO (F15): endereço S3, lido só como fallback. Sai com a coluna. */
   logoUrl: string | null;
   descricaoInstitucional: string | null;
   quantidadeCategorias: number;
@@ -27,7 +30,7 @@ export function calcularCompletudeAliado(aliado: {
     Boolean(aliado.razaoSocial?.trim()),
     Boolean(aliado.cnpj?.trim()),
     Boolean(aliado.enderecoMunicipio?.trim()),
-    Boolean(aliado.logoUrl?.trim()),
+    aliado.temMarca || Boolean(aliado.logoUrl?.trim()),
     Boolean(aliado.descricaoInstitucional?.trim()),
     aliado.quantidadeCategorias > 0,
     aliado.quantidadeContatos > 0,
@@ -93,6 +96,10 @@ export async function listarAliados(filtros: FiltrosAliados) {
             ofertas: { select: { id: true, status: true } },
           },
         },
+        // Hash da marca, não o binário: a lista precisa saber SE existe e
+        // com qual versão montar a URL — carregar o arquivo em 46 (ou
+        // centenas de) linhas é exatamente o que a RN54 manda evitar.
+        marca: { select: { hash: true } },
       },
     }),
   ]);
@@ -102,6 +109,8 @@ export async function listarAliados(filtros: FiltrosAliados) {
     return {
       id: empresa.id,
       nomeFantasia: empresa.nomeFantasia,
+      /** Versão da marca para a URL da rota; null = sem marca (RN54). */
+      marcaHash: empresa.marca?.hash ?? null,
       categorias: empresa.categorias.map((vinculo) => vinculo.categoria.nome),
       estagio: empresa.estagio,
       quantidadeSolucoes: empresa.solucoes.length,
@@ -112,6 +121,7 @@ export async function listarAliados(filtros: FiltrosAliados) {
         nomeFantasia: empresa.nomeFantasia,
         cnpj: empresa.cnpj,
         enderecoMunicipio: empresa.enderecoMunicipio,
+        temMarca: empresa.marca !== null,
         logoUrl: empresa.logoUrl,
         descricaoInstitucional: empresa.descricaoInstitucional,
         quantidadeCategorias: empresa.categorias.length,
@@ -139,6 +149,8 @@ export async function contadoresAliados() {
         categorias: { select: { categoriaId: true } },
         contatos: { select: { id: true } },
         contratos: { where: { status: "VIGENTE" }, select: { id: true } },
+        // Existência da marca, nunca o conteúdo (RN54, nota de modelagem).
+        marca: { select: { empresaId: true } },
       },
     }),
   ]);
@@ -148,6 +160,7 @@ export async function contadoresAliados() {
       nomeFantasia: empresa.nomeFantasia,
       cnpj: empresa.cnpj,
       enderecoMunicipio: empresa.enderecoMunicipio,
+      temMarca: empresa.marca !== null,
       logoUrl: empresa.logoUrl,
       descricaoInstitucional: empresa.descricaoInstitucional,
       quantidadeCategorias: empresa.categorias.length,
@@ -175,6 +188,8 @@ export async function buscarAliado(empresaId: string) {
       contatos: { orderBy: { criadoEm: "asc" } },
       contratos: { orderBy: { criadoEm: "desc" } },
       motivoSuspensao: true,
+      // Metadados da marca; o binário sai só pela rota que a serve.
+      marca: { select: { hash: true, nomeArquivo: true, bytes: true } },
       solucoes: {
         orderBy: { criadoEm: "asc" },
         include: {
@@ -201,6 +216,7 @@ export async function buscarAliado(empresaId: string) {
       nomeFantasia: empresa.nomeFantasia,
       cnpj: empresa.cnpj,
       enderecoMunicipio: empresa.enderecoMunicipio,
+      temMarca: empresa.marca !== null,
       logoUrl: empresa.logoUrl,
       descricaoInstitucional: empresa.descricaoInstitucional,
       quantidadeCategorias: empresa.categorias.length,
