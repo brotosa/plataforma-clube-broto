@@ -19,6 +19,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:generate": "prisma generate",
+    "guia:gerar": "tsx --tsconfig tsconfig.json scripts/gerar-guia-autonomo.ts",
     "job:diario": "tsx --tsconfig tsconfig.json scripts/executar-job-diario.ts"
   },
   "prisma": {
