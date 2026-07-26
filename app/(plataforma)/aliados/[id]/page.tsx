@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
@@ -153,12 +152,21 @@ export default async function PaginaFichaAliado({
             justifyContent: "center",
           }}
         >
-          {empresa.logoUrl?.startsWith("http") || empresa.logoUrl?.startsWith("/") ? (
-            <Image
-              src={empresa.logoUrl}
-              alt={`Logo de ${empresa.nomeFantasia}`}
-              fill
-              style={{ objectFit: "contain", padding: 6 }}
+          {empresa.marca ? (
+            /* F15 (RN54) — a marca vem da rota da plataforma, versionada
+               pelo hash. O antigo `logoUrl` apontava para um bucket que
+               nunca existiu, então nenhuma ficha chegou a exibir imagem
+               por ali. */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/aliados/${empresa.id}/marca?v=${empresa.marca.hash.slice(0, 12)}`}
+              alt={`Marca de ${empresa.nomeFantasia}`}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+                padding: 6,
+              }}
             />
           ) : (
             <span className="logo-ini" style={{ width: 44, height: 44, fontSize: 15 }}>

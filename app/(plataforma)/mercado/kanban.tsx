@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { EstagioEmpresa } from "@prisma/client";
+import type { EstagioEmpresa, Papel } from "@prisma/client";
 import type { CardFunil } from "@/infra/consultas/funil";
 import { podeAvaliarNoEstagio } from "@/dominio/avaliacao/regras";
+import { podeDescartarNoFunil, podeMoverNoFunil } from "@/dominio/funil/regras";
+import { MarcaDoAliado } from "../aliados/componentes";
 import { podeTerDossieNoEstagio } from "@/dominio/dossie/regras";
 import {
   acaoDescartarEmpresa,
@@ -20,6 +22,23 @@ import {
  * handoff com comercial designado (RN16). Todo o fluxo é operável por
  * teclado: Tab alcança o gatilho do card, Enter abre o menu, Esc fecha e
  * devolve o foco ao gatilho (e2e cobre o caminho completo).
+ *
+ * **Arrasto (F15, RN57) — conveniência de mouse, não caminho novo de
+ * decisão.** Soltar um card chama `mover`/`aoDescartar`: exatamente as
+ * funções que o menu chama, que por sua vez chamam as mesmas server
+ * actions. Nenhuma regra é reimplementada aqui — o que a coluna aceita sai
+ * de `podeMoverNoFunil` e `podeDescartarNoFunil`, as MESMAS funções de
+ * domínio que os casos de uso consultam antes de escrever.
+ *
+ * O que o cliente decide é só o realce durante o gesto; a decisão continua
+ * sendo do servidor. Por isso **não há reposicionamento otimista**: o card
+ * só muda de coluna depois que a ação volta e a rota revalida. Recusa —
+ * RN15 sem avaliação fechada, transição inválida, papel sem permissão —
+ * deixa o card exatamente onde estava e o motivo aparece no toast. É a
+ * leitura mais estrita de "nunca deixar o card no destino errado".
+ *
+ * Nenhuma função existe só no arrasto: o menu segue completo e é o caminho
+ * por teclado e por toque.
  */
 
 export interface OpcaoMotivo {
@@ -59,6 +78,7 @@ export function KanbanFunil({
   motivosDescarte,
   responsaveisComerciais,
   usuarioId,
+  papel,
 }: {
   lanes: Lane[];
   tabela: CardFunil[];
@@ -66,6 +86,8 @@ export function KanbanFunil({
   motivosDescarte: OpcaoMotivo[];
   responsaveisComerciais: OpcaoResponsavel[];
   usuarioId: string;
+  /** Papel do usuário — decide o que é arrastável (RN57). */
+  papel: Papel;
 }) {
   const roteador = useRouter();
   const [pendente, iniciarTransicao] = useTransition();
@@ -73,6 +95,10 @@ export function KanbanFunil({
   const [descarteDe, setDescarteDe] = useState<CardFunil | null>(null);
   const [handoffDe, setHandoffDe] = useState<CardFunil | null>(null);
   const [toast, setToast] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  /** Card em arrasto (RN57); null quando não há gesto em curso. */
+  const [arrastando, setArrastando] = useState<CardFunil | null>(null);
+  /** Coluna (ou área de descarte) sob o ponteiro, para o realce. */
+  const [alvoDoArrasto, setAlvoDoArrasto] = useState<EstagioEmpresa | "DESCARTADA" | null>(null);
   const gatilhoRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -141,18 +167,110 @@ export function KanbanFunil({
     roteador.push(`/mercado/${id}/dossie`);
   }
 
+  // ------------------------------------------------------------------
+  // RN57 — arrasto
+  // ------------------------------------------------------------------
+
+  /** O card pode ser pego? Só se houver ao menos um destino possível. */
+  function podeArrastar(card: CardFunil): boolean {
+    if (card.estagio === "EM_APROVACAO") return false;
+    const temDestino = card.destinosDeMovimento.some((destino) =>
+      podeMoverNoFunil(papel, card.estagio, destino),
+    );
+    return temDestino || podeDescartarNoFunil(papel, card.estagio);
+  }
+
+  /** A coluna aceita o card em arrasto? É o realce, não a decisão. */
+  function laneAceita(destino: EstagioEmpresa): boolean {
+    if (!arrastando) return false;
+    if (destino === arrastando.estagio) return false;
+    return podeMoverNoFunil(papel, arrastando.estagio, destino);
+  }
+
+  function areaDeDescarteAceita(): boolean {
+    return arrastando !== null && podeDescartarNoFunil(papel, arrastando.estagio);
+  }
+
+  function encerrarArrasto() {
+    setArrastando(null);
+    setAlvoDoArrasto(null);
+  }
+
+  /**
+   * Soltar chama exatamente o que o menu chama. Se o destino não é aceito,
+   * nada acontece — o card fica onde estava e o gesto foi apenas um gesto.
+   */
+  function soltarNaLane(destino: EstagioEmpresa) {
+    const card = arrastando;
+    encerrarArrasto();
+    if (!card || !podeMoverNoFunil(papel, card.estagio, destino)) return;
+    mover(card, destino);
+  }
+
+  function soltarNoDescarte() {
+    const card = arrastando;
+    encerrarArrasto();
+    if (!card || !podeDescartarNoFunil(papel, card.estagio)) return;
+    // Mesmo caminho do menu: o modal dos seis motivos (RN17) é obrigatório,
+    // e é ele que conclui o descarte — arrastar só o abre.
+    setMenuAberto(null);
+    setDescarteDe(card);
+  }
+
   return (
     <>
       {visao === "kanban" ? (
         <div className="kb-grid">
-          {lanes.map((lane) => (
-            <div className="kb-lane" key={lane.estagio}>
+          {lanes.map((lane) => {
+            const aceita = laneAceita(lane.estagio);
+            const sobEsta = alvoDoArrasto === lane.estagio;
+            return (
+            <div
+              className={
+                arrastando
+                  ? `kb-lane arrasto-${aceita ? "aceita" : "recusa"}${sobEsta ? " arrasto-sob" : ""}`
+                  : "kb-lane"
+              }
+              key={lane.estagio}
+              // `preventDefault` no dragover é o que AUTORIZA o soltar: sem
+              // ele o navegador recusa sozinho. Por isso a coluna que não
+              // aceita simplesmente não o chama — a recusa é do próprio
+              // gesto, antes de qualquer requisição.
+              onDragOver={(evento) => {
+                if (!aceita) return;
+                evento.preventDefault();
+                setAlvoDoArrasto(lane.estagio);
+              }}
+              onDragEnter={() => {
+                if (arrastando) setAlvoDoArrasto(lane.estagio);
+              }}
+              onDragLeave={(evento) => {
+                if (!evento.currentTarget.contains(evento.relatedTarget as Node | null)) {
+                  setAlvoDoArrasto((atual) => (atual === lane.estagio ? null : atual));
+                }
+              }}
+              onDrop={(evento) => {
+                evento.preventDefault();
+                soltarNaLane(lane.estagio);
+              }}
+            >
               <div className="kb-col-h">
                 <span>{lane.rotulo}</span>
                 <span className="pill pill-neutra num" style={{ background: "var(--branco)" }}>
                   {lane.cards.length}
                 </span>
               </div>
+              {/* Durante o gesto, a coluna diz se aceita ANTES de soltar
+                  (RN57). Em aprovação nunca aceita: o motor a governa. */}
+              {arrastando && arrastando.estagio !== lane.estagio ? (
+                <p className="cap kb-arrasto-aviso" aria-hidden="true">
+                  {aceita
+                    ? "solte para mover"
+                    : lane.estagio === "EM_APROVACAO"
+                      ? "governada pelo motor"
+                      : "não aceita este card"}
+                </p>
+              ) : null}
               <div className="kb-cards">
                 {lane.cards.length === 0 ? (
                   <div className="kb-drop">mova empresas para cá</div>
@@ -164,6 +282,10 @@ export function KanbanFunil({
                     aberto={menuAberto === card.id}
                     pendente={pendente}
                     menuRef={menuAberto === card.id ? menuRef : undefined}
+                    arrastavel={podeArrastar(card)}
+                    emArrasto={arrastando?.id === card.id}
+                    aoIniciarArrasto={(alvo) => setArrastando(alvo)}
+                    aoTerminarArrasto={encerrarArrasto}
                     aoAbrirMenu={abrirMenu}
                     aoFecharMenu={fecharMenuDevolvendoFoco}
                     aoMover={mover}
@@ -178,7 +300,8 @@ export function KanbanFunil({
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="card" style={{ overflowX: "auto" }}>
@@ -268,6 +391,39 @@ export function KanbanFunil({
         </div>
       )}
 
+      {/* Área de descarte (RN57). Existe SÓ durante o gesto: o kanban da
+          T8 não tem coluna Descartada — o protótipo v9.1 traz "Descartadas"
+          como contador, não como lane —, então uma coluna permanente
+          mudaria a tela. Em repouso o layout continua o de sempre.
+
+          Soltar aqui não descarta nada: abre o modal dos seis motivos
+          tipificados, e só ele conclui (RN17). */}
+      {visao === "kanban" && arrastando ? (
+        <div
+          className={
+            areaDeDescarteAceita()
+              ? `kb-descarte aceita${alvoDoArrasto === "DESCARTADA" ? " arrasto-sob" : ""}`
+              : "kb-descarte recusa"
+          }
+          onDragOver={(evento) => {
+            if (!areaDeDescarteAceita()) return;
+            evento.preventDefault();
+            setAlvoDoArrasto("DESCARTADA");
+          }}
+          onDragLeave={() =>
+            setAlvoDoArrasto((atual) => (atual === "DESCARTADA" ? null : atual))
+          }
+          onDrop={(evento) => {
+            evento.preventDefault();
+            soltarNoDescarte();
+          }}
+        >
+          {areaDeDescarteAceita()
+            ? "Solte aqui para descartar — o motivo é obrigatório"
+            : "Seu papel não descarta este card"}
+        </div>
+      ) : null}
+
       {descarteDe ? (
         <ModalDescarte
           card={descarteDe}
@@ -333,6 +489,10 @@ function CardDoFunil({
   aberto,
   pendente,
   menuRef,
+  arrastavel,
+  emArrasto,
+  aoIniciarArrasto,
+  aoTerminarArrasto,
   aoAbrirMenu,
   aoFecharMenu,
   aoMover,
@@ -345,6 +505,11 @@ function CardDoFunil({
   aberto: boolean;
   pendente: boolean;
   menuRef?: React.RefObject<HTMLDivElement | null>;
+  /** RN57 — false quando o papel não move este card de lugar nenhum. */
+  arrastavel: boolean;
+  emArrasto: boolean;
+  aoIniciarArrasto: (card: CardFunil) => void;
+  aoTerminarArrasto: () => void;
   aoAbrirMenu: (card: CardFunil, gatilho: HTMLButtonElement) => void;
   aoFecharMenu: () => void;
   aoMover: (card: CardFunil, destino: EstagioEmpresa) => void;
@@ -362,9 +527,39 @@ function CardDoFunil({
   }, [aberto]);
 
   const podeDescartar = card.estagio !== "EM_APROVACAO";
+  const classes = ["kb-card"];
+  if (aberto) classes.push("menu-aberto");
+  if (arrastavel) classes.push("arrastavel");
+  if (emArrasto) classes.push("em-arrasto");
   return (
-    <div className={aberto ? "kb-card menu-aberto" : "kb-card"}>
+    <div
+      className={classes.join(" ")}
+      // Arrasto nativo, sem biblioteca (RN57). A escolha é defensável
+      // justamente porque o teclado já tem caminho próprio pelo menu: uma
+      // dependência de arrasto acessível resolveria um problema que aqui
+      // não existe, e traria peso e uma API a manter.
+      draggable={arrastavel}
+      onDragStart={(evento) => {
+        if (!arrastavel) {
+          evento.preventDefault();
+          return;
+        }
+        evento.dataTransfer.effectAllowed = "move";
+        // Alguns navegadores exigem um payload para iniciar o gesto.
+        evento.dataTransfer.setData("text/plain", card.id);
+        aoIniciarArrasto(card);
+      }}
+      onDragEnd={aoTerminarArrasto}
+    >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+        {/* RN54 — a marca do aliado no card do funil; sem marca, a placa
+            com a inicial, o mesmo tratamento da lista. */}
+        <MarcaDoAliado
+          empresaId={card.id}
+          nomeFantasia={card.nomeFantasia}
+          hash={card.marcaHash}
+          tamanho={22}
+        />
         <a
           href={`/aliados/${card.id}`}
           style={{

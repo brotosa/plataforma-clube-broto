@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import type { GrupoIndicador, PeriodoMeta } from "@prisma/client";
 import { auth } from "@/infra/auth";
 import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
 import {
   alterarValorDeRegra,
   apurarUsos,
@@ -17,7 +16,7 @@ import {
 import type { ChaveValorRegra } from "@/dominio/parametrizador/valores-regra";
 import type { FamiliaLista } from "@/dominio/parametrizador/listas";
 import type { EstadoFormulario } from "../aliados/acoes";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /**
  * Server actions do Parametrizador (T16 e T17). Toda escrita passa pelos
@@ -36,16 +35,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function paraEstado(erro: unknown): EstadoFormulario {
-  if (erro instanceof ErroDeValidacao) {
-    return { erros: [...erro.erros] };
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return {
-      erros: ["Editar parâmetros é exclusivo do Administrador da Plataforma (RN23)."],
-    };
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada em ação do Parametrizador");
-  return { erros: ["Não foi possível concluir a ação. Tente novamente."] };
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Editar parâmetros é exclusivo do Administrador da Plataforma (RN23).",
+    contexto: "acao-parametrizador",
+  });
+  return { erros: mensagens };
 }
 
 /** Telas que leem configuração e precisam refletir a mudança na hora. */

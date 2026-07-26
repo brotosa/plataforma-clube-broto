@@ -292,7 +292,9 @@ test.describe("Correções transversais da Onda 7", () => {
     const lateral = page.getByRole("complementary", { name: "Menu lateral" });
     const logo = lateral.getByAltText("Broto");
     await expect(logo).toHaveAttribute("src", /logo-broto-amarelo-verde/);
-    await expect(lateral.getByText("Plataforma de administração")).toBeVisible();
+    // F15 — o descritivo passou a "Gestão do Clube": na lateral o logo
+    // imediatamente acima já diz "Broto", então o nome não se repete aqui.
+    await expect(lateral.getByText("Gestão do Clube")).toBeVisible();
 
     // A área da marca não tem mais fundo branco: o azul da lateral sobe ao topo.
     const fundoDaMarca = await logo.evaluate((elemento) => {

@@ -40,7 +40,7 @@ export function FormularioSolucao({
   valores,
 }: {
   empresaId: string;
-  aliado: { nomeFantasia: string; logoUrl: string | null };
+  aliado: { nomeFantasia: string; temMarca: boolean; logoUrl: string | null };
   categorias: Opcao[];
   culturas: Opcao[];
   ufs: Array<{ id: string; sigla: string }>;
@@ -63,7 +63,11 @@ export function FormularioSolucao({
   const [ufIds, definirUfIds] = useState<string[]>(valores?.ufIds ?? []);
 
   const completude = calcularCompletudeCard({
-    aliado: { nomeFantasia: aliado.nomeFantasia, logoUrl: aliado.logoUrl },
+    aliado: {
+      nomeFantasia: aliado.nomeFantasia,
+      temMarca: aliado.temMarca,
+      logoUrl: aliado.logoUrl,
+    },
     solucao: {
       nome,
       descricaoCurta,

@@ -86,6 +86,7 @@ model Usuario {
   campanhas             Campanha[]
   cestas                Cesta[]
   kits                  KitCampanha[]
+  marcasEnviadas        MarcaAliado[]
 
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
   /// cada troca de papel, para provar que não é o último.
@@ -232,6 +233,11 @@ model Empresa {
   enderecoBairro           String?          @map("endereco_bairro")
   enderecoMunicipio        String?          @map("endereco_municipio")
   enderecoUf               String?          @map("endereco_uf")
+  /// OBSOLETA desde a F15 (RN54): endereço de objeto no S3 para o logotipo,
+  /// de um bucket que nunca foi provisionado — na prática sempre nula. A
+  /// marca passou a ser arquivo da plataforma em `MarcaAliado`. Não é mais
+  /// escrita; só é lida como fallback da completude, até a queda (ver a
+  /// dívida no README, condicionada a nenhum aliado com valor aqui).
   logoUrl                  String?          @map("logo_url")
   descricaoInstitucional   String?          @map("descricao_institucional")
   site                     String?
@@ -293,6 +299,7 @@ model Empresa {
   dossies               Dossie[]
   indicadoresDeclarados IndicadorDeclarado[]
   ofertasPretendidas    OfertaPretendida[]
+  marca                 MarcaAliado?
 
   @@index([estagio])
   /// T26 — reavaliações vencidas (RN21) contadas por estágio.
@@ -1818,4 +1825,45 @@ model KitCampanha {
 
   @@unique([campanhaId, versao])
   @@map("kits_campanha")
+}
+
+// =====================================================================
+// Onda 8 (F15) — Marca do aliado (RN54)
+// =====================================================================
+
+/// Logotipo do aliado guardado pela PRÓPRIA PLATAFORMA — decisão de
+/// arquitetura tomada para este caso específico (ficha Onda 8 §1): são
+/// poucas dezenas de arquivos pequenos, com consistência transacional de
+/// graça e zero dependência de bucket externo. O S3 e o `ExportAdapter`
+/// continuam existindo para o que é volumoso (peças de campanha).
+///
+/// **Tabela própria, relação 1:1 — nunca coluna da empresa.** O Prisma
+/// seleciona escalares por padrão: um `Bytes` em `Empresa` faria toda
+/// consulta que lê aliado carregar o binário junto, e a lista degradaria
+/// sem que ninguém entendesse por quê. Aqui o binário só entra em cena
+/// quando a rota da marca o pede explicitamente.
+model MarcaAliado {
+  /// A própria chave da empresa: 1:1 sem coluna de id redundante.
+  empresaId String @id @map("empresa_id")
+  /// O arquivo já validado e higienizado (RN54) — nunca o que chegou cru.
+  conteudo  Bytes
+  /// Tipo REAL, apurado pela assinatura do conteúdo, nunca pela extensão.
+  tipoMime  String @map("tipo_mime")
+  /// Tamanho em bytes do que foi gravado (teto de 200 KB, RN54).
+  bytes     Int
+  /// SHA-256 do conteúdo — identificador de versão do cache: a rota da
+  /// marca o usa como ETag para nunca servir marca antiga depois da troca.
+  hash      String
+  /// Nome do arquivo enviado, preservado para o kit e para a auditoria.
+  /// É dado do usuário: nunca compõe caminho de arquivo nem URL.
+  nomeArquivo String @map("nome_arquivo")
+
+  autorId   String   @map("autor_id")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  autor   Usuario @relation(fields: [autorId], references: [id])
+
+  @@map("marcas_aliado")
 }

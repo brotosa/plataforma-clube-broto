@@ -47,6 +47,10 @@ export default async function PaginaMercado({
 }) {
   const sessao = await auth();
   const usuarioId = sessao?.user?.id ?? "";
+  // RN57 — o papel decide o que é arrastável na T8. A permissão continua
+  // sendo conferida no servidor a cada movimento; isto é só o que a tela
+  // precisa para não oferecer um gesto que seria recusado.
+  const papel = sessao?.user?.papel ?? "LEITURA";
   const parametros = await searchParams;
 
   // Abas da T8 no protótipo v6.1: Funil · Cobertura (T13) · Metas (T14).
@@ -381,6 +385,7 @@ export default async function PaginaMercado({
           motivosDescarte={motivosDescarte}
           responsaveisComerciais={responsaveis}
           usuarioId={usuarioId}
+          papel={papel}
         />
       )}
 

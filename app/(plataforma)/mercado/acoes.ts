@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { OrigemEmpresa } from "@prisma/client";
 import { auth } from "@/infra/auth";
-import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
+import type { Ator } from "@/infra/casos-de-uso/contexto";
 import type { MapeamentoColunas } from "@/dominio/carga-prospects/mapeamento";
 import {
   descartarEmpresa,
@@ -21,7 +20,7 @@ import {
   type ResumoImportacaoProspects,
 } from "@/infra/casos-de-uso/carga-prospects";
 import { ROTULOS_ESTAGIO_FUNIL } from "@/dominio/funil/regras";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /** Estado devolvido aos formulários e ao kanban (useActionState/toast). */
 export interface EstadoAcaoFunil {
@@ -38,14 +37,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function paraEstado(erro: unknown): EstadoAcaoFunil {
-  if (erro instanceof ErroDeValidacao) {
-    return { erros: [...erro.erros] };
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return { erros: ["Seu papel não tem permissão para esta ação (ficha Onda 2 §2)."] };
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada em ação do funil");
-  return { erros: ["Não foi possível concluir a ação. Tente novamente."] };
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Seu papel não tem permissão para esta ação (ficha Onda 2 §2).",
+    contexto: "acao-funil",
+  });
+  return { erros: mensagens };
 }
 
 function texto(dados: FormData, campo: string): string | null {

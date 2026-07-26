@@ -35,7 +35,8 @@ export default async function PaginaSolucao({
     prisma.solucao.findUnique({
       where: { id: solucaoId },
       include: {
-        empresa: true,
+        // `marca` só pela existência (RN09): o binário fica fora da consulta.
+        empresa: { include: { marca: { select: { empresaId: true } } } },
         culturas: { select: { culturaId: true } },
         ufs: { select: { ufId: true } },
         ofertas: { orderBy: { criadoEm: "asc" }, include: { tipoBeneficio: true, mecanica: true } },
@@ -153,7 +154,11 @@ export default async function PaginaSolucao({
           </h2>
           <FormularioSolucao
             empresaId={id}
-            aliado={{ nomeFantasia: solucao.empresa.nomeFantasia, logoUrl: solucao.empresa.logoUrl }}
+            aliado={{
+              nomeFantasia: solucao.empresa.nomeFantasia,
+              temMarca: solucao.empresa.marca !== null,
+              logoUrl: solucao.empresa.logoUrl,
+            }}
             categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
             culturas={culturas.map((cultura) => ({ id: cultura.id, nome: cultura.nome }))}
             ufs={ufs.map((uf) => ({ id: uf.id, sigla: uf.sigla }))}

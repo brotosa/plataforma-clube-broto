@@ -10,7 +10,9 @@ import {
 import { podeTransicionar } from "@/dominio/empresas/estagio";
 import { validarPriorizacao } from "@/dominio/avaliacao/regras";
 import {
+  acaoParaMoverNoFunil,
   destinosDeMovimentoManual,
+  podeDescartarNoFunil,
   validarDescarte,
   validarEntradaNoRadar,
 } from "@/dominio/funil/regras";
@@ -82,10 +84,9 @@ export async function moverNoFunil(
   empresaId: string,
   destino: "MAPEADA" | "EM_AVALIACAO" | "PRIORIZADA",
 ) {
-  exigirPermissao(
-    ator.papel,
-    destino === "PRIORIZADA" ? "PRIORIZAR" : "ASSUMIR_E_AVALIAR",
-  );
+  // A ação exigida vem do domínio (RN57): a T8 lê a MESMA função para
+  // decidir o que é arrastável, então servidor e tela nunca divergem.
+  exigirPermissao(ator.papel, acaoParaMoverNoFunil(destino));
 
   return prisma.$transaction(async (tx) => {
     const anterior = await tx.empresa.findUniqueOrThrow({ where: { id: empresaId } });
@@ -207,10 +208,9 @@ export async function descartarEmpresa(
 
   return prisma.$transaction(async (tx) => {
     const anterior = await tx.empresa.findUniqueOrThrow({ where: { id: empresaId } });
-    const descartePermitido =
-      podeExecutar(ator.papel, "ASSUMIR_E_AVALIAR") ||
-      (podeExecutar(ator.papel, "ASSUMIR_NEGOCIACAO") && anterior.estagio === "EM_NEGOCIACAO");
-    if (!descartePermitido) {
+    // Mesma função que a T8 consulta para saber se o card é arrastável
+    // até a área de descarte (RN57).
+    if (!podeDescartarNoFunil(ator.papel, anterior.estagio)) {
       throw new ErroDeAutorizacao(ator.papel, "ASSUMIR_E_AVALIAR");
     }
     if (!podeTransicionar(anterior.estagio, "DESCARTADA")) {

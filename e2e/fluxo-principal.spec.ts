@@ -69,7 +69,9 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.getByLabel("Nome fantasia (nome de exibição)").fill(nome);
     await page.getByLabel("Razão social").fill(`${nome} LTDA`);
     await page.getByLabel("CNPJ").fill(cnpjDeNome(nome));
-    await page.getByLabel("Logo (chave do arquivo)").fill("s3://logos/e2e.svg");
+    // F15 (RN54): o campo "Logo (chave do arquivo)", que pedia um endereço
+    // no S3, saiu do formulário — a marca passou a ser arquivo enviado no
+    // cartão próprio da tela de edição, coberto por marca-aliado.spec.ts.
     await page.getByLabel("Descrição institucional").fill("Aliado criado pelo fluxo e2e.");
     await page.getByLabel("Município").fill("Curitiba");
     await page.getByLabel("UF", { exact: true }).selectOption("PR");

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/infra/prisma/cliente";
 import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { FormularioAliado } from "../../formulario-aliado";
+import { CartaoMarca } from "../../cartao-marca";
 import { AvisoEdicaoDesktop } from "../../../aviso-desktop";
 
 export const metadata: Metadata = {
@@ -19,7 +20,12 @@ export default async function PaginaEditarAliado({
   const [empresa, categorias, ufs] = await Promise.all([
     prisma.empresa.findUnique({
       where: { id },
-      include: { categorias: { select: { categoriaId: true } } },
+      include: {
+        categorias: { select: { categoriaId: true } },
+        // Metadados da marca, nunca o binário: quem serve o conteúdo é a
+        // rota /api/aliados/{id}/marca.
+        marca: { select: { hash: true, nomeArquivo: true, bytes: true } },
+      },
     }),
     prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     prisma.uf.findMany({ where: { ativa: true }, orderBy: { sigla: "asc" } }),
@@ -42,6 +48,13 @@ export default async function PaginaEditarAliado({
         </div>
       </div>
       <AvisoEdicaoDesktop />
+      <div style={{ marginBottom: 16 }}>
+        <CartaoMarca
+          empresaId={empresa.id}
+          nomeFantasia={empresa.nomeFantasia}
+          marca={empresa.marca}
+        />
+      </div>
       <FormularioAliado
         categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
         ufs={ufs.map((uf) => ({ sigla: uf.sigla }))}
@@ -57,7 +70,6 @@ export default async function PaginaEditarAliado({
           enderecoBairro: empresa.enderecoBairro,
           enderecoMunicipio: empresa.enderecoMunicipio,
           enderecoUf: empresa.enderecoUf,
-          logoUrl: empresa.logoUrl,
           descricaoInstitucional: empresa.descricaoInstitucional,
           site: empresa.site,
           categoriaIds: empresa.categorias.map((vinculo) => vinculo.categoriaId),

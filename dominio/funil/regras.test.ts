@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  acaoParaMoverNoFunil,
   destinosDeMovimentoManual,
   diasNoEstagio,
   ESTAGIOS_FUNIL,
   nivelEnvelhecimento,
+  podeDescartarNoFunil,
+  podeMoverNoFunil,
   rotuloTempoNoEstagio,
   validarDescarte,
   validarEntradaNoRadar,
@@ -134,5 +137,79 @@ describe("régua de envelhecimento 14/30 (constante nomeada)", () => {
     expect(rotuloTempoNoEstagio(0)).toBe("hoje");
     expect(rotuloTempoNoEstagio(1)).toBe("há 1 dia");
     expect(rotuloTempoNoEstagio(15)).toBe("há 15 dias");
+  });
+});
+
+// ---------------------------------------------------------------------
+// RN57 (F15) — arrastar não cria caminho de decisão
+// ---------------------------------------------------------------------
+
+describe("RN57 — quem pode mover o quê, para onde", () => {
+  it("a ação exigida por destino é a mesma que o caso de uso já usava", () => {
+    // Se estas três linhas mudarem sem que o caso de uso mude junto, a T8
+    // passa a oferecer (ou negar) um arrasto que o servidor decide ao
+    // contrário — que é exatamente a divergência que a RN57 proíbe.
+    expect(acaoParaMoverNoFunil("PRIORIZADA")).toBe("PRIORIZAR");
+    expect(acaoParaMoverNoFunil("EM_AVALIACAO")).toBe("ASSUMIR_E_AVALIAR");
+    expect(acaoParaMoverNoFunil("MAPEADA")).toBe("ASSUMIR_E_AVALIAR");
+    expect(acaoParaMoverNoFunil("EM_NEGOCIACAO")).toBe("ASSUMIR_NEGOCIACAO");
+  });
+
+  it("destino fora do pipeline não é aceito, nem para papel com todas as permissões", () => {
+    // Gestor tem tudo; ainda assim o grafo manda. Permissão não cria
+    // transição que o pipeline não tem.
+    expect(podeMoverNoFunil("GESTOR", "MAPEADA", "EM_NEGOCIACAO")).toBe(false);
+    expect(podeMoverNoFunil("GESTOR", "MAPEADA", "EM_AVALIACAO")).toBe(true);
+  });
+
+  it("Em aprovação não cede card por arrasto — o motor a governa", () => {
+    for (const destino of ["MAPEADA", "EM_AVALIACAO", "PRIORIZADA", "EM_NEGOCIACAO"] as const) {
+      expect(podeMoverNoFunil("GESTOR", "EM_APROVACAO", destino)).toBe(false);
+    }
+  });
+
+  it("Em aprovação também não RECEBE card por arrasto", () => {
+    for (const origem of ["MAPEADA", "EM_AVALIACAO", "PRIORIZADA", "EM_NEGOCIACAO"] as const) {
+      expect(podeMoverNoFunil("GESTOR", origem, "EM_APROVACAO")).toBe(false);
+    }
+  });
+
+  it("papel sem a ação não move, mesmo com a transição válida no pipeline", () => {
+    expect(destinosDeMovimentoManual("EM_AVALIACAO")).toContain("PRIORIZADA");
+    expect(podeMoverNoFunil("LEITURA", "EM_AVALIACAO", "PRIORIZADA")).toBe(false);
+    expect(podeMoverNoFunil("GESTOR", "EM_AVALIACAO", "PRIORIZADA")).toBe(true);
+  });
+
+  it("handoff aceita as duas formas do ato (assumir para si ou designar)", () => {
+    // RN16: qual das duas vale é decidido no servidor, com o responsável
+    // já escolhido. Para saber se o card é arrastável, basta ter uma.
+    expect(podeMoverNoFunil("COMERCIAL", "PRIORIZADA", "EM_NEGOCIACAO")).toBe(true);
+    expect(podeMoverNoFunil("GESTOR", "PRIORIZADA", "EM_NEGOCIACAO")).toBe(true);
+    expect(podeMoverNoFunil("LEITURA", "PRIORIZADA", "EM_NEGOCIACAO")).toBe(false);
+  });
+});
+
+describe("RN57 — descarte por arrasto obedece à mesma regra do menu", () => {
+  it("o time de scout descarta em qualquer estágio do funil que governa", () => {
+    for (const estagio of ["MAPEADA", "EM_AVALIACAO", "PRIORIZADA", "EM_NEGOCIACAO"] as const) {
+      expect(podeDescartarNoFunil("ANALISTA_SCOUT", estagio)).toBe(true);
+    }
+  });
+
+  it("o comercial descarta apenas o que está em negociação", () => {
+    expect(podeDescartarNoFunil("COMERCIAL", "EM_NEGOCIACAO")).toBe(true);
+    expect(podeDescartarNoFunil("COMERCIAL", "MAPEADA")).toBe(false);
+    expect(podeDescartarNoFunil("COMERCIAL", "PRIORIZADA")).toBe(false);
+  });
+
+  it("papel de leitura não descarta nada", () => {
+    for (const estagio of ["MAPEADA", "EM_AVALIACAO", "PRIORIZADA", "EM_NEGOCIACAO"] as const) {
+      expect(podeDescartarNoFunil("LEITURA", estagio)).toBe(false);
+    }
+  });
+
+  it("Em aprovação e Descartada não descartam por arrasto", () => {
+    expect(podeDescartarNoFunil("GESTOR", "EM_APROVACAO")).toBe(false);
+    expect(podeDescartarNoFunil("GESTOR", "DESCARTADA")).toBe(false);
   });
 });

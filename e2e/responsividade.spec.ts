@@ -381,3 +381,52 @@ test.describe("responsividade a 380px — segmentado de seção", () => {
     });
   }
 });
+
+/**
+ * F15 a 380px — o que a Onda 8 acrescentou às telas estreitas.
+ *
+ * A T1 já era medida acima (colapso em cards, sem rolagem horizontal); o
+ * que muda com a RN56 é o rodapé da lista, que deixou de ter controles de
+ * página e passou a ter situação + botão. E a T2 ganhou o cartão da marca,
+ * com um campo de arquivo, que é onde o estreito costuma vazar.
+ */
+test.describe("responsividade a 380px — F15 (Onda 8)", () => {
+  test("T1: rolagem contínua com situação e botão dentro da viewport", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-380-rolagem`;
+    await semearAliadoAtivoComContrato(nome);
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/aliados");
+    await page.getByRole("heading", { level: 1 }).first().waitFor();
+
+    // A situação da lista é o que substituiu "1–8 de 46".
+    await expect(page.getByRole("status")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Próxima página" })).toHaveCount(0);
+
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T2: o cartão da marca cabe e é operável a 380px", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-380-marca`;
+    const aliado = await semearAliadoAtivoComContrato(nome);
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/aliados/${aliado.id}/editar`);
+    await expect(page.getByRole("heading", { name: "Marca do aliado" })).toBeVisible();
+
+    // O campo de arquivo é o controle que mais costuma estourar a largura.
+    const campo = page.getByLabel("Enviar a marca");
+    await expect(campo).toBeVisible();
+    const caixa = await campo.evaluate((no) => {
+      const b = no.getBoundingClientRect();
+      return { esquerda: Math.round(b.left), direita: Math.round(b.right) };
+    });
+    expect(caixa.esquerda).toBeGreaterThanOrEqual(0);
+    expect(caixa.direita).toBeLessThanOrEqual(380);
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+});

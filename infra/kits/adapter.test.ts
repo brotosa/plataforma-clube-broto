@@ -6,6 +6,7 @@ import { inflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   criarKitAdapterGenericoZip,
+  nomeDoArquivoDaMarca,
   nomesDosArquivosDaPeca,
   type ConteudoDoKit,
 } from "./adapter";
@@ -199,5 +200,92 @@ describe("KitAdapter genérico (v1) — formato definitivo [A CONFIRMAR]", () =>
       }).conteudo,
     );
     expect(arquivos.get("instrucoes.md")?.toString("utf8")).toContain("Nenhuma peça anexada.");
+  });
+});
+
+// ---------------------------------------------------------------------
+// F15 (RN54) — a marca do aliado embarcada no kit
+// ---------------------------------------------------------------------
+
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01, 0x02]);
+const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', "utf8");
+
+const comMarcas = (): ConteudoDoKit => {
+  const base = conteudoDoKit();
+  const marcas = [
+    { aliado: "Agro Alfa", conteudo: PNG, extensao: ".png" },
+    { aliado: "Beta Sementes", conteudo: SVG, extensao: ".svg" },
+  ];
+  return {
+    ...base,
+    marcas,
+    manifesto: {
+      ...base.manifesto,
+      marcas: marcas.map((marca, indice) => ({
+        aliado: marca.aliado,
+        arquivo: nomeDoArquivoDaMarca(marca, indice),
+      })),
+    },
+  };
+};
+
+describe("RN54 — marca do aliado no kit", () => {
+  it("embarca cada marca em marcas/, com o mesmo nome que o manifesto declara", () => {
+    const conteudo = comMarcas();
+    const arquivos = lerZip(criarKitAdapterGenericoZip().montar(conteudo).conteudo);
+    for (const declarada of conteudo.manifesto.marcas ?? []) {
+      expect(arquivos.has(declarada.arquivo)).toBe(true);
+    }
+    expect(arquivos.get("marcas/01-agro-alfa.png")).toEqual(PNG);
+    expect(arquivos.get("marcas/02-beta-sementes.svg")).toEqual(SVG);
+  });
+
+  it("preserva a extensão do tipo real — SVG entra como SVG, não rasterizado", () => {
+    const arquivos = lerZip(criarKitAdapterGenericoZip().montar(comMarcas()).conteudo);
+    expect(arquivos.get("marcas/02-beta-sementes.svg")?.toString("utf8")).toContain("<svg");
+  });
+
+  it("lista as marcas nas instruções da operação", () => {
+    const arquivos = lerZip(criarKitAdapterGenericoZip().montar(comMarcas()).conteudo);
+    const instrucoes = arquivos.get("instrucoes.md")?.toString("utf8") ?? "";
+    expect(instrucoes).toContain("## Marcas dos aliados");
+    expect(instrucoes).toContain("marcas/01-agro-alfa.png");
+  });
+
+  it("o zip continua determinístico com marcas — mesma entrada, mesmos bytes", () => {
+    // A RN45 grava o hash do arquivo do kit: se o pacote variar entre duas
+    // montagens iguais, o hash deixa de provar qualquer coisa.
+    const primeiro = criarKitAdapterGenericoZip().montar(comMarcas()).conteudo;
+    const segundo = criarKitAdapterGenericoZip().montar(comMarcas()).conteudo;
+    expect(primeiro.equals(segundo)).toBe(true);
+  });
+
+  it("kit sem nenhuma marca sai idêntico ao de antes da F15 — nada a mais no zip", () => {
+    // Não-regressão do que já está em produção: aliado sem marca (hoje,
+    // todos) não muda um byte do pacote nem uma chave do manifesto.
+    const semMarcas = criarKitAdapterGenericoZip().montar(conteudoDoKit()).conteudo;
+    const comListaVazia = criarKitAdapterGenericoZip().montar({
+      ...conteudoDoKit(),
+      marcas: [],
+    }).conteudo;
+    expect(semMarcas.equals(comListaVazia)).toBe(true);
+
+    const arquivos = lerZip(semMarcas);
+    expect([...arquivos.keys()].some((nome) => nome.startsWith("marcas/"))).toBe(false);
+    expect(arquivos.get("instrucoes.md")?.toString("utf8")).not.toContain("Marcas dos aliados");
+  });
+
+  it("as chaves antigas do manifesto continuam intactas quando há marca", () => {
+    // "Sem quebrar o manifesto atual": `marcas` é chave NOVA; campanha,
+    // publico, cestas, ofertas e pecas seguem com o mesmo nome e forma.
+    const conteudo = comMarcas();
+    const arquivos = lerZip(criarKitAdapterGenericoZip().montar(conteudo).conteudo);
+    const manifesto = JSON.parse(arquivos.get("manifesto.json")!.toString("utf8"));
+    const base = conteudoDoKit().manifesto;
+    expect(manifesto.campanha).toEqual(base.campanha);
+    expect(manifesto.publico).toEqual(base.publico);
+    expect(manifesto.cestas).toEqual(base.cestas);
+    expect(manifesto.ofertas).toEqual(base.ofertas);
+    expect(manifesto.pecas).toEqual(base.pecas);
   });
 });

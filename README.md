@@ -1,6 +1,6 @@
 # Plataforma de Administração do Clube Broto
 
-Aplicação web administrativa do Clube Broto (Broto S.A.), em sete ondas:
+Aplicação web administrativa do Clube Broto (Broto S.A.), em oito ondas:
 
 | Onda | Módulo | Regras | Telas |
 |---|---|---|---|
@@ -11,17 +11,21 @@ Aplicação web administrativa do Clube Broto (Broto S.A.), em sete ondas:
 | 4 | Campanhas e Cestas · público congelado, conteúdo, peças, kit de execução e medição atribuída | RN38–RN45 | T22–T25 |
 | 6 | Dashboard, Usuários e Auditoria · governança visível | RN46–RN50 | T26–T28 |
 | 7 | Cobertura do portfólio e Mapa da rede · releitura do cadastro como instrumento de decisão | RN51–RN53 | T29–T30 |
+| 8 | Marca do aliado, leitura de listas, falhas legíveis e arrasto no funil · sem tela nova | RN54–RN57 | ajustes em T1/T2/T8/T26 |
 
-- Fontes da verdade funcionais: as sete fichas em `docs/especificacao/`
-- Arquitetura e fases: os sete `prompt-claude-code-onda*.md`
+- Fontes da verdade funcionais: as oito fichas em `docs/especificacao/`
+- Arquitetura e fases: os oito `prompt-claude-code-onda*.md`
 - Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v9.1.html`
   (T1–T30). As versões v8.1 FINAL, v7.1, v6.1 e v2.1 permanecem apenas como histórico.
+  A Onda 8 não trouxe protótipo novo — as telas dela já existiam.
 
-**Estado atual: escopo original completo (F1–F13) e a primeira onda posterior a
-ele entregue (F14) — 53 regras e 30 telas implementadas. O produto está em
-produção**, e a partir da F14 toda fase carrega o dever adicional de não
+**Estado atual: escopo original completo (F1–F13) e as duas ondas posteriores a
+ele entregues (F14, F15) — 57 regras e 30 telas implementadas. O produto está
+em produção**, e a partir da F14 toda fase carrega o dever adicional de não
 regredir: reescrever cálculo já exibido exige teste provando que o número não
-mudou.
+mudou. Desde a F15 o dever se estende ao banco — a base está povoada, então
+migration que remove coluna, estreita tipo ou exige valor sobre linha
+existente não entra sem condição objetiva verificada antes.
 
 A Onda 1 (F1–F5) entregou o cadastro, o motor de aprovação com segregação
 solicitante ≠ aprovador, a publicação em lote e a importação de telemetria, a
@@ -56,6 +60,17 @@ abrangência declarada (RN52). Junto vieram quatro correções transversais: o
 rodapé passa a exibir a versão lida do build, o cabeçalho volta ao desenho
 aprovado da marca, a HOME ganha o panorama de oito indicadores que a ficha da
 Onda 6 não chegara a enumerar, e o sino do cabeçalho deixa de ser decorativo.
+
+A **F15** abre a Onda 8 e é a primeira nascida de **homologação com base
+povoada** — cada item veio de uso real, e nenhuma tela nova entrou. A marca do
+aliado deixa de ser endereço num bucket que nunca existiu e passa a ser
+arquivo guardado pela plataforma (RN54); a mensagem de erro passa a nomear a
+causa em vez de aconselhar o que não resolveria (RN55); a lista de aliados
+troca a paginação de 8 por rolagem contínua, enquanto assinantes mantêm a
+paginação — a escolha é do tamanho esperado do conjunto (RN56); e o card do
+funil ganha o gesto de arrastar, que executa exatamente a operação do menu
+(RN57). Junto, a célula Ofertas do painel passa a mostrar um número só, da
+mesma base da vitrine viva.
 
 Atravessando todas as ondas, o **endurecimento** iniciado na F5 e mantido
 fase a fase:
@@ -254,7 +269,7 @@ app/        rotas e telas (App Router); shell fiel ao protótipo v9.1
 dominio/    regras de negócio puras e testáveis (RBAC, auditoria, cobertura, geografia)
 infra/      Prisma, Auth.js, gravador de auditoria, consultas, casos de uso
 infra/geografia/  geometria Natural Earth versionada + projeção no servidor (T30)
-prisma/     schema das sete ondas, migrations reversíveis (com down.sql), seed
+prisma/     schema das oito ondas, migrations reversíveis (com down.sql), seed
 design/     DSeed: tokens.css (intocável) + dseed-admin.css (extensões)
 e2e/        Playwright + axe-core (fluxos, acessibilidade, teclado, 380px)
 dados/      planilhas reais da carga inicial (consumidas na F3)
@@ -656,6 +671,134 @@ executar as seis contagens em **toda** renderização de página autenticada. S�
 exatamente para isso), mas é custo real e consciente — o marcador precisa
 existir sem interação, então não há como adiá-lo para o clique.
 
+## Marca do aliado, listas, falhas legíveis e arrasto (Onda 8 — F15)
+
+Primeira onda nascida de **homologação com base povoada**: cada item veio de
+uso real, não de especulação. Nenhuma tela nova — seis ajustes sobre telas
+que já existiam.
+
+### RN54 — a marca do aliado passa a ser arquivo da plataforma
+
+O cadastro pedia o **endereço de um objeto no S3**, de um bucket que a TI
+nunca provisionou: na prática, nenhum logo existia. A marca passou a ser
+enviada na própria tela e guardada pela plataforma.
+
+**A decisão vale para este caso específico**, e os limites são a condição
+dela: poucas dezenas de arquivos, pequenos, com consistência transacional de
+graça e zero dependência externa. **O S3 e o `ExportAdapter` continuam
+existindo para o que é volumoso — as peças de campanha (Onda 4) —, onde banco
+não serve.**
+
+| Limite | Valor | Por quê |
+|---|---|---|
+| Tamanho | **200 KB** por arquivo | É a premissa que torna guardar binário no banco defensável. |
+| Formatos | **PNG, JPG, WEBP, SVG** | Cobrem o que ferramenta de design exporta. |
+| Tipo | apurado pelo **conteúdo**, nunca pela extensão | Renomear `.html` para `.svg` não muda o que o arquivo é. |
+| SVG | **higienizado** antes de gravar | Sai script, manipulador de evento, `<foreignObject>` e referência externa. |
+| Dimensão de uso | **320 px** | Maior caixa do produto (132 px na ficha) em tela de alta densidade. |
+
+Esses números vivem em `dominio/marca/marca.ts`, **não no Parametrizador**:
+não são régua de negócio (RN23), são a condição de arquitetura da decisão.
+Afrouxá-los pela tela derrubaria a premissa sem que ninguém a revisse.
+
+**Modelagem:** o binário fica em `marcas_aliado`, tabela própria com relação
+1:1 com a empresa — **nunca coluna de `empresas`**. O Prisma seleciona
+escalares por padrão: um `BYTEA` ali faria a lista, o funil, o mapa e o painel
+carregarem o arquivo em toda consulta. Lista e funil trafegam só o **hash**.
+
+**Entrega:** `GET /api/aliados/{id}/marca`, com permissão espelhada na do
+aliado e `ETag` igual ao SHA-256 do conteúdo — a troca invalida o cache
+sozinha, numa URL estável. Para SVG são **três camadas**: higienização na
+gravação, `nosniff` + CSP `default-src 'none'` na entrega, e `<img>` nas telas
+(onde script em SVG não executa). Sanitizador por texto é bom, não infalível;
+as três juntas é que sustentam a decisão.
+
+**Onde aparece:** ficha do aliado, lista de aliados, cards do funil (T8) e
+kits de oferta e campanha (pasta `marcas/` no zip, declarada em chave **nova**
+do manifesto — as antigas seguem intactas e kit sem marca sai byte a byte
+igual ao de antes da F15). Sem marca: placa com a inicial, nunca espaço
+quebrado.
+
+**Envio pela tela:** o navegador encolhe imagem grande por `canvas` antes de
+enviar — **é conveniência de cliente e está declarado como tal no código**.
+Tamanho, tipo real e higienização são decididos no servidor, sempre, sobre os
+bytes que chegarem. **Não se aplica a SVG**: rasterizar destruiria o vetor e
+mudaria o tipo real do conteúdo.
+
+### RN55 — a mensagem de erro nomeia a causa
+
+Um erro de configuração ausente chegava à tela como *"Não foi possível
+concluir a ação. Tente novamente."* — genérico e, pior, **conselho errado**:
+tentar de novo nunca criaria a variável de ambiente. Custou meia hora de
+homologação.
+
+A convenção agora, em `infra/erros/falha-para-mensagem.ts`, valendo para as
+**15 server actions**:
+
+- **Erro de classe conhecida** — validação, permissão, configuração ausente,
+  layout/limite de arquivo, segmento inválido, template, provedor, marca —
+  propaga a **própria mensagem** até a interface.
+- **Qualquer outra exceção** vira mensagem genérica **sem sugerir repetição**,
+  dizendo onde o detalhe está (log do servidor) e o que informar à TI.
+- **Nunca chegam à interface:** rastro de pilha, caminho de arquivo, SQL,
+  identificador interno ou **valor** de variável de ambiente. Nomear a
+  variável ausente é desejável — `ErroDeConfiguracao` recebe só o nome dela,
+  e a proibição é garantida pela forma, não pela disciplina de quem chama.
+- **Permissão é a única exceção** entre as classes conhecidas: a mensagem dela
+  cita papel e ação internos, então cada tela escreve a sua, com a referência
+  da ficha.
+
+A distinção é **por classe, jamais por texto**. Mensagem de erro do Prisma
+carrega tabela e SQL; `Error` de biblioteca carrega caminho. Nenhum dos dois é
+instância das classes conhecidas — nenhum dos dois chega à tela. Uma cerca de
+arquitetura reprova server action que volte a decidir sozinha ou a dizer
+"tente novamente".
+
+### RN56 — a leitura é do tamanho do conjunto
+
+| Lista | Leitura | Por quê |
+|---|---|---|
+| **Aliados** (T1) | rolagem contínua, blocos de 20 | Conjunto contido (46 hoje, centenas no horizonte) e ler a rede inteira é gesto frequente. |
+| **Assinantes**, eventos, auditoria | paginação no servidor | Base de dezenas de milhares: carga total quebraria a tela no dia da carga real. |
+
+A consulta **continua paginada no servidor** — o primeiro bloco vem
+renderizado (a tela pinta sem esperar JavaScript) e os seguintes chegam por
+server action, sempre com `skip`/`take`. Filtros, busca e a contagem total
+são preservados. **Teclado:** "Carregar mais" fica no fluxo natural do Tab
+depois da última linha; a carga automática por proximidade nunca move o foco.
+
+### RN57 — arrastar card no funil (T8)
+
+Conveniência de mouse, **não caminho novo de decisão**. Soltar chama o mesmo
+caso de uso do menu, com as mesmas validações, permissões e auditoria. A
+decisão de quem pode mover o quê vive em `dominio/funil/regras.ts`
+(`podeMoverNoFunil`, `podeDescartarNoFunil`) e é lida pelos **dois lados** —
+não há cópia da regra no cliente.
+
+- Destino não permitido a partir da origem **não aceita** o card (a coluna
+  nem autoriza o soltar — a recusa é do gesto, antes de qualquer requisição).
+- **Priorizada** sem avaliação fechada recusa (RN15); o card fica onde estava
+  e a mensagem da regra aparece.
+- **Descartar** abre o modal dos seis motivos e só conclui com um (RN17). A
+  área de descarte existe **só durante o gesto** — o protótipo v9.1 não tem
+  lane Descartada, então o layout em repouso continua o mesmo.
+- **Em aprovação** não aceita nem cede card: o motor governa.
+- Card fora da permissão do papel **não é arrastável**.
+
+**Sem reposicionamento otimista, de propósito:** o card só muda de coluna
+depois que a ação volta e a rota revalida. É a leitura mais estrita de "nunca
+deixar o card no destino errado". Arrasto nativo, **sem biblioteca** — a
+escolha é defensável porque o menu já é o caminho por teclado e por toque, e
+**nenhuma função existe apenas no arrasto**.
+
+### Célula "Ofertas" do painel (T26)
+
+O destaque era `148 de 192`, dois números disputando a leitura. Passou a ser o
+número de **ofertas ativas publicadas com resgate no período** — mesma base da
+vitrine viva, **mesmo serviço** (`kpiVitrineViva`), com teste provando a
+concordância entre os dois. "de N ativas" desceu para a nota de procedência.
+Sem oferta publicada, traço com motivo (RN50).
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
@@ -674,6 +817,7 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | **Dossiê** | `/mercado/{id}/dossie`: geração assistida sob teto de custo, ou inserção manual (ver *Dossiê assistido*) | Gestor · Analista de Scout |
 | **Exportar lista de contato** | T21: exige finalidade declarada e gera exportação auditada (RN34) | Gestor · Administrador |
 | **Configurar parâmetros** | `/parametrizador`: réguas, comissão-padrão, tetos, metas e listas de domínio (RN23) | Administrador |
+| **Enviar a marca do aliado** | `/aliados/{id}/editar`, cartão *Marca do aliado*: PNG/JPG/WEBP/SVG até 200 KB, tipo conferido pelo conteúdo e SVG higienizado (RN54) | Gestor · Analista |
 | **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
 | **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |
 
@@ -713,6 +857,7 @@ do dump completo do catálogo e a tag "Recompensa" em cards pagos na vitrine.
 | Recorte "Safra 25/26" no seletor de período da T26 | O protótipo mostra a opção; o recorte de safra é definição de negócio (início e fim variam por cultura e região) e não consta de ficha nem do Parametrizador. O seletor entrega os três períodos computáveis (30 dias, 90 dias, 12 meses); a safra entra quando a janela for declarada. |
 | Seed do perfil de cliente (porte × natureza PF/PJ) | Lista nasce vazia, com o estado explicado na tela. |
 | **Custo das pendências no layout** (F14) | O sino apura as seis contagens em toda renderização autenticada, porque o marcador precisa existir sem interação. São `count`s indexados, mas é custo real: se a base crescer a ponto de pesar, o caminho é cache curto no Serviço de Configuração, não remover o marcador. |
+| **Dívida: queda da coluna `empresas.logo_url`** (F15) | A coluna guardava o endereço S3 do logotipo e está **obsoleta desde a F15**: não é mais escrita por lugar nenhum, e é lida **apenas como fallback** da régua de completude, para que nenhum aliado que porventura a tenha preenchida perca o ponto que já contava. Ela **não foi derrubada** de propósito: a base está em produção e queda de coluna é irreversível. **Condição objetiva para executar:** `SELECT count(*) FROM empresas WHERE logo_url IS NOT NULL` retornar **0**. Satisfeita a condição, a queda sai em **migration própria e reversível**, junto com a remoção do fallback em `calcularCompletudeCard`, `calcularCompletudeAliado` e na apuração do painel — nunca embutida em outra mudança. |
 
 **Operação (Onda 7):**
 

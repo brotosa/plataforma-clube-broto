@@ -19,10 +19,13 @@ import {
 import { validarEstruturaRegras } from "@/dominio/segmentacao/compilador";
 import {
   criarKitAdapterGenericoZip,
+  nomeDoArquivoDaMarca,
   nomesDosArquivosDaPeca,
   type ManifestoKit,
+  type MarcaDoKit,
   type PecaDoKit,
 } from "@/infra/kits/adapter";
+import { EXTENSAO_POR_TIPO, type TipoMarca } from "@/dominio/marca/marca";
 import { criarArmazenadorLocal, hashDeSnapshot } from "@/infra/exportacoes/armazenador";
 import { logger } from "@/infra/log/logger";
 import {
@@ -525,6 +528,31 @@ async function montarConteudoDoKit(
     pecas.push({ formato: peca.formato.nome, titulo: peca.titulo, texto: peca.texto, imagem });
   }
 
+  // RN54 — marcas dos aliados cujas ofertas entram no kit. Um aliado
+  // aparece uma vez só, e quem não tem marca fica de fora: ausência é
+  // ausência, não arquivo vazio. Só aqui o binário sai do banco.
+  const empresasNoKit = [
+    ...new Map(
+      ofertas.map((oferta) => [oferta.solucao.empresa.id, oferta.solucao.empresa.nomeFantasia]),
+    ),
+  ].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  const marcasGravadas = await prisma.marcaAliado.findMany({
+    where: { empresaId: { in: empresasNoKit.map(([id]) => id) } },
+    select: { empresaId: true, conteudo: true, tipoMime: true },
+  });
+  const porEmpresa = new Map(marcasGravadas.map((marca) => [marca.empresaId, marca]));
+  const marcas: MarcaDoKit[] = empresasNoKit.flatMap(([id, nome]) => {
+    const gravada = porEmpresa.get(id);
+    if (!gravada) return [];
+    return [
+      {
+        aliado: nome,
+        conteudo: Buffer.from(new Uint8Array(gravada.conteudo)),
+        extensao: EXTENSAO_POR_TIPO[gravada.tipoMime as TipoMarca] ?? "",
+      },
+    ];
+  });
+
   const manifesto: ManifestoKit = {
     campanha: {
       id: campanha.id,
@@ -563,9 +591,17 @@ async function montarConteudoDoKit(
         arquivoImagem: nomes.imagem,
       };
     }),
+    ...(marcas.length > 0
+      ? {
+          marcas: marcas.map((marca, indice) => ({
+            aliado: marca.aliado,
+            arquivo: nomeDoArquivoDaMarca(marca, indice),
+          })),
+        }
+      : {}),
   };
 
-  return { manifesto, pecas };
+  return { manifesto, pecas, marcas };
 }
 
 /** O manifesto no formato que o diff da RN45 compara. */
@@ -601,7 +637,7 @@ async function gerarKitDentroDaTransacao(
   snapshot: { contagem: number; hash: string; exportacaoId: string; finalidade: string },
   momento: Date,
 ): Promise<GravacaoPendente[]> {
-  const { manifesto, pecas } = await montarConteudoDoKit(campanha, snapshot);
+  const { manifesto, pecas, marcas } = await montarConteudoDoKit(campanha, snapshot);
   const versao = proximaVersaoDoKit(campanha.kits.map((kit) => kit.versao));
   const anterior = campanha.kits.at(-1);
   const diff = diffDoKit(
@@ -625,6 +661,7 @@ async function gerarKitDentroDaTransacao(
     ),
     manifesto,
     pecas,
+    marcas,
     versao,
     momento,
   });

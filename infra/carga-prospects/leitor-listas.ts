@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { ErroDeArquivo } from "@/dominio/erros/falhas";
 
 /**
  * Leitura tolerante do arquivo de prospects (T9): CSV ou XLSX, qualquer
@@ -16,7 +17,12 @@ export interface ListaLida {
   linhas: Array<{ numero: number; valores: Record<string, unknown> }>;
 }
 
-class ErroDeLeitura extends Error {
+/**
+ * Layout ou limite do arquivo importado. Estende `ErroDeArquivo` (F15,
+ * RN55) para que a mensagem — que já dizia o que fazer — chegue à tela em
+ * vez de virar genérica no caminho.
+ */
+class ErroDeLeitura extends ErroDeArquivo {
   constructor(mensagem: string) {
     super(mensagem);
     this.name = "ErroDeLeitura";

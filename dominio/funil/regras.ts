@@ -1,5 +1,6 @@
-import type { EstagioEmpresa, OrigemEmpresa } from "@prisma/client";
+import type { EstagioEmpresa, OrigemEmpresa, Papel } from "@prisma/client";
 import { transicoesValidasDe } from "../empresas/estagio";
+import { type Acao, podeExecutar } from "../autorizacao/permissoes";
 
 /**
  * Regras do funil de mercado (Onda 2, ficha §4) como serviços puros:
@@ -110,6 +111,57 @@ export function destinosDeMovimentoManual(de: EstagioEmpresa): EstagioEmpresa[] 
   const lanes = new Set<EstagioEmpresa>(ESTAGIOS_FUNIL);
   return transicoesValidasDe(de).filter(
     (para) => lanes.has(para) && para !== "EM_APROVACAO",
+  );
+}
+
+// ---------------------------------------------------------------------
+// RN57 — quem pode mover o quê, para onde
+// ---------------------------------------------------------------------
+
+/**
+ * Ação de permissão exigida para mover um card ao destino (ficha §2).
+ *
+ * Existe para que a decisão more em UM lugar. O caso de uso a consulta
+ * antes de escrever; a T8 a consulta para saber o que é arrastável e qual
+ * coluna aceita o card durante o gesto. Sem isto, a regra do arrasto seria
+ * uma cópia da regra do menu — e cópia é o que a RN57 proíbe.
+ */
+export function acaoParaMoverNoFunil(destino: EstagioEmpresa): Acao {
+  if (destino === "PRIORIZADA") return "PRIORIZAR";
+  if (destino === "EM_NEGOCIACAO") return "ASSUMIR_NEGOCIACAO";
+  return "ASSUMIR_E_AVALIAR";
+}
+
+/**
+ * O papel pode levar um card de `de` para `para`? Combina as duas metades:
+ * o pipeline permite a transição E o papel tem a ação.
+ *
+ * O handoff para Em negociação aceita as duas permissões porque o ato tem
+ * duas formas (assumir para si ou designar outro comercial, RN16); qual
+ * delas vale é decidido no servidor, com o responsável já escolhido.
+ */
+export function podeMoverNoFunil(papel: Papel, de: EstagioEmpresa, para: EstagioEmpresa): boolean {
+  if (!destinosDeMovimentoManual(de).includes(para)) {
+    return false;
+  }
+  if (para === "EM_NEGOCIACAO") {
+    return podeExecutar(papel, "ASSUMIR_NEGOCIACAO") || podeExecutar(papel, "DESIGNAR_RESPONSAVEIS");
+  }
+  return podeExecutar(papel, acaoParaMoverNoFunil(para));
+}
+
+/**
+ * RN17 — quem pode descartar a partir deste estágio. O Comercial descarta
+ * apenas o que está em negociação com ele; o time de scout descarta em
+ * qualquer ponto do funil que ele governa.
+ */
+export function podeDescartarNoFunil(papel: Papel, de: EstagioEmpresa): boolean {
+  if (de === "EM_APROVACAO" || de === "DESCARTADA") {
+    return false;
+  }
+  return (
+    podeExecutar(papel, "ASSUMIR_E_AVALIAR") ||
+    (podeExecutar(papel, "ASSUMIR_NEGOCIACAO") && de === "EM_NEGOCIACAO")
   );
 }
 

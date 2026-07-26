@@ -42,6 +42,25 @@ export interface ManifestoKit {
     arquivoTexto: string;
     arquivoImagem: string | null;
   }>;
+  /**
+   * F15 (RN54) — marcas dos aliados presentes no kit, quando existirem.
+   *
+   * Chave NOVA e opcional, de propósito: as anteriores continuam com o
+   * mesmo nome e a mesma forma, então manifesto de kit já gerado segue
+   * legível e o diff da RN45 não acusa mudança em oferta nenhuma. Aliado
+   * sem marca simplesmente não aparece aqui — ausência é ausência, não
+   * entrada vazia.
+   */
+  marcas?: ReadonlyArray<{ aliado: string; arquivo: string }>;
+}
+
+/** Marca de um aliado a embarcar no pacote (RN54). */
+export interface MarcaDoKit {
+  /** Nome de exibição do aliado — vira o nome do arquivo no zip. */
+  aliado: string;
+  conteudo: Buffer;
+  /** Extensão canônica do tipo real apurado no envio (".png", ".svg"…). */
+  extensao: string;
 }
 
 export interface PecaDoKit {
@@ -63,6 +82,8 @@ export interface ConteudoDoKit {
   publicoCsv: Buffer;
   manifesto: ManifestoKit;
   pecas: ReadonlyArray<PecaDoKit>;
+  /** Vazio quando nenhum aliado do kit tem marca — o zip só não tem a pasta. */
+  marcas?: ReadonlyArray<MarcaDoKit>;
   versao: number;
   momento: Date;
 }
@@ -87,6 +108,15 @@ function nomeSeguro(texto: string, indice: number): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `${String(indice + 1).padStart(2, "0")}-${base || "peca"}`;
+}
+
+/**
+ * Caminho da marca dentro do zip (RN54). Mesma função usada na montagem e
+ * na construção do manifesto, para os dois nunca divergirem — o mesmo
+ * cuidado que `nomesDosArquivosDaPeca` já tomava para as peças.
+ */
+export function nomeDoArquivoDaMarca(marca: { aliado: string; extensao: string }, indice: number): string {
+  return `marcas/${nomeSeguro(marca.aliado, indice)}${marca.extensao}`;
 }
 
 /** instrucoes.md — o texto que a operação lê antes de disparar. */
@@ -137,6 +167,14 @@ function instrucoesMarkdown(conteudo: ConteudoDoKit): string {
     linhas.push("");
   }
 
+  if (manifesto.marcas && manifesto.marcas.length > 0) {
+    linhas.push("## Marcas dos aliados", "");
+    for (const marca of manifesto.marcas) {
+      linhas.push(`- ${marca.aliado}: \`${marca.arquivo}\``);
+    }
+    linhas.push("");
+  }
+
   linhas.push("## Instruções da operação", "", campanha.instrucoes?.trim() || "—", "");
   return linhas.join("\n");
 }
@@ -176,6 +214,16 @@ export function criarKitAdapterGenericoZip(): KitAdapter {
             conteudo: peca.imagem.conteudo,
           });
         }
+      });
+
+      // Marcas por último e na ordem recebida (o caso de uso ordena por
+      // nome do aliado): o zip precisa sair byte a byte igual para a mesma
+      // entrada, que é o que o teste de determinismo prende.
+      (conteudo.marcas ?? []).forEach((marca, indice) => {
+        arquivos.push({
+          nome: nomeDoArquivoDaMarca(marca, indice),
+          conteudo: marca.conteudo,
+        });
       });
 
       return {

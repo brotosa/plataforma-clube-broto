@@ -226,7 +226,12 @@ export async function avaliarPublicacao(ofertaId: string) {
           culturas: true,
           ufs: true,
           empresa: {
-            include: { contratos: { where: { status: "VIGENTE" } } },
+            include: {
+              contratos: { where: { status: "VIGENTE" } },
+              // Só a existência da marca interessa aqui (RN09): selecionar
+              // um escalar barato mantém o binário fora desta consulta.
+              marca: { select: { empresaId: true } },
+            },
           },
         },
       },
@@ -235,7 +240,11 @@ export async function avaliarPublicacao(ofertaId: string) {
   const empresa = oferta.solucao.empresa;
   const contratoVigente = empresa.contratos[0] ?? null;
   const completude = calcularCompletudeCard({
-    aliado: { nomeFantasia: empresa.nomeFantasia, logoUrl: empresa.logoUrl },
+    aliado: {
+      nomeFantasia: empresa.nomeFantasia,
+      temMarca: empresa.marca !== null,
+      logoUrl: empresa.logoUrl,
+    },
     solucao: {
       nome: oferta.solucao.nome,
       descricaoCurta: oferta.solucao.descricaoCurta,

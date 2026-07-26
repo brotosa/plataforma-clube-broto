@@ -25,7 +25,6 @@ export interface ValoresAliado {
   enderecoBairro?: string | null;
   enderecoMunicipio?: string | null;
   enderecoUf?: string | null;
-  logoUrl?: string | null;
   descricaoInstitucional?: string | null;
   site?: string | null;
   categoriaIds?: string[];
@@ -114,19 +113,11 @@ export function FormularioAliado({
               Texto curto de apresentação; obrigatório para publicar oferta (RN09).
             </span>
           </div>
-          <div className="field">
-            <label htmlFor="campo-logo">Logo (chave do arquivo)</label>
-            <input
-              id="campo-logo"
-              className="input"
-              name="logoUrl"
-              placeholder="s3://logos/…"
-              defaultValue={valores?.logoUrl ?? ""}
-            />
-            <span className="hint">
-              Upload de arquivos entra com o S3 (F4); registre a referência do asset.
-            </span>
-          </div>
+          {/* F15 (RN54) — o campo "Logo (chave do arquivo)", que pedia um
+              endereço no S3 de um bucket nunca provisionado, deu lugar ao
+              envio do arquivo em si. O controle mora no cartão "Marca do
+              aliado", fora deste formulário: envio de arquivo precisa do
+              próprio <form> e formulário aninhado não existe em HTML. */}
         </div>
       </div>
 
