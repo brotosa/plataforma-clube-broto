@@ -88,11 +88,74 @@ describe("RN58 — as doze seções do guia, com suas âncoras", () => {
     }
   });
 
+  /**
+   * A única divergência deliberada de marcação em relação ao documento
+   * entregue — e ela é de nível, não de texto.
+   *
+   * O original usava `<h4>` para o subtítulo do cartão e para o item de
+   * princípio, ambos logo depois do `<h2>` da seção: salto de nível que o
+   * axe reprova (heading-order) e que a política AAA da plataforma não
+   * admite. Promovidos a `<h3>`, com o CSS distinguindo por contexto para
+   * a aparência não mudar.
+   *
+   * Este teste existe porque a correção é fácil de desfazer sem querer:
+   * quem comparar a transcrição com o documento e vir `h3` onde havia `h4`
+   * vai achar que é erro de transcrição. Não é.
+   */
+  it("nenhum cabeçalho pula nível — a correção de AAA não se desfaz", () => {
+    expect(secoes).not.toContain("<h4");
+    for (const bloco of secoes.matchAll(
+      /<section class="gd-sec" id="([a-z0-9]+)">([\s\S]*?)<\/section>/g,
+    )) {
+      const niveis = [...(bloco[2] ?? "").matchAll(/<(h[1-6])[\s>]/g)].map((achado) =>
+        Number((achado[1] ?? "h2").slice(1)),
+      );
+      expect(niveis[0], `primeiro cabeçalho de #${bloco[1]}`).toBe(2);
+      for (const [indice, nivel] of niveis.entries()) {
+        const anterior = niveis[indice - 1] ?? nivel;
+        expect(nivel - anterior, `salto de nível em #${bloco[1]}`).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  /**
+   * A primeira versão desta verificação procurava só atributos (`sc-camel-`,
+   * `{{ }}`) e deu tudo certo — enquanto as quatro tabelas do guia estavam
+   * transcritas como `<sc-raw-table>`, elemento que o navegador trata como
+   * desconhecido e desenha em linha. No desktop nada gritava: o texto
+   * aparecia, o axe não reprova elemento que não conhece. Quem achou foi o
+   * teste de 380px, ao procurar o colapso em cards que nunca ia acontecer.
+   *
+   * Por isso a cerca passou a olhar **tags**, e de forma genérica: qualquer
+   * elemento com hífen no nome é componente, e componente não sobrevive à
+   * transcrição.
+   */
   it("nenhum resto de linguagem de protótipo sobreviveu à transcrição", () => {
     const { capa } = carregarGuia();
-    for (const resto of ["sc-for", "sc-if", "sc-camel", "{{", "}}"]) {
-      expect(secoes, resto).not.toContain(resto);
-      expect(capa, resto).not.toContain(resto);
+    for (const documento of [secoes, capa]) {
+      for (const resto of ["sc-for", "sc-if", "sc-camel", "sc-raw", "{{", "}}"]) {
+        expect(documento, resto).not.toContain(resto);
+      }
+      const comHifen = [...documento.matchAll(/<\/?([a-z][\w-]*)[\s>/]/g)]
+        .map((achado) => achado[1] ?? "")
+        .filter((tag) => tag.includes("-"));
+      expect([...new Set(comHifen)], "elementos que não são HTML").toEqual([]);
+    }
+  });
+
+  it("as quatro tabelas do guia são tabelas de verdade, no padrão responsivo", () => {
+    expect(secoes.match(/<table class="tbl tbl-resp">/g) ?? []).toHaveLength(4);
+    // Rótulo de coluna por célula é o que faz o colapso a 380px funcionar.
+    const corpos = [...secoes.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)];
+    expect(corpos).toHaveLength(4);
+    for (const corpo of corpos) {
+      const celulas = [...(corpo[1] ?? "").matchAll(/<td\b([^>]*)>/g)].map((a) => a[1] ?? "");
+      // A primeira célula da linha é o próprio rótulo da linha; as demais
+      // precisam declarar a coluna a que pertencem.
+      const semRotulo = celulas.filter((atributos) => !atributos.includes("data-label"));
+      expect(semRotulo.length, "células sem data-label").toBeLessThanOrEqual(
+        (corpo[1] ?? "").match(/<tr>/g)?.length ?? 0,
+      );
     }
   });
 });

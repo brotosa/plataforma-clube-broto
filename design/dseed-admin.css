@@ -815,7 +815,15 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .gd-doc li{margin-bottom:8px}
 .gd-doc h3{font-family:var(--font-family-headline);font-weight:700;font-size:19px;line-height:1.25;
   letter-spacing:-.01em;color:var(--preto);margin:34px 0 8px}
-.gd-doc h4{font:var(--font-body-label-bold);font-size:15px;color:var(--preto);margin:22px 0 6px}
+/* PATCH DO REPO — NÃO REMOVER: nível de cabeçalho corrigido, desenho intacto.
+   O documento entregue usava <h4> para o subtítulo do cartão e para o item de
+   princípio, ambos logo depois do <h2> da seção — salto de nível que o axe
+   reprova (heading-order) e que a política AAA da plataforma não admite. A
+   correção é de marcação, não de texto: os elementos viraram <h3> e estas
+   regras passaram a distingui-los por contexto, para que a aparência não mude
+   um pixel. O <h3> de seção continua com o corpo de 19px logo acima. */
+.gd-card h3,.gd-princ .it h3{font:var(--font-body-label-bold);font-size:15px;
+  color:var(--preto);margin:22px 0 6px;letter-spacing:normal}
 .gd-doc a{color:var(--azul-texto-aaa)}
 
 /* --- capa e aberturas: registro de documento, não do painel --- */
@@ -869,12 +877,12 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 /* --- cartão de apoio, princípios, jornada --- */
 .gd-card{background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-lg);
   padding:20px 22px;margin:20px 0}
-.gd-card h4{margin-top:0!important}
+.gd-card h3{margin-top:0!important}
 .gd-princ{display:grid;gap:12px;margin:22px 0}
 .gd-princ .it{background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-lg);padding:18px 20px}
-.gd-princ .it h4{display:flex;gap:10px;align-items:baseline;font-size:16.5px;margin:0 0 6px;
+.gd-princ .it h3{display:flex;gap:10px;align-items:baseline;font-size:16.5px;margin:0 0 6px;
   font-family:var(--font-family-headline);font-weight:700}
-.gd-princ .it h4 .n{color:var(--azul);font-variant-numeric:tabular-nums;font-size:14px;flex:none}
+.gd-princ .it h3 .n{color:var(--azul);font-variant-numeric:tabular-nums;font-size:14px;flex:none}
 .gd-princ .it p{margin:0!important;font-size:15.5px!important}
 .gd-jorn{list-style:none;counter-reset:gp;margin:22px 0;padding:0}
 .gd-jorn>li{counter-increment:gp;position:relative;padding:0 0 20px 44px;margin-left:14px;
@@ -941,6 +949,22 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .gd-corpo{grid-template-columns:1fr;padding:0}
   .gd-sec{break-inside:auto}
   .gd-bloco,.gd-card,.gd-princ .it{break-inside:avoid}
+}
+
+/* PATCH DO REPO — NÃO REMOVER: célula de prosa não é célula de valor.
+   O colapso do `.tbl-resp` põe a célula em `display:flex` — rótulo à esquerda,
+   valor à direita —, e isso é certo para as tabelas do produto, cujas células
+   trazem um valor curto. As do guia trazem frases COM MARCAÇÃO: em flex, cada
+   <em> e cada <strong> vira um item próprio, e a frase é disposta como caixas
+   lado a lado que não quebram — uma célula da §6 estourava 30px a 380px, e o
+   card virava região rolável inalcançável por teclado (axe:
+   scrollable-region-focusable, grave).
+   Aqui a célula volta a ser bloco e o rótulo sobe para cima do valor, que é a
+   leitura certa para prosa. Escopado em `.gd`: as tabelas do produto seguem
+   como estão, e esta onda não mexe em tela nenhuma delas. */
+@media (max-width:760px){
+  .gd .tbl-resp td{display:block;text-align:left}
+  .gd .tbl-resp td::before{display:block;margin-bottom:2px}
 }
 
 /* PATCH DO REPO — NÃO REMOVER: a âncora pousa dentro do <main>, não na janela.

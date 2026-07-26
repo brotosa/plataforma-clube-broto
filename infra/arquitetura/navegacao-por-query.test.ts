@@ -65,6 +65,16 @@ const TELAS_COM_CONTROLE_DE_QUERY: ReadonlyArray<{ arquivo: string; rota: string
   { arquivo: "app/(plataforma)/mercado/page.tsx", rota: "/mercado" },
   // Renderizado dentro da aba Cobertura da T8 — a rota dele é /mercado.
   { arquivo: "app/(plataforma)/mercado/mapa-cobertura.tsx", rota: "/mercado" },
+  /**
+   * Onda 9 (F16). O shell entra com rota `*` pela mesma razão do
+   * segmentado: ele é renderizado em TODAS as telas, então nunca dá para
+   * saber se um href com query é da rota corrente ou de outra. O "?" da
+   * ajuda leva `?de=…#secao` e é âncora; a cerca existe para que a
+   * próxima mão não o converta em `<Link>` por hábito.
+   */
+  { arquivo: "app/(plataforma)/shell-plataforma.tsx", rota: "*" },
+  // A barra de volta leva a query da tela de origem (`/mercado?aba=metas`).
+  { arquivo: "app/(plataforma)/ajuda/page.tsx", rota: "*" },
 ];
 
 /**
