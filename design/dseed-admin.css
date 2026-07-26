@@ -790,3 +790,171 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .kb-descarte{margin-left:0;margin-right:0}
 }
 @media (prefers-reduced-motion:reduce){.kb-card.em-arrasto{opacity:1;outline:2px solid var(--azul)}}
+
+/* =======================================================================
+   Extensão (Guia da Plataforma · documento de referência)
+   Leitura contínua é um uso diferente do resto da plataforma: medida de
+   linha curta, corpo maior e entrelinha mais alta que os 14/24 do produto.
+   Tudo escopado em .gd para não afetar nenhuma tela. Destino previsto:
+   rota de ajuda dentro do shell (lateral azul + cabeçalho já existem), por
+   isso o sumário do documento é uma coluna interna à direita — nunca uma
+   segunda barra de navegação.
+   ======================================================================= */
+.gd{background:var(--off);color:var(--preto)}
+.gd-corpo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,236px);gap:40px;
+  align-items:start;max-width:1180px;padding:0 32px 72px}
+.gd-doc{min-width:0;max-width:68ch}
+
+/* --- tipografia de leitura (não usa os tokens 14/24 do produto) --- */
+.gd-doc p,.gd-doc li,.gd-doc dd{font-size:16px;line-height:1.7;color:var(--paragrafo-aaa)}
+.gd-doc p{margin:0 0 14px}
+.gd-doc strong{color:var(--preto);font-weight:700}
+.gd-doc em{font-style:italic}
+.gd-lead{font-size:18px!important;line-height:1.6!important;color:var(--preto)!important;margin-bottom:22px!important}
+.gd-doc ul{margin:0 0 18px;padding-left:22px}
+.gd-doc li{margin-bottom:8px}
+.gd-doc h3{font-family:var(--font-family-headline);font-weight:700;font-size:19px;line-height:1.25;
+  letter-spacing:-.01em;color:var(--preto);margin:34px 0 8px}
+.gd-doc h4{font:var(--font-body-label-bold);font-size:15px;color:var(--preto);margin:22px 0 6px}
+.gd-doc a{color:var(--azul-texto-aaa)}
+
+/* --- capa e aberturas: registro de documento, não do painel --- */
+.gd-capa{padding:34px 32px 26px;max-width:1180px}
+.gd-kicker{font:var(--font-body-caption-bold);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--azul-texto-aaa)}
+.gd-capa h1{font-family:var(--font-family-headline);font-weight:700;
+  font-size:clamp(28px,3.6vw,40px);line-height:1.08;letter-spacing:-.025em;color:var(--preto);
+  margin:10px 0 0;max-width:30ch;text-wrap:balance}
+.gd-capa .gd-sub{font-size:18px;line-height:1.6;color:var(--paragrafo-aaa);margin:14px 0 0;max-width:62ch}
+.gd-capa .gd-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:18px}
+.gd-regua{border:0;border-top:2px solid var(--preto);margin:22px 0 0}
+.gd-sec{padding-top:38px;scroll-margin-top:16px}
+.gd-sec+.gd-sec{border-top:1px solid var(--borda);margin-top:38px}
+.gd-sec-grupo{font:var(--font-body-caption-bold);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--paragrafo-aaa)}
+.gd-sec h2{font-family:var(--font-family-headline);font-weight:700;font-size:26px;line-height:1.18;
+  letter-spacing:-.02em;color:var(--preto);margin:8px 0 6px;display:flex;gap:12px;align-items:baseline}
+.gd-sec h2 .gd-num{color:var(--azul);font-variant-numeric:tabular-nums;flex:none}
+
+/* --- sumário interno (coluna direita) --- */
+.gd-idx{position:sticky;top:16px;border-left:2px solid var(--borda);padding-left:16px}
+.gd-idx-t{font:var(--font-body-caption-bold);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--paragrafo-aaa);margin-bottom:10px}
+.gd-idx ol{list-style:none;margin:0;padding:0}
+.gd-idx .g{font:var(--font-body-caption-bold);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--paragrafo-aaa);padding:14px 0 4px}
+.gd-idx .g:first-child{padding-top:0}
+.gd-idx a{display:block;font-size:13.5px;line-height:1.35;color:var(--paragrafo-aaa);
+  text-decoration:none;padding:6px 8px 6px 10px;border-left:2px solid transparent;margin-left:-18px;
+  transition:color var(--dur-1) var(--ease),border-color var(--dur-1) var(--ease)}
+.gd-idx a:hover{color:var(--preto);background:var(--azul-lightest)}
+/* seção ativa: marcada por peso + régua azul, não só por cor */
+.gd-idx a.on{color:var(--azul-texto-aaa);font-weight:700;border-left-color:var(--azul)}
+.gd-idx-mob{display:none}
+
+/* --- blocos de destaque: distinguíveis por ícone, rótulo e régua, não só cor --- */
+.gd-bloco{display:flex;gap:12px;padding:16px 18px;margin:20px 0;border-radius:0 var(--r-md) var(--r-md) 0}
+.gd-bloco>svg{flex:none;margin-top:2px}
+.gd-bloco .gd-rot{display:block;font:var(--font-body-caption-bold);letter-spacing:.08em;
+  text-transform:uppercase;margin-bottom:4px}
+.gd-bloco p{margin:0!important;color:var(--preto)!important}
+.gd-bloco p+p{margin-top:8px!important}
+.gd-nota{background:var(--azul-lightest);border-left:4px solid var(--azul)}
+.gd-nota .gd-rot,.gd-nota>svg{color:var(--azul-texto-aaa)}
+.gd-atencao{background:var(--alerta-claro);border-left:4px dashed var(--alerta)}
+.gd-atencao .gd-rot,.gd-atencao>svg{color:var(--preto)}
+.gd-trava{background:var(--erro-claro);border-left:4px double var(--erro)}
+.gd-trava .gd-rot,.gd-trava>svg{color:var(--erro-texto-aaa)}
+
+/* --- cartão de apoio, princípios, jornada --- */
+.gd-card{background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-lg);
+  padding:20px 22px;margin:20px 0}
+.gd-card h4{margin-top:0!important}
+.gd-princ{display:grid;gap:12px;margin:22px 0}
+.gd-princ .it{background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-lg);padding:18px 20px}
+.gd-princ .it h4{display:flex;gap:10px;align-items:baseline;font-size:16.5px;margin:0 0 6px;
+  font-family:var(--font-family-headline);font-weight:700}
+.gd-princ .it h4 .n{color:var(--azul);font-variant-numeric:tabular-nums;font-size:14px;flex:none}
+.gd-princ .it p{margin:0!important;font-size:15.5px!important}
+.gd-jorn{list-style:none;counter-reset:gp;margin:22px 0;padding:0}
+.gd-jorn>li{counter-increment:gp;position:relative;padding:0 0 20px 44px;margin-left:14px;
+  border-left:2px solid var(--azul-claro)}
+.gd-jorn>li:last-child{border-left-color:transparent;padding-bottom:2px}
+.gd-jorn>li::before{content:counter(gp);position:absolute;left:-15px;top:-2px;width:28px;height:28px;
+  border-radius:50%;background:var(--azul);color:#fff;display:grid;place-items:center;
+  font:var(--font-body-caption-bold);font-size:13px}
+.gd-jorn>li b{display:block;color:var(--preto);font-size:16px;margin-bottom:2px}
+.gd-jorn>li p{margin:0!important;font-size:15.5px!important}
+.gd-glo{margin:18px 0 0}
+.gd-glo dt{font:var(--font-body-label-bold);font-size:15px;color:var(--preto);margin-top:16px}
+.gd-glo dd{margin:3px 0 0}
+.gd-fluxo{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 18px}
+/* as setas expressam a sequência do funil no corpo do texto — são conteúdo, não
+   ornamento, e por isso seguem a régua AAA como o resto da prosa */
+.gd-fluxo .sep{color:var(--paragrafo-aaa)}
+/* natureza Cupom: amarelo do DSeed com borda em --cinza (o par amarelo/preto
+   é AAA; a borda separa a etiqueta do fundo claro da página)
+   PATCH DO REPO — NÃO REMOVER: o protótipo declara esta regra global. Aqui ela
+   entra escopada, porque a cerca de não-vazamento desta camada é literal —
+   *nenhum* seletor do bloco do guia vale fora de `.gd`, e é isso que o teste
+   de `infra/arquitetura/guia-fonte-unica.test.ts` verifica. A etiqueta só
+   aparece dentro do documento, então o escopo não custa nada. */
+.gd .pill-cupom{background:var(--amarelo-claro);color:var(--preto);border-color:var(--cinza)}
+
+@media (max-width:1100px){
+  .gd-corpo{grid-template-columns:minmax(0,1fr);gap:0;padding:0 24px 64px}
+  .gd-doc{max-width:70ch}
+  .gd-idx{display:none}
+  /* no mobile o sumário vira uma revelação no topo, aberta pelo próprio usuário —
+     evita empurrar o texto para baixo da primeira dobra */
+  .gd-idx-mob{display:block;margin:0 0 8px}
+  .gd-idx-mob>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+    font:var(--font-body-label-bold);color:var(--preto);background:var(--branco);
+    border:1px solid var(--borda);border-radius:var(--r-md);padding:12px 14px}
+  .gd-idx-mob>summary::-webkit-details-marker{display:none}
+  .gd-idx-mob[open]>summary{border-radius:var(--r-md) var(--r-md) 0 0}
+  .gd-idx-mob .lista{border:1px solid var(--borda);border-top:0;border-radius:0 0 var(--r-md) var(--r-md);
+    background:var(--branco);padding:6px 10px 12px}
+  .gd-idx-mob a{display:block;padding:9px 6px;font-size:14.5px;color:var(--paragrafo-aaa);text-decoration:none;
+    border-bottom:1px solid var(--borda)}
+  .gd-idx-mob a:last-child{border-bottom:0}
+  .gd-idx-mob a.on{color:var(--azul-texto-aaa);font-weight:700}
+  .gd-idx-mob .g{font:var(--font-body-caption-bold);letter-spacing:.08em;text-transform:uppercase;
+    color:var(--paragrafo-aaa);padding:12px 6px 2px}
+  .gd-capa{padding:26px 24px 20px}
+}
+@media (max-width:560px){
+  .gd-corpo{padding:0 16px 56px}
+  .gd-capa{padding:22px 16px 18px}
+  .gd-doc p,.gd-doc li,.gd-doc dd{font-size:15.5px}
+  /* a linha do tempo perde a coluna do marcador: número acima do título, sem
+     deslocamento negativo que a 380px sairia da tela */
+  .gd-jorn>li{padding-left:0;margin-left:0;border-left:0;border-top:1px solid var(--borda);
+    padding-top:14px;padding-bottom:16px}
+  .gd-jorn>li:first-child{border-top:0;padding-top:0}
+  .gd-jorn>li::before{position:static;margin-bottom:8px}
+  .gd-bloco{padding:14px 14px 14px 12px}
+  .gd-sec h2{font-size:22px}
+}
+@media print{
+  .gd-idx,.gd-idx-mob{display:none}
+  .gd-corpo{grid-template-columns:1fr;padding:0}
+  .gd-sec{break-inside:auto}
+  .gd-bloco,.gd-card,.gd-princ .it{break-inside:avoid}
+}
+
+/* PATCH DO REPO — NÃO REMOVER: a âncora pousa dentro do <main>, não na janela.
+   No documento autônomo a rolagem é da página e o topo da seção é o topo da
+   tela. Dentro do shell quem rola é o <main>, que começa logo abaixo do
+   cabeçalho — sem folga, a primeira linha da seção nasce colada na borda do
+   container e o leitor não percebe que chegou. O valor acompanha o respiro
+   que o próprio guia usa entre seções. */
+.gd-sec{scroll-margin-top:20px}
+
+/* PATCH DO REPO — NÃO REMOVER: barra da volta identificada (RN59).
+   Fica acima da capa e acompanha a largura do conteúdo; some na impressão,
+   porque é navegação, não documento. */
+.gd-volta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--branco);border-bottom:1px solid var(--borda);padding:10px 32px}
+@media (max-width:560px){.gd-volta{padding:10px 16px}}
+@media print{.gd-volta{display:none}}
