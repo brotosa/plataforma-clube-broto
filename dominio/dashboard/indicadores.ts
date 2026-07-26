@@ -364,6 +364,14 @@ export const CATALOGO_ACAO_HOJE: ReadonlyArray<DefinicaoAcaoHoje> = [
 
 export interface PendenciaApurada extends DefinicaoAcaoHoje {
   contagem: number;
+  /**
+   * Motivo quando a contagem NÃO existe (RN53). Hoje as seis vêm de query
+   * real e nenhuma chega indisponível — o campo existe porque a régua
+   * precisa valer estruturalmente: se amanhã uma fila passar a depender de
+   * fonte externa, ela declara o motivo em vez de exibir zero, e some das
+   * somas sem ninguém precisar lembrar disso.
+   */
+  indisponivel?: MotivoIndisponibilidade;
 }
 
 /** Estado positivo explícito: a faixa zerada não some, ela afirma. */
@@ -371,5 +379,39 @@ export const FAIXA_SEM_PENDENCIA =
   "Nada exige ação hoje. Todas as filas estão em dia.";
 
 export function faixaEstaZerada(pendencias: ReadonlyArray<PendenciaApurada>): boolean {
-  return pendencias.every((p) => p.contagem === 0);
+  return pendencias.every((p) => p.indisponivel !== undefined || p.contagem === 0);
+}
+
+/** As que aparecem como cartão na HOME e como linha no sino. */
+export function pendenciasAcionaveis(
+  pendencias: ReadonlyArray<PendenciaApurada>,
+): PendenciaApurada[] {
+  return pendencias.filter((p) => p.indisponivel !== undefined || p.contagem > 0);
+}
+
+/**
+ * O número do sino (ficha Onda 7 §7).
+ *
+ * **Soma exata das contagens da camada 2 da HOME** — nem mais, nem menos.
+ * Se o sino e os cartões divergirem, os dois perdem credibilidade, e é por
+ * isso que existe uma função só, usada pelos dois, com teste cobrindo a
+ * igualdade.
+ *
+ * Pendência indisponível NÃO contribui (RN53): ela não vale zero, ela não
+ * tem valor — e somar um valor que não existe é inventá-lo.
+ */
+export function totalDePendencias(pendencias: ReadonlyArray<PendenciaApurada>): number {
+  return pendencias.reduce(
+    (total, pendencia) =>
+      pendencia.indisponivel === undefined ? total + pendencia.contagem : total,
+    0,
+  );
+}
+
+/** Texto acessível do marcador do sino — nunca só o número solto. */
+export function textoDoMarcador(total: number): string {
+  if (total === 0) {
+    return "Nenhuma ação pendente — abrir o painel";
+  }
+  return total === 1 ? "1 ação pendente — abrir o painel" : `${total} ações pendentes — abrir o painel`;
 }

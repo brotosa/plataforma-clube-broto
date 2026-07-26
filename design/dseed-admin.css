@@ -648,9 +648,12 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .mx-cel.n0{background:var(--off);color:var(--paragrafo-aaa);border:1px dashed var(--borda)}
 .mx-cel.n1{background:var(--azul-lightest);color:var(--azul-texto-aaa)}
 .mx-cel.n2{background:var(--azul-claro);color:var(--preto)}
-.mx-cel.n3{background:var(--azul);color:#fff}
-/* o degrau mais escuro reusa a superfície de hover do hero (--azul-superficie-hover,
-   #2A38A8): branco mede 9,42:1 sobre ela, aferido na F13 */
+/* Os dois degraus escuros reusam as superfícies AAA já derivadas na F13 em
+   vez do --azul puro. O azul da marca tem exceção nomeada (branco em 4,87:1,
+   AA) — mas a exceção existe para as superfícies que JÁ nasceram com ela, e
+   ampliá-la de graça seria dívida nova: aqui o branco mede 7,74:1 sobre
+   #3242C4 e 9,42:1 sobre #2A38A8, sem redesenho e sem tocar na marca. */
+.mx-cel.n3{background:var(--azul-superficie-aaa);color:#fff}
 .mx-cel.n4{background:var(--azul-superficie-hover);color:#fff}
 
 /* ---- Mapa: geometria real (Natural Earth) + bolhas proporcionais ---- */
@@ -687,3 +690,37 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .mx{min-width:520px}
 }
 @media (prefers-reduced-motion:reduce){.cov-fill,.rk-fill,.mapa-pt,.mx-cel{transition:none}}
+
+/* ---- Adendo (Onda 7 · §7): o sino do cabeçalho vira atalho das pendências ----
+   O marcador e o painel espelham a faixa "Exige ação hoje" da T26 — mesma
+   fonte, mesmo número. Não é fila de notificações: não há lido, histórico nem
+   preferência.
+
+   fix AAA (F14): o `.badge-not` acima nasceu na F1 com --erro puro
+   (#FF0000) e nunca chegou a ser exibido — o sino era decorativo e não tinha
+   marcador. Ao ligá-lo, o valor herdado apareceria: branco sobre #FF0000
+   mede 4,00:1, que reprova até em AA. O token de TEXTO derivado
+   --erro-texto-aaa (#AE0000) leva o branco a 7,50:1 sem sair do matiz —
+   mesma decisão que a F5 tomou para os textos e a F13 para a superfície do
+   hero. Medição em docs/acessibilidade-aaa.md. */
+.badge-not{background:var(--erro-texto-aaa)}
+.not-pop{position:absolute;right:0;top:46px;z-index:91;width:min(390px,86vw);
+  background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);overflow:hidden}
+.not-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:14px 16px 11px;
+  border-bottom:1px solid var(--borda);font:var(--font-body-label-bold);color:var(--preto)}
+.not-lin{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;border:0;
+  background:transparent;padding:11px 16px;cursor:pointer;border-bottom:1px solid var(--borda);
+  font:var(--font-body-base-regular);color:var(--preto);text-decoration:none;
+  transition:background var(--dur-1) var(--ease)}
+.not-lin:hover{background:var(--azul-lightest);text-decoration:none}
+.not-lin:focus-visible{outline:2px solid var(--azul);outline-offset:-2px}
+.not-n{font-family:var(--font-family-headline);font-weight:700;font-size:19px;line-height:1.2;
+  min-width:32px;flex:none;font-variant-numeric:tabular-nums;color:var(--erro-texto-aaa)}
+.not-n.ind{font-size:15px;color:var(--paragrafo-aaa)}
+.not-f{padding:11px 16px;font:var(--font-body-caption-regular)}
+@media (max-width:420px){
+  /* a 380px o painel ocupa a largura útil em vez de flutuar estreito */
+  .not-pop{position:fixed;left:8px;right:8px;top:62px;width:auto;max-height:76vh;overflow:auto}
+}
+@media (prefers-reduced-motion:reduce){.not-lin{transition:none}}

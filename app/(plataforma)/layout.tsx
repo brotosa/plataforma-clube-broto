@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/infra/auth";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
+import { pendenciasDeHoje } from "@/infra/consultas/dashboard";
 import { ShellPlataforma } from "./shell-plataforma";
 
 async function sair() {
@@ -23,6 +24,12 @@ export default async function LayoutPlataforma({
     redirect("/trocar-senha");
   }
 
+  // Sino do cabeçalho (Onda 7 §7): as MESMAS seis contagens que a HOME
+  // exibe como cartões, apuradas aqui e passadas prontas. O sino não
+  // consulta por conta própria — é o que garante que ele não possa divergir
+  // da HOME, e o que o teste da igualdade cobra.
+  const pendencias = await pendenciasDeHoje();
+
   return (
     <ShellPlataforma
       usuario={{
@@ -30,6 +37,7 @@ export default async function LayoutPlataforma({
         rotuloPapel: ROTULOS_PAPEL[sessao.user.papel],
       }}
       sair={sair}
+      pendencias={pendencias}
     >
       {children}
     </ShellPlataforma>

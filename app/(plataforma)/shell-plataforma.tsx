@@ -4,15 +4,34 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { PendenciaApurada } from "@/dominio/dashboard/indicadores";
+import { SinoPendencias } from "./sino-pendencias";
 
 /**
  * Shell da plataforma — reprodução fiel do protótipo: sidebar azul
- * colapsável com os dez módulos, faixa de marca clara, header com busca
- * global, notificações e usuário.
+ * colapsável com os dez módulos, área de marca no azul institucional,
+ * header com busca global, sino de pendências e usuário.
  *
  * F13 (Onda 6): os três últimos itens desligados — Dashboard, Usuários e
  * Auditoria — ganham rota. Com eles a sidebar fica inteira ativa, e o
  * Dashboard passa a ser a HOME (rota `/`).
+ *
+ * F14 (Onda 7, ficha §5) — **correção de fidelidade da marca**. O
+ * implementado divergia do protótipo aprovado: a área de marca dentro da
+ * `<aside>` era branca, e somada ao header branco produzia uma faixa clara
+ * atravessando o topo inteiro, com o logo na variante azul/verde. O
+ * protótipo define o contrário — o azul institucional da lateral **sobe até
+ * o topo**, envolvendo a marca, e o header branco vive só na área de
+ * conteúdo, à direita da lateral.
+ *
+ * A troca do logo não é preferência: a variante amarelo/verde existe
+ * justamente para fundo azul, e usar a azul/verde exige fundo claro. Foi
+ * essa inversão que produziu a faixa branca.
+ *
+ * A entrega do Design ofereceu duas variantes de topo (clara e azul).
+ * Decisão da Superintendência: **apenas a azul permanece** — sem
+ * alternador e sem código morto, então a variante clara simplesmente não
+ * existe aqui.
  */
 
 interface ItemNavegacao {
@@ -90,6 +109,29 @@ function estaAtivo(rota: string, href: string): boolean {
   return rota === href || rota.startsWith(`${href}/`);
 }
 
+/**
+ * Rodapé institucional (ficha Onda 7 §4).
+ *
+ * A versão vem do `version` do `package.json`, injetada no build por
+ * `next.config.ts` — nunca digitada aqui. O rótulo anterior ("Ondas 1–2 ·
+ * Aliados, Ofertas e Mercado") era factualmente incorreto desde a Onda 3 e
+ * impróprio para usuário final; a lição é que texto de produto que descreve
+ * o estado do desenvolvimento envelhece calado.
+ */
+const versao = process.env.NEXT_PUBLIC_VERSAO_APP ?? "—";
+const ambiente = process.env.NEXT_PUBLIC_AMBIENTE ?? "";
+const commitCurto = process.env.NEXT_PUBLIC_COMMIT_CURTO ?? "";
+
+/**
+ * Segunda linha só fora de produção: serve para ninguém apresentar uma
+ * preview acreditando estar na plataforma no ar. Em produção é string
+ * vazia, e a linha não é renderizada.
+ */
+const ambienteVisivel =
+  ambiente && ambiente !== "production"
+    ? [ambiente, commitCurto].filter(Boolean).join(" · ")
+    : "";
+
 function iniciaisDe(nome: string): string {
   const partes = nome
     .trim()
@@ -104,11 +146,18 @@ function iniciaisDe(nome: string): string {
 export function ShellPlataforma({
   usuario,
   sair,
+  pendencias,
   children,
 }: {
   usuario: { nome: string; rotuloPapel: string };
   /** Server action de logout (Auth.js). */
   sair: () => Promise<void>;
+  /**
+   * As mesmas seis contagens que a HOME exibe como cartões — apuradas no
+   * layout e passadas prontas. O sino não consulta nada por conta própria:
+   * é a garantia estrutural de que ele não pode divergir da HOME.
+   */
+  pendencias: ReadonlyArray<PendenciaApurada>;
   children: React.ReactNode;
 }) {
   const [recolhida, setRecolhida] = useState(false);
@@ -125,6 +174,10 @@ export function ShellPlataforma({
           painel lateral (régua da T3, pré-visualização da T5) — sem nome
           acessível eles ficam indistinguíveis (axe: landmark-unique). */}
       <aside className={classeAside} aria-label="Menu lateral">
+        {/* Área de marca SEM fundo próprio: o azul da lateral atravessa até o
+            topo, que é o desenho aprovado. Sem borda e sem sombra — elas
+            existiam para separar a faixa branca do resto e agora só sujariam
+            o azul contínuo. */}
         {recolhida ? (
           <div
             style={{
@@ -132,14 +185,11 @@ export function ShellPlataforma({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "var(--branco)",
-              borderBottom: "1px solid var(--borda)",
               margin: "0 -6px 14px 0",
-              boxShadow: "0 1px 0 var(--borda)",
             }}
           >
             <Image
-              src="/logos/logo-broto-simbolo-azul.svg"
+              src="/logos/logo-broto-simbolo-amarelo.svg"
               alt="Broto"
               width={40}
               height={23}
@@ -154,21 +204,23 @@ export function ShellPlataforma({
               flexDirection: "column",
               justifyContent: "center",
               gap: 3,
-              background: "var(--branco)",
-              borderBottom: "1px solid var(--borda)",
               paddingLeft: 20,
               margin: "0 -12px 14px 0",
-              boxShadow: "0 1px 0 var(--borda)",
             }}
           >
             <Image
-              src="/logos/logo-broto-azul-verde.svg"
+              src="/logos/logo-broto-amarelo-verde.svg"
               alt="Broto"
               width={100}
               height={19}
               style={{ height: 19, width: "auto", display: "block" }}
             />
-            <div className="cap" style={{ color: "var(--paragrafo-aaa)", fontSize: 11 }}>
+            {/* fix AAA (F14): o protótipo pinta este descritivo em
+                --azul-claro, que mede 3,7:1 sobre o azul da lateral e reprova
+                em AAA. Branco é o maior contraste possível neste fundo —
+                mesma decisão que a F5 já havia tomado para a legenda do
+                rodapé. Medição em docs/acessibilidade-aaa.md. */}
+            <div className="cap" style={{ color: "var(--branco)", fontSize: 11 }}>
               Plataforma de administração
             </div>
           </div>
@@ -209,7 +261,10 @@ export function ShellPlataforma({
               o azul); branco é o maior contraste possível neste fundo */}
           {!recolhida ? (
             <div style={{ paddingLeft: 20, color: "var(--branco)" }} className="cap">
-              Ondas 1–2 · Aliados, Ofertas e Mercado
+              Elaborado por Broto S.A. · v{versao}
+              {ambienteVisivel ? (
+                <span style={{ display: "block", opacity: 0.8 }}>{ambienteVisivel}</span>
+              ) : null}
             </div>
           ) : null}
           <button
@@ -293,28 +348,10 @@ export function ShellPlataforma({
 
           <div style={{ flex: 1 }} />
 
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ width: 38, height: 38, padding: 0, borderRadius: "50%" }}
-            aria-label="Notificações"
-            title="Alertas de vigência e janela contratual chegam com a carga de dados"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              width="17"
-              height="17"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-          </button>
+          {/* F14: o `title` antigo prometia "alertas de vigência e janela
+              contratual chegam com a carga de dados" — alertas que nunca
+              existiriam. Saiu junto com o botão decorativo. */}
+          <SinoPendencias pendencias={pendencias} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className="dot-avatar" aria-hidden="true">

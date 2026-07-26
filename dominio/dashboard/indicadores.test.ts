@@ -13,6 +13,9 @@ import {
   disponivel,
   etiquetaDeAtribuicao,
   faixaEstaZerada,
+  pendenciasAcionaveis,
+  textoDoMarcador,
+  totalDePendencias,
   indicadoresDoBloco,
   indisponivel,
   percentual,
@@ -167,5 +170,54 @@ describe("faixa 'Exige ação hoje' (ficha §2)", () => {
   it("uma pendência basta para a faixa não estar zerada", () => {
     const comUma = CATALOGO_ACAO_HOJE.map((p, i) => ({ ...p, contagem: i === 2 ? 1 : 0 }));
     expect(faixaEstaZerada(comUma)).toBe(false);
+  });
+});
+
+describe("sino de pendências (Onda 7 §7) — o mesmo número dos cartões da HOME", () => {
+  const comContagens = (valores: ReadonlyArray<number>) =>
+    CATALOGO_ACAO_HOJE.map((p, i) => ({ ...p, contagem: valores[i] ?? 0 }));
+
+  it("o total é a soma exata das contagens da camada 2", () => {
+    expect(totalDePendencias(comContagens([3, 0, 1, 1, 0, 92]))).toBe(97);
+  });
+
+  it("sem pendência o total é zero e o marcador não aparece", () => {
+    expect(totalDePendencias(comContagens([0, 0, 0, 0, 0, 0]))).toBe(0);
+  });
+
+  it("pendência indisponível NÃO entra na soma (RN53)", () => {
+    const pendencias = comContagens([3, 0, 1, 0, 0, 0]).map((p, i) =>
+      // A segunda fica sem base: não vale zero, não tem valor.
+      i === 1 ? { ...p, contagem: 999, indisponivel: "SEM_BASE_DE_CALCULO" as const } : p,
+    );
+    expect(totalDePendencias(pendencias)).toBe(4);
+  });
+
+  it("as linhas do sino são exatamente os cartões da HOME — acionáveis ou indisponíveis", () => {
+    const pendencias = comContagens([3, 0, 1, 0, 0, 0]).map((p, i) =>
+      i === 4 ? { ...p, contagem: 0, indisponivel: "SEM_BASE_DE_CALCULO" as const } : p,
+    );
+    const linhas = pendenciasAcionaveis(pendencias);
+    // Duas com contagem > 0 e uma indisponível; as três zeradas ficam de fora.
+    expect(linhas.map((l) => l.chave)).toEqual([
+      CATALOGO_ACAO_HOJE[0]!.chave,
+      CATALOGO_ACAO_HOJE[2]!.chave,
+      CATALOGO_ACAO_HOJE[4]!.chave,
+    ]);
+  });
+
+  it("faixa só com indisponíveis conta como zerada — não há ação a tomar", () => {
+    const todas = comContagens([0, 0, 0, 0, 0, 0]).map((p) => ({
+      ...p,
+      indisponivel: "SEM_BASE_DE_CALCULO" as const,
+    }));
+    expect(faixaEstaZerada(todas)).toBe(true);
+    expect(totalDePendencias(todas)).toBe(0);
+  });
+
+  it("o marcador tem texto acessível, com plural correto", () => {
+    expect(textoDoMarcador(0)).toBe("Nenhuma ação pendente — abrir o painel");
+    expect(textoDoMarcador(1)).toBe("1 ação pendente — abrir o painel");
+    expect(textoDoMarcador(7)).toBe("7 ações pendentes — abrir o painel");
   });
 });
