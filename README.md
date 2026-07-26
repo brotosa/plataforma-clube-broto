@@ -130,6 +130,8 @@ pnpm dev              # http://localhost:3000
 | `BUILD_STANDALONE` | só no Docker | `true` liga `output: "standalone"`; na Vercel **não** usar |
 | `SENHA_USUARIOS_DEV` | não | sobrescreve a senha dos usuários de desenvolvimento |
 | `PORT` / `HOSTNAME` | não | porta e interface do servidor (a imagem já define 3000 / 0.0.0.0) |
+| `AMBIENTE_APP` | não | rótulo do ambiente no rodapé fora de produção. Sem ela, cai para `VERCEL_ENV` e depois `NODE_ENV`; em `production` a linha não é renderizada |
+| `COMMIT_SHA` | não | commit exibido no rodapé fora de produção. Sem ela, cai para `VERCEL_GIT_COMMIT_SHA` ou `GITHUB_SHA` |
 | `CHROMIUM_EXECUTAVEL` | não | caminho de um Chromium próprio para o Playwright (contêineres) |
 | `PW_REUSAR_SERVIDOR` | não | `1` aponta o e2e para um servidor já em execução |
 
