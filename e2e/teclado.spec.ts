@@ -45,7 +45,7 @@ async function alcancavelPorTeclado(alvo: Locator, descricao: string): Promise<v
 }
 
 test.describe("navegação por teclado — telas da Onda 1", () => {
-  test("T2: as sete abas da ficha são alcançáveis por Tab e navegam com Enter", async ({
+  test("T2: as nove abas da ficha são alcançáveis por Tab e navegam com Enter", async ({
     page,
   }) => {
     const nome = `Aliado E2E ${runId()}-kbd-t2`;
@@ -58,8 +58,11 @@ test.describe("navegação por teclado — telas da Onda 1", () => {
     await page.waitForLoadState("networkidle"); // hidratação antes do teclado
 
     // Todas as abas participam da ordem de tabulação (nenhuma é div clicável).
+    // Nove desde a F9, que somou Scouting, Dossiê e Ficha M1 à ficha (T12). A
+    // contagem segue EXATA de propósito: aba nova sem prova de teclado quebra
+    // este teste, que é justamente o ponto.
     const abas = page.getByRole("navigation", { name: "Seções da ficha do aliado" }).getByRole("link");
-    await expect(abas).toHaveCount(7);
+    await expect(abas).toHaveCount(9);
     for (const aba of await abas.all()) {
       await alcancavelPorTeclado(aba, `aba "${(await aba.textContent())?.trim()}"`);
     }
