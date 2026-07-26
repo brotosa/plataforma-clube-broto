@@ -72,6 +72,10 @@ COPY --from=construcao --chown=node:node /app/public ./public
 # levá-las para o standalone; a cópia explícita garante que a funcionalidade
 # não dependa de uma heurística do bundler.
 COPY --from=construcao --chown=node:node /app/dados ./dados
+# Mesma razão para o conteúdo do Guia da Plataforma (Onda 9): a rota /ajuda
+# lê `conteudo/guia-plataforma` por `process.cwd()`, e o guia é fonte única
+# — sem a cópia, a ajuda ficaria vazia justamente na imagem de produção.
+COPY --from=construcao --chown=node:node /app/conteudo ./conteudo
 
 EXPOSE 3000
 
