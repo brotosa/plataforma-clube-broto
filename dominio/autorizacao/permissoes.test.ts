@@ -192,6 +192,45 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "ADMINISTRADOR_PLATAFORMA",
     ],
   },
+  // Onda 4 — ficha §2: modelagem e ativação com Gestor e Analista. A
+  // geração do kit exige, ADICIONALMENTE, a permissão de exportar listas
+  // da Onda 5 — verificada no caso de uso, não aqui.
+  {
+    acao: "MODELAR_CAMPANHA",
+    permitidos: ["GESTOR", "ANALISTA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      // Segregação: o Administrador da Plataforma (RN23) configura o
+      // produto e não opera campanha — a ficha da Onda 4 §2 dá modelagem
+      // e ativação a Gestor e Analista.
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+  },
+  {
+    acao: "ATIVAR_ENCERRAR_CAMPANHA",
+    permitidos: ["GESTOR", "ANALISTA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+  },
+  {
+    acao: "GERIR_CESTAS",
+    permitidos: ["GESTOR", "ANALISTA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+  },
 ];
 
 describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1, 2, 3 e 5)", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import type { AmbientePagamento, NaturezaOferta } from "@prisma/client";
+import type { AmbientePagamento, DestinacaoOferta, NaturezaOferta } from "@prisma/client";
 import {
   type MecanicaSlug,
   explicacaoIncompatibilidade,
@@ -38,6 +38,18 @@ export interface ValoresOferta {
   vigenciaInicio?: string;
   vigenciaFim?: string | null;
   limiteResgates?: number | null;
+  /** Onda 4 (ficha §3): destinação e vínculo opcional. */
+  destinacao?: DestinacaoOferta;
+  destinacaoCampanhaId?: string | null;
+  destinacaoCestaId?: string | null;
+}
+
+/** Campanhas e cestas disponíveis para vincular (Onda 4). */
+export interface OpcaoDestino {
+  id: string;
+  nome: string;
+  /** Vigência da campanha, sugerida à oferta quando vinculada. */
+  vigencia?: string | null;
 }
 
 const DESCRICAO_NATUREZA: Record<NaturezaOferta, { titulo: string; texto: string }> = {
@@ -66,6 +78,8 @@ export function FormularioOferta({
   tiposBeneficio,
   mecanicas,
   valores,
+  campanhas = [],
+  cestas = [],
 }: {
   solucaoId: string;
   contexto: {
@@ -77,6 +91,8 @@ export function FormularioOferta({
   tiposBeneficio: OpcaoTipoBeneficio[];
   mecanicas: OpcaoMecanica[];
   valores?: ValoresOferta;
+  campanhas?: ReadonlyArray<OpcaoDestino>;
+  cestas?: ReadonlyArray<OpcaoDestino>;
 }) {
   const edicao = Boolean(valores?.ofertaId);
   const [estado, despachar, pendente] = useActionState<EstadoFormulario, FormData>(
@@ -90,9 +106,21 @@ export function FormularioOferta({
   const [precoDe, definirPrecoDe] = useState(valores?.precoDe ?? "");
   const [precoPor, definirPrecoPor] = useState(valores?.precoPor ?? "");
   const [mecanicaId, definirMecanicaId] = useState(valores?.mecanicaId ?? "");
+  const [destinacao, definirDestinacao] = useState<DestinacaoOferta>(
+    valores?.destinacao ?? "VITRINE",
+  );
+  const [destinoId, definirDestinoId] = useState(
+    valores?.destinacaoCampanhaId ?? valores?.destinacaoCestaId ?? "",
+  );
 
   const tipoSelecionado = tiposBeneficio.find((tipo) => tipo.id === tipoBeneficioId);
   const mecanicaSelecionada = mecanicas.find((mecanica) => mecanica.id === mecanicaId);
+  // Vigência SUGERIDA (ficha §3): o formulário informa, o usuário decide —
+  // nada é preenchido por trás, a data continua editável.
+  const vigenciaSugerida =
+    destinacao === "CAMPANHA"
+      ? (campanhas.find((campanha) => campanha.id === destinoId)?.vigencia ?? null)
+      : null;
 
   function aoMudarNatureza(nova: NaturezaOferta) {
     definirNatureza(nova);
@@ -331,6 +359,80 @@ export function FormularioOferta({
               defaultValue={valores?.instrucoesResgate ?? ""}
             />
             <span className="hint">Recomendado para checkout externo (previsto no contrato).</span>
+          </div>
+        </div>
+
+        {/* Onda 4 (ficha §3, extensão retroativa): a destinação entra como
+            cartão próprio, na posição do protótipo v7.1 — entre a mecânica e
+            a vigência —, sem reorganizar o formulário existente. */}
+        <div className="card" style={{ padding: "20px 22px" }}>
+          <h2 className="h-el" style={{ marginBottom: 14 }}>
+            Destinação
+          </h2>
+          <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="field">
+              <label htmlFor="campo-of-destinacao">Onde esta oferta vive</label>
+              <select
+                id="campo-of-destinacao"
+                className="select"
+                name="destinacao"
+                value={destinacao}
+                onChange={(evento) => definirDestinacao(evento.target.value as DestinacaoOferta)}
+              >
+                <option value="VITRINE">Vitrine — permanente</option>
+                <option value="CAMPANHA">Criada para uma campanha</option>
+                <option value="CESTA">Criada para uma cesta</option>
+              </select>
+              <span className="hint">
+                A vitrine é uma só — o vínculo serve à gestão e à medição, não muda a publicação.
+              </span>
+            </div>
+            {destinacao === "CAMPANHA" ? (
+              <div className="field">
+                <label htmlFor="campo-of-campanha">Campanha</label>
+                <select
+                  id="campo-of-campanha"
+                  className="select"
+                  name="destinacaoCampanhaId"
+                  value={destinoId}
+                  onChange={(evento) => definirDestinoId(evento.target.value)}
+                >
+                  <option value="">Selecionar…</option>
+                  {campanhas.map((campanha) => (
+                    <option value={campanha.id} key={campanha.id}>
+                      {campanha.nome}
+                    </option>
+                  ))}
+                </select>
+                <span className="hint">
+                  {vigenciaSugerida
+                    ? `Vigência sugerida igual à da campanha (editável): ${vigenciaSugerida}`
+                    : "Vigência sugerida igual à da campanha (editável)."}
+                </span>
+              </div>
+            ) : null}
+            {destinacao === "CESTA" ? (
+              <div className="field">
+                <label htmlFor="campo-of-cesta">Cesta</label>
+                <select
+                  id="campo-of-cesta"
+                  className="select"
+                  name="destinacaoCestaId"
+                  value={destinoId}
+                  onChange={(evento) => definirDestinoId(evento.target.value)}
+                >
+                  <option value="">Selecionar…</option>
+                  {cestas.map((cesta) => (
+                    <option value={cesta.id} key={cesta.id}>
+                      {cesta.nome}
+                    </option>
+                  ))}
+                </select>
+                <span className="hint">
+                  A cesta só entra em campanha com todas as ofertas publicadas (RN41).
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
 

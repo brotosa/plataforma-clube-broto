@@ -172,28 +172,12 @@ function linhaCsv(valores: Array<string | null>): string {
 }
 
 /**
- * RN34 — exportação de lista de contato: permissão específica,
- * finalidade OBRIGATÓRIA, snapshot CSV no armazenamento de objetos e
- * registro auditável com contagem, regra e hash. Regra com "uso em 90
- * dias" não exporta: a lista não é computável sem telemetria (RN36) e
- * nada aqui é estimado.
+ * Materializa o CSV da lista a partir da regra declarativa. Separado do
+ * caso de uso para a ativação de campanha (Onda 4, RN38) congelar o
+ * público pelo MESMO caminho, sem duplicar o formato do snapshot.
  */
-export async function exportarLista(
-  ator: Ator,
-  parametros: {
-    regras: unknown;
-    finalidade: string;
-    segmentoId?: string | null;
-  },
-) {
-  exigirPermissao(ator.papel, "EXPORTAR_LISTAS_CONTATO");
-  const finalidade = parametros.finalidade.trim();
-  if (!finalidade) {
-    throw new ErroDeValidacao([
-      "A finalidade da exportação é obrigatória e fica gravada no snapshot (RN34).",
-    ]);
-  }
-  const { regras, compilado } = await compilarValidando(parametros.regras);
+export async function montarSnapshotDoPublico(regrasBrutas: unknown) {
+  const { regras, compilado } = await compilarValidando(regrasBrutas);
   if (compilado.status === "AGUARDANDO_TELEMETRIA") {
     throw new ErroDeValidacao([
       "A regra inclui uso em 90 dias — sem telemetria por assinante, a lista não é computável (RN36).",
@@ -224,48 +208,105 @@ export async function exportarLista(
     );
   }
   const conteudo = Buffer.from(linhas.join("\n") + "\n", "utf8");
-  const hash = hashDeSnapshot(conteudo);
+  return {
+    regras,
+    conteudo,
+    hash: hashDeSnapshot(conteudo),
+    contagem: registros.length,
+    cpfHashes: registros.map((registro) => registro.cpfHash),
+  };
+}
 
-  const exportacao = await prisma.$transaction(async (tx) => {
-    const criada = await tx.exportacaoLista.create({
-      data: {
-        autorId: ator.id,
-        finalidade,
-        contagem: registros.length,
-        regras: regras as unknown as Prisma.InputJsonValue,
-        segmentoId: parametros.segmentoId ?? null,
-        arquivoChave: "pendente",
-        hashArquivo: hash,
-      },
-    });
-    const chave = `listas-contato/${criada.criadoEm.toISOString().slice(0, 10)}-${criada.id}.csv`;
-    const atualizada = await tx.exportacaoLista.update({
-      where: { id: criada.id },
-      data: { arquivoChave: chave },
-    });
-    await registrarMutacao(criarGravadorPrisma(tx), {
-      entidade: "exportacao_lista",
-      entidadeId: criada.id,
-      autorId: ator.id,
-      anterior: null,
-      novo: {
-        finalidade,
-        contagem: registros.length,
-        regras: JSON.stringify(regras),
-        hashArquivo: hash,
-        arquivoChave: chave,
-        segmentoId: parametros.segmentoId ?? null,
-      },
-    });
-    return atualizada;
+/**
+ * Grava a linha auditável da exportação (RN34) dentro de uma transação
+ * em curso. O arquivo é gravado pelo chamador DEPOIS do commit — a linha
+ * auditável existe antes do arquivo, nunca o inverso.
+ */
+export async function registrarExportacaoDentroDaTransacao(
+  tx: Prisma.TransactionClient,
+  autorId: string,
+  dados: {
+    finalidade: string;
+    contagem: number;
+    regras: unknown;
+    hash: string;
+    segmentoId?: string | null;
+  },
+) {
+  const criada = await tx.exportacaoLista.create({
+    data: {
+      autorId,
+      finalidade: dados.finalidade,
+      contagem: dados.contagem,
+      regras: dados.regras as unknown as Prisma.InputJsonValue,
+      segmentoId: dados.segmentoId ?? null,
+      arquivoChave: "pendente",
+      hashArquivo: dados.hash,
+    },
   });
+  const chave = `listas-contato/${criada.criadoEm.toISOString().slice(0, 10)}-${criada.id}.csv`;
+  const atualizada = await tx.exportacaoLista.update({
+    where: { id: criada.id },
+    data: { arquivoChave: chave },
+  });
+  await registrarMutacao(criarGravadorPrisma(tx), {
+    entidade: "exportacao_lista",
+    entidadeId: criada.id,
+    autorId,
+    anterior: null,
+    novo: {
+      finalidade: dados.finalidade,
+      contagem: dados.contagem,
+      regras: JSON.stringify(dados.regras),
+      hashArquivo: dados.hash,
+      arquivoChave: chave,
+      segmentoId: dados.segmentoId ?? null,
+    },
+  });
+  return atualizada;
+}
+
+/**
+ * RN34 — exportação de lista de contato: permissão específica,
+ * finalidade OBRIGATÓRIA, snapshot CSV no armazenamento de objetos e
+ * registro auditável com contagem, regra e hash. Regra com "uso em 90
+ * dias" não exporta: a lista não é computável sem telemetria (RN36) e
+ * nada aqui é estimado.
+ */
+export async function exportarLista(
+  ator: Ator,
+  parametros: {
+    regras: unknown;
+    finalidade: string;
+    segmentoId?: string | null;
+  },
+) {
+  exigirPermissao(ator.papel, "EXPORTAR_LISTAS_CONTATO");
+  const finalidade = parametros.finalidade.trim();
+  if (!finalidade) {
+    throw new ErroDeValidacao([
+      "A finalidade da exportação é obrigatória e fica gravada no snapshot (RN34).",
+    ]);
+  }
+  const snapshot = await montarSnapshotDoPublico(parametros.regras);
+  const { conteudo, hash, contagem, regras } = snapshot;
+
+  const exportacao = await prisma.$transaction((tx) =>
+    registrarExportacaoDentroDaTransacao(tx, ator.id, {
+      finalidade,
+      contagem,
+      regras,
+      hash,
+      segmentoId: parametros.segmentoId ?? null,
+    }),
+  );
 
   // Snapshot gravado após a transação: a linha auditável existe antes do
   // arquivo; em falha de armazenamento o registro aponta hash sem objeto
   // e a operação pode ser refeita — nunca o inverso (arquivo órfão).
   await criarArmazenadorLocal().salvar(exportacao.arquivoChave, conteudo);
   logger.info(
-    { exportacaoId: exportacao.id, contagem: registros.length },
+    { exportacaoId: exportacao.id, contagem },
     "exportação de lista materializada",
   );
   return exportacao;

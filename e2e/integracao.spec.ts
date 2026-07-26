@@ -143,6 +143,15 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
     for (const rota of ["/ofertas", "/ofertas/publicacao", "/ofertas/telemetria"]) {
       await page.goto(rota);
       await page.getByRole("heading", { level: 1 }).first().waitFor();
+      // Espera a UI assentar antes de medir (disciplina da F11): as
+      // transições de 160ms do dseed-admin fazem o axe ler cores
+      // intermediárias — o botão azul mede 4,3:1 no meio da transição e
+      // 4,6:1 assentado, e a varredura acusava contraste falso.
+      await page.waitForFunction(() =>
+        Array.from(document.querySelectorAll("*")).every((elemento) =>
+          elemento.getAnimations().every((animacao) => animacao.playState !== "running"),
+        ),
+      );
       const resultado = await new AxeBuilder({ page }).analyze();
       expect(resultado.violations, `axe em ${rota}`).toEqual([]);
     }
