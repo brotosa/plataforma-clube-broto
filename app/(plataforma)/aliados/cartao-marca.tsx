@@ -81,29 +81,32 @@ export function CartaoMarca({
   /** Hash da marca vigente, ou null quando o aliado não tem marca. */
   marca: { hash: string; nomeArquivo: string; bytes: number } | null;
 }) {
-  const [estadoEnvio, enviar, enviando] = useActionState<EstadoFormulario, FormData>(
-    acaoEnviarMarca,
-    {},
-  );
-  const [estadoRemocao, remover, removendo] = useActionState<EstadoFormulario, FormData>(
-    acaoRemoverMarca,
+  /**
+   * UM estado para as duas operações, e não um `useActionState` por ação.
+   *
+   * Com dois estados, o "Marca do aliado atualizada." do envio anterior
+   * continuava vivo e mascarava o "Marca removida." da remoção seguinte —
+   * a tela mostrava a mensagem errada. Despachando por intenção, o
+   * resultado exibido é sempre o da última operação.
+   */
+  const [estado, executar, ocupado] = useActionState<EstadoFormulario, FormData>(
+    async (_anterior, dados) => {
+      if (dados.get("intencao") === "remover") {
+        return acaoRemoverMarca({}, dados);
+      }
+      const arquivo = dados.get("marca");
+      if (arquivo instanceof File && arquivo.size > 0) {
+        dados.set("marca", await encolherSePuder(arquivo));
+      }
+      return acaoEnviarMarca({}, dados);
+    },
     {},
   );
   const idCampo = useId();
   const [nomeEscolhido, definirNomeEscolhido] = useState<string | null>(null);
 
-  // As duas ações compartilham a mesma área de aviso: quem usa a tela vê
-  // um lugar só onde a recusa aparece, seja de envio ou de remoção.
-  const erros = [...(estadoEnvio.erros ?? []), ...(estadoRemocao.erros ?? [])];
-  const sucesso = estadoEnvio.sucesso ?? estadoRemocao.sucesso;
-
-  async function aoEnviar(dados: FormData) {
-    const arquivo = dados.get("marca");
-    if (arquivo instanceof File && arquivo.size > 0) {
-      dados.set("marca", await encolherSePuder(arquivo));
-    }
-    enviar(dados);
-  }
+  const erros = estado.erros ?? [];
+  const sucesso = estado.sucesso;
 
   return (
     <div className="card" style={{ padding: "20px 22px" }}>
@@ -150,8 +153,9 @@ export function CartaoMarca({
         </div>
 
         <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-          <form action={aoEnviar} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <form action={executar} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <input type="hidden" name="empresaId" value={empresaId} />
+            <input type="hidden" name="intencao" value="enviar" />
             <div className="field">
               <label htmlFor={idCampo}>{marca ? "Trocar a marca" : "Enviar a marca"}</label>
               <input
@@ -172,8 +176,8 @@ export function CartaoMarca({
               </span>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="submit" className="btn btn-azul btn-sm" disabled={enviando || removendo}>
-                {enviando ? "Enviando…" : marca ? "Trocar marca" : "Enviar marca"}
+              <button type="submit" className="btn btn-azul btn-sm" disabled={ocupado}>
+                {ocupado ? "Enviando…" : marca ? "Trocar marca" : "Enviar marca"}
               </button>
               {nomeEscolhido ? (
                 <span className="cap" style={{ alignSelf: "center" }}>
@@ -184,14 +188,11 @@ export function CartaoMarca({
           </form>
 
           {marca ? (
-            <form action={remover} style={{ marginTop: 10 }}>
+            <form action={executar} style={{ marginTop: 10 }}>
               <input type="hidden" name="empresaId" value={empresaId} />
-              <button
-                type="submit"
-                className="btn btn-ghost btn-sm"
-                disabled={enviando || removendo}
-              >
-                {removendo ? "Removendo…" : "Remover marca"}
+              <input type="hidden" name="intencao" value="remover" />
+              <button type="submit" className="btn btn-ghost btn-sm" disabled={ocupado}>
+                {ocupado ? "Removendo…" : "Remover marca"}
               </button>
               <span className="cap" style={{ marginLeft: 10 }}>
                 {marca.nomeArquivo} · {Math.round((marca.bytes / 1024) * 10) / 10} KB
