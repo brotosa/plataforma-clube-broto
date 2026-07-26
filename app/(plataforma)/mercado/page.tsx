@@ -13,6 +13,10 @@ import { ROTULOS_ORIGEM } from "@/dominio/funil/regras";
 import { mapaDeCobertura, painelDeMetas } from "@/infra/consultas/cobertura-metas";
 import { KanbanFunil } from "./kanban";
 import { MapaDeCobertura } from "./mapa-cobertura";
+import {
+  SegmentadoDaSecao,
+  VISOES_DE_MERCADO,
+} from "@/app/(plataforma)/segmentado-secao";
 import { PainelDeMetas } from "./painel-metas";
 
 export const metadata: Metadata = {
@@ -122,15 +126,31 @@ export default async function PaginaMercado({
           flexWrap: "wrap",
         }}
       >
-        <div>
+        {/* `flex: 1 1 0` + `minWidth: 0` no lugar do antigo espaçador.
+            Com `flex-wrap: wrap`, item que não cabe QUEBRA em vez de
+            encolher — e o subtítulo longo desta seção (o mais longo do
+            produto) empurrava "+ Incluir empresa" para uma segunda linha
+            assim que o segmentado entrou na faixa. Com base flexível zero, o
+            título entra na conta como 0 e depois cresce no espaço que sobra:
+            a linha fecha, e quem cede é o subtítulo, que passa a ocupar duas
+            linhas. A ação nunca desce de nível. */}
+        <div style={{ flex: "1 1 0", minWidth: 0 }}>
           <h1 className="h-page">
             {aba === "cobertura" ? "Mapa de cobertura" : aba === "metas" ? "Metas" : "Funil de mercado"}
           </h1>
-          <div className="cap" style={{ marginTop: 4 }}>
+          <div className="cap" style={{ marginTop: 4, textWrap: "pretty" }}>
             Mercado &amp; Scout · radar de até 100 empresas/mês · 2 scouts · comercial de 8 pessoas
           </div>
         </div>
-        <div style={{ flex: 1 }} />
+        {/* Acabamento pós-Onda 7: o segmentado sobe para a linha do cabeçalho,
+            à esquerda dos botões de ação — o mesmo lugar que ele ocupa em
+            Aliados & Soluções. Duas seções com o mesmo padrão em posições
+            diferentes obrigam quem usa a reaprender a tela a cada módulo. */}
+        <SegmentadoDaSecao
+          nome="Visões do Mercado &amp; Scout"
+          visoes={VISOES_DE_MERCADO}
+          ativa={aba}
+        />
         <Link
           href="/mercado/radar?importar=1"
           className="btn btn-ghost"
@@ -143,32 +163,6 @@ export default async function PaginaMercado({
         </Link>
       </div>
 
-      <nav className="seg" aria-label="Visões do Mercado &amp; Scout" style={{ marginBottom: 14 }}>
-        <Link
-          href="/mercado"
-          className={aba === "funil" ? "on" : ""}
-          aria-current={aba === "funil" ? "page" : undefined}
-          style={{ textDecoration: "none" }}
-        >
-          Funil
-        </Link>
-        <Link
-          href="/mercado?aba=cobertura"
-          className={aba === "cobertura" ? "on" : ""}
-          aria-current={aba === "cobertura" ? "page" : undefined}
-          style={{ textDecoration: "none" }}
-        >
-          Cobertura
-        </Link>
-        <Link
-          href="/mercado?aba=metas"
-          className={aba === "metas" ? "on" : ""}
-          aria-current={aba === "metas" ? "page" : undefined}
-          style={{ textDecoration: "none" }}
-        >
-          Metas
-        </Link>
-      </nav>
 
       {aba === "cobertura" && cobertura ? <MapaDeCobertura cobertura={cobertura} /> : null}
       {aba === "metas" && metas ? <PainelDeMetas metas={metas} /> : null}
@@ -231,9 +225,9 @@ export default async function PaginaMercado({
             {contadores.descartadas}
           </div>
           <div style={{ marginTop: 2 }}>
-            <Link href={urlCom({ visao: "tabela" })} className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>
+            <a href={urlCom({ visao: "tabela" })} className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>
               ver na tabela
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -247,23 +241,24 @@ export default async function PaginaMercado({
           flexWrap: "wrap",
         }}
       >
+        {/* Âncoras: alternar visão muda apenas a querystring. */}
         <div className="seg">
-          <Link
+          <a
             href={urlCom({ visao: null })}
             className={visao === "kanban" ? "on" : ""}
             aria-current={visao === "kanban" ? "true" : undefined}
             style={{ textDecoration: "none" }}
           >
             Kanban
-          </Link>
-          <Link
+          </a>
+          <a
             href={urlCom({ visao: "tabela" })}
             className={visao === "tabela" ? "on" : ""}
             aria-current={visao === "tabela" ? "true" : undefined}
             style={{ textDecoration: "none" }}
           >
             Tabela
-          </Link>
+          </a>
         </div>
         <form method="GET" action="/mercado" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           {visao === "tabela" ? <input type="hidden" name="visao" value="tabela" /> : null}

@@ -8,7 +8,7 @@ import {
   listarAliados,
 } from "@/infra/consultas/aliados";
 import { BarraCompletude, PillEstagio, iniciaisDoNome } from "./componentes";
-import { SegmentadoDaSecao } from "./segmentado-secao";
+import { SegmentadoDaSecao, VISOES_DE_ALIADOS } from "@/app/(plataforma)/segmentado-secao";
 
 export const metadata: Metadata = {
   title: "Aliados",
@@ -99,7 +99,11 @@ export default async function PaginaAliados({
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <SegmentadoDaSecao ativa="LISTA" />
+        <SegmentadoDaSecao
+          nome="Visões de Aliados &amp; Soluções"
+          visoes={VISOES_DE_ALIADOS}
+          ativa="LISTA"
+        />
         <Link href="/aliados/novo" className="btn btn-azul" style={{ textDecoration: "none" }}>
           + Novo aliado
         </Link>

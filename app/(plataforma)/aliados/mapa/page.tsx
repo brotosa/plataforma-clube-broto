@@ -16,7 +16,7 @@ import { ROTULOS_REGIAO } from "@/dominio/geografia/regioes";
 import { distribuicaoGeografica } from "@/infra/consultas/mapa-rede";
 import { categoriasParaFiltro, culturasParaFiltro } from "@/infra/consultas/cobertura";
 import { PROVENIENCIA_GEOMETRIA } from "@/infra/geografia/projecao";
-import { SegmentadoDaSecao } from "../segmentado-secao";
+import { SegmentadoDaSecao, VISOES_DE_ALIADOS } from "@/app/(plataforma)/segmentado-secao";
 import { MapaBrasil } from "./mapa-brasil";
 
 export const metadata: Metadata = {
@@ -110,7 +110,11 @@ export default async function PaginaMapa({
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <SegmentadoDaSecao ativa="MAPA" />
+        <SegmentadoDaSecao
+          nome="Visões de Aliados &amp; Soluções"
+          visoes={VISOES_DE_ALIADOS}
+          ativa="MAPA"
+        />
         <Link href="/aliados/novo" className="btn btn-azul" style={{ textDecoration: "none" }}>
           + Novo aliado
         </Link>
@@ -126,17 +130,22 @@ export default async function PaginaMapa({
         }}
       >
         {/* RN52 — o alternador é decisão de primeira classe, não filtro
-            secundário: por isso abre a barra, com o modo ativo marcado. */}
+            secundário: por isso abre a barra, com o modo ativo marcado.
+
+            Âncoras, não <Link>: a troca de modo muda apenas a querystring, e
+            o <Link> do App Router não confirma essa transição — medido em
+            12/12 falhas no `main` já mergeado. O alternador é o coração da
+            RN52; ele não pode ser um controle que às vezes não faz nada. */}
         <nav className="seg" aria-label="Leitura geográfica (RN52)">
           {MODOS_GEOGRAFICOS.map((opcao) => (
-            <Link
+            <a
               key={opcao}
               href={comUrl({ modo: opcao === "SEDE" ? undefined : opcao })}
               className={modo === opcao ? "on" : ""}
               aria-current={modo === opcao ? "page" : undefined}
             >
               {ROTULOS_MODO[opcao]}
-            </Link>
+            </a>
           ))}
         </nav>
 
@@ -184,13 +193,13 @@ export default async function PaginaMapa({
         </form>
 
         {temFiltro ? (
-          <Link
+          <a
             href={comUrl({ cultura: undefined, categoria: undefined })}
             className="btn btn-ghost btn-sm"
             style={{ textDecoration: "none" }}
           >
             Limpar filtros
-          </Link>
+          </a>
         ) : null}
 
         <div style={{ flex: 1 }} />
