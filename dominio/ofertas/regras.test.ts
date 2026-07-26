@@ -6,7 +6,9 @@ import {
   type DadosNaturezaOferta,
   calcularCompletudeCard,
   deveMarcarRepublicacao,
+  estaAVencer,
   estaExpirada,
+  diasAteVencer,
   explicacaoIncompatibilidade,
   impedimentosDePublicacao,
   mecanicaCompativelComAmbiente,
@@ -308,5 +310,36 @@ describe("RN10 — flag Pendente de republicação", () => {
       if (status === "PUBLICADA") continue;
       expect(deveMarcarRepublicacao(status, ["titulo", "precoPor"])).toBe(false);
     }
+  });
+});
+
+describe("Régua da vigência a vencer (T4 e alertas) — janela do Parametrizador", () => {
+  const hoje = new Date("2026-07-25T09:30:00Z");
+
+  it("prazo indeterminado nunca está a vencer", () => {
+    expect(diasAteVencer(null, hoje)).toBeNull();
+    expect(estaAVencer(null, hoje, 15)).toBe(false);
+  });
+
+  it("conta os dias que faltam ignorando a hora", () => {
+    expect(diasAteVencer(new Date("2026-07-25T23:00:00Z"), hoje)).toBe(0);
+    expect(diasAteVencer(new Date("2026-08-04T00:00:00Z"), hoje)).toBe(10);
+    expect(diasAteVencer(new Date("2026-07-20T00:00:00Z"), hoje)).toBe(-5);
+  });
+
+  it("marca dentro da janela, inclusive no último dia e no dia do vencimento", () => {
+    expect(estaAVencer(new Date("2026-08-09T00:00:00Z"), hoje, 15)).toBe(true);
+    expect(estaAVencer(new Date("2026-07-25T00:00:00Z"), hoje, 15)).toBe(true);
+  });
+
+  it("não marca fora da janela nem o que já venceu — vencida é caso da RN03", () => {
+    expect(estaAVencer(new Date("2026-08-10T00:00:00Z"), hoje, 15)).toBe(false);
+    expect(estaAVencer(new Date("2026-07-24T00:00:00Z"), hoje, 15)).toBe(false);
+  });
+
+  it("janela alterada no Parametrizador muda o alerta vivo", () => {
+    const fim = new Date("2026-08-15T00:00:00Z");
+    expect(estaAVencer(fim, hoje, 15)).toBe(false);
+    expect(estaAVencer(fim, hoje, 30)).toBe(true);
   });
 });

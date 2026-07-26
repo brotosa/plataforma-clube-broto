@@ -30,15 +30,28 @@ import { expect, type Page } from "@playwright/test";
  * integracao.spec.ts / configuracao-global.ts.
  */
 export function resolverDatabaseUrl(): void {
-  if (process.env.DATABASE_URL) return;
+  resolverDoArquivoEnv(["DATABASE_URL"]);
+}
+
+/**
+ * Completa variáveis ausentes a partir do `.env` local. No CI elas vêm do
+ * ambiente do job e nada acontece aqui; localmente, o Playwright (que não
+ * lê o .env) passa a enxergar as mesmas chaves do servidor — necessário
+ * para os seeders que hasheiam CPF (Onda 5) direto no teste.
+ */
+export function resolverDoArquivoEnv(nomes: ReadonlyArray<string>): void {
+  const faltando = nomes.filter((nome) => !process.env[nome]);
+  if (faltando.length === 0) return;
   try {
     const env = readFileSync(".env", "utf8");
-    const linha = env.split("\n").find((l) => l.startsWith("DATABASE_URL="));
-    if (linha) {
-      process.env.DATABASE_URL = linha.slice("DATABASE_URL=".length).replace(/^"|"$/g, "");
+    for (const nome of faltando) {
+      const linha = env.split("\n").find((l) => l.startsWith(`${nome}=`));
+      if (linha) {
+        process.env[nome] = linha.slice(`${nome}=`.length).replace(/^"|"$/g, "");
+      }
     }
   } catch {
-    /* sem banco: os próprios testes falharão com contexto */
+    /* sem .env: os próprios testes falharão com contexto */
   }
 }
 
@@ -203,11 +216,18 @@ function ehExcecaoDeSuperficieDaMarca(regra: string, resumo: string): boolean {
  * nomeada por assinatura de cor). O critério AAA vale para a tela assentada.
  */
 async function telaAssentada(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const tela = document.querySelector(".tela");
-    if (!tela) return true;
-    return tela.getAnimations().every((animacao) => animacao.playState === "finished");
-  });
+  // Varre o DOCUMENTO INTEIRO, não só `.tela` (espera ampla que veio da F11 e
+  // da F4 pela main, absorvida aqui para valer em TODA varredura). As
+  // transições de 160ms do dseed-admin não vivem só no contêiner da tela: o
+  // chip do passo ativo da T20 mede 3,14:1 no meio da transição e 4,88:1
+  // assentado, e as telas das Ondas 3 e 4 trouxeram mais superfícies com
+  // transição própria. `getAnimations()` inclui transições CSS, então esperar
+  // nenhuma em execução é preciso — sem sleep fixo.
+  await page.waitForFunction(() =>
+    Array.from(document.querySelectorAll("*")).every((elemento) =>
+      elemento.getAnimations().every((animacao) => animacao.playState !== "running"),
+    ),
+  );
 }
 
 /**

@@ -143,7 +143,7 @@ export async function handoffParaNegociacao(
   }
   exigirPermissao(
     ator.papel,
-    responsavelComercialId === ator.id ? "ASSUMIR_NEGOCIACAO" : "DEFINIR_METAS_E_DESIGNAR",
+    responsavelComercialId === ator.id ? "ASSUMIR_NEGOCIACAO" : "DESIGNAR_RESPONSAVEIS",
   );
 
   const designado = await prisma.usuario.findUnique({

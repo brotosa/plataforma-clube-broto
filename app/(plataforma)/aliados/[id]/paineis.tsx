@@ -174,8 +174,18 @@ export function FormularioContato({ empresaId }: { empresaId: string }) {
   );
 }
 
-/** Formulário de novo contrato (aba Comercial). */
-export function FormularioContrato({ empresaId }: { empresaId: string }) {
+/**
+ * Formulário de novo contrato (aba Comercial). A comissão vem
+ * pré-preenchida com a comissão-padrão do contrato-modelo, lida do
+ * Parametrizador (5% confirmados em 24/07) e editável por contrato.
+ */
+export function FormularioContrato({
+  empresaId,
+  comissaoPadrao,
+}: {
+  empresaId: string;
+  comissaoPadrao: number | null;
+}) {
   return (
     <FormularioComEstado acao={acaoCriarContrato} rotuloEnviar="Registrar contrato">
       <input type="hidden" name="empresaId" value={empresaId} />
@@ -191,8 +201,18 @@ export function FormularioContrato({ empresaId }: { empresaId: string }) {
         </div>
         <div className="field">
           <label htmlFor="campo-comissao">Comissão (%)</label>
-          <input id="campo-comissao" className="input" name="comissaoPct" inputMode="decimal" placeholder="ex.: 5" />
-          <span className="hint">Por aliado; fonte = contrato. Incide só sobre Benefícios pagos.</span>
+          <input
+            id="campo-comissao"
+            className="input"
+            name="comissaoPct"
+            inputMode="decimal"
+            defaultValue={comissaoPadrao === null ? "" : String(comissaoPadrao)}
+          />
+          <span className="hint">
+            {comissaoPadrao === null
+              ? "Por aliado; fonte = contrato. Incide só sobre Benefícios pagos."
+              : `Pré-preenchida com a comissão-padrão do contrato-modelo (${comissaoPadrao}%) e editável por contrato. Incide só sobre Benefícios pagos.`}
+          </span>
         </div>
         <div className="field">
           <label htmlFor="campo-ambientes">Ambientes de pagamento habilitados</label>

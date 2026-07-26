@@ -152,6 +152,9 @@ test.describe.serial("F4 — publicar → telemetria → agregados", () => {
     await entrar(page, "gestor@dev.clubebroto.local");
     for (const rota of ["/ofertas", "/ofertas/publicacao", "/ofertas/telemetria"]) {
       await page.goto(rota);
+      // `semViolacoesAxe` é a varredura AAA da F5 e já espera a UI assentar —
+      // a espera ampla que a main trazia aqui foi absorvida pelo ajudante, de
+      // modo que TODA tela varrida ganha a mesma disciplina, não só estas três.
       await semViolacoesAxe(page);
     }
   });

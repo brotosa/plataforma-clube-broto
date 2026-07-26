@@ -5,7 +5,7 @@ import { podeTerDossieNoEstagio } from "@/dominio/dossie/regras";
 import { type ConteudoDossie, validarConteudoDossie } from "@/dominio/dossie/schema";
 import { ROTULOS_ESTAGIO_FUNIL } from "@/dominio/funil/regras";
 import { gastoDoMes } from "@/infra/casos-de-uso/dossies";
-import { provedorAutomatico } from "@/infra/dossie/provedores";
+import { provedorAutomaticoVigente } from "@/infra/dossie/provedores";
 import { prepararPrompt } from "@/infra/dossie/template";
 
 /**
@@ -148,7 +148,7 @@ export async function telaDossie(empresaId: string): Promise<TelaDossie | null> 
     }
   }
 
-  const estadoProvedor = provedorAutomatico();
+  const estadoProvedor = await provedorAutomaticoVigente();
   let geracaoAutomatica: TelaDossie["geracaoAutomatica"];
   if (estadoProvedor.disponivel) {
     const gasto = await gastoDoMes(new Date());

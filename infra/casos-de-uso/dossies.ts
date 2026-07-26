@@ -18,7 +18,11 @@ import {
   validarPedidoDeGeracao,
 } from "@/dominio/dossie/regras";
 import { ErroDeProvedor, type DossieProvider, type UsoDaExecucao } from "@/infra/dossie/provedor";
-import { provedorAutomatico, provedorManual, tarifaConfigurada } from "@/infra/dossie/provedores";
+import {
+  provedorAutomaticoVigente,
+  provedorManual,
+  tarifaConfigurada,
+} from "@/infra/dossie/provedores";
 import { versaoDoTemplate } from "@/infra/dossie/template";
 import { logger } from "@/infra/log/logger";
 import { type Ator, ErroDeValidacao } from "./contexto";
@@ -96,7 +100,7 @@ export async function pedirGeracaoDeDossie(
 ): Promise<{ dossieId: string }> {
   exigirPermissao(ator.papel, "GERAR_REVISAR_DOSSIE");
 
-  const estadoProvedor = provedorAutomatico();
+  const estadoProvedor = await provedorAutomaticoVigente();
   if (!estadoProvedor.disponivel) {
     throw new ErroDeValidacao([estadoProvedor.mensagem]);
   }
@@ -184,7 +188,7 @@ export async function tentarNovamenteGeracao(
 ): Promise<{ dossieId: string }> {
   exigirPermissao(ator.papel, "GERAR_REVISAR_DOSSIE");
 
-  const estadoProvedor = provedorAutomatico();
+  const estadoProvedor = await provedorAutomaticoVigente();
   if (!estadoProvedor.disponivel) {
     throw new ErroDeValidacao([estadoProvedor.mensagem]);
   }
@@ -247,7 +251,7 @@ export async function processarGeracao(
     return;
   }
 
-  const estadoProvedor = opcoes.provedor ? null : provedorAutomatico();
+  const estadoProvedor = opcoes.provedor ? null : await provedorAutomaticoVigente();
   const provedor = opcoes.provedor ?? (estadoProvedor?.disponivel ? estadoProvedor.provedor : null);
   const tarifa = opcoes.tarifa ?? tarifaConfigurada();
   const relogio = opcoes.agora ?? (() => new Date());

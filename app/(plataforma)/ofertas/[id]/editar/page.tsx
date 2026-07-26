@@ -21,7 +21,7 @@ export default async function PaginaEditarOferta({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [oferta, tiposBeneficio, mecanicas] = await Promise.all([
+  const [oferta, tiposBeneficio, mecanicas, campanhas, cestas] = await Promise.all([
     prisma.oferta.findUnique({
       where: { id },
       include: {
@@ -35,6 +35,13 @@ export default async function PaginaEditarOferta({
     }),
     prisma.tipoBeneficio.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     prisma.mecanica.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+    // Onda 4: destinos possíveis do vínculo (campanha em rascunho ou ativa;
+    // encerrada não recebe oferta nova).
+    prisma.campanha.findMany({
+      where: { estado: { in: ["RASCUNHO", "ATIVA"] } },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.cesta.findMany({ orderBy: { nome: "asc" } }),
   ]);
   if (!oferta) {
     notFound();
@@ -88,7 +95,18 @@ export default async function PaginaEditarOferta({
           vigenciaInicio: paraCampoData(oferta.vigenciaInicio),
           vigenciaFim: paraCampoData(oferta.vigenciaFim),
           limiteResgates: oferta.limiteResgates,
+          destinacao: oferta.destinacao,
+          destinacaoCampanhaId: oferta.destinacaoCampanhaId,
+          destinacaoCestaId: oferta.destinacaoCestaId,
         }}
+        campanhas={campanhas.map((campanha) => ({
+          id: campanha.id,
+          nome: campanha.nome,
+          vigencia: campanha.vigenciaInicio
+            ? `${paraCampoData(campanha.vigenciaInicio)} a ${paraCampoData(campanha.vigenciaFim) || "sem fim"}`
+            : null,
+        }))}
+        cestas={cestas.map((cesta) => ({ id: cesta.id, nome: cesta.nome }))}
       />
     </div>
   );

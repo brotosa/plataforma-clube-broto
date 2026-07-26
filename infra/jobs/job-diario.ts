@@ -5,6 +5,7 @@ import { estaExpirada } from "@/dominio/ofertas/regras";
 import { estaNaJanelaDeNaoRenovacao } from "@/dominio/contratos/janela";
 import { precisaReavaliacao } from "@/dominio/avaliacao/regras";
 import { logger } from "@/infra/log/logger";
+import { lerRegua } from "@/infra/configuracao/servico-configuracao";
 
 /**
  * Job diário das Ondas 1 e 2:
@@ -13,7 +14,8 @@ import { logger } from "@/infra/log/logger";
  *    próximo export).
  * 2. Janela contratual — contratos vigentes a ≤30 dias do aniversário da
  *    data-base são marcados (alerta em T1/T2); fora da janela, desmarcados.
- * 3. RN21 (F7) — aliada ativa que completa 12 meses da última avaliação
+ * 3. RN21 (F7) — aliada ativa que completa a régua de reavaliação (12
+ *    meses na implantação, lida do Parametrizador) desde a última avaliação
  *    fechada recebe a marca de reavaliação (alerta na T10); a marca sai
  *    quando uma nova avaliação fecha (no caso de uso) ou quando a empresa
  *    deixa o estágio de aliada ativa (varredura de alerta órfão aqui).
@@ -119,7 +121,10 @@ export async function executarJobDiario(hoje = new Date()): Promise<ResultadoJob
     }
   }
 
-  // RN21 — reavaliação anual das aliadas ativas
+  // RN21 — reavaliação das aliadas ativas na régua vigente. A régua é lida
+  // uma vez por execução: o job precisa decidir todas as empresas do dia
+  // sob o mesmo critério, e não sob um valor que mude no meio da varredura.
+  const reavaliacaoMeses = await lerRegua("REAVALIACAO_MESES");
   const aliadasAtivas = await prisma.empresa.findMany({
     where: { estagio: "ALIADA_ATIVA" },
     select: {
@@ -135,7 +140,7 @@ export async function executarJobDiario(hoje = new Date()): Promise<ResultadoJob
   });
   for (const aliada of aliadasAtivas) {
     const ultimaFechadaEm = aliada.avaliacoesScout[0]?.fechadaEm ?? null;
-    const precisa = precisaReavaliacao(ultimaFechadaEm, hoje);
+    const precisa = precisaReavaliacao(ultimaFechadaEm, hoje, reavaliacaoMeses);
     if (precisa === aliada.reavaliacaoPendente) {
       continue;
     }

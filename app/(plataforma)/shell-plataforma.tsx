@@ -34,7 +34,11 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
     href: "/ofertas",
     icone: "M12 2H2v10l9.3 9.3a1.5 1.5 0 0 0 2.1 0l7.9-7.9a1.5 1.5 0 0 0 0-2.1zM7 7h.01",
   },
-  { rotulo: "Campanhas & Cestas", href: null, icone: "m5 11 4-7M19 11l-4-7M2 11h20l-2 9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" },
+  {
+    rotulo: "Campanhas & Cestas",
+    href: "/campanhas",
+    icone: "m5 11 4-7M19 11l-4-7M2 11h20l-2 9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z",
+  },
   {
     rotulo: "Assinantes",
     href: "/assinantes",
@@ -43,7 +47,7 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
   { rotulo: "Aprovações", href: "/aprovacoes", icone: "M22 11.1V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" },
   {
     rotulo: "Parametrizador",
-    href: null,
+    href: "/parametrizador",
     icone: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   },
   { rotulo: "Usuários", href: null, icone: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0" },

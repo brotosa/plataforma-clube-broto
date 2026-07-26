@@ -225,6 +225,41 @@ export function estaExpirada(vigenciaFim: Date | null, hoje: Date): boolean {
   return fim.getTime() < corrente.getTime();
 }
 
+/**
+ * Dias que faltam para o fim da vigência. Prazo indeterminado devolve null
+ * (nunca "muitos dias"); vigência já vencida devolve número negativo, e
+ * quem exibe decide o que fazer com isso.
+ */
+export function diasAteVencer(vigenciaFim: Date | null, hoje: Date): number | null {
+  if (!vigenciaFim) {
+    return null;
+  }
+  const fim = new Date(vigenciaFim);
+  fim.setUTCHours(0, 0, 0, 0);
+  const corrente = new Date(hoje);
+  corrente.setUTCHours(0, 0, 0, 0);
+  const MILISSEGUNDOS_POR_DIA = 24 * 60 * 60 * 1000;
+  return Math.round((fim.getTime() - corrente.getTime()) / MILISSEGUNDOS_POR_DIA);
+}
+
+/**
+ * Régua "vigência a vencer" (alerta na T4 e no sino): oferta ainda no ar
+ * cuja vigência termina dentro da janela vigente. A janela entra por
+ * parâmetro — desde a F10 vem do Parametrizador (chave
+ * OFERTA_VIGENCIA_A_VENCER_DIAS), 15 dias na implantação.
+ */
+export function estaAVencer(
+  vigenciaFim: Date | null,
+  hoje: Date,
+  janelaEmDias: number,
+): boolean {
+  const dias = diasAteVencer(vigenciaFim, hoje);
+  if (dias === null) {
+    return false;
+  }
+  return dias >= 0 && dias <= janelaEmDias;
+}
+
 // ---------------------------------------------------------------------
 // RN10 — flag Pendente de republicação
 // ---------------------------------------------------------------------

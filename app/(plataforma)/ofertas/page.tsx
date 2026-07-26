@@ -4,6 +4,8 @@ import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { kpiVitrineViva, resumoTelemetriaPorOferta } from "@/infra/consultas/telemetria";
+import { lerRegua } from "@/infra/configuracao/servico-configuracao";
+import { estaAVencer } from "@/dominio/ofertas/regras";
 
 export const metadata: Metadata = {
   title: "Ofertas",
@@ -40,7 +42,7 @@ export default async function PaginaOfertas() {
   const podeGerarExport = podeExecutar(papel, "GERAR_EXPORTACAO");
   const podeImportar = podeExecutar(papel, "IMPORTAR_TELEMETRIA");
 
-  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas, vitrine] =
+  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas, vitrine, janelaVigencia] =
     await Promise.all([
       prisma.oferta.count(),
       prisma.oferta.count({ where: { status: "PUBLICADA" } }),
@@ -55,7 +57,11 @@ export default async function PaginaOfertas() {
         },
       }),
       kpiVitrineViva(),
+      // Régua "vigência a vencer" (15 dias na implantação): alterá-la na
+      // T17 muda o alerta na próxima visita, sem tocar em nada gravado.
+      lerRegua("OFERTA_VIGENCIA_A_VENCER_DIAS"),
     ]);
+  const hoje = new Date();
 
   const telemetria = await resumoTelemetriaPorOferta(ofertas.map((oferta) => oferta.id));
   const percentualVivo =
@@ -115,7 +121,7 @@ export default async function PaginaOfertas() {
         </div>
         <div className="c">
           <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
-            Vitrine viva (resgate em 90 d)
+            Vitrine viva (resgate em {vitrine.janelaEmDias} d)
           </div>
           <div className="kpi-n num" style={{ marginTop: 6 }}>
             {percentualVivo === null ? "—" : `${percentualVivo}%`}
@@ -224,6 +230,16 @@ export default async function PaginaOfertas() {
                     <td data-label="Vigência" className="num cap">
                       {formatarData(oferta.vigenciaInicio)} –{" "}
                       {oferta.vigenciaFim ? formatarData(oferta.vigenciaFim) : "indeterminado"}
+                      {oferta.status === "PUBLICADA" &&
+                      estaAVencer(oferta.vigenciaFim, hoje, janelaVigencia) ? (
+                        <span
+                          className="pill pill-pendente"
+                          style={{ marginLeft: 6 }}
+                          title={`Vigência termina em até ${janelaVigencia} dias (régua vigente no Parametrizador).`}
+                        >
+                          a vencer
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 );
