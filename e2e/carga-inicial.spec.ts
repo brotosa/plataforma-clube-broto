@@ -15,7 +15,8 @@ async function entrarComoGestor(page: Page) {
   await page.getByLabel("E-mail").fill("gestor@dev.clubebroto.local");
   await page.getByLabel("Senha").fill(SENHA);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
+  // F13: a HOME passou a ser a T26 (rota `/`).
+  await page.waitForURL((url) => new URL(url).pathname === "/");
 }
 
 test.describe.serial("carga inicial — conferência demonstrável", () => {

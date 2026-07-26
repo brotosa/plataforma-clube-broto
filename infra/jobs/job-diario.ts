@@ -37,6 +37,10 @@ async function usuarioDeSistema() {
       senhaHash: "sem-login",
       papel: "GESTOR",
       ativo: false, // nunca autentica: o provedor de identidade exige ativo
+      // F13: a marca de credencial provisória não faz sentido em quem não
+      // tem login — sem isto a rotina apareceria na T27 como "credencial
+      // provisória", sugerindo uma senha a trocar que não existe.
+      trocaSenhaObrigatoria: false,
     },
   });
 }

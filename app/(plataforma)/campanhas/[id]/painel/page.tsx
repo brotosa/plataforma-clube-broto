@@ -161,7 +161,7 @@ export default async function PaginaPainel({ params }: { params: Promise<{ id: s
               </p>
             </div>
             <table className="tbl tbl-resp">
-              <caption className="sr-only">
+              <caption className="sr-oculto">
                 Desempenho de cada oferta da campanha, com o nível de atribuição
               </caption>
               <thead>

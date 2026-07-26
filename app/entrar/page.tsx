@@ -14,7 +14,8 @@ async function autenticar(dados: FormData) {
     await signIn("credentials", {
       email: dados.get("email"),
       senha: dados.get("senha"),
-      redirectTo: "/aliados",
+      // T26 é a HOME da plataforma (ficha Onda 6 §2).
+      redirectTo: "/",
     });
   } catch (erro) {
     if (erro instanceof AuthError) {
@@ -31,7 +32,7 @@ export default async function PaginaEntrar({
 }) {
   const sessao = await auth();
   if (sessao?.user) {
-    redirect("/aliados");
+    redirect("/");
   }
   const { erro } = await searchParams;
 

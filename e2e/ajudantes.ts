@@ -112,11 +112,13 @@ export function cnpjDeNome(nome: string): string {
  * Login limpo: zera cookies antes de autenticar. Além de deixar cada teste
  * independente do estado de sessão anterior, permite trocar de usuário
  * dentro do mesmo teste (RN06) — sem isso, /entrar redireciona quem já
- * está autenticado para /aliados e o formulário some.
+ * está autenticado para a HOME e o formulário some.
+ *
+ * F13: a HOME passou a ser a T26 (rota `/`), não mais /aliados.
  */
 export async function entrar(page: Page, email: string): Promise<void> {
   // Limpar o cookie e ir para /entrar NÃO é atômico: o navegador pode reenviar
-  // a sessão anterior e o servidor redireciona para /aliados, sumindo com o
+  // a sessão anterior e o servidor redireciona para a HOME, sumindo com o
   // formulário. Observado ao TROCAR de usuário dentro do mesmo teste (RN06).
   //
   // Cinco tentativas (contagem da F9: o percurso da Onda 2 troca de papel
@@ -147,7 +149,9 @@ export async function entrar(page: Page, email: string): Promise<void> {
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(SENHA);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/aliados");
+  // A HOME é a T26 (ficha Onda 6 §2). O padrão casa a raiz com e sem barra
+  // final e ignora a querystring do período.
+  await page.waitForURL((url) => new URL(url).pathname === "/");
 }
 
 /**

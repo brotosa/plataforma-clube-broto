@@ -199,3 +199,56 @@ test.describe("responsividade a 380px — T2/T3/T5/T7 íntegras com aviso", () =
     await expect(interruptor).toBeFocused();
   });
 });
+
+/**
+ * Onda 6 a 380px (F13) — a T26 é a HOME, então é a primeira tela que
+ * qualquer pessoa vê em qualquer aparelho. O prompt da Onda 6 pede que ela
+ * seja **plena** a 380px, e não apenas íntegra: nada de aviso de "edição
+ * preferencial em desktop" aqui.
+ *
+ * A T28 é tabela e cai no mesmo sinal das demais tabelas do produto: colapsa
+ * em cards. A T27 também é tabela, mas com ações por linha — o que se mede
+ * nela é caber e continuar operável.
+ */
+test.describe("responsividade a 380px — Onda 6", () => {
+  const ADMIN_ONDA6 = "administrador@dev.clubebroto.local";
+
+  test("T26 — Dashboard pleno a 380px: as duas camadas cabem e passam em AAA", async ({
+    page,
+  }) => {
+    await entrar(page, ADMIN_ONDA6);
+
+    await expect(page.getByRole("heading", { level: 1, name: "O Clube hoje" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Exige ação hoje" })).toBeVisible();
+    // Os quatro blocos da ficha §2 continuam presentes — a 380px o grid
+    // vira uma coluna, mas nenhum bloco é escondido.
+    for (const bloco of ["Rede e Aliados", "Mercado e Funil", "Assinantes e Uso", "Campanhas"]) {
+      await expect(page.getByRole("heading", { name: bloco, exact: true })).toBeVisible();
+    }
+    // Pleno: o seletor de período segue operável, não some no estreito.
+    await expect(page.getByLabel("Período")).toBeVisible();
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T27 — Usuários cabe a 380px, colapsa em cards e passa em AAA", async ({ page }) => {
+    await entrar(page, ADMIN_ONDA6);
+    await page.goto("/usuarios");
+    await page.getByRole("heading", { level: 1, name: "Usuários" }).waitFor();
+
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T28 — Auditoria cabe a 380px, colapsa em cards e passa em AAA", async ({ page }) => {
+    await entrar(page, ADMIN_ONDA6);
+    await page.goto("/auditoria?periodo=tudo");
+    await page.getByRole("heading", { level: 1, name: "Auditoria" }).waitFor();
+
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+  });
+});

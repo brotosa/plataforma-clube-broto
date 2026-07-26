@@ -43,7 +43,11 @@ export type Acao =
   // Onda 4 — Campanhas e Cestas (ficha §2).
   | "MODELAR_CAMPANHA"
   | "ATIVAR_ENCERRAR_CAMPANHA"
-  | "GERIR_CESTAS";
+  | "GERIR_CESTAS"
+  // Onda 6 — Dashboard, Usuários e Auditoria (ficha §3 e §4, RN46/RN48).
+  | "GERIR_USUARIOS"
+  | "VISUALIZAR_AUDITORIA"
+  | "EXPORTAR_EXTRATO_AUDITORIA";
 
 /**
  * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
@@ -126,6 +130,27 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   MODELAR_CAMPANHA: ["GESTOR", "ANALISTA"],
   ATIVAR_ENCERRAR_CAMPANHA: ["GESTOR", "ANALISTA"],
   GERIR_CESTAS: ["GESTOR", "ANALISTA"],
+  // Onda 6 (ficha §3, RN46): a gestão de usuários é exclusiva do
+  // Administrador da Plataforma — nem o Gestor escreve aqui. É a mesma
+  // exclusividade da escrita no Parametrizador, e pelo mesmo motivo:
+  // quem configura quem pode o quê não pode ser quem opera.
+  GERIR_USUARIOS: ["ADMINISTRADOR_PLATAFORMA"],
+  // Onda 6 (ficha §4): "somente leitura para TODOS os papéis". A trilha é
+  // o contrapeso do RBAC — esconder a auditoria de quem é auditado
+  // esvaziaria a governança que esta onda existe para tornar visível.
+  VISUALIZAR_AUDITORIA: [
+    "GESTOR",
+    "ANALISTA",
+    "ANALISTA_SCOUT",
+    "COMERCIAL",
+    "APROVADOR",
+    "LEITURA",
+    "ADMINISTRADOR_PLATAFORMA",
+  ],
+  // RN48 — o extrato sai do produto e vira artefato de auditoria externa;
+  // só Gestor e Administrador exportam, e a exportação é ela própria
+  // auditada (meta-trilha garantida no caso de uso).
+  EXPORTAR_EXTRATO_AUDITORIA: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
 };
 
 /** Verifica se o papel pode executar a ação. */

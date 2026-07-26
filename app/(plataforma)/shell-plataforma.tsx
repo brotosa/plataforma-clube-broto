@@ -6,9 +6,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * Shell da plataforma — reprodução fiel do protótipo v2.1: sidebar azul
- * colapsável com os dez módulos (somente os da Onda 1 ativos), faixa de
- * marca clara, header com busca global, notificações e usuário.
+ * Shell da plataforma — reprodução fiel do protótipo: sidebar azul
+ * colapsável com os dez módulos, faixa de marca clara, header com busca
+ * global, notificações e usuário.
+ *
+ * F13 (Onda 6): os três últimos itens desligados — Dashboard, Usuários e
+ * Auditoria — ganham rota. Com eles a sidebar fica inteira ativa, e o
+ * Dashboard passa a ser a HOME (rota `/`).
  */
 
 interface ItemNavegacao {
@@ -21,7 +25,7 @@ interface ItemNavegacao {
 
 /** Ordem e ícones idênticos ao navDefs do protótipo v2.1. */
 const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
-  { rotulo: "Dashboard", href: null, icone: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" },
+  { rotulo: "Dashboard", href: "/", icone: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" },
   { rotulo: "Mercado & Scout", href: "/mercado", icone: "m21 21-4.3-4.3M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0" },
   {
     rotulo: "Aliados & Soluções",
@@ -50,8 +54,8 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
     href: "/parametrizador",
     icone: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   },
-  { rotulo: "Usuários", href: null, icone: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0" },
-  { rotulo: "Auditoria", href: null, icone: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" },
+  { rotulo: "Usuários", href: "/usuarios", icone: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0" },
+  { rotulo: "Auditoria", href: "/auditoria", icone: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" },
 ];
 
 function Icone({ path }: { path: string }) {
@@ -71,6 +75,19 @@ function Icone({ path }: { path: string }) {
       <path d={path} />
     </svg>
   );
+}
+
+/**
+ * Item ativo da sidebar. O Dashboard mora em `/` (é a HOME), e prefixo não
+ * serve para ele: toda rota começa com "/" e o item ficaria aceso em todas
+ * as telas. Raiz casa por igualdade; os demais, por prefixo de segmento —
+ * `/aliados` não pode acender em uma futura `/aliados-externos`.
+ */
+function estaAtivo(rota: string, href: string): boolean {
+  if (href === "/") {
+    return rota === "/";
+  }
+  return rota === href || rota.startsWith(`${href}/`);
 }
 
 function iniciaisDe(nome: string): string {
@@ -163,8 +180,8 @@ export function ShellPlataforma({
               <Link
                 key={item.rotulo}
                 href={item.href}
-                className={rota.startsWith(item.href) ? "sidebar-it on" : "sidebar-it"}
-                aria-current={rota.startsWith(item.href) ? "page" : undefined}
+                className={estaAtivo(rota, item.href) ? "sidebar-it on" : "sidebar-it"}
+                aria-current={estaAtivo(rota, item.href) ? "page" : undefined}
                 title={item.rotulo}
                 style={{ textDecoration: "none" }}
                 onClick={() => setMenuAberto(false)}

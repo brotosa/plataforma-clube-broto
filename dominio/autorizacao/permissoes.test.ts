@@ -231,9 +231,38 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "ADMINISTRADOR_PLATAFORMA",
     ],
   },
+  // ---- Onda 6: Usuários e Auditoria (ficha §3 e §4) ----
+  {
+    // RN46 — exclusiva do Administrador da Plataforma. O Gestor é negado
+    // aqui: é a mesma segregação da escrita no Parametrizador.
+    acao: "GERIR_USUARIOS",
+    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+  },
+  {
+    // Ficha §4: "somente leitura para todos os papéis" — nenhum negado.
+    acao: "VISUALIZAR_AUDITORIA",
+    permitidos: [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+    negados: [],
+  },
+  {
+    // RN48 — exportar o extrato exige Gestor ou Administrador. Ler a
+    // trilha na tela é de todos; tirá-la do produto, não.
+    acao: "EXPORTAR_EXTRATO_AUDITORIA",
+    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+  },
 ];
 
-describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1, 2, 3 e 5)", () => {
+describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {
   for (const { acao, permitidos, negados } of TABELA_DA_FICHA) {
     for (const papel of permitidos) {
       it(`permite ${acao} para ${papel}`, () => {

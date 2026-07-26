@@ -1,52 +1,61 @@
 # Plataforma de Administração do Clube Broto
 
-Aplicação web administrativa do Clube Broto (Broto S.A.). **Onda 1**: módulo de
-Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch
-(Minutrade) e carga inicial. **Onda 2**: Mercado & Scout — funil de prospecção,
-avaliação com score, dossiê assistido, cobertura e metas. **Onda 3**:
-Parametrizador — listas de domínio, valores de regra e metas editáveis sem
-código.
+Aplicação web administrativa do Clube Broto (Broto S.A.), em seis ondas:
 
-- Fontes da verdade funcionais: `docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md`
-  (v0.6), `ficha-onda2-mercado-scout.md` (v0.1) e `ficha-onda3-parametrizador.md` (v0.2)
-- Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md` e os prompts
-  das ondas 2 e 3
-- Especificação visual: `docs/referencias/Plataforma_Broto_-_Prototipo_v6.1.html`
+| Onda | Módulo | Regras | Telas |
+|---|---|---|---|
+| 1 | Aliados, Soluções e Ofertas · motor de aprovação · publicação e telemetria batch (Minutrade) · carga inicial | RN01–RN12 | T1–T7 |
+| 2 | Mercado & Scout · funil, avaliação com score, dossiê assistido, cobertura e metas | RN13–RN22 | T8–T14 |
+| 3 | Parametrizador · listas de domínio, valores de regra e metas editáveis sem código | RN23–RN28 | T15–T17 |
+| 5 | Assinantes · base patrocinada com importação, enriquecimento, segmentação e exportação controlada | RN29–RN37 | T18–T21 |
+| 4 | Campanhas e Cestas · público congelado, conteúdo, peças, kit de execução e medição atribuída | RN38–RN45 | T22–T25 |
+| 6 | Dashboard, Usuários e Auditoria · governança visível | RN46–RN50 | T26–T28 |
 
-**Estado atual: Onda 2 concluída (F6 a F9) e Onda 3 na F10.** Sobre a Onda 1
-inteira (RN01–RN12, motor de aprovação, T1–T7, publicação e telemetria batch,
-carga inicial pelas planilhas de `dados/`), a Onda 2 entregou o radar e o funil
-(T8/T9), a avaliação com score do ScoutCB (T10), o dossiê de due diligence
-assistido (T11), a ficha da empresa com Scouting, Dossiê e o formulário M1
-(T12), o mapa de cobertura (T13) e o painel de metas (T14) — e levou a
-avaliação e o dossiê para dentro da fila de aprovação (RN20), de modo que a
-promoção a Aliada ativa é decidida com o caso completo à vista.
+- Fontes da verdade funcionais: as seis fichas em `docs/especificacao/`
+- Arquitetura e fases: os seis `prompt-claude-code-onda*.md`
+- Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v8.1_FINAL.html`
+  (T1–T28). As versões v7.1, v6.1 e v2.1 permanecem apenas como histórico.
 
-A **F10** fecha o círculo: as réguas, a comissão-padrão e as metas deixaram de
-ser constantes de código e passam por um **Serviço de Configuração** com
-leitura cacheada e invalidação na escrita, editadas nas telas T15–T17 pelo novo
-papel **Administrador da Plataforma** (RN23), sempre com auditoria e histórico
-por valor. Toda alteração é **prospectiva** (RN25): mudar um peso não re-pontua
-avaliação fechada — cada avaliação guarda a versão de configuração que a
-produziu. Itens de lista nunca são excluídos, só inativados, e a contagem de
-uso é exibida antes (RN24). A família sensível — comissão-padrão, pesos, tetos
-e metas — pode passar a exigir aprovação ligando a regra na T7, sem deploy
-(RN27). As metas que a T14 lê são as mesmas que a T17 escreve: uma tabela só.
+**Estado atual: escopo especificado completo — F1 a F13 entregues, as 50 regras
+e as 28 telas implementadas.**
 
-As demais ondas avançam em frentes próprias (o módulo de Assinantes, da Onda 5,
-já vive no repositório).
+A Onda 1 (F1–F5) entregou o cadastro, o motor de aprovação com segregação
+solicitante ≠ aprovador, a publicação em lote e a importação de telemetria, a
+carga inicial pelas planilhas de `dados/`, e o endurecimento em acessibilidade
+AAA e responsividade. A Onda 2 (F6–F9) trouxe o radar e o funil, a avaliação
+com score do ScoutCB, o dossiê de due diligence assistido, a ficha M1, o mapa
+de cobertura e o painel de metas — e levou avaliação e dossiê para dentro da
+fila de aprovação (RN20), de modo que a promoção é decidida com o caso
+completo à vista.
 
-**F5 — Endurecimento** fecha a Onda 1 por cima disso com:
+A **F10** tirou as réguas do código: comissão-padrão, prazos, tetos e metas
+passam por um **Serviço de Configuração** com leitura cacheada e invalidação
+na escrita, editado pelo papel **Administrador da Plataforma** (RN23) sempre
+com auditoria e efeito prospectivo (RN25) — mudar um peso não re-pontua
+avaliação fechada. A **F11** trouxe a base de assinantes com CPF protegido em
+repouso e segmentação declarativa; a **F12**, a campanha com público congelado
+na ativação, kit imutável versionado e medição em dois níveis, cada número com
+o nível de atribuição declarado.
 
-- **auditoria AAA** — o axe passa a rodar em modo AAA de verdade, com as três
+A **F13** fecha o produto dando tela ao que o sistema já media e gravava: o
+Dashboard (T26) vira a HOME e consolida os indicadores das fichas anteriores,
+Usuários (T27) dá interface ao RBAC com proteção anti-lockout e revogação
+imediata de acesso, e Auditoria (T28) abre a trilha gravada desde a F1 para
+consulta e extrato — ele próprio auditado.
+
+Atravessando todas as ondas, o **endurecimento** iniciado na F5 e mantido
+fase a fase:
+
+- **auditoria AAA** — o axe roda em modo AAA de verdade, com as três
   regras AAA que o axe-core traz desligadas por padrão ligadas nome a nome, e
   cobrindo as telas que faltavam (abas da T2, formulários de T3/T5). O produto
   declara **AAA integral com uma exceção nomeada — o azul institucional da
   marca, que atende AA**; correções, medições e o caminho de saída estão em
   [`docs/acessibilidade-aaa.md`](docs/acessibilidade-aaa.md);
-- **navegação por teclado** com prova em teste para T2, T4, T5 e T6 (T7 e T8 já
-  tinham desde F2/F6);
-- **responsividade validada a 380px** em projeto Playwright próprio;
+- **navegação por teclado** com prova em teste, tela a tela;
+- **responsividade validada a 380px** em projeto Playwright próprio, cobrindo
+  todas as telas do produto — a T26, por ser a HOME, é validada como **plena** e
+  não apenas íntegra;
 - **Dockerfile** multi-stage e este README de operação e deploy.
 
 ## Stack
@@ -222,10 +231,10 @@ O contêiner **não** aplica migrations no start — ver abaixo.
 ## Estrutura
 
 ```
-app/        rotas e telas (App Router); shell fiel ao protótipo v6.1
+app/        rotas e telas (App Router); shell fiel ao protótipo v8.1 FINAL
 dominio/    regras de negócio puras e testáveis (RBAC, auditoria, identidade)
-infra/      Prisma, Auth.js, gravador de auditoria, logger
-prisma/     schema completo da Onda 1, migrations reversíveis, seed
+infra/      Prisma, Auth.js, gravador de auditoria, consultas, casos de uso
+prisma/     schema das seis ondas, migrations reversíveis (com down.sql), seed
 design/     DSeed: tokens.css (intocável) + dseed-admin.css (extensões)
 e2e/        Playwright + axe-core (fluxos, acessibilidade, teclado, 380px)
 dados/      planilhas reais da carga inicial (consumidas na F3)
@@ -382,6 +391,118 @@ implementação dela.
 listas reais de prospects ainda não estão disponíveis e nenhum mapeamento foi
 inventado; quando os arquivos chegarem, a importação da T9 (com mapeador
 configurável, entregue na F6) já cobre a operação.
+
+## Dashboard, Usuários e Auditoria (Onda 6 — F13)
+
+**T26 — Dashboard**, a HOME (rota `/`, primeiro item da sidebar). Duas camadas.
+No topo, a faixa **"Exige ação hoje"**: aprovações pendentes, cadastros
+incompletos bloqueando publicação (RN09), vigências a vencer, janelas
+contratuais de não-renovação, reavaliações vencidas (RN21) e importações em
+quarentena — cada contagem de query real, cada cartão clicável levando à tela
+onde se resolve. Faixa zerada não some: afirma o estado positivo. Abaixo, os
+quatro blocos por domínio com seletor de período.
+
+A **RN50** governa o painel inteiro e é o que o diferencia de um relatório:
+todo indicador vem de uma ficha validada das Ondas 1–5 (o catálogo é fechado
+em código, e um teste confere que as fichas citadas existem mesmo), e
+indicador sem fonte sustentada exibe **o motivo**, nunca um número aproximado.
+Percentual com denominador zero é "sem base de cálculo", não 0% — "0% de
+vitrine viva" acusaria uma rede parada onde a verdade é que não há oferta
+ativa para medir. Todo número de campanha viaja com a etiqueta de atribuição
+(RN43). O painel é leitura pura: não grava nada, e é visível a todos os papéis
+porque só exibe agregados (coerente com a RN33).
+
+**T27 — Usuários** (`/usuarios`). Leitura de todos os papéis; escrita
+exclusiva do Administrador da Plataforma (**RN46**). Duas garantias:
+
+- **anti-lockout**: o último administrador ATIVO não pode ser rebaixado nem
+  inativado. A tela desabilita o botão com o motivo, e o serviço recusa de
+  todo jeito — avaliando o retrato lido dentro da transação, com a linha do
+  alvo travada, para que dois administradores se rebaixando ao mesmo tempo não
+  deixem a plataforma sem nenhum;
+- **RN47 — revogação imediata**: inativar (e trocar de papel) incrementa a
+  *época de sessão* do usuário. O token carrega a época em que foi emitido e
+  ela é reconferida a cada leitura de sessão, então a sessão aberta cai na
+  requisição seguinte. Não existe exclusão de usuário: quem tem histórico é
+  inativado, e a autoria dele nos registros e na trilha permanece.
+
+Credencial própria com **troca obrigatória no primeiro acesso**: o usuário
+nasce provisório e, enquanto não definir a própria senha, só navega para
+`/trocar-senha`. A senha provisória é exibida ao Administrador uma única vez —
+nem ela nem o hash entram na trilha de auditoria. SSO Entra ID segue como
+decisão futura (D3), com a interface de identidade já abstraída.
+
+**T28 — Auditoria** (`/auditoria`). Consulta paginada da trilha completa, com
+filtros por entidade, registro, autor, tipo de evento e período — tudo na
+querystring, para que a consulta seja compartilhável e o extrato saia com
+exatamente os mesmos parâmetros da tela. Cada evento expande na visão
+**antes → depois** em duas colunas, com as diferenças destacadas (evento cujo
+valor é JSON é decomposto chave a chave: destacar tudo seria não destacar
+nada). Eventos sensíveis levam marcador — acesso pleno a dados de PF,
+exportações, alterações de parâmetro e de regra de aprovação.
+
+**RN48**: a trilha é somente leitura, o extrato CSV exige papel Gestor ou
+Administrador, e **a própria exportação gera evento de auditoria** (a
+meta-trilha), classificado como sensível. **RN49**: nenhum evento é apagado —
+não há purga em lugar nenhum do código de produção, e um teste de arquitetura
+quebra o build se alguém escrever a primeira.
+
+## Operação da plataforma
+
+Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
+
+| O quê | Como | Quem |
+|---|---|---|
+| **Subir local** | `pnpm install` → `.env` (ver *Variáveis de ambiente*) → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev` | TI |
+| **Deploy** | imagem no ECR → `pnpm db:migrate` como passo separado → subir serviço → agendar job diário (ver *Deploy*) | TI |
+| **Job diário** | `pnpm job:diario` uma vez por dia: expira vigências (RN03), marca janela contratual e reavaliação vencida (RN21) | agendador |
+| **Carga inicial** | T-carga (`/carga-inicial`): planilhas de `dados/` → staging → conferência → efetivação (ver *Carga inicial*) | Gestor |
+| **Importar telemetria** | `/ofertas/telemetria`: arquivo da Minutrade → validação linha a linha → quarentena por motivo. Fatos são imutáveis (RN07) | Gestor · Analista |
+| **Importar prospects** | `/mercado/radar`: lista de prospects em três passos, com mapeador de colunas configurável | Gestor · Analista de Scout |
+| **Importar assinantes** | `/assinantes/importacoes`: núcleo e enriquecimento, política foto completa × incremental (RN29) | Gestor · Analista |
+| **Publicar catálogo** | `/ofertas/publicacao`: gera o pacote da vitrine, registra diff e limpa *Pendente de republicação* (RN10) | Gestor |
+| **Kit de campanha** | `/campanhas/{id}`: ativar congela o público (RN38) e gera o kit v1; ajuste gera nova versão, nunca edita a anterior (RN45) | Gestor · Analista |
+| **Dossiê** | `/mercado/{id}/dossie`: geração assistida sob teto de custo, ou inserção manual (ver *Dossiê assistido*) | Gestor · Analista de Scout |
+| **Exportar lista de contato** | T21: exige finalidade declarada e gera exportação auditada (RN34) | Gestor · Administrador |
+| **Configurar parâmetros** | `/parametrizador`: réguas, comissão-padrão, tetos, metas e listas de domínio (RN23) | Administrador |
+| **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
+| **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |
+
+### Pendências abertas, com dono
+
+Nada aqui está resolvido por suposição no código: cada item vive atrás de um
+adapter, de uma flag nomeada ou de um estado explícito na tela.
+
+**Minutrade** — quatro pendências, com o efeito de cada uma no produto:
+
+| Pendência | Efeito hoje |
+|---|---|
+| Layout e meio de entrega do arquivo de importação do catálogo | A publicação sai pelo `GenericJsonCsvAdapter` (JSON/CSV genérico) atrás da porta `ExportAdapter`. O layout real entra como novo adapter, sem tocar o domínio nem as telas. |
+| Cardápio real de eventos de telemetria, periodicidade, e o que "Resgates" significa na base atual (emissão × resgate efetivo) | O parser trabalha com os três degraus do funil contratual (`emissao_voucher`, `resgate_voucher`, `compra_confirmada`). Enquanto a semântica não for confirmada, os agregados da T4 e o KPI de vitrine viva refletem o que o arquivo declara — sem reinterpretação. |
+| **Granularidade por CPF na telemetria** (a mais cara das quatro) | Condiciona a RN36, o nível "por público" da RN43, a conversão da RN44 e o indicador de uso em 90 dias da T26. Sem ela, as três telas exibem **"aguarda telemetria por assinante"** em vez de número — e a T26 não calcula a conversão de campanha. |
+| Canal de entrega e formato do kit de campanha | O kit sai no padrão v1 (zip com CSV do público, manifesto, peças e instruções) atrás da porta `KitAdapter`. |
+
+Continuam abertas, com a Minutrade, as pendências menores já registradas na
+ficha da Onda 1 §11: suporte a limite de resgates por oferta, disponibilidade
+do dump completo do catálogo e a tag "Recompensa" em cards pagos na vitrine.
+
+**Jurídico / compliance:**
+
+| Pendência | Efeito hoje |
+|---|---|
+| **Política de retenção da auditoria** (RN49) | Premissa de **retenção integral**: nenhum evento é apagado, não há rotina de purga, e o `[A CONFIRMAR]` está declarado no cabeçalho da migration da Onda 6. Quando a política vier, entra como migration própria com o prazo declarado — nunca como limpeza silenciosa embutida em outra mudança. |
+| Regra de comissão do **Cupom de desconto** | `COMISSAO_CUPOM: "EM_CONFIRMACAO"`: nenhuma receita é calculada para cupom, na T4 e no Dashboard. |
+| Alinhamento do contrato-modelo (Anexo I prevê duas categorias; a operação pratica três) | Registrado para a próxima revisão jurídica; não bloqueia operação. |
+
+**TI Broto:**
+
+| Pendência | Efeito hoje |
+|---|---|
+| **Imagem Docker não construída** (herdada da F5) | O `Dockerfile` multi-stage está escrito e revisado, mas **`docker build` nunca foi executado** em nenhum ambiente deste repositório — não há daemon Docker no ambiente de desenvolvimento usado. A TI deve rodar `docker build -t clube-broto-admin .` e conferir a imagem no primeiro deploy, antes de depender dela. O deploy na Vercel, usado para a demonstração, não passa por essa imagem. |
+| **Chaves de ambiente** | Sem `CPF_HASH_KEY` e `APP_ENCRYPTION_KEY` a plataforma **falha alto** ao hashear ou cifrar CPF — não há fallback embutido, de propósito. Girar a `CPF_HASH_KEY` re-identifica a base inteira e desliga a junção telemetria ↔ assinante (RN36): não girar sem plano de recarga. `AUTH_SECRET` é obrigatória para a sessão. |
+| **Chave e tarifas do dossiê** | `ANTHROPIC_API_KEY`, `DOSSIE_TETO_MENSAL_BRL`, `DOSSIE_CUSTO_MAX_UNITARIO_BRL`, `DOSSIE_CUSTO_ENTRADA_BRL_MTOK` e `DOSSIE_CUSTO_SAIDA_BRL_MTOK` são **[A CONFIRMAR TI]** e nunca commitadas. Faltando qualquer uma, a T11 exibe o provedor automático como indisponível dizendo o que falta, e só a inserção manual do dossiê opera. As tarifas em real dependem da cotação adotada pela TI — por isso são configuração, não constante. |
+| Recorte "Safra 25/26" no seletor de período da T26 | O protótipo v8.1 mostra a opção; o recorte de safra é definição de negócio (início e fim variam por cultura e região) e não consta de ficha nem do Parametrizador. O seletor entrega os três períodos computáveis (30 dias, 90 dias, 12 meses); a safra entra quando a janela for declarada. |
+| Seed do perfil de cliente (porte × natureza PF/PJ) | Lista nasce vazia, com o estado explicado na tela. |
 
 ## Convenções
 
