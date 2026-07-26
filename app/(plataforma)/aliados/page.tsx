@@ -8,6 +8,7 @@ import {
   listarAliados,
 } from "@/infra/consultas/aliados";
 import { BarraCompletude, PillEstagio, iniciaisDoNome } from "./componentes";
+import { SegmentadoDaSecao } from "./segmentado-secao";
 
 export const metadata: Metadata = {
   title: "Aliados",
@@ -75,7 +76,15 @@ export default async function PaginaAliados({
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 20 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 16,
+          marginBottom: 20,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
           <h1 className="h-page">Aliados</h1>
           <div className="cap" style={{ marginTop: 4 }}>
@@ -83,6 +92,7 @@ export default async function PaginaAliados({
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        <SegmentadoDaSecao ativa="LISTA" />
         <Link href="/aliados/novo" className="btn btn-azul" style={{ textDecoration: "none" }}>
           + Novo aliado
         </Link>
