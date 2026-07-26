@@ -230,6 +230,13 @@ function montarPanorama(
     categoriasSemSolucao: number;
     ofertasAtivas: number;
     ofertasTotal: number;
+    /**
+     * F15 — ofertas ativas publicadas COM RESGATE na janela. Vem do mesmo
+     * serviço da vitrine viva (`kpiVitrineViva`), que é o numerador dela:
+     * a célula e o percentual do hero não podem ser contados por caminhos
+     * diferentes. `null` quando não há base de cálculo.
+     */
+    ofertasComResgate: number | null;
     janelaVitrineEmDias: number;
     campanhasAtivas: number;
     versaoKitVigente: number | null;
@@ -243,7 +250,10 @@ function montarPanorama(
     CATALOGO_PANORAMA.find((item) => item.chave === chave) as DefinicaoPanorama;
 
   const completude = valores.get("ALIADOS_CADASTRO_COMPLETO_PCT");
-  const vitrine = valores.get("VITRINE_VIVA_PCT");
+  // A célula Ofertas lia daqui o percentual da vitrine viva para compor a
+  // nota. Desde a F15 ela mostra o número absoluto, vindo do mesmo serviço
+  // (`kpiVitrineViva`) por `extras.ofertasComResgate` — o percentual segue
+  // sendo o destaque do hero, e a célula não o repete.
   const contato = valores.get("BASE_COM_CONTATO_VALIDO_PCT");
 
   const aliadosNaRede =
@@ -272,17 +282,27 @@ function montarPanorama(
           : "publicadas na vitrine · depende da carga inicial do portfólio",
     },
     {
+      // F15 — o destaque era "148 de 192", dois números disputando a
+      // leitura. Passa a ser o ABSOLUTO de ofertas ativas publicadas com
+      // resgate no período: mesma base da vitrine viva, mesmo serviço
+      // (`kpiVitrineViva`), com teste provando que os dois números
+      // concordam. "de N ativas" desce para a nota de procedência.
       ...definicao("PAN_OFERTAS"),
       resultado:
-        extras.ofertasTotal === 0
+        // Sem oferta publicada não há vitrine a medir: é ausência de base
+        // de cálculo, não zero resgates (RN50/RN53).
+        extras.ofertasAtivas === 0 || extras.ofertasComResgate === null
           ? indisponivel("SEM_BASE_DE_CALCULO")
-          : disponivel(extras.ofertasAtivas, {
-              base: { parte: extras.ofertasAtivas, total: extras.ofertasTotal },
-            }),
+          : // SEM `base`, de propósito: era ela que fazia a tela imprimir
+            // "148 de 192" — dois números disputando a leitura. O
+            // denominador não sumiu, desceu para a nota. Esta era a única
+            // célula do panorama com base, então o renderizador genérico
+            // passa a mostrar um número em todas as oito.
+            disponivel(extras.ofertasComResgate),
       nota:
-        vitrine?.estado === "DISPONIVEL"
-          ? `ativas de ${FORMATO_PANORAMA.format(extras.ofertasTotal)} · vitrine viva ${FORMATO_PANORAMA.format(vitrine.valor)}% em ${extras.janelaVitrineEmDias} dias`
-          : `ativas de ${FORMATO_PANORAMA.format(extras.ofertasTotal)} · ${TEXTOS_INDISPONIBILIDADE.SEM_BASE_DE_CALCULO} para a vitrine viva`,
+        extras.ofertasAtivas === 0 || extras.ofertasComResgate === null
+          ? `${FORMATO_PANORAMA.format(extras.ofertasAtivas)} de ${FORMATO_PANORAMA.format(extras.ofertasTotal)} ativas · ${TEXTOS_INDISPONIBILIDADE.SEM_BASE_DE_CALCULO} para a vitrine viva`
+          : `com resgate em ${extras.janelaVitrineEmDias} dias · de ${FORMATO_PANORAMA.format(extras.ofertasAtivas)} ativas (${FORMATO_PANORAMA.format(extras.ofertasTotal)} no total)`,
     },
     {
       ...definicao("PAN_CAMPANHAS"),
@@ -429,12 +449,15 @@ export async function montarPainel(
  * cupom na janela. Nenhuma delas reinterpreta métrica de ficha.
  */
 async function dadosDoHero(janela: JanelaDashboard) {
-  const [cobertura, campanhas, cestas, ofertasAtivas, ofertasTotal, resgatesDeCupom] =
+  const [cobertura, campanhas, cestas, vitrine, ofertasTotal, resgatesDeCupom] =
     await Promise.all([
       apurarCobertura(),
       listarCampanhas(),
       listarCestas(),
-      prisma.oferta.count({ where: { status: "PUBLICADA" } }),
+      // F15 — uma chamada só alimenta o destaque da célula Ofertas E o
+      // percentual da vitrine viva do hero. Contar "publicadas" aqui por
+      // fora seria o começo da divergência que a RN50 existe para evitar.
+      kpiVitrineViva(),
       prisma.oferta.count(),
       prisma.telemetriaEvento.count({
         where: {
@@ -453,7 +476,8 @@ async function dadosDoHero(janela: JanelaDashboard) {
   return {
     solucoesPublicadas: resumo.solucoesPublicadas,
     categoriasSemSolucao: portfolio.filter((linha) => linha.solucoesPublicadas === 0).length,
-    ofertasAtivas,
+    ofertasAtivas: vitrine.totalPublicadas,
+    ofertasComResgate: vitrine.publicadasComResgate,
     ofertasTotal,
     campanhasAtivas: ativas.length,
     versaoKitVigente: ativas.find((campanha) => campanha.versaoKit !== null)?.versaoKit ?? null,
