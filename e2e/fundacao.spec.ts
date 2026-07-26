@@ -67,22 +67,31 @@ test("login como Gestor aplica papel e monta o shell do protótipo", async ({ pa
   // F12: Campanhas & Cestas ganhou a lista (T22) e deixou de ser onda futura
   await expect(nav.getByRole("link", { name: "Campanhas & Cestas" })).toBeVisible();
 
-  // …e módulos de ondas futuras presentes porém desabilitados
+  // F13: os três últimos módulos desligados ganharam rota. Com a Onda 6 a
+  // sidebar fica INTEIRA ativa — não há mais nenhum item de onda futura, e
+  // é isso que este bloco agora afirma.
   for (const modulo of ["Dashboard", "Usuários", "Auditoria"]) {
-    const botao = nav.getByRole("button", { name: modulo });
-    await expect(botao).toBeVisible();
-    await expect(botao).toHaveAttribute("aria-disabled", "true");
-    await expect(botao).toHaveAttribute("title", "Disponível em onda futura");
+    await expect(nav.getByRole("link", { name: modulo })).toBeVisible();
   }
+  await expect(nav.getByRole("button")).toHaveCount(0);
+
+  // O Dashboard é o primeiro item e, logo após o login, o item atual.
+  const primeiro = nav.getByRole("link").first();
+  await expect(primeiro).toHaveText("Dashboard");
+  await expect(primeiro).toHaveAttribute("aria-current", "page");
 });
 
 test("navegação entre os módulos da Onda 1 e estado do motor de aprovação", async ({ page }) => {
   await entrarComoGestor(page);
 
-  await page.getByRole("link", { name: "Ofertas" }).click();
+  // Escopado à sidebar: a T26 (HOME) também traz links para /ofertas, e o
+  // nome acessível do cartão da vitrine viva contém "ofertas".
+  const nav = page.getByRole("navigation", { name: "Módulos" });
+
+  await nav.getByRole("link", { name: "Ofertas" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Ofertas" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Aprovações" }).click();
+  await nav.getByRole("link", { name: "Aprovações" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Aprovações" })).toBeVisible();
   // Estado inicial do motor conforme RN06 (seed): Aliado ligado, Oferta desligada (T7)
   await page.getByRole("link", { name: "Regras de aprovação (T7)" }).click();
@@ -134,8 +143,13 @@ test("papel Leitura entra e visualiza (ficha §2: visualizar é de todos)", asyn
   await page.getByLabel("E-mail").fill("leitura@dev.clubebroto.local");
   await page.getByLabel("Senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar" }).click();
-  // F13: a HOME passou a ser a T26 (rota `/`).
+  // F13: a HOME passou a ser a T26 (rota `/`), visível a todos os papéis
+  // porque só exibe agregados.
   await page.waitForURL((url) => new URL(url).pathname === "/");
   await expect(page.getByText("Leitura (desenvolvimento)")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "O Clube hoje" })).toBeVisible();
+
+  // E a leitura das telas da Onda 1 segue aberta (ficha §2).
+  await page.goto("/aliados");
   await expect(page.getByRole("heading", { level: 1, name: "Aliados" })).toBeVisible();
 });
