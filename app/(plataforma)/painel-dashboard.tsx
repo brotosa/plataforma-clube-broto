@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  type CelulaPanorama,
   FAIXA_SEM_PENDENCIA,
   type IndicadorApurado,
   type PendenciaApurada,
@@ -10,6 +11,7 @@ import {
   TEXTOS_INDISPONIBILIDADE,
   etiquetaDeAtribuicao,
   faixaEstaZerada,
+  pendenciasAcionaveis,
 } from "@/dominio/dashboard/indicadores";
 import {
   PERIODOS_DASHBOARD,
@@ -63,6 +65,22 @@ function formatarValor(indicador: IndicadorApurado): string {
   }
 }
 
+/**
+ * Número de uma célula do panorama.
+ *
+ * Célula sem base exibe o motivo, jamais zero nem aproximação (RN53) — e o
+ * valor indisponível não entra em soma alguma, incluindo a contagem do sino.
+ */
+function textoDaCelula(celula: CelulaPanorama): string {
+  if (celula.resultado.estado !== "DISPONIVEL") {
+    return TEXTOS_INDISPONIBILIDADE[celula.resultado.motivo];
+  }
+  const { valor, base } = celula.resultado;
+  return base
+    ? `${FORMATO_NUMERO.format(valor)} de ${FORMATO_NUMERO.format(base.total)}`
+    : FORMATO_NUMERO.format(valor);
+}
+
 function LinhaIndicador({ indicador }: { indicador: IndicadorApurado }) {
   const indisponivel = indicador.resultado.estado === "INDISPONIVEL";
   const etiqueta =
@@ -107,6 +125,7 @@ export function PainelDashboard({
   periodo,
   hoje,
   pendencias,
+  panorama,
   blocos,
   destaque,
   meta,
@@ -116,6 +135,7 @@ export function PainelDashboard({
   /** Data já formatada no servidor — evita divergência de fuso na hidratação. */
   hoje: string;
   pendencias: ReadonlyArray<PendenciaApurada>;
+  panorama: ReadonlyArray<CelulaPanorama>;
   blocos: ReadonlyArray<{ bloco: keyof typeof ROTULOS_BLOCO; indicadores: IndicadorApurado[] }>;
   destaque: IndicadorApurado;
   meta: { alvo: number; realizado: number; rotuloPeriodo: string | null } | null;
@@ -123,7 +143,9 @@ export function PainelDashboard({
 }) {
   const router = useRouter();
   const emDia = faixaEstaZerada(pendencias);
-  const comPendencia = pendencias.filter((pendencia) => pendencia.contagem > 0);
+  // Mesma função que o sino usa para montar suas linhas: cartões e sino não
+  // podem discordar sobre o que é pendência (Onda 7 §7).
+  const comPendencia = pendenciasAcionaveis(pendencias);
 
   const vitrine = destaque.resultado;
   const destaqueDisponivel = vitrine.estado === "DISPONIVEL";
@@ -207,17 +229,23 @@ export function PainelDashboard({
               <b style={{ color: "var(--amarelo)" }}>{etiquetaDeAtribuicao("POR_OFERTA")}</b>
             </span>
           </Link>
+          {/* Camada 1 (Onda 7 §6): o panorama de oito células. Antes da F14
+              estas células exibiam as pendências — a ficha da Onda 6 §2 não
+              enumerou o hero, e a implementação seguiu a ficha. As pendências
+              descem para a camada 2, como cartões próprios. */}
           <div className="dash-stats">
-            {pendencias.map((pendencia) => (
+            {panorama.map((celula) => (
               <Link
-                key={pendencia.chave}
+                key={celula.chave}
                 className="dash-stat"
-                href={pendencia.destino}
+                href={celula.destino}
                 style={{ textDecoration: "none" }}
               >
-                <span className="dash-lab">{pendencia.rotulo}</span>
-                <span className="dash-n num">{FORMATO_NUMERO.format(pendencia.contagem)}</span>
-                <span className="dash-cap">{pendencia.fonte}</span>
+                <span className="dash-lab">{celula.rotulo}</span>
+                <span className={celula.resultado.estado === "DISPONIVEL" ? "dash-n num" : "dash-cap"}>
+                  {textoDaCelula(celula)}
+                </span>
+                <span className="dash-cap">{celula.nota}</span>
               </Link>
             ))}
           </div>
@@ -225,7 +253,10 @@ export function PainelDashboard({
       </div>
 
       <h2 className="h-el" style={{ marginBottom: 10 }}>
-        Exige ação hoje
+        Pendências{" "}
+        <span className="cap" style={{ fontWeight: 400 }}>
+          · exige ação hoje
+        </span>
       </h2>
       {emDia ? (
         <div className="card" style={{ marginBottom: 22 }}>

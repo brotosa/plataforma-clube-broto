@@ -303,6 +303,115 @@ export function campanhaEtiquetada(indicador: IndicadorApurado): boolean {
 }
 
 // ---------------------------------------------------------------------
+// Panorama do hero (ficha Onda 7 §6) — camada 1 da HOME
+// ---------------------------------------------------------------------
+
+/**
+ * As oito células do panorama.
+ *
+ * **Por que elas não existiam.** A ficha da Onda 6 §2 descreveu a HOME como
+ * "faixa Exige ação hoje + quatro blocos por domínio" e não enumerou as
+ * células do hero; a implementação seguiu a ficha e usou o hero para as
+ * pendências. A causa foi de especificação, não de execução — e a ficha da
+ * Onda 7 §6 fecha a lacuna. É por isso que o catálogo aparece só agora: sem
+ * ficha validada por trás, célula nova não entra (RN50).
+ *
+ * **O que este catálogo contrata** são os indicadores, seus rótulos e suas
+ * notas de procedência — não valores. Os números do protótipo são
+ * ilustrativos.
+ *
+ * **De onde vêm os números.** Cada célula lê o MESMO serviço que já alimenta
+ * os quatro blocos. Nenhuma consulta de negócio nova: onde o número já existe
+ * (aliados na rede, soluções publicadas, campanhas ativas, base de
+ * assinantes), a célula o reaproveita; onde não existe, ela declara a
+ * indisponibilidade com motivo em vez de estimar (RN53).
+ */
+export const CATALOGO_PANORAMA = [
+  {
+    chave: "PAN_ALIADOS",
+    rotulo: "Aliados",
+    destino: "/aliados",
+    procedencia: "completude média do cadastro",
+  },
+  {
+    chave: "PAN_SOLUCOES",
+    rotulo: "Soluções",
+    destino: "/aliados/cobertura",
+    procedencia: "procedência: depende da carga inicial do portfólio",
+  },
+  {
+    chave: "PAN_OFERTAS",
+    rotulo: "Ofertas",
+    destino: "/ofertas",
+    procedencia: "vitrine viva do período",
+  },
+  {
+    chave: "PAN_CAMPANHAS",
+    rotulo: "Campanhas",
+    destino: "/campanhas",
+    procedencia: "versão do kit vigente",
+  },
+  {
+    chave: "PAN_CESTAS",
+    rotulo: "Cestas",
+    destino: "/campanhas/cestas",
+    procedencia: "pendência de RN41",
+  },
+  {
+    chave: "PAN_ASSINANTES",
+    rotulo: "Assinantes",
+    destino: "/assinantes",
+    procedencia: "natureza da base",
+  },
+  {
+    chave: "PAN_RESGATES_BENEFICIOS",
+    rotulo: "Resgates de benefícios",
+    destino: "/campanhas",
+    procedencia: "nível de atribuição; total da base aguarda telemetria",
+  },
+  {
+    chave: "PAN_RESGATES_CUPONS",
+    rotulo: "Resgates de cupons",
+    destino: "/ofertas/telemetria",
+    procedencia: "aguarda telemetria; regra de comissão do cupom em confirmação",
+  },
+] as const satisfies ReadonlyArray<{
+  chave: string;
+  rotulo: string;
+  destino: string;
+  procedencia: string;
+}>;
+
+export type ChavePanorama = (typeof CATALOGO_PANORAMA)[number]["chave"];
+
+export interface DefinicaoPanorama {
+  chave: ChavePanorama;
+  rotulo: string;
+  destino: string;
+  procedencia: string;
+}
+
+export interface CelulaPanorama extends DefinicaoPanorama {
+  resultado: ValorIndicador;
+  /**
+   * Nota exibida sob o número — a procedência do catálogo, completada com o
+   * dado do período quando ele existe ("completude média 42%"). Nunca só o
+   * número: célula sem procedência é número sem endereço.
+   */
+  nota: string;
+}
+
+/**
+ * Nenhuma célula do panorama entra em soma alguma da HOME, e o contrário
+ * também vale: o panorama não é fonte das pendências. São camadas distintas
+ * lendo o mesmo serviço, e este predicado existe para o teste cobrar que uma
+ * chave nunca vaze para a outra camada.
+ */
+export function chaveDePanorama(chave: string): chave is ChavePanorama {
+  return CATALOGO_PANORAMA.some((definicao) => definicao.chave === chave);
+}
+
+// ---------------------------------------------------------------------
 // Faixa "Exige ação hoje" (ficha §2)
 // ---------------------------------------------------------------------
 
@@ -364,6 +473,14 @@ export const CATALOGO_ACAO_HOJE: ReadonlyArray<DefinicaoAcaoHoje> = [
 
 export interface PendenciaApurada extends DefinicaoAcaoHoje {
   contagem: number;
+  /**
+   * Motivo quando a contagem NÃO existe (RN53). Hoje as seis vêm de query
+   * real e nenhuma chega indisponível — o campo existe porque a régua
+   * precisa valer estruturalmente: se amanhã uma fila passar a depender de
+   * fonte externa, ela declara o motivo em vez de exibir zero, e some das
+   * somas sem ninguém precisar lembrar disso.
+   */
+  indisponivel?: MotivoIndisponibilidade;
 }
 
 /** Estado positivo explícito: a faixa zerada não some, ela afirma. */
@@ -371,5 +488,39 @@ export const FAIXA_SEM_PENDENCIA =
   "Nada exige ação hoje. Todas as filas estão em dia.";
 
 export function faixaEstaZerada(pendencias: ReadonlyArray<PendenciaApurada>): boolean {
-  return pendencias.every((p) => p.contagem === 0);
+  return pendencias.every((p) => p.indisponivel !== undefined || p.contagem === 0);
+}
+
+/** As que aparecem como cartão na HOME e como linha no sino. */
+export function pendenciasAcionaveis(
+  pendencias: ReadonlyArray<PendenciaApurada>,
+): PendenciaApurada[] {
+  return pendencias.filter((p) => p.indisponivel !== undefined || p.contagem > 0);
+}
+
+/**
+ * O número do sino (ficha Onda 7 §7).
+ *
+ * **Soma exata das contagens da camada 2 da HOME** — nem mais, nem menos.
+ * Se o sino e os cartões divergirem, os dois perdem credibilidade, e é por
+ * isso que existe uma função só, usada pelos dois, com teste cobrindo a
+ * igualdade.
+ *
+ * Pendência indisponível NÃO contribui (RN53): ela não vale zero, ela não
+ * tem valor — e somar um valor que não existe é inventá-lo.
+ */
+export function totalDePendencias(pendencias: ReadonlyArray<PendenciaApurada>): number {
+  return pendencias.reduce(
+    (total, pendencia) =>
+      pendencia.indisponivel === undefined ? total + pendencia.contagem : total,
+    0,
+  );
+}
+
+/** Texto acessível do marcador do sino — nunca só o número solto. */
+export function textoDoMarcador(total: number): string {
+  if (total === 0) {
+    return "Nenhuma ação pendente — abrir o painel";
+  }
+  return total === 1 ? "1 ação pendente — abrir o painel" : `${total} ações pendentes — abrir o painel`;
 }

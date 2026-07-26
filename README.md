@@ -1,6 +1,6 @@
 # Plataforma de Administração do Clube Broto
 
-Aplicação web administrativa do Clube Broto (Broto S.A.), em seis ondas:
+Aplicação web administrativa do Clube Broto (Broto S.A.), em sete ondas:
 
 | Onda | Módulo | Regras | Telas |
 |---|---|---|---|
@@ -10,14 +10,18 @@ Aplicação web administrativa do Clube Broto (Broto S.A.), em seis ondas:
 | 5 | Assinantes · base patrocinada com importação, enriquecimento, segmentação e exportação controlada | RN29–RN37 | T18–T21 |
 | 4 | Campanhas e Cestas · público congelado, conteúdo, peças, kit de execução e medição atribuída | RN38–RN45 | T22–T25 |
 | 6 | Dashboard, Usuários e Auditoria · governança visível | RN46–RN50 | T26–T28 |
+| 7 | Cobertura do portfólio e Mapa da rede · releitura do cadastro como instrumento de decisão | RN51–RN53 | T29–T30 |
 
-- Fontes da verdade funcionais: as seis fichas em `docs/especificacao/`
-- Arquitetura e fases: os seis `prompt-claude-code-onda*.md`
-- Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v8.1_FINAL.html`
-  (T1–T28). As versões v7.1, v6.1 e v2.1 permanecem apenas como histórico.
+- Fontes da verdade funcionais: as sete fichas em `docs/especificacao/`
+- Arquitetura e fases: os sete `prompt-claude-code-onda*.md`
+- Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v9.1.html`
+  (T1–T30). As versões v8.1 FINAL, v7.1, v6.1 e v2.1 permanecem apenas como histórico.
 
-**Estado atual: escopo especificado completo — F1 a F13 entregues, as 50 regras
-e as 28 telas implementadas.**
+**Estado atual: escopo original completo (F1–F13) e a primeira onda posterior a
+ele entregue (F14) — 53 regras e 30 telas implementadas. O produto está em
+produção**, e a partir da F14 toda fase carrega o dever adicional de não
+regredir: reescrever cálculo já exibido exige teste provando que o número não
+mudou.
 
 A Onda 1 (F1–F5) entregou o cadastro, o motor de aprovação com segregação
 solicitante ≠ aprovador, a publicação em lote e a importação de telemetria, a
@@ -43,6 +47,16 @@ Usuários (T27) dá interface ao RBAC com proteção anti-lockout e revogação
 imediata de acesso, e Auditoria (T28) abre a trilha gravada desde a F1 para
 consulta e extrato — ele próprio auditado.
 
+A **F14** abre a Onda 7 e é a primeira fase depois do escopo original. Ela não
+inventa número: transforma o cadastro que já existe em instrumento de decisão.
+A definição de cobertura vira **fonte única** (RN51) compartilhada pela T13,
+pela T29 e pelo Dashboard; a T29 mostra onde a rede é completa, frágil ou
+inexistente; a T30 põe a rede no mapa **sem nunca misturar** sede com
+abrangência declarada (RN52). Junto vieram quatro correções transversais: o
+rodapé passa a exibir a versão lida do build, o cabeçalho volta ao desenho
+aprovado da marca, a HOME ganha o panorama de oito indicadores que a ficha da
+Onda 6 não chegara a enumerar, e o sino do cabeçalho deixa de ser decorativo.
+
 Atravessando todas as ondas, o **endurecimento** iniciado na F5 e mantido
 fase a fase:
 
@@ -56,6 +70,8 @@ fase a fase:
 - **responsividade validada a 380px** em projeto Playwright próprio, cobrindo
   todas as telas do produto — a T26, por ser a HOME, é validada como **plena** e
   não apenas íntegra;
+- **regressão como critério de aceite** a partir da F14: cálculo já exibido em
+  produção só é reescrito com teste provando que o número não mudou;
 - **Dockerfile** multi-stage e este README de operação e deploy.
 
 ## Stack
@@ -114,6 +130,8 @@ pnpm dev              # http://localhost:3000
 | `BUILD_STANDALONE` | só no Docker | `true` liga `output: "standalone"`; na Vercel **não** usar |
 | `SENHA_USUARIOS_DEV` | não | sobrescreve a senha dos usuários de desenvolvimento |
 | `PORT` / `HOSTNAME` | não | porta e interface do servidor (a imagem já define 3000 / 0.0.0.0) |
+| `AMBIENTE_APP` | não | rótulo do ambiente no rodapé fora de produção. Sem ela, cai para `VERCEL_ENV` e depois `NODE_ENV`; em `production` a linha não é renderizada |
+| `COMMIT_SHA` | não | commit exibido no rodapé fora de produção. Sem ela, cai para `VERCEL_GIT_COMMIT_SHA` ou `GITHUB_SHA` |
 | `CHROMIUM_EXECUTAVEL` | não | caminho de um Chromium próprio para o Playwright (contêineres) |
 | `PW_REUSAR_SERVIDOR` | não | `1` aponta o e2e para um servidor já em execução |
 
@@ -160,6 +178,7 @@ Senha de todos: `clube-broto-dev` (sobrescrevível com `SENHA_USUARIOS_DEV`).
 | `pnpm db:migrate:dev` | cria/aplica migrations (desenvolvimento) |
 | `pnpm db:seed` | seed de taxonomias, indicadores, regras do motor, valores de regra, meta vigente e usuários dev |
 | `pnpm job:diario` | job diário: expira vigências (RN03), janela contratual e reavaliação (RN21) |
+| `node scripts/gerar-geometria-brasil.mjs` | regenera o asset de geometria do mapa (T30) a partir do Natural Earth. **Não roda no build** — a saída é versionada; o script existe para a proveniência ser reproduzível |
 
 \* os testes de integração (auditoria com banco) só executam quando
 `DATABASE_URL` está definida; sem banco, são pulados.
@@ -231,13 +250,15 @@ O contêiner **não** aplica migrations no start — ver abaixo.
 ## Estrutura
 
 ```
-app/        rotas e telas (App Router); shell fiel ao protótipo v8.1 FINAL
-dominio/    regras de negócio puras e testáveis (RBAC, auditoria, identidade)
+app/        rotas e telas (App Router); shell fiel ao protótipo v9.1
+dominio/    regras de negócio puras e testáveis (RBAC, auditoria, cobertura, geografia)
 infra/      Prisma, Auth.js, gravador de auditoria, consultas, casos de uso
-prisma/     schema das seis ondas, migrations reversíveis (com down.sql), seed
+infra/geografia/  geometria Natural Earth versionada + projeção no servidor (T30)
+prisma/     schema das sete ondas, migrations reversíveis (com down.sql), seed
 design/     DSeed: tokens.css (intocável) + dseed-admin.css (extensões)
 e2e/        Playwright + axe-core (fluxos, acessibilidade, teclado, 380px)
 dados/      planilhas reais da carga inicial (consumidas na F3)
+scripts/    job diário e geração do asset de geometria do mapa
 Dockerfile  imagem multi-stage de produção (standalone)
 ```
 
@@ -447,6 +468,194 @@ meta-trilha), classificado como sensível. **RN49**: nenhum evento é apagado �
 não há purga em lugar nenhum do código de produção, e um teste de arquitetura
 quebra o build se alguém escrever a primeira.
 
+## Cobertura, Mapa da rede e as correções transversais (Onda 7 — F14)
+
+### RN51 — a cobertura passa a ter fonte única
+
+Antes da F14 a definição de cobertura morava em `dominio/metas/cobertura.ts` e
+só a T13 a usava; o Dashboard consumia o resultado dela. Com a T29 pedindo a
+mesma verdade sob outra pergunta, três telas contariam lacunas por caminhos
+próprios — que é como um número diverge do outro sem ninguém perceber.
+
+A definição agora vive em **um lugar só**, em duas camadas:
+
+| Camada | Onde | O quê |
+|---|---|---|
+| **Fato** | `infra/consultas/cobertura.ts` | uma apuração: aliados ativos, soluções publicadas e funil por estágio, por categoria — sem juízo |
+| **Lentes** | `dominio/cobertura/cobertura.ts` | cada tela deriva do mesmo fato o recorte da sua pergunta |
+
+As lentes **não colapsam em uma**, e isso é deliberado: a T13 pergunta *onde
+falta gente* (gap = categoria sem aliado ativo) e a T29 pergunta *onde a
+prateleira é rasa*. Categoria com um aliado ativo e nada publicado é **frágil**
+para a T29 e **não é gap** para a T13.
+
+**O vocabulário, definido uma vez e exibido na tela:**
+
+| Situação | Critério |
+|---|---|
+| **Coberta** | dois ou mais aliados ativos e ao menos uma solução publicada |
+| **Frágil** | um único aliado ativo, **ou** aliados sem nenhuma solução publicada |
+| **Descoberta no funil** | nenhum aliado ativo, mas há empresa em prospecção |
+| **Sem cobertura** | nenhum aliado ativo e ninguém no funil |
+
+"Frágil" é o único critério que a ficha não fecha em número; o adotado está em
+`CRITERIOS_SITUACAO` **e aparece na interface**, porque régua que só vive no
+código vira conhecimento tribal.
+
+**Prova de que a T13 não mudou.** `infra/consultas/cobertura.regressao.test.ts`
+mantém a implementação da F9 congelada no próprio arquivo e roda as duas contra
+o mesmo banco, campo a campo. Não é *golden file*: número gravado à mão alguém
+"atualiza" quando fica vermelho, que é como uma regressão vira commit.
+
+### T29 — Cobertura do portfólio (`/aliados/cobertura`)
+
+Faixa de quatro indicadores (com alerta quando há vazios), distribuição por
+categoria em barra dupla com o critério de ordenação **escrito na tela**,
+"Onde faltam" com **"Buscar no radar"**, concentração nas três maiores e a
+matriz Categoria × cultura.
+
+O caminho que a RN51 desenha fecha ponta a ponta e está testado assim:
+**T29 → "Buscar no radar" → T8 filtrada pela categoria → (se vazia) "+ Entrar
+no radar" → T9 com a categoria já marcada.** Verificar antes de prospectar só
+é regra se o caminho inteiro existir; sem o último passo, a verificação termina
+num beco.
+
+Duas notas da matriz são **obrigatórias** pela ficha e estão no corpo da tela,
+não em rodapé: sem a primeira, quem lê soma a linha e erra (uma solução serve
+mais de uma cultura); sem a segunda, atribui à matriz um recorte de região que
+ela não tem.
+
+**O funil não é recortado por cultura**, e isso é decisão: empresa em
+prospecção não tem solução cadastrada, logo não declara cultura. Aplicar o
+filtro zeraria a coluna e faria toda categoria parecer descoberta. A tela
+declara a ressalva quando o filtro está ativo.
+
+### T30 — Mapa da rede (`/aliados/mapa`)
+
+**RN52 é o eixo:** sede e abrangência são consultas diferentes porque são
+perguntas diferentes. Não existe caminho comum que "resolva" as duas.
+
+| Modo | Fonte no cadastro | O que NÃO é |
+|---|---|---|
+| **Sede do aliado** | `empresas.endereco_uf` | não é alcance de atendimento |
+| **Abrangência declarada** | cobertura das soluções publicadas (`cobertura_nacional` ou `solucao_ufs`) | não é presença física |
+
+**Sobre a abrangência não ser campo do aliado:** o cadastro guarda a cobertura
+na *solução*, e a abrangência do aliado é a união das coberturas das soluções
+que ele publicou — a única declaração de alcance que o cadastro sustenta hoje.
+Aliado sem cobertura declarada **não cai para a sede**: vira volume não
+declarado, com o motivo na tela. É a pendência herdada da ficha §10, agora
+visível em vez de silenciosa.
+
+**Geometria e projeção.** O mapa usa Natural Earth 1:50m (domínio público),
+gerado por `scripts/gerar-geometria-brasil.mjs` e **versionado** em
+`infra/geografia/brasil-ufs.geo.json` — nada é buscado de CDN quando a tela
+abre. A projeção (`d3-geo`, Mercator) roda **no servidor**: o SVG chega pronto
+no HTML, sem JS de mapa no cliente, sem estado de carregamento e sem o caminho
+de falha "a biblioteca não carregou" que o protótipo precisa ter. Os centróides
+também não são digitados — saem de `geoPath.centroid()` sobre a geometria real.
+
+Para conferir a proveniência: rode o script e compare com o arquivo commitado.
+
+### Rodapé versionado (ficha §4)
+
+O rodapé exibia "Ondas 1–2 · Aliados, Ofertas e Mercado" — factualmente
+incorreto desde a Onda 3 e impróprio para usuário final. Passa a exibir
+**"Elaborado por Broto S.A. · v{versão}"**, com a versão vindo do `version` do
+`package.json`, injetada no build por `next.config.ts`. **Nunca digitada**: um
+literal no componente envelheceria do mesmo jeito.
+
+**Convenção de versionamento adotada.** `package.json` foi de `0.1.0` a
+**1.0.0** na F14, por decisão registrada na ficha §4: o escopo especificado
+(F1–F13) está completo e em produção, e `0.x` deixaria de descrever a
+realidade. O 1.0.0 é, portanto, o **marco do escopo original**, e a Onda 7
+entra dentro dele — não como a versão seguinte.
+
+Daqui em diante, [SemVer](https://semver.org/lang/pt-BR/) lido pelo produto,
+não pela API:
+
+| Parte | Quando muda | Exemplo |
+|---|---|---|
+| **MAIOR** | quebra de contrato com quem consome a plataforma | mudar o formato do export ou do kit para a Minutrade; remover tela ou rota |
+| **MENOR** | onda ou fase que acrescenta capacidade | a próxima onda vai a `1.1.0` |
+| **CORREÇÃO** | correção sem capacidade nova | ajuste de cálculo, defeito de tela, correção de acessibilidade |
+
+A versão é elevada **uma vez por fase**, junto com a atualização do
+`CLAUDE.md`, para o número valer durante toda a fase e aparecer no rodapé de
+qualquer preview daquela fase.
+
+Em ambiente **não-produção**, uma segunda linha discreta mostra ambiente e
+commit curto (`NEXT_PUBLIC_AMBIENTE`, `NEXT_PUBLIC_COMMIT_CURTO`), para ninguém
+apresentar uma preview acreditando estar na plataforma no ar. Em produção a
+linha não é renderizada.
+
+### Fidelidade do cabeçalho (ficha §5)
+
+A implementação divergia do protótipo aprovado: a área de marca dentro da
+`<aside>` era branca e, somada ao header branco, produzia uma faixa clara
+atravessando o topo, com o logo na variante azul/verde. O protótipo define o
+contrário — o **azul institucional da lateral sobe até o topo**, envolvendo a
+marca, com o logo **amarelo/verde** (a variante que existe justamente para
+fundo azul; foi a inversão dela que produziu a faixa branca).
+
+A entrega do Design ofereceu duas variantes de topo. **Decisão da
+Superintendência: apenas a azul permanece** — sem alternador e sem código
+morto, então a variante clara não existe no arquivo.
+
+Preservados e testados: o alternador de recolher a lateral, a navegação entre
+módulos, o marco de landmark e o comportamento a 380px.
+
+### HOME em três camadas (ficha §6)
+
+O panorama de oito indicadores do hero **não existia**. A causa foi de
+especificação, não de execução: a ficha da Onda 6 §2 descreveu "faixa + quatro
+blocos" e não enumerou as células do hero, então a F13 usou o hero para as
+pendências. A ficha da Onda 7 §6 fecha a lacuna.
+
+| Camada | O quê |
+|---|---|
+| 1 — hero | número-tese da vitrine viva, seletor de período e **panorama de 8 células** clicáveis, cada uma com rótulo, número e nota de procedência |
+| 2 — pendências | "Pendências · exige ação hoje" como cartões próprios, **fora** do hero |
+| 3 — blocos | os quatro blocos por domínio, **preservados integralmente**, com a meta × realizado no de Mercado |
+
+**Nenhuma consulta de negócio nova.** Onde o número já existe, a célula
+reaproveita: "Aliados" é o denominador da completude que o bloco de Rede já
+calcula, "Assinantes" o do contato válido, "Soluções" vem do serviço único de
+cobertura, e campanhas/kit/resgates vêm de `listarCampanhas`. Este último
+merece nota: `resgatesNaVigencia` a medição da F12 **já apurava e descartava** —
+expô-lo é o oposto de uma consulta nova.
+
+Célula sem base exibe o motivo, **jamais zero**: sem campanha ativa não há
+"resgates na campanha ativa" para apurar, e isso é ausência de base, não zero
+resgates.
+
+`infra/consultas/dashboard.panorama.test.ts` prova a regressão dos quatro
+blocos (mesmos indicadores, mesma ordem, meta × realizado no lugar, nenhuma
+chave de panorama vazando) e as igualdades que comprovam a fonte compartilhada.
+
+### Sino de pendências (ficha §7)
+
+O botão de notificações era decorativo — tinha até um `title` prometendo
+alertas que nunca chegariam. Agora é **atalho do que a plataforma já calcula**.
+
+O que ele deliberadamente **não** é: sistema de notificação. Sem fila
+persistente, sem lido/não-lido, sem preferências — nada disso está em ficha, e
+inventar essa infraestrutura criaria um segundo lugar onde pendência mora, com
+estado próprio para divergir do primeiro.
+
+O número sai de `totalDePendencias`, **a mesma função dos cartões da HOME**, e
+o layout apura uma vez e passa pronto: o sino não consulta nada por conta
+própria. Pendência indisponível não entra na soma (RN53). Acessibilidade como
+critério de aceite, não acabamento: estado de expansão declarado, texto
+acessível no marcador, Esc fecha devolvendo o foco ao botão, clique fora fecha,
+foco contido no painel enquanto aberto, marcador em AAA e largura útil a 380px.
+
+**Custo operacional declarado:** apurar as pendências no layout significa
+executar as seis contagens em **toda** renderização de página autenticada. São
+`count`s indexados (a F13 criou `@@index([estagio, reavaliacao_pendente])`
+exatamente para isso), mas é custo real e consciente — o marcador precisa
+existir sem interação, então não há como adiá-lo para o clique.
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
@@ -501,8 +710,16 @@ do dump completo do catálogo e a tag "Recompensa" em cards pagos na vitrine.
 | **Imagem Docker não construída** (herdada da F5) | O `Dockerfile` multi-stage está escrito e revisado, mas **`docker build` nunca foi executado** em nenhum ambiente deste repositório — não há daemon Docker no ambiente de desenvolvimento usado. A TI deve rodar `docker build -t clube-broto-admin .` e conferir a imagem no primeiro deploy, antes de depender dela. O deploy na Vercel, usado para a demonstração, não passa por essa imagem. |
 | **Chaves de ambiente** | Sem `CPF_HASH_KEY` e `APP_ENCRYPTION_KEY` a plataforma **falha alto** ao hashear ou cifrar CPF — não há fallback embutido, de propósito. Girar a `CPF_HASH_KEY` re-identifica a base inteira e desliga a junção telemetria ↔ assinante (RN36): não girar sem plano de recarga. `AUTH_SECRET` é obrigatória para a sessão. |
 | **Chave e tarifas do dossiê** | `ANTHROPIC_API_KEY`, `DOSSIE_TETO_MENSAL_BRL`, `DOSSIE_CUSTO_MAX_UNITARIO_BRL`, `DOSSIE_CUSTO_ENTRADA_BRL_MTOK` e `DOSSIE_CUSTO_SAIDA_BRL_MTOK` são **[A CONFIRMAR TI]** e nunca commitadas. Faltando qualquer uma, a T11 exibe o provedor automático como indisponível dizendo o que falta, e só a inserção manual do dossiê opera. As tarifas em real dependem da cotação adotada pela TI — por isso são configuração, não constante. |
-| Recorte "Safra 25/26" no seletor de período da T26 | O protótipo v8.1 mostra a opção; o recorte de safra é definição de negócio (início e fim variam por cultura e região) e não consta de ficha nem do Parametrizador. O seletor entrega os três períodos computáveis (30 dias, 90 dias, 12 meses); a safra entra quando a janela for declarada. |
+| Recorte "Safra 25/26" no seletor de período da T26 | O protótipo mostra a opção; o recorte de safra é definição de negócio (início e fim variam por cultura e região) e não consta de ficha nem do Parametrizador. O seletor entrega os três períodos computáveis (30 dias, 90 dias, 12 meses); a safra entra quando a janela for declarada. |
 | Seed do perfil de cliente (porte × natureza PF/PJ) | Lista nasce vazia, com o estado explicado na tela. |
+| **Custo das pendências no layout** (F14) | O sino apura as seis contagens em toda renderização autenticada, porque o marcador precisa existir sem interação. São `count`s indexados, mas é custo real: se a base crescer a ponto de pesar, o caminho é cache curto no Serviço de Configuração, não remover o marcador. |
+
+**Operação (Onda 7):**
+
+| Pendência | Efeito hoje |
+|---|---|
+| **Carga inicial do portfólio de soluções** (herdada) | A T29 reflete apenas o que está cadastrado, e **declara isso na tela**. Categorias sem solução publicada aparecem como frágeis ou sem cobertura — pode ser portfólio não classificado, não portfólio ausente, e o volume de aliados sem categoria é exibido junto para não induzir leitura errada. |
+| **Abrangência declarada por aliado** (herdada) | Não existe campo de abrangência no aliado: o cadastro guarda a cobertura na *solução*, e o modo Abrangência da T30 usa a união das coberturas das soluções publicadas. Aliado sem nenhuma declaração entra como **volume não declarado**, com o motivo na tela — nunca deduzido da sede (RN52). Preenchimento é trabalho operacional, não de código. |
 
 ## Convenções
 

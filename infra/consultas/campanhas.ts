@@ -144,6 +144,16 @@ export interface LinhaCampanha {
   versaoKit: number | null;
   resumo: { texto: string; nivel: string };
   realizados: RealizadoDaMeta[];
+  /**
+   * Resgates das ofertas da campanha na vigência — nível POR OFERTA (RN43).
+   *
+   * `dadosDeMedicao` já calculava este número para as metas e o descartava.
+   * A célula "Resgates de benefícios" do panorama da HOME (Onda 7 §6) precisa
+   * dele, e expô-lo aqui é o oposto de uma consulta nova: é parar de jogar
+   * fora o que a medição da F12 já apurou. Todo consumidor deve exibi-lo com
+   * a etiqueta de atribuição.
+   */
+  resgatesNaVigencia: number;
 }
 
 /** T22 — lista de campanhas com metas × realizado etiquetado. */
@@ -171,6 +181,7 @@ export async function listarCampanhas(): Promise<LinhaCampanha[]> {
       versaoKit: campanha.kits[0]?.versao ?? null,
       resumo: resumoMetas(realizados),
       realizados,
+      resgatesNaVigencia: medicao.resgatesNaVigencia,
     });
   }
   return linhas;

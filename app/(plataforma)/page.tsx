@@ -39,6 +39,7 @@ export default async function PaginaDashboard({
       periodo={periodo}
       hoje={hoje}
       pendencias={painel.pendencias}
+      panorama={painel.panorama}
       blocos={painel.blocos}
       destaque={painel.destaque}
       meta={painel.meta}

@@ -3,10 +3,15 @@ import { prisma } from "@/infra/prisma/cliente";
 import {
   type BlocoDashboard,
   CATALOGO_ACAO_HOJE,
+  CATALOGO_PANORAMA,
+  type CelulaPanorama,
   type ChaveIndicador,
+  type ChavePanorama,
   type DefinicaoAcaoHoje,
+  type DefinicaoPanorama,
   type IndicadorApurado,
   type PendenciaApurada,
+  TEXTOS_INDISPONIBILIDADE,
   type ValorIndicador,
   definicaoDoIndicador,
   disponivel,
@@ -16,6 +21,9 @@ import {
 } from "@/dominio/dashboard/indicadores";
 import { calcularCompletudeAliado } from "./aliados";
 import { mapaDeCobertura, painelDeMetas } from "./cobertura-metas";
+import { apurarCobertura } from "./cobertura";
+import { montarPortfolio, resumirPortfolio } from "@/dominio/cobertura/cobertura";
+import { listarCestas, situacaoRn41 } from "@/infra/casos-de-uso/cestas";
 import { janelaDaVitrineEmDias, kpiVitrineViva } from "./telemetria";
 import { listarCampanhas } from "./campanhas";
 import { calcularReceitaBroto } from "@/dominio/receita/comissao";
@@ -197,12 +205,131 @@ export interface BlocoApurado {
   indicadores: IndicadorApurado[];
 }
 
+const FORMATO_PANORAMA = new Intl.NumberFormat("pt-BR");
+
+/**
+ * Panorama do hero (Onda 7 §6) — as oito células, montadas a partir do que
+ * as consultas dos blocos JÁ trouxeram.
+ *
+ * O parâmetro `valores` é o mesmo mapa que alimenta os quatro blocos: é daí
+ * que saem "aliados na rede" (denominador da completude), "assinantes na
+ * base" (denominador do contato válido) e "campanhas ativas". Célula que não
+ * encontra número devolve INDISPONIVEL com motivo — jamais zero (RN53).
+ */
+function montarPanorama(
+  valores: ReadonlyMap<ChaveIndicador, ValorIndicador>,
+  extras: {
+    solucoesPublicadas: number;
+    categoriasSemSolucao: number;
+    ofertasAtivas: number;
+    ofertasTotal: number;
+    janelaVitrineEmDias: number;
+    campanhasAtivas: number;
+    versaoKitVigente: number | null;
+    cestasReutilizaveis: number;
+    cestasComPendenciaRn41: number;
+    resgatesEmCampanhaAtiva: number | null;
+    resgatesDeCupom: number | null;
+  },
+): CelulaPanorama[] {
+  const definicao = (chave: ChavePanorama) =>
+    CATALOGO_PANORAMA.find((item) => item.chave === chave) as DefinicaoPanorama;
+
+  const completude = valores.get("ALIADOS_CADASTRO_COMPLETO_PCT");
+  const vitrine = valores.get("VITRINE_VIVA_PCT");
+  const contato = valores.get("BASE_COM_CONTATO_VALIDO_PCT");
+
+  const aliadosNaRede =
+    completude?.estado === "DISPONIVEL" && completude.base ? completude.base.total : null;
+  const baseDeAssinantes =
+    contato?.estado === "DISPONIVEL" && contato.base ? contato.base.total : null;
+
+  const celulas: CelulaPanorama[] = [
+    {
+      ...definicao("PAN_ALIADOS"),
+      resultado:
+        aliadosNaRede === null
+          ? indisponivel("SEM_BASE_DE_CALCULO")
+          : disponivel(aliadosNaRede),
+      nota:
+        completude?.estado === "DISPONIVEL"
+          ? `completude média do cadastro: ${FORMATO_PANORAMA.format(completude.valor)}%`
+          : "completude média do cadastro: sem base",
+    },
+    {
+      ...definicao("PAN_SOLUCOES"),
+      resultado: disponivel(extras.solucoesPublicadas),
+      nota:
+        extras.categoriasSemSolucao > 0
+          ? `publicadas na vitrine · ${FORMATO_PANORAMA.format(extras.categoriasSemSolucao)} categoria(s) ainda sem nenhuma — depende da carga inicial do portfólio`
+          : "publicadas na vitrine · depende da carga inicial do portfólio",
+    },
+    {
+      ...definicao("PAN_OFERTAS"),
+      resultado:
+        extras.ofertasTotal === 0
+          ? indisponivel("SEM_BASE_DE_CALCULO")
+          : disponivel(extras.ofertasAtivas, {
+              base: { parte: extras.ofertasAtivas, total: extras.ofertasTotal },
+            }),
+      nota:
+        vitrine?.estado === "DISPONIVEL"
+          ? `ativas de ${FORMATO_PANORAMA.format(extras.ofertasTotal)} · vitrine viva ${FORMATO_PANORAMA.format(vitrine.valor)}% em ${extras.janelaVitrineEmDias} dias`
+          : `ativas de ${FORMATO_PANORAMA.format(extras.ofertasTotal)} · ${TEXTOS_INDISPONIBILIDADE.SEM_BASE_DE_CALCULO} para a vitrine viva`,
+    },
+    {
+      ...definicao("PAN_CAMPANHAS"),
+      resultado: disponivel(extras.campanhasAtivas, { nivelAtribuicao: "POR_OFERTA" }),
+      nota:
+        extras.versaoKitVigente === null
+          ? "ativas · nenhum kit gerado ainda"
+          : `ativas · kit v${extras.versaoKitVigente} vigente`,
+    },
+    {
+      ...definicao("PAN_CESTAS"),
+      resultado: disponivel(extras.cestasReutilizaveis),
+      nota:
+        extras.cestasComPendenciaRn41 > 0
+          ? `reutilizáveis · ${FORMATO_PANORAMA.format(extras.cestasComPendenciaRn41)} com pendência de RN41`
+          : "reutilizáveis · nenhuma com pendência de RN41",
+    },
+    {
+      ...definicao("PAN_ASSINANTES"),
+      resultado:
+        baseDeAssinantes === null
+          ? indisponivel("SEM_BASE_DE_CALCULO")
+          : disponivel(baseDeAssinantes),
+      nota: "base patrocinada · natureza ilustrativa até a carga real",
+    },
+    {
+      ...definicao("PAN_RESGATES_BENEFICIOS"),
+      resultado:
+        extras.resgatesEmCampanhaAtiva === null
+          ? indisponivel("SEM_BASE_DE_CALCULO")
+          : disponivel(extras.resgatesEmCampanhaAtiva, { nivelAtribuicao: "POR_OFERTA" }),
+      nota: "na campanha ativa · total da base aguarda telemetria por assinante",
+    },
+    {
+      ...definicao("PAN_RESGATES_CUPONS"),
+      resultado:
+        extras.resgatesDeCupom === null || extras.resgatesDeCupom === 0
+          ? indisponivel("SEM_BASE_DE_CALCULO")
+          : disponivel(extras.resgatesDeCupom),
+      nota: "aguarda telemetria · regra de comissão do cupom em confirmação",
+    },
+  ];
+
+  return celulas;
+}
+
 export interface PainelDoDashboard {
   janela: JanelaDashboard;
   pendencias: PendenciaApurada[];
   blocos: BlocoApurado[];
   /** Destaque do topo (hero): a vitrine viva, tese comercial do Clube. */
   destaque: IndicadorApurado;
+  /** Camada 1 do hero (Onda 7 §6): as oito células de escala da rede. */
+  panorama: CelulaPanorama[];
   /** Meta × realizado, exibida com a barra no bloco de Mercado e Funil. */
   meta: { alvo: number; realizado: number; rotuloPeriodo: string | null } | null;
   /** Janela fixa da vitrine viva, lida do Parametrizador. */
@@ -228,6 +355,7 @@ export async function montarPainel(
     campanhas,
     janelaVitrineEmDias,
     metas,
+    dadosDoPanorama,
   ] = await Promise.all([
     pendenciasDeHoje(agora),
     indicadoresDeRede(janela),
@@ -236,6 +364,7 @@ export async function montarPainel(
     indicadoresDeCampanhas(janela),
     janelaDaVitrineEmDias(),
     painelDeMetas(agora),
+    dadosDoHero(janela),
   ]);
 
   const valores = new Map<ChaveIndicador, ValorIndicador>([
@@ -266,6 +395,7 @@ export async function montarPainel(
     pendencias,
     blocos,
     destaque,
+    panorama: montarPanorama(valores, { ...dadosDoPanorama, janelaVitrineEmDias }),
     meta: linhaDaMeta
       ? {
           alvo: linhaDaMeta.meta,
@@ -274,6 +404,61 @@ export async function montarPainel(
         }
       : null,
     janelaVitrineEmDias,
+  };
+}
+
+/**
+ * Os números do panorama que os blocos não trazem — todos vindos de serviços
+ * que já existem, não de cálculo novo.
+ *
+ * O que vem de onde: soluções publicadas e categorias vazias saem do serviço
+ * único de cobertura (RN51, o mesmo da T13/T29); campanhas ativas, versão do
+ * kit e resgates saem de `listarCampanhas` (F12) — inclusive
+ * `resgatesNaVigencia`, que a medição já apurava e a F14 apenas parou de
+ * descartar; cestas saem de `listarCestas` + `situacaoRn41` (F12).
+ *
+ * As duas contagens diretas são de cadastro, não de regra: total de ofertas
+ * (o denominador de "ativas de N", que a ficha §6 contrata) e resgates de
+ * cupom na janela. Nenhuma delas reinterpreta métrica de ficha.
+ */
+async function dadosDoHero(janela: JanelaDashboard) {
+  const [cobertura, campanhas, cestas, ofertasAtivas, ofertasTotal, resgatesDeCupom] =
+    await Promise.all([
+      apurarCobertura(),
+      listarCampanhas(),
+      listarCestas(),
+      prisma.oferta.count({ where: { status: "PUBLICADA" } }),
+      prisma.oferta.count(),
+      prisma.telemetriaEvento.count({
+        where: {
+          tipo: "RESGATE_VOUCHER",
+          oferta: { natureza: "CUPOM_DESCONTO" },
+          dataEvento: { gte: janela.inicio, lte: janela.fim },
+        },
+      }),
+    ]);
+
+  const portfolio = montarPortfolio(cobertura.fatos);
+  const resumo = resumirPortfolio(portfolio);
+  const ativas = campanhas.filter((campanha) => campanha.estado === "ATIVA");
+  const situacoes = cestas.map((cesta) => situacaoRn41(cesta));
+
+  return {
+    solucoesPublicadas: resumo.solucoesPublicadas,
+    categoriasSemSolucao: portfolio.filter((linha) => linha.solucoesPublicadas === 0).length,
+    ofertasAtivas,
+    ofertasTotal,
+    campanhasAtivas: ativas.length,
+    versaoKitVigente: ativas.find((campanha) => campanha.versaoKit !== null)?.versaoKit ?? null,
+    cestasReutilizaveis: cestas.length,
+    cestasComPendenciaRn41: situacoes.filter((situacao) => !situacao.liberada).length,
+    // Sem campanha ativa não há "resgates na campanha ativa" para apurar: é
+    // ausência de base, não zero resgates (RN53).
+    resgatesEmCampanhaAtiva:
+      ativas.length === 0
+        ? null
+        : ativas.reduce((total, campanha) => total + campanha.resgatesNaVigencia, 0),
+    resgatesDeCupom,
   };
 }
 

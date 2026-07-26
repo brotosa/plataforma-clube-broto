@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ROTULOS_ESTAGIO_FUNIL } from "@/dominio/funil/regras";
-import { ESTAGIOS_DA_MATRIZ, textoDaCelula } from "@/dominio/metas/cobertura";
+import { ESTAGIOS_DA_MATRIZ, textoDaCelula } from "@/dominio/cobertura/cobertura";
 import type { CoberturaDaTela } from "@/infra/consultas/cobertura-metas";
 
 /**
@@ -95,7 +95,11 @@ export function MapaDeCobertura({ cobertura }: { cobertura: CoberturaDaTela }) {
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>
-        <table className="tbl">
+        {/* fix AAA (F14): mesmo defeito da matriz da T29, descoberto pela
+            varredura a 380px desta fase — abaixo de 760px esta tabela vira a
+            região rolável e precisava ser alcançável por teclado. Um atributo,
+            nenhuma mudança de comportamento no ponteiro. */}
+        <table className="tbl" tabIndex={0}>
           <caption className="sr-oculto">
             Cobertura por categoria: aliadas ativas e empresas no funil por estágio
           </caption>

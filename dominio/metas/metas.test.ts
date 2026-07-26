@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  montarMatriz,
-  resumirCobertura,
-  textoDaCelula,
-} from "./cobertura";
-import {
   calcularLinha,
   percentualDeAtingimento,
   resumoDoAtingimento,
@@ -106,80 +101,7 @@ describe("painel de meta × realizado (RN22)", () => {
   });
 });
 
-describe("mapa de cobertura (T13)", () => {
-  const contagens = [
-    {
-      categoriaId: "c1",
-      categoriaNome: "Tecnologia e Software",
-      aliadasAtivas: 12,
-      funil: { MAPEADA: 2, EM_AVALIACAO: 1 } as const,
-    },
-    {
-      categoriaId: "c2",
-      categoriaNome: "Saúde e Bem-estar no Campo",
-      aliadasAtivas: 0,
-      funil: { EM_NEGOCIACAO: 1 } as const,
-    },
-    {
-      categoriaId: "c3",
-      categoriaNome: "Regularização e Documentação",
-      aliadasAtivas: 0,
-      funil: {} as const,
-    },
-  ];
-
-  it("monta as cinco colunas do funil na ordem do pipeline", () => {
-    const [linha] = montarMatriz(contagens);
-    expect(linha!.celulas.map((celula) => celula.estagio)).toEqual([
-      "MAPEADA",
-      "EM_AVALIACAO",
-      "PRIORIZADA",
-      "EM_NEGOCIACAO",
-      "EM_APROVACAO",
-    ]);
-    expect(linha!.celulas.map((celula) => celula.quantidade)).toEqual([2, 1, 0, 0, 0]);
-    expect(linha!.totalNoFunil).toBe(3);
-  });
-
-  it("categoria com aliada ativa não é gap", () => {
-    const [linha] = montarMatriz(contagens);
-    expect(linha!.gap).toBe(false);
-    expect(linha!.gapDescoberto).toBe(false);
-  });
-
-  it("sem aliada ativa é gap; com gente no funil, gap coberto", () => {
-    const linha = montarMatriz(contagens)[1]!;
-    expect(linha.gap).toBe(true);
-    expect(linha.gapDescoberto).toBe(false);
-  });
-
-  it("sem aliada ativa e sem funil é o gap que ninguém está atacando", () => {
-    const linha = montarMatriz(contagens)[2]!;
-    expect(linha.gap).toBe(true);
-    expect(linha.gapDescoberto).toBe(true);
-  });
-
-  it("o resumo conta cobertas, gaps e descobertos", () => {
-    expect(resumirCobertura(montarMatriz(contagens))).toEqual({
-      categorias: 3,
-      categoriasCobertas: 1,
-      gaps: 2,
-      gapsDescobertos: 1,
-      aliadasAtivas: 12,
-      empresasNoFunil: 4,
-    });
-  });
-
-  it("célula vazia é travessão, nunca zero", () => {
-    expect(textoDaCelula(0)).toBe("—");
-    expect(textoDaCelula(3)).toBe("3");
-  });
-
-  it("matriz vazia não quebra o resumo", () => {
-    expect(resumirCobertura(montarMatriz([]))).toMatchObject({
-      categorias: 0,
-      gaps: 0,
-      aliadasAtivas: 0,
-    });
-  });
-});
+// O bloco "mapa de cobertura (T13)" mudou de endereço na F14: a definição
+// passou a ser fonte única (RN51) e as mesmas expectativas vivem agora em
+// `dominio/cobertura/cobertura.test.ts`, onde provam que a extração não
+// alterou a lente da T13.

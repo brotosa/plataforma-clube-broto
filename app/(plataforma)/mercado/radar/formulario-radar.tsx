@@ -8,13 +8,23 @@ import { acaoIncluirNoRadar, type EstadoAcaoFunil } from "../acoes";
  * T9 — formulário mínimo da entrada no radar (RN13): nome, site, origem e
  * categorias-alvo (≥1). Após incluir, o formulário limpa para a próxima
  * empresa — o radar recebe até ~100 por mês.
+ *
+ * `categoriasPreSelecionadas` (F14): quando se chega aqui pelo estado vazio
+ * da T8 filtrada por categoria, a categoria já vem marcada. É a continuação
+ * do gesto — quem clicou "entrar no radar" a partir de um vazio de
+ * Fertilizantes está incluindo uma empresa DE fertilizantes, e redigitar
+ * isso é atrito puro. `defaultChecked` e não `checked`: o campo segue
+ * livre, e o reset pós-inclusão volta ao pré-selecionado, que é o estado
+ * certo para a próxima empresa da mesma categoria.
  */
 export function FormularioRadar({
   categorias,
   origens,
+  categoriasPreSelecionadas = [],
 }: {
   categorias: Array<{ id: string; nome: string }>;
   origens: Array<{ valor: string; rotulo: string }>;
+  categoriasPreSelecionadas?: ReadonlyArray<string>;
 }) {
   const formularioRef = useRef<HTMLFormElement | null>(null);
   const [estado, enviar, pendente] = useActionState(
@@ -98,6 +108,7 @@ export function FormularioRadar({
                 type="checkbox"
                 name="categoriaIds"
                 value={categoria.id}
+                defaultChecked={categoriasPreSelecionadas.includes(categoria.id)}
                 style={{ accentColor: "var(--azul)" }}
               />
               {categoria.nome}

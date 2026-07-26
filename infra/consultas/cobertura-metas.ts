@@ -1,13 +1,12 @@
 import type { PeriodoMeta } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import {
-  type ContagemPorCategoria,
-  ESTAGIOS_DA_MATRIZ,
   type LinhaDaMatriz,
   montarMatriz,
   type ResumoDaCobertura,
   resumirCobertura,
-} from "@/dominio/metas/cobertura";
+} from "@/dominio/cobertura/cobertura";
+import { apurarCobertura } from "./cobertura";
 import { calcularLinha, type LinhaCalculada } from "@/dominio/metas/painel";
 import {
   janelaDoPeriodo,
@@ -41,55 +40,24 @@ export interface CoberturaDaTela {
   aliadasSemCategoria: number;
 }
 
-/** Matriz categoria × (aliadas ativas · funil por estágio). */
+/**
+ * Matriz categoria × (aliadas ativas · funil por estágio).
+ *
+ * A partir da F14 esta função **não apura mais nada**: ela pede os fatos ao
+ * serviço único (RN51) e aplica a lente de pipeline. A assinatura, o formato
+ * de retorno e — sobretudo — os números continuam idênticos aos da F9; é o
+ * que `cobertura.regressao.test.ts` verifica contra a implementação anterior,
+ * preservada ali como referência congelada.
+ */
 export async function mapaDeCobertura(): Promise<CoberturaDaTela> {
-  const [categorias, vinculos, semCategoria, aliadasSemCategoria] = await Promise.all([
-    prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
-    prisma.empresaCategoria.findMany({
-      where: {
-        empresa: { estagio: { in: ["ALIADA_ATIVA", ...ESTAGIOS_DA_MATRIZ] } },
-      },
-      select: { categoriaId: true, empresa: { select: { estagio: true } } },
-    }),
-    prisma.empresa.count({
-      where: {
-        estagio: { in: [...ESTAGIOS_DA_MATRIZ] },
-        categorias: { none: {} },
-      },
-    }),
-    prisma.empresa.count({
-      where: { estagio: "ALIADA_ATIVA", categorias: { none: {} } },
-    }),
-  ]);
-
-  const porCategoria = new Map<string, ContagemPorCategoria>(
-    categorias.map((categoria) => [
-      categoria.id,
-      {
-        categoriaId: categoria.id,
-        categoriaNome: categoria.nome,
-        aliadasAtivas: 0,
-        funil: {},
-      },
-    ]),
-  );
-
-  for (const vinculo of vinculos) {
-    const contagem = porCategoria.get(vinculo.categoriaId);
-    if (!contagem) {
-      // Categoria inativa: sai da matriz junto com a taxonomia.
-      continue;
-    }
-    if (vinculo.empresa.estagio === "ALIADA_ATIVA") {
-      contagem.aliadasAtivas += 1;
-      continue;
-    }
-    const funil = contagem.funil as Record<string, number>;
-    funil[vinculo.empresa.estagio] = (funil[vinculo.empresa.estagio] ?? 0) + 1;
-  }
-
-  const linhas = montarMatriz([...porCategoria.values()]);
-  return { linhas, resumo: resumirCobertura(linhas), semCategoria, aliadasSemCategoria };
+  const { fatos, excluidos } = await apurarCobertura();
+  const linhas = montarMatriz(fatos);
+  return {
+    linhas,
+    resumo: resumirCobertura(linhas),
+    semCategoria: excluidos.empresasDoFunilSemCategoria,
+    aliadasSemCategoria: excluidos.aliadosSemCategoria,
+  };
 }
 
 /**
