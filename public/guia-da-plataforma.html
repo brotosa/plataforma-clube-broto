@@ -1110,6 +1110,22 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .gd-bloco,.gd-card,.gd-princ .it{break-inside:avoid}
 }
 
+/* PATCH DO REPO — NÃO REMOVER: célula de prosa não é célula de valor.
+   O colapso do `.tbl-resp` põe a célula em `display:flex` — rótulo à esquerda,
+   valor à direita —, e isso é certo para as tabelas do produto, cujas células
+   trazem um valor curto. As do guia trazem frases COM MARCAÇÃO: em flex, cada
+   <em> e cada <strong> vira um item próprio, e a frase é disposta como caixas
+   lado a lado que não quebram — uma célula da §6 estourava 30px a 380px, e o
+   card virava região rolável inalcançável por teclado (axe:
+   scrollable-region-focusable, grave).
+   Aqui a célula volta a ser bloco e o rótulo sobe para cima do valor, que é a
+   leitura certa para prosa. Escopado em `.gd`: as tabelas do produto seguem
+   como estão, e esta onda não mexe em tela nenhuma delas. */
+@media (max-width:760px){
+  .gd .tbl-resp td{display:block;text-align:left}
+  .gd .tbl-resp td::before{display:block;margin-bottom:2px}
+}
+
 /* PATCH DO REPO — NÃO REMOVER: a âncora pousa dentro do <main>, não na janela.
    No documento autônomo a rolagem é da página e o topo da seção é o topo da
    tela. Dentro do shell quem rola é o <main>, que começa logo abaixo do
