@@ -303,6 +303,115 @@ export function campanhaEtiquetada(indicador: IndicadorApurado): boolean {
 }
 
 // ---------------------------------------------------------------------
+// Panorama do hero (ficha Onda 7 §6) — camada 1 da HOME
+// ---------------------------------------------------------------------
+
+/**
+ * As oito células do panorama.
+ *
+ * **Por que elas não existiam.** A ficha da Onda 6 §2 descreveu a HOME como
+ * "faixa Exige ação hoje + quatro blocos por domínio" e não enumerou as
+ * células do hero; a implementação seguiu a ficha e usou o hero para as
+ * pendências. A causa foi de especificação, não de execução — e a ficha da
+ * Onda 7 §6 fecha a lacuna. É por isso que o catálogo aparece só agora: sem
+ * ficha validada por trás, célula nova não entra (RN50).
+ *
+ * **O que este catálogo contrata** são os indicadores, seus rótulos e suas
+ * notas de procedência — não valores. Os números do protótipo são
+ * ilustrativos.
+ *
+ * **De onde vêm os números.** Cada célula lê o MESMO serviço que já alimenta
+ * os quatro blocos. Nenhuma consulta de negócio nova: onde o número já existe
+ * (aliados na rede, soluções publicadas, campanhas ativas, base de
+ * assinantes), a célula o reaproveita; onde não existe, ela declara a
+ * indisponibilidade com motivo em vez de estimar (RN53).
+ */
+export const CATALOGO_PANORAMA = [
+  {
+    chave: "PAN_ALIADOS",
+    rotulo: "Aliados",
+    destino: "/aliados",
+    procedencia: "completude média do cadastro",
+  },
+  {
+    chave: "PAN_SOLUCOES",
+    rotulo: "Soluções",
+    destino: "/aliados/cobertura",
+    procedencia: "procedência: depende da carga inicial do portfólio",
+  },
+  {
+    chave: "PAN_OFERTAS",
+    rotulo: "Ofertas",
+    destino: "/ofertas",
+    procedencia: "vitrine viva do período",
+  },
+  {
+    chave: "PAN_CAMPANHAS",
+    rotulo: "Campanhas",
+    destino: "/campanhas",
+    procedencia: "versão do kit vigente",
+  },
+  {
+    chave: "PAN_CESTAS",
+    rotulo: "Cestas",
+    destino: "/campanhas/cestas",
+    procedencia: "pendência de RN41",
+  },
+  {
+    chave: "PAN_ASSINANTES",
+    rotulo: "Assinantes",
+    destino: "/assinantes",
+    procedencia: "natureza da base",
+  },
+  {
+    chave: "PAN_RESGATES_BENEFICIOS",
+    rotulo: "Resgates de benefícios",
+    destino: "/campanhas",
+    procedencia: "nível de atribuição; total da base aguarda telemetria",
+  },
+  {
+    chave: "PAN_RESGATES_CUPONS",
+    rotulo: "Resgates de cupons",
+    destino: "/ofertas/telemetria",
+    procedencia: "aguarda telemetria; regra de comissão do cupom em confirmação",
+  },
+] as const satisfies ReadonlyArray<{
+  chave: string;
+  rotulo: string;
+  destino: string;
+  procedencia: string;
+}>;
+
+export type ChavePanorama = (typeof CATALOGO_PANORAMA)[number]["chave"];
+
+export interface DefinicaoPanorama {
+  chave: ChavePanorama;
+  rotulo: string;
+  destino: string;
+  procedencia: string;
+}
+
+export interface CelulaPanorama extends DefinicaoPanorama {
+  resultado: ValorIndicador;
+  /**
+   * Nota exibida sob o número — a procedência do catálogo, completada com o
+   * dado do período quando ele existe ("completude média 42%"). Nunca só o
+   * número: célula sem procedência é número sem endereço.
+   */
+  nota: string;
+}
+
+/**
+ * Nenhuma célula do panorama entra em soma alguma da HOME, e o contrário
+ * também vale: o panorama não é fonte das pendências. São camadas distintas
+ * lendo o mesmo serviço, e este predicado existe para o teste cobrar que uma
+ * chave nunca vaze para a outra camada.
+ */
+export function chaveDePanorama(chave: string): chave is ChavePanorama {
+  return CATALOGO_PANORAMA.some((definicao) => definicao.chave === chave);
+}
+
+// ---------------------------------------------------------------------
 // Faixa "Exige ação hoje" (ficha §2)
 // ---------------------------------------------------------------------
 
