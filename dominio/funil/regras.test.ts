@@ -4,11 +4,14 @@ import {
   diasNoEstagio,
   ESTAGIOS_FUNIL,
   nivelEnvelhecimento,
-  REGUA_ENVELHECIMENTO,
   rotuloTempoNoEstagio,
   validarDescarte,
   validarEntradaNoRadar,
 } from "./regras";
+import type { ReguaEnvelhecimento } from "./regras";
+
+/** Régua vigente na implantação (14/30), hoje um valor do Parametrizador. */
+const REGUA_DE_IMPLANTACAO: ReguaEnvelhecimento = { leveDias: 14, forteDias: 30 };
 
 describe("RN13 — entrada no radar exige origem e ≥1 categoria-alvo", () => {
   it("aceita entrada com nome, origem e uma categoria-alvo", () => {
@@ -105,15 +108,26 @@ describe("régua de envelhecimento 14/30 (constante nomeada)", () => {
 
   it("sem data de início (anterior ao rastreamento) não estima: null e rótulo —", () => {
     expect(diasNoEstagio(null, referencia)).toBeNull();
-    expect(nivelEnvelhecimento(null)).toBeNull();
+    expect(nivelEnvelhecimento(null, REGUA_DE_IMPLANTACAO)).toBeNull();
     expect(rotuloTempoNoEstagio(null)).toBe("—");
   });
 
   it("aplica a régua leve/forte nos limiares exatos", () => {
-    expect(nivelEnvelhecimento(REGUA_ENVELHECIMENTO.leveDias - 1)).toBeNull();
-    expect(nivelEnvelhecimento(REGUA_ENVELHECIMENTO.leveDias)).toBe("LEVE");
-    expect(nivelEnvelhecimento(REGUA_ENVELHECIMENTO.forteDias - 1)).toBe("LEVE");
-    expect(nivelEnvelhecimento(REGUA_ENVELHECIMENTO.forteDias)).toBe("FORTE");
+    const { leveDias, forteDias } = REGUA_DE_IMPLANTACAO;
+    expect(nivelEnvelhecimento(leveDias - 1, REGUA_DE_IMPLANTACAO)).toBeNull();
+    expect(nivelEnvelhecimento(leveDias, REGUA_DE_IMPLANTACAO)).toBe("LEVE");
+    expect(nivelEnvelhecimento(forteDias - 1, REGUA_DE_IMPLANTACAO)).toBe("LEVE");
+    expect(nivelEnvelhecimento(forteDias, REGUA_DE_IMPLANTACAO)).toBe("FORTE");
+  });
+
+  // F10 — a régua deixou de ser constante: o Parametrizador a altera e o
+  // funil passa a marcar por ela na leitura seguinte, sem deploy.
+  it("uma régua nova muda o alerta vivo, sem tocar em nada gravado", () => {
+    const encurtada = { leveDias: 5, forteDias: 10 };
+    expect(nivelEnvelhecimento(7, REGUA_DE_IMPLANTACAO)).toBeNull();
+    expect(nivelEnvelhecimento(7, encurtada)).toBe("LEVE");
+    expect(nivelEnvelhecimento(12, REGUA_DE_IMPLANTACAO)).toBeNull();
+    expect(nivelEnvelhecimento(12, encurtada)).toBe("FORTE");
   });
 
   it('escreve "há N dias" como texto, com singular e "hoje"', () => {

@@ -61,12 +61,13 @@ test("login como Gestor aplica papel e monta o shell do protótipo", async ({ pa
   await expect(nav.getByRole("link", { name: "Mercado & Scout" })).toBeVisible();
   // F11: Assinantes ganhou a carteira (T18) e deixou de ser onda futura
   await expect(nav.getByRole("link", { name: "Assinantes" })).toBeVisible();
+  // F10: Parametrizador (T15) deixou de ser onda futura
+  await expect(nav.getByRole("link", { name: "Parametrizador" })).toBeVisible();
 
   // …e módulos de ondas futuras presentes porém desabilitados
   for (const modulo of [
     "Dashboard",
     "Campanhas & Cestas",
-    "Parametrizador",
     "Usuários",
     "Auditoria",
   ]) {

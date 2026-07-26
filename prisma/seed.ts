@@ -19,6 +19,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashSync } from "bcryptjs";
 import { DIMENSOES_MEDICAO } from "../dominio/avaliacao/dimensoes";
+import { CATALOGO_VALORES_REGRA } from "../dominio/parametrizador/valores-regra";
 
 const prisma = new PrismaClient();
 
@@ -144,7 +145,14 @@ const INDICADORES_PRODUTO: ReadonlyArray<[string, string, string]> = [
 const USUARIOS_DEV: ReadonlyArray<{
   nome: string;
   email: string;
-  papel: "GESTOR" | "ANALISTA" | "ANALISTA_SCOUT" | "COMERCIAL" | "APROVADOR" | "LEITURA";
+  papel:
+    | "GESTOR"
+    | "ANALISTA"
+    | "ANALISTA_SCOUT"
+    | "COMERCIAL"
+    | "APROVADOR"
+    | "LEITURA"
+    | "ADMINISTRADOR_PLATAFORMA";
 }> = [
   { nome: "Gestor (desenvolvimento)", email: "gestor@dev.clubebroto.local", papel: "GESTOR" },
   { nome: "Analista (desenvolvimento)", email: "analista@dev.clubebroto.local", papel: "ANALISTA" },
@@ -152,6 +160,11 @@ const USUARIOS_DEV: ReadonlyArray<{
   { nome: "Comercial (desenvolvimento)", email: "comercial@dev.clubebroto.local", papel: "COMERCIAL" },
   { nome: "Aprovador (desenvolvimento)", email: "aprovador@dev.clubebroto.local", papel: "APROVADOR" },
   { nome: "Leitura (desenvolvimento)", email: "leitura@dev.clubebroto.local", papel: "LEITURA" },
+  {
+    nome: "Administrador da Plataforma (desenvolvimento)",
+    email: "administrador@dev.clubebroto.local",
+    papel: "ADMINISTRADOR_PLATAFORMA",
+  },
 ];
 
 function slugDe(nome: string): string {
@@ -260,6 +273,69 @@ async function main() {
     update: {},
     create: { tipoEntidade: "PUBLICACAO_OFERTA", exigida: false },
   });
+  // RN27 (Onda 3): a família sensível — comissão-padrão, pesos de
+  // indicadores, tetos do dossiê e metas — nasce DESLIGADA. Ligá-la na T7
+  // passa a exigir aprovação dessas escritas sem código novo.
+  await prisma.aprovacaoRegra.upsert({
+    where: { tipoEntidade: "PARAMETRO_SENSIVEL" },
+    update: {},
+    create: { tipoEntidade: "PARAMETRO_SENSIVEL", exigida: false },
+  });
+
+  // Valores de regra (F10): as réguas já vigentes nas Ondas 1 e 2 e a
+  // comissão-padrão de 5% confirmada em 24/07. `update` não sobrescreve o
+  // valor em re-execuções — a partir daqui quem manda é a T17. Os tetos do
+  // dossiê nascem NULOS: a ficha §8 os mantém [A CONFIRMAR] com a TI.
+  for (const definicao of CATALOGO_VALORES_REGRA) {
+    await prisma.valorRegra.upsert({
+      where: { chave: definicao.chave },
+      update: {
+        grupo: definicao.grupo,
+        rotulo: definicao.rotulo,
+        descricao: definicao.descricao,
+        tipo: definicao.tipo,
+        sensivel: definicao.sensivel,
+        ordem: definicao.ordem,
+      },
+      create: {
+        chave: definicao.chave,
+        grupo: definicao.grupo,
+        rotulo: definicao.rotulo,
+        descricao: definicao.descricao,
+        tipo: definicao.tipo,
+        valor: definicao.valorInicial,
+        sensivel: definicao.sensivel,
+        ordem: definicao.ordem,
+      },
+    });
+  }
+
+  // A meta vigente (24 novos aliados/ano, geral) é semeada pela F9 mais
+  // abaixo, em `metas_periodo` — a mesma tabela que a T17 edita. Não há
+  // seed de meta aqui: seriam duas fontes para o mesmo número.
+
+  // RN25 — a versão-seed criada pela migration nasce com snapshot vazio em
+  // banco novo (os indicadores entram acima, depois dela). Completá-la aqui
+  // é o que faz "carga inicial" descrever de fato os pesos v1. Só ocorre
+  // enquanto o snapshot estiver vazio: nunca sobrescreve versão real.
+  const versaoSeed = await prisma.configuracaoVersao.findUnique({ where: { numero: 1 } });
+  if (versaoSeed && Array.isArray(versaoSeed.snapshot) && versaoSeed.snapshot.length === 0) {
+    const indicadores = await prisma.indicador.findMany({ orderBy: { ordem: "asc" } });
+    await prisma.configuracaoVersao.update({
+      where: { numero: 1 },
+      data: {
+        snapshot: indicadores.map((i) => ({
+          indicadorId: i.id,
+          slug: i.slug,
+          nome: i.nome,
+          grupo: i.grupo,
+          dimensao: i.dimensao,
+          peso: Number(i.peso),
+          ativo: i.ativo,
+        })),
+      },
+    });
+  }
 
   // Meta vigente de novos aliados (Onda 2, RN22 / ficha da Onda 3 §3.2):
   // 24 novos aliados por ano, geral, sem abertura por categoria —

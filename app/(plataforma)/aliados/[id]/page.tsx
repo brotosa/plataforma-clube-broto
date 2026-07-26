@@ -8,6 +8,7 @@ import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { buscarAliado, trilhaDeAuditoria } from "@/infra/consultas/aliados";
 import { avaliarPromocao } from "@/infra/casos-de-uso/empresas";
+import { lerValor } from "@/infra/configuracao/servico-configuracao";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
 import { AcoesDeEstagio, AcoesContrato, FormularioContato, FormularioContrato } from "./paineis";
 import { AbaDossie, AbaScouting } from "./abas-scout";
@@ -81,16 +82,20 @@ export default async function PaginaFichaAliado({
   }
   const { empresa, contratoVigente, completude } = resultado;
 
-  const [{ pendencias }, motivosSuspensao, solicitacaoPendente, trilha] = await Promise.all([
-    empresa.estagio === "EM_NEGOCIACAO"
-      ? avaliarPromocao(id)
-      : Promise.resolve({ pendencias: [] as string[] }),
-    prisma.motivoSuspensao.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
-    prisma.aprovacaoSolicitacao.findFirst({
-      where: { tipoEntidade: "PROMOCAO_ALIADA_ATIVA", entidadeId: id, estado: "SOLICITADA" },
-    }),
-    aba === "integracao" ? trilhaDeAuditoria("empresa", id) : Promise.resolve([]),
-  ]);
+  const [{ pendencias }, motivosSuspensao, solicitacaoPendente, trilha, comissaoPadrao] =
+    await Promise.all([
+      empresa.estagio === "EM_NEGOCIACAO"
+        ? avaliarPromocao(id)
+        : Promise.resolve({ pendencias: [] as string[] }),
+      prisma.motivoSuspensao.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+      prisma.aprovacaoSolicitacao.findFirst({
+        where: { tipoEntidade: "PROMOCAO_ALIADA_ATIVA", entidadeId: id, estado: "SOLICITADA" },
+      }),
+      aba === "integracao" ? trilhaDeAuditoria("empresa", id) : Promise.resolve([]),
+      // Comissão-padrão do contrato-modelo (Parametrizador, F10): 5%
+      // confirmados em 24/07 — pré-preenche o contrato novo, editável.
+      lerValor("COMISSAO_PADRAO_PCT"),
+    ]);
 
   const ofertasDoAliado = empresa.solucoes.flatMap((solucao) =>
     solucao.ofertas.map((oferta) => ({ ...oferta, solucaoNome: solucao.nome })),
@@ -529,7 +534,9 @@ export default async function PaginaFichaAliado({
                   Nenhum contrato vigente — obrigatório para promover a Aliada ativa e para
                   publicar ofertas (RN02).
                 </p>
-                {podeEditar ? <FormularioContrato empresaId={empresa.id} /> : null}
+                {podeEditar ? (
+                  <FormularioContrato empresaId={empresa.id} comissaoPadrao={comissaoPadrao} />
+                ) : null}
               </>
             )}
           </div>

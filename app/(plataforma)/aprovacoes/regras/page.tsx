@@ -23,6 +23,11 @@ const DESCRICAO_REGRA: Record<string, { titulo: string; descricao: string }> = {
     descricao:
       "Quando ligada, publicar oferta passa a exigir aprovação — sem alteração de código (nasce DESLIGADA).",
   },
+  PARAMETRO_SENSIVEL: {
+    titulo: "Parâmetro sensível",
+    descricao:
+      "Comissão-padrão, pesos de indicadores, tetos do dossiê e metas. Quando ligada, essas escritas do Parametrizador entram na fila e o valor vigente segue valendo até a decisão (RN27 — nasce DESLIGADA).",
+  },
 };
 
 /** T7 — Regras do motor de aprovação, com interruptores nativos. */

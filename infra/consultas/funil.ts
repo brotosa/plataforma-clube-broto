@@ -9,6 +9,7 @@ import {
   ROTULOS_ORIGEM,
   rotuloTempoNoEstagio,
 } from "@/dominio/funil/regras";
+import { lerReguaDeEnvelhecimento } from "@/infra/configuracao/servico-configuracao";
 
 /**
  * Consultas de leitura da T8 (funil de mercado): kanban por estágio,
@@ -72,6 +73,10 @@ export async function funilDeMercado(filtros: FiltrosFunil = {}) {
     onde.responsavelComercialId = filtros.minhasNegociacoesDe;
   }
 
+  // Régua vigente de envelhecimento (Parametrizador, F10): lida a cada
+  // montagem do funil, para que a alteração na T17 apareça já na próxima
+  // visita à T8 — sem retroagir sobre nada, porque o nível é derivado.
+  const regua = await lerReguaDeEnvelhecimento();
   const empresas = await prisma.empresa.findMany({
     where: onde,
     orderBy: { criadoEm: "asc" },
@@ -104,7 +109,7 @@ export async function funilDeMercado(filtros: FiltrosFunil = {}) {
       responsavelNome: responsavel?.nome ?? null,
       dias,
       rotuloDias: rotuloTempoNoEstagio(dias),
-      envelhecimento: nivelEnvelhecimento(dias),
+      envelhecimento: nivelEnvelhecimento(dias, regua),
       destinosDeMovimento: destinosDeMovimentoManual(empresa.estagio),
       motivoDescarte: empresa.motivoDescarte?.nome ?? null,
     };
@@ -132,6 +137,7 @@ export async function funilDeMercado(filtros: FiltrosFunil = {}) {
   return {
     lanes,
     tabela,
+    regua,
     contadores: {
       identificadas: cards.length,
       noFunil: cards.length - descartadas.length,

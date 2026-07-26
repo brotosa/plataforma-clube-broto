@@ -6,6 +6,7 @@ import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import { validarDecisao } from "@/dominio/aprovacao/motor";
 import { estadoAuditavel, promoverDentroDaTransacao } from "./empresas";
 import { publicarDentroDaTransacao } from "./ofertas";
+import { aplicarParametroSensivelDentroDaTransacao } from "./parametrizador";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -61,7 +62,13 @@ export async function decidirSolicitacao(
     });
 
     if (decisao === "APROVADA") {
-      await aplicarEfeito(tx, ator.id, solicitacao.tipoEntidade, solicitacao.entidadeId);
+      await aplicarEfeito(
+        tx,
+        ator.id,
+        solicitacao.tipoEntidade,
+        solicitacao.entidadeId,
+        solicitacao.payload,
+      );
     } else if (solicitacao.tipoEntidade === "PROMOCAO_ALIADA_ATIVA") {
       // Onda 2 (pipeline da ficha §3.1): a devolução tira a empresa de
       // Em aprovação e a devolve a Em negociação, com auditoria.
@@ -91,9 +98,17 @@ async function aplicarEfeito(
   autorId: string,
   tipo: TipoEntidadeAprovacao,
   entidadeId: string,
+  payload: unknown,
 ) {
   if (tipo === "PROMOCAO_ALIADA_ATIVA") {
     await promoverDentroDaTransacao(tx, autorId, entidadeId);
+    return;
+  }
+  // RN27 (Onda 3) — a escrita de parâmetro sensível só toca a configuração
+  // agora; até aqui o valor vigente seguiu valendo, e o proposto esperou
+  // no payload da solicitação.
+  if (tipo === "PARAMETRO_SENSIVEL") {
+    await aplicarParametroSensivelDentroDaTransacao(tx, autorId, payload);
     return;
   }
   await publicarDentroDaTransacao(tx, autorId, entidadeId);

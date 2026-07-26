@@ -167,7 +167,37 @@ export default async function configuracaoGlobal() {
       where: { tipoEntidade: "PUBLICACAO_OFERTA" },
       data: { exigida: false },
     });
-    console.log("[e2e] regras do motor no estado de nascimento (RN06): promoção ON, oferta OFF");
+    // F10 (RN27): a família sensível nasce DESLIGADA.
+    await prisma.aprovacaoRegra.updateMany({
+      where: { tipoEntidade: "PARAMETRO_SENSIVEL" },
+      data: { exigida: false },
+    });
+    console.log(
+      "[e2e] regras do motor no estado de nascimento: promoção ON, oferta OFF, parâmetro sensível OFF",
+    );
+
+    // F10: parâmetros de volta ao estado de implantação — a suíte altera
+    // réguas para provar o efeito vivo e precisa de um baseline estável.
+    for (const [chave, valor] of [
+      ["FUNIL_ENVELHECIMENTO_LEVE_DIAS", 14],
+      ["FUNIL_ENVELHECIMENTO_FORTE_DIAS", 30],
+      ["OFERTA_SEM_RESGATE_DIAS", 90],
+      ["OFERTA_VIGENCIA_A_VENCER_DIAS", 15],
+      ["REAVALIACAO_MESES", 12],
+      ["COMISSAO_PADRAO_PCT", 5],
+    ] as const) {
+      await prisma.valorRegra.updateMany({ where: { chave }, data: { valor } });
+    }
+    await prisma.valorRegraHistorico.deleteMany({});
+    const culturasE2E = await prisma.cultura.findMany({
+      where: { nome: { startsWith: "Cultura E2E" } },
+      select: { id: true },
+    });
+    if (culturasE2E.length > 0) {
+      await prisma.cultura.deleteMany({ where: { id: { in: culturasE2E.map((c) => c.id) } } });
+    }
+    await prisma.metaPeriodo.deleteMany({ where: { periodo: { in: ["MENSAL", "TRIMESTRAL"] } } });
+    console.log("[e2e] parâmetros no estado de implantação (F10)");
 
     // F11 — módulo de assinantes zerado (a spec importa tudo pela T20).
     await prisma.atributoEnriquecimento.deleteMany({});

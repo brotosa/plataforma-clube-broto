@@ -12,11 +12,10 @@ import type { EstagioEmpresa, RecomendacaoAvaliacao, StatusAvaliacao } from "@pr
 export const ESCALA_NOTA = { minima: 1, maxima: 5 } as const;
 
 /**
- * Régua da reavaliação anual (RN21): aliada ativa completa o ciclo aos 12
- * meses da última avaliação fechada. Constante nomeada — edição sem código
- * chega com o Parametrizador (Onda 3).
+ * Régua da reavaliação (RN21): aliada ativa completa o ciclo ao fim de N
+ * meses desde a última avaliação fechada. Desde a F10 o N vem do Serviço
+ * de Configuração (chave REAVALIACAO_MESES) e entra por parâmetro.
  */
-export const REAVALIACAO_ANUAL = { meses: 12 } as const;
 
 /** Rótulos institucionais das três recomendações (ficha §3.2). */
 export const ROTULOS_RECOMENDACAO: Readonly<Record<RecomendacaoAvaliacao, string>> = {
@@ -104,17 +103,19 @@ export function podeAvaliarNoEstagio(estagio: EstagioEmpresa): boolean {
 
 /**
  * RN21 — precisa de reavaliação quando a última avaliação fechada completa
- * 12 meses. Sem avaliação fechada não há aniversário: retorna false (a
- * régua conta a partir da última avaliação, nunca de data estimada).
+ * a régua em meses. Sem avaliação fechada não há aniversário: retorna
+ * false (a régua conta a partir da última avaliação, nunca de data
+ * estimada).
  */
 export function precisaReavaliacao(
   ultimaFechadaEm: Date | null,
   referencia: Date,
+  meses: number,
 ): boolean {
   if (!ultimaFechadaEm) {
     return false;
   }
   const marco = new Date(ultimaFechadaEm);
-  marco.setMonth(marco.getMonth() + REAVALIACAO_ANUAL.meses);
+  marco.setMonth(marco.getMonth() + meses);
   return referencia.getTime() >= marco.getTime();
 }
