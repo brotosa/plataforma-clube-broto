@@ -50,6 +50,18 @@ model Usuario {
   senhaHash    String   @map("senha_hash")
   papel        Papel
   ativo        Boolean  @default(true)
+  /// Onda 6 (RN47) — época da sessão. O JWT emitido no login carrega a época
+  /// vigente; toda revogação (inativação, troca de papel, troca de senha)
+  /// incrementa esta coluna e a divergência derruba as sessões abertas na
+  /// requisição seguinte. Com `strategy: "jwt"` não existe tabela de sessão
+  /// para apagar — a época é o que torna a revogação imediata em vez de
+  /// valer só no próximo login.
+  sessaoEpoca  Int      @default(0) @map("sessao_epoca")
+  /// Onda 6 (ficha §3) — credencial provisória: nasce marcada e só desmarca
+  /// quando o próprio dono troca a senha. O Administrador emite e redefine
+  /// credenciais na T27, mas nunca conhece a senha final de ninguém.
+  trocaSenhaObrigatoria Boolean @default(true) @map("troca_senha_obrigatoria")
+
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
@@ -75,6 +87,9 @@ model Usuario {
   cestas                Cesta[]
   kits                  KitCampanha[]
 
+  /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
+  /// cada troca de papel, para provar que não é o último.
+  @@index([papel, ativo])
   @@map("usuarios")
 }
 
@@ -280,6 +295,8 @@ model Empresa {
   ofertasPretendidas    OfertaPretendida[]
 
   @@index([estagio])
+  /// T26 — reavaliações vencidas (RN21) contadas por estágio.
+  @@index([estagio, reavaliacaoPendente])
   @@map("empresas")
 }
 
@@ -601,6 +618,8 @@ model ContratoComercial {
   empresa Empresa @relation(fields: [empresaId], references: [id])
 
   @@index([empresaId])
+  /// T26 — janelas contratuais de não-renovação na faixa "exige ação hoje".
+  @@index([status, emJanelaNaoRenovacao])
   @@map("contratos_comerciais")
 }
 
@@ -754,6 +773,8 @@ model Oferta {
   @@index([status])
   @@index([destinacaoCampanhaId])
   @@index([destinacaoCestaId])
+  /// T26 — vigências a vencer na faixa "exige ação hoje" (RN03 antecipada).
+  @@index([status, vigenciaFim])
   @@map("ofertas")
 }
 
@@ -792,6 +813,14 @@ model TelemetriaEvento {
   /// Idempotência de reimportação.
   @@unique([idVoucher, tipo])
   @@index([ofertaId])
+  /// T26 — resgates por período (blocos Rede e Aliados / Campanhas).
+  @@index([tipo, dataEvento])
+  /// T26 — vitrine viva: resgate por oferta dentro da janela.
+  @@index([ofertaId, tipo, dataEvento])
+  /// T26 — uso por assinante em 90 dias. É também a sonda da RN50: sem
+  /// nenhum evento com cpf_hash na janela, o indicador não é calculado,
+  /// exibe "aguarda telemetria por assinante".
+  @@index([cpfHash, dataEvento])
   @@map("telemetria_eventos")
 }
 
@@ -887,6 +916,8 @@ model Importacao {
   stagingAssinantes   StagingAssinante[]
   atributosGravados   AtributoEnriquecimento[]
 
+  /// T26 — importações em quarentena na faixa "exige ação hoje".
+  @@index([criadoEm])
   @@map("importacoes")
 }
 
@@ -1107,6 +1138,12 @@ model AuditoriaEvento {
 
   @@index([entidade, entidadeId])
   @@index([autorId])
+  /// T28 — ordenação e filtro por período da consulta paginada.
+  @@index([criadoEm])
+  /// T28 — filtro por entidade dentro de um período.
+  @@index([entidade, criadoEm])
+  /// T27 — "atividade recente" na ficha do usuário (trilha por autor).
+  @@index([autorId, criadoEm])
   @@map("auditoria_eventos")
 }
 
