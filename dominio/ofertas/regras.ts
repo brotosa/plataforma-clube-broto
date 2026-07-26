@@ -123,6 +123,17 @@ export function validarNatureza(dados: DadosNaturezaOferta): string[] {
 export interface DadosCompletudeCard {
   aliado: {
     nomeFantasia: string | null;
+    /**
+     * F15 (RN54) — marca guardada pela plataforma. É a fonte a partir daqui.
+     */
+    temMarca: boolean;
+    /**
+     * OBSOLETO desde a F15: endereço S3 do logotipo, de um bucket nunca
+     * provisionado. Continua sendo lido **apenas como fallback**, para que
+     * nenhum aliado que porventura tenha o campo preenchido perca o ponto
+     * de completude que já contava — a régua da RN09 não pode mudar de
+     * valor por causa da troca de armazenamento. Sai junto com a coluna.
+     */
     logoUrl: string | null;
   };
   solucao: {
@@ -153,7 +164,9 @@ export function calcularCompletudeCard(dados: DadosCompletudeCard): {
 } {
   const itens: ItemCompletude[] = [
     { rotulo: "Nome de exibição do aliado", ok: Boolean(dados.aliado.nomeFantasia?.trim()) },
-    { rotulo: "Logo do aliado", ok: Boolean(dados.aliado.logoUrl?.trim()) },
+    // F15 — a marca da plataforma satisfaz o item; o endereço S3 obsoleto
+    // continua satisfazendo quem já o tinha, para a régua não regredir.
+    { rotulo: "Logo do aliado", ok: dados.aliado.temMarca || Boolean(dados.aliado.logoUrl?.trim()) },
     { rotulo: "Nome da solução", ok: Boolean(dados.solucao.nome?.trim()) },
     { rotulo: "Descrição curta da solução", ok: Boolean(dados.solucao.descricaoCurta?.trim()) },
     { rotulo: "Categoria da solução", ok: dados.solucao.temCategoria },

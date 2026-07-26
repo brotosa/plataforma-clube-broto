@@ -17,7 +17,11 @@ export default async function PaginaNovaSolucao({
 }) {
   const { id } = await params;
   const [empresa, categorias, culturas, ufs] = await Promise.all([
-    prisma.empresa.findUnique({ where: { id } }),
+    prisma.empresa.findUnique({
+      where: { id },
+      // `marca` só pela existência (RN09): o binário fica fora da consulta.
+      include: { marca: { select: { empresaId: true } } },
+    }),
     prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     prisma.cultura.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     prisma.uf.findMany({ where: { ativa: true }, orderBy: { sigla: "asc" } }),
@@ -42,7 +46,11 @@ export default async function PaginaNovaSolucao({
       <AvisoEdicaoDesktop />
       <FormularioSolucao
         empresaId={empresa.id}
-        aliado={{ nomeFantasia: empresa.nomeFantasia, logoUrl: empresa.logoUrl }}
+        aliado={{
+          nomeFantasia: empresa.nomeFantasia,
+          temMarca: empresa.marca !== null,
+          logoUrl: empresa.logoUrl,
+        }}
         categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
         culturas={culturas.map((cultura) => ({ id: cultura.id, nome: cultura.nome }))}
         ufs={ufs.map((uf) => ({ id: uf.id, sigla: uf.sigla }))}

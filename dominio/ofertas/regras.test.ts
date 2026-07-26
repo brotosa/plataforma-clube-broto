@@ -134,7 +134,7 @@ describe("validações de natureza da oferta (três valores, decisão de 24/07)"
 
 function cardCompleto(): DadosCompletudeCard {
   return {
-    aliado: { nomeFantasia: "Exemplo", logoUrl: "s3://logos/exemplo.svg" },
+    aliado: { nomeFantasia: "Exemplo", temMarca: false, logoUrl: "s3://logos/exemplo.svg" },
     solucao: {
       nome: "Solução Exemplo",
       descricaoCurta: "Descrição curta do card",
@@ -171,9 +171,66 @@ describe("RN09 — régua de completude do card", () => {
     expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(false);
   });
 
+  // -------------------------------------------------------------------
+  // F15 (RN54) — a marca mudou de lugar; a régua NÃO pode mudar de valor.
+  //
+  // O produto está em produção: o percentual de completude já é exibido na
+  // T4 e na T5, e `completa` é condição de publicação (RN02). Trocar o
+  // endereço S3 pela marca da plataforma é mudança de armazenamento, não
+  // de negócio — estes quatro casos fixam que nenhum aliado ganha nem
+  // perde ponto por causa dela.
+  // -------------------------------------------------------------------
+
+  it("F15: marca da plataforma satisfaz o item de logo, sem endereço S3", () => {
+    const dados = cardCompleto();
+    dados.aliado.logoUrl = null;
+    dados.aliado.temMarca = true;
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(true);
+    expect(resultado.percentual).toBe(100);
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("F15: sem marca e sem endereço S3, o item continua faltando", () => {
+    const dados = cardCompleto();
+    dados.aliado.logoUrl = null;
+    dados.aliado.temMarca = false;
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(false);
+    expect(resultado.percentual).toBe(88);
+  });
+
+  it("F15 (não-regressão): quem tinha só o endereço S3 antigo mantém o ponto", () => {
+    // O fallback existe exatamente para este aliado: nada foi enviado pela
+    // tela nova, mas o campo obsoleto está preenchido. O número que ele já
+    // via na T5 tem de continuar o mesmo — 100%, publicável.
+    const dados = cardCompleto();
+    dados.aliado.temMarca = false;
+    dados.aliado.logoUrl = "s3://logos/exemplo.svg";
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.percentual).toBe(100);
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("F15 (não-regressão): a régua segue com 8 itens e os mesmos rótulos", () => {
+    // Percentual é feitos/total: item novo ou rótulo renomeado moveria
+    // TODOS os percentuais já exibidos em produção. A lista é congelada.
+    const resultado = calcularCompletudeCard(cardCompleto());
+    expect(resultado.itens.map((item) => item.rotulo)).toEqual([
+      "Nome de exibição do aliado",
+      "Logo do aliado",
+      "Nome da solução",
+      "Descrição curta da solução",
+      "Categoria da solução",
+      "Culturas atendidas",
+      "Cobertura (UFs ou nacional)",
+      "Imagem do card",
+    ]);
+  });
+
   it("cada campo ausente reduz o percentual", () => {
     const dados: DadosCompletudeCard = {
-      aliado: { nomeFantasia: null, logoUrl: null },
+      aliado: { nomeFantasia: null, temMarca: false, logoUrl: null },
       solucao: {
         nome: null,
         descricaoCurta: null,
