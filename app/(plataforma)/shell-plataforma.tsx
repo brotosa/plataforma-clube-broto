@@ -251,8 +251,18 @@ export function ShellPlataforma({
                 em AAA. Branco é o maior contraste possível neste fundo —
                 mesma decisão que a F5 já havia tomado para a legenda do
                 rodapé. Medição em docs/acessibilidade-aaa.md. */}
-            <div className="cap" style={{ color: "var(--branco)", fontSize: 11 }}>
-              Gestão do Clube
+            {/* F16 (ficha §2) — o descritivo passa a "Plataforma de gestão
+                do Clube". É mais longo do que o anterior e a lateral tem
+                largura fixa, então a quebra é controlada em vez de sorteada:
+                o espaço entre "do" e "Clube" é inquebrável, de modo que a
+                segunda linha, quando existir, seja "do Clube" e nunca
+                "Clube" sozinho. `lineHeight` apertado porque duas linhas de
+                legenda não podem empurrar o menu para baixo. */}
+            <div
+              className="cap"
+              style={{ color: "var(--branco)", fontSize: 11, lineHeight: 1.25, maxWidth: "100%" }}
+            >
+              Plataforma de gestão do&nbsp;Clube
             </div>
           </div>
         )}
