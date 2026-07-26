@@ -20,6 +20,7 @@ import {
   mudarStatusContrato,
   removerContato,
 } from "@/infra/casos-de-uso/contatos-contratos";
+import { enviarMarca, removerMarca } from "@/infra/casos-de-uso/marca-aliado";
 import { logger } from "@/infra/log/logger";
 
 /** Estado devolvido aos formulários (useActionState). */
@@ -66,7 +67,10 @@ function dadosEmpresaDoFormulario(dados: FormData) {
     enderecoBairro: texto(dados, "enderecoBairro"),
     enderecoMunicipio: texto(dados, "enderecoMunicipio"),
     enderecoUf: texto(dados, "enderecoUf"),
-    logoUrl: texto(dados, "logoUrl"),
+    // `logoUrl` sai do formulário na F15 (RN54) e some daqui de propósito:
+    // ausente do objeto, o Prisma nem toca a coluna. Mapeá-la como null
+    // apagaria, a cada edição de aliado, o valor obsoleto que ainda serve
+    // de fallback à completude — perda silenciosa sobre base em produção.
     descricaoInstitucional: texto(dados, "descricaoInstitucional"),
     site: texto(dados, "site"),
     categoriaIds: dados.getAll("categoriaIds").map(String).filter(Boolean),
@@ -275,4 +279,55 @@ export async function acaoMudarStatusContrato(
   } catch (erro) {
     return paraEstado(erro);
   }
+}
+
+// ---------------------------------------------------------------------
+// RN54 — marca do aliado
+// ---------------------------------------------------------------------
+
+/**
+ * Envia ou troca a marca. O arquivo chega pelo `FormData`; a régua inteira
+ * (tamanho, tipo real, higienização) roda no servidor, sobre os bytes que
+ * efetivamente chegaram — o que a tela faz antes é conveniência.
+ */
+export async function acaoEnviarMarca(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const ator = await atorDaSessao();
+  const empresaId = String(dados.get("empresaId") ?? "");
+  const arquivo = dados.get("marca");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erros: ["Selecione um arquivo de marca para enviar."] };
+  }
+  try {
+    await enviarMarca(ator, empresaId, {
+      nome: arquivo.name,
+      conteudo: new Uint8Array(await arquivo.arrayBuffer()),
+    });
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+  revalidatePath(`/aliados/${empresaId}`);
+  revalidatePath("/aliados");
+  revalidatePath("/mercado");
+  return { sucesso: "Marca do aliado atualizada." };
+}
+
+/** Remove a marca; o aliado volta a exibir a placa com a inicial. */
+export async function acaoRemoverMarca(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const ator = await atorDaSessao();
+  const empresaId = String(dados.get("empresaId") ?? "");
+  try {
+    await removerMarca(ator, empresaId);
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+  revalidatePath(`/aliados/${empresaId}`);
+  revalidatePath("/aliados");
+  revalidatePath("/mercado");
+  return { sucesso: "Marca removida. O aliado volta a exibir a inicial." };
 }
