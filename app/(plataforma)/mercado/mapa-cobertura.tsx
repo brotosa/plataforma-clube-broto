@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ROTULOS_ESTAGIO_FUNIL } from "@/dominio/funil/regras";
-import { ESTAGIOS_DA_MATRIZ, textoDaCelula } from "@/dominio/metas/cobertura";
+import { ESTAGIOS_DA_MATRIZ, textoDaCelula } from "@/dominio/cobertura/cobertura";
 import type { CoberturaDaTela } from "@/infra/consultas/cobertura-metas";
 
 /**
