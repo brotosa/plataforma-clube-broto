@@ -5,11 +5,13 @@ import "./fontes.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Plataforma de administração · Clube Broto",
+    default: "Gestão do Clube Broto",
     template: "%s · Clube Broto",
   },
+  // F15 — a descrição citava "Onda 1", obsoleta desde a Onda 2. O texto
+  // novo nomeia os módulos que existem hoje, na ordem do menu lateral.
   description:
-    "Plataforma de Administração e Gestão do Clube Broto — Onda 1: Aliados, Soluções e Ofertas.",
+    "Gestão do Clube Broto — mercado e scout, aliados e soluções, ofertas, campanhas e cestas, assinantes, aprovações, parametrizador, usuários e auditoria.",
 };
 
 export default function RootLayout({

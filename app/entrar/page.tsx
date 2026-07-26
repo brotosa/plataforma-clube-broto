@@ -64,8 +64,13 @@ export default async function PaginaEntrar({
             priority
             style={{ height: 26, width: "auto" }}
           />
+          {/* F15 — descritivo da marca. Aqui vai o nome inteiro ("Gestão do
+              Clube Broto"), diferente da lateral: naquela o logo logo acima
+              já diz "Broto", e repetir soaria redundante; nesta o logo é a
+              marca institucional isolada, então o descritivo precisa nomear
+              o sistema por completo. */}
           <p className="cap" style={{ margin: 0 }}>
-            Plataforma de administração · Clube Broto
+            Gestão do Clube Broto
           </p>
         </div>
 

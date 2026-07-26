@@ -233,7 +233,7 @@ export function ShellPlataforma({
                 mesma decisão que a F5 já havia tomado para a legenda do
                 rodapé. Medição em docs/acessibilidade-aaa.md. */}
             <div className="cap" style={{ color: "var(--branco)", fontSize: 11 }}>
-              Plataforma de administração
+              Gestão do Clube
             </div>
           </div>
         )}
