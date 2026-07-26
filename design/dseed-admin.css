@@ -753,3 +753,40 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .not-pop{position:fixed;left:8px;right:8px;top:62px;width:auto;max-height:76vh;overflow:auto}
 }
 @media (prefers-reduced-motion:reduce){.not-lin{transition:none}}
+
+/* =====================================================================
+   Onda 8 (F15) — arrasto de card no funil (RN57)
+
+   O gesto é conveniência de mouse; o menu do card segue sendo o caminho
+   completo, por teclado e por toque. Por isso nada aqui esconde ou
+   substitui controle: são apenas sinais visuais DURANTE o arrasto.
+
+   Contraste: os avisos de coluna usam --paragrafo-aaa e --erro-texto-aaa,
+   os mesmos tokens de texto derivados que a F5 e a F13 calibraram em
+   ≥7:1. Nenhuma cor nova entra por aqui, e tokens.css não é tocado.
+   ===================================================================== */
+.kb-card.arrastavel{cursor:grab}
+.kb-card.arrastavel:active{cursor:grabbing}
+.kb-card.em-arrasto{opacity:.5}
+/* A coluna diz se aceita ANTES de soltar. Cor não é o único sinal: a
+   borda muda de estilo e o aviso é texto, para quem não distingue matiz. */
+.kb-lane.arrasto-aceita{outline:2px dashed var(--azul);outline-offset:-2px}
+.kb-lane.arrasto-recusa{outline:2px dotted var(--cinza);outline-offset:-2px}
+.kb-lane.arrasto-aceita.arrasto-sob{background:var(--azul-lightest)}
+.kb-arrasto-aviso{margin:6px 0 0;text-align:center;font:var(--font-body-caption-regular);
+  color:var(--paragrafo-aaa)}
+.kb-lane.arrasto-aceita .kb-arrasto-aviso{color:var(--azul)}
+/* Área de descarte: existe só enquanto há gesto em curso, para o layout
+   em repouso continuar sendo o do protótipo (que não tem lane Descartada). */
+.kb-descarte{margin-top:12px;border-radius:var(--r-md);padding:14px 12px;text-align:center;
+  font:var(--font-body-label-bold)}
+.kb-descarte.aceita{border:2px dashed var(--erro-texto-aaa);color:var(--erro-texto-aaa);
+  background:var(--branco)}
+.kb-descarte.aceita.arrasto-sob{background:var(--erro-claro)}
+.kb-descarte.recusa{border:2px dotted var(--cinza);color:var(--paragrafo-aaa)}
+@media (max-width:420px){
+  /* a 380px o kanban já rola na horizontal; a área de descarte acompanha
+     a largura útil em vez de esticar a rolagem */
+  .kb-descarte{margin-left:0;margin-right:0}
+}
+@media (prefers-reduced-motion:reduce){.kb-card.em-arrasto{opacity:1;outline:2px solid var(--azul)}}
