@@ -409,8 +409,13 @@ async function main() {
   for (const u of USUARIOS_DEV) {
     await prisma.usuario.upsert({
       where: { email: u.email },
-      update: { papel: u.papel },
-      create: { ...u, senhaHash },
+      // F13: `trocaSenhaObrigatoria` nasce true no schema, porque credencial
+      // provisória é o padrão seguro para tudo que a T27 emite. Estas não
+      // vêm da T27: são credenciais de desenvolvimento com senha conhecida e
+      // documentada no README, e marcá-las prenderia todo mundo — inclusive
+      // o e2e — na tela de troca de senha logo após o login.
+      update: { papel: u.papel, trocaSenhaObrigatoria: false },
+      create: { ...u, senhaHash, trocaSenhaObrigatoria: false },
     });
   }
   console.log(

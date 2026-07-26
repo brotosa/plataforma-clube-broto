@@ -8,10 +8,15 @@ import type { EventoDaTela } from "@/infra/consultas/auditoria";
  * comparação **antes → depois** em duas colunas, com as diferenças
  * destacadas (protótipo v8.1 FINAL).
  *
- * A linha é um `<tr>` clicável com `tabIndex` e tratamento de Enter/Espaço
- * — o mesmo padrão da T1 e da T4. Só as diferenças recebem destaque:
- * marcar todas as chaves de um evento JSON seria o mesmo que não marcar
- * nenhuma.
+ * O controle de expansão é um `<button>` de verdade, na última célula.
+ * A primeira tentativa foi um `<tr>` com `tabIndex` e `aria-expanded`, como
+ * as linhas clicáveis da T1 — e o axe reprovou com razão: `aria-expanded`
+ * só vale em linha de `treegrid`, não de `table`. Um botão real resolve o
+ * estado ARIA e a navegação por teclado de uma vez; a linha inteira segue
+ * clicável, mas isso agora é só conveniência de mouse.
+ *
+ * Só as diferenças recebem destaque: marcar todas as chaves de um evento
+ * JSON seria o mesmo que não marcar nenhuma.
  */
 
 const FORMATO_DATA = new Intl.DateTimeFormat("pt-BR", {
@@ -75,15 +80,7 @@ export function LinhasAuditoria({ eventos }: { eventos: ReadonlyArray<EventoDaTe
           <Fragment key={evento.id}>
             <tr
               className="click"
-              tabIndex={0}
-              aria-expanded={expandido}
               onClick={() => setAberto(expandido ? null : evento.id)}
-              onKeyDown={(tecla) => {
-                if (tecla.key === "Enter" || tecla.key === " ") {
-                  tecla.preventDefault();
-                  setAberto(expandido ? null : evento.id);
-                }
-              }}
             >
               <td
                 data-label="Data · hora"
@@ -122,28 +119,42 @@ export function LinhasAuditoria({ eventos }: { eventos: ReadonlyArray<EventoDaTe
                 {evento.entidadeId}
               </td>
               <td className="chev" style={{ color: "var(--paragrafo-aaa)" }}>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  width="15"
-                  height="15"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  style={{
-                    transform: `rotate(${expandido ? 90 : 0}deg)`,
-                    transition: "transform var(--dur-1) var(--ease)",
+                <button
+                  type="button"
+                  className="btn-icone"
+                  aria-expanded={expandido}
+                  aria-controls={`detalhe-${evento.id}`}
+                  aria-label={`${expandido ? "Recolher" : "Expandir"} o detalhe de ${evento.descricao}`}
+                  onClick={(clique) => {
+                    // A linha inteira também alterna; sem isto o clique no
+                    // botão dispararia os dois e o detalhe voltaria a fechar.
+                    clique.stopPropagation();
+                    setAberto(expandido ? null : evento.id);
                   }}
                 >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    style={{
+                      transform: `rotate(${expandido ? 90 : 0}deg)`,
+                      transition: "transform var(--dur-1) var(--ease)",
+                    }}
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
               </td>
             </tr>
             {expandido ? (
               <tr>
                 <td colSpan={6} style={{ padding: 0, borderBottom: "1px solid var(--borda)" }}>
-                  <div className="aud-det" style={{ borderBottom: 0 }}>
+                  <div id={`detalhe-${evento.id}`} className="aud-det" style={{ borderBottom: 0 }}>
                     <div
                       className="g-resp"
                       style={{
