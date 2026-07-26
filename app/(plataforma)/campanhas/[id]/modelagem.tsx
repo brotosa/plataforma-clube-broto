@@ -868,7 +868,7 @@ export function ModelagemCampanha({
                           {porta.atendida ? "✓" : "!"}
                         </span>
                         <span style={{ fontSize: 14, minWidth: 0 }}>
-                          <span className="sr-only">
+                          <span className="sr-oculto">
                             {porta.atendida ? "Requisito atendido: " : "Requisito pendente: "}
                           </span>
                           {porta.texto}

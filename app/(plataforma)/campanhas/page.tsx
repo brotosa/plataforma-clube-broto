@@ -143,7 +143,7 @@ export default async function PaginaCampanhas() {
         <>
           <div className="card" style={{ overflowX: "auto" }}>
             <table className="tbl tbl-resp">
-              <caption className="sr-only">
+              <caption className="sr-oculto">
                 Campanhas com estado, vigência, público congelado, metas × realizado e versão do
                 kit
               </caption>

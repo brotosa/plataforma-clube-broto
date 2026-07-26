@@ -15,6 +15,13 @@ export default async function LayoutPlataforma({
   if (!sessao?.user) {
     redirect("/entrar");
   }
+  // Ficha §3 — credencial provisória só navega para a troca de senha. A
+  // tela de troca mora fora deste grupo, então não há laço: ela não passa
+  // por aqui, e redireciona de volta assim que a senha deixa de ser
+  // provisória.
+  if (sessao.user.trocaSenhaObrigatoria) {
+    redirect("/trocar-senha");
+  }
 
   return (
     <ShellPlataforma

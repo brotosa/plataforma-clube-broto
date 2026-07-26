@@ -31,6 +31,8 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
       nome: usuario.nome,
       email: usuario.email,
       papel: usuario.papel,
+      sessaoEpoca: usuario.sessaoEpoca,
+      trocaSenhaObrigatoria: usuario.trocaSenhaObrigatoria,
     };
   },
 };
