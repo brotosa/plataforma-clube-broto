@@ -18,7 +18,7 @@ import {
   ROTULOS_REGIAO,
   type Regiao,
 } from "@/dominio/geografia/regioes";
-import { SegmentadoDaSecao } from "../segmentado-secao";
+import { SegmentadoDaSecao, VISOES_DE_ALIADOS } from "@/app/(plataforma)/segmentado-secao";
 import { PainelCobertura } from "./painel-cobertura";
 
 export const metadata: Metadata = {
@@ -107,7 +107,11 @@ export default async function PaginaCobertura({
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <SegmentadoDaSecao ativa="COBERTURA" />
+        <SegmentadoDaSecao
+          nome="Visões de Aliados &amp; Soluções"
+          visoes={VISOES_DE_ALIADOS}
+          ativa="COBERTURA"
+        />
         <Link href="/aliados/novo" className="btn btn-azul" style={{ textDecoration: "none" }}>
           + Novo aliado
         </Link>
@@ -122,21 +126,24 @@ export default async function PaginaCobertura({
           marginBottom: 16,
         }}
       >
+        {/* Âncoras: estas trocas mudam apenas a querystring, e o <Link> do
+            App Router não confirma esse tipo de transição (ver o comentário
+            em `segmentado-secao.tsx`, com a medição). */}
         <nav className="seg" aria-label="Leitura da cobertura">
-          <Link
+          <a
             href={comFiltro({ visao: undefined })}
             className={visao === "ALIADOS" ? "on" : ""}
             aria-current={visao === "ALIADOS" ? "page" : undefined}
           >
             Aliados
-          </Link>
-          <Link
+          </a>
+          <a
             href={comFiltro({ visao: "solucoes" })}
             className={visao === "SOLUCOES" ? "on" : ""}
             aria-current={visao === "SOLUCOES" ? "page" : undefined}
           >
             Soluções
-          </Link>
+          </a>
         </nav>
 
         <form method="get" action="/aliados/cobertura" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -183,13 +190,13 @@ export default async function PaginaCobertura({
         </form>
 
         {temFiltro ? (
-          <Link
+          <a
             href={comFiltro({ cultura: undefined, regiao: undefined })}
             className="btn btn-ghost btn-sm"
             style={{ textDecoration: "none" }}
           >
             Limpar filtros
-          </Link>
+          </a>
         ) : null}
 
         <div style={{ flex: 1 }} />

@@ -225,6 +225,28 @@ test.describe("responsividade a 380px — Onda 6", () => {
     await expect(page.getByRole("heading", { name: /Pendências/ })).toBeVisible();
     // O panorama de oito células cabe na coluna única (Onda 7 §6).
     await expect(page.locator(".dash-stats .dash-stat")).toHaveCount(8);
+
+    // Acabamento pós-Onda 7: no estreito a grade colapsa em UMA coluna (a
+    // consulta de 520px do v9.1), e a marca d'água CONTINUA — o protótipo
+    // apenas a reduz de 280px para 200px na consulta de 760px, não a remove.
+    const hero = await page.evaluate(() => {
+      const stats = document.querySelector(".dash-stats")!;
+      const marca = document.querySelector(".dash-marca") as HTMLElement | null;
+      return {
+        colunas: getComputedStyle(stats).gridTemplateColumns.split(" ").length,
+        marcaPresente: Boolean(marca),
+        alturaDaMarca: marca ? Math.round(marca.getBoundingClientRect().height) : 0,
+        heroCorta: getComputedStyle(document.querySelector(".dash-hero")!).overflowX,
+      };
+    });
+    expect(hero.colunas).toBe(1);
+    expect(hero.marcaPresente).toBe(true);
+    expect(hero.alturaDaMarca).toBe(200);
+    // A marca sangra 40px além da borda direita POR DESENHO (`right:-40px`);
+    // quem a contém é o `overflow:hidden` do hero. Medir `scrollWidth` aqui
+    // acusaria esse sangramento intencional — o que importa é a página não
+    // rolar, e disso cuida o `semRolagemHorizontal` ao fim do teste.
+    expect(hero.heroCorta).toBe("hidden");
     // Os quatro blocos da ficha §2 continuam presentes — a 380px o grid
     // vira uma coluna, mas nenhum bloco é escondido.
     for (const bloco of ["Rede e Aliados", "Mercado e Funil", "Assinantes e Uso", "Campanhas"]) {
@@ -321,4 +343,41 @@ test.describe("responsividade a 380px — Onda 7", () => {
     await semRolagemHorizontal(page);
     await semViolacoesAxe(page);
   });
+});
+
+/**
+ * Acabamento pós-Onda 7 a 380px — o segmentado de seção no estreito.
+ *
+ * Em desktop ele vive na linha do cabeçalho; a 380px o `flex-wrap` do
+ * cabeçalho o joga para linha própria, que é o colapso já praticado em
+ * Aliados. O que se mede aqui é que ele continua INTEIRO e operável nas
+ * duas seções — segmentado que sai da viewport é navegação perdida.
+ */
+test.describe("responsividade a 380px — segmentado de seção", () => {
+  for (const [secao, rota, rotulo] of [
+    ["Aliados & Soluções", "/aliados", /Visões de Aliados/],
+    ["Mercado & Scout", "/mercado", /Visões do Mercado/],
+  ] as const) {
+    test(`${secao}: o segmentado cabe e permanece operável a 380px`, async ({ page }) => {
+      await entrar(page, "gestor@dev.clubebroto.local");
+      await page.goto(rota);
+      await page.getByRole("heading", { level: 1 }).first().waitFor();
+
+      const segmentado = page.getByRole("navigation", { name: rotulo });
+      await expect(segmentado).toBeVisible();
+
+      const caixa = await segmentado.evaluate((no) => {
+        const b = no.getBoundingClientRect();
+        return { esquerda: Math.round(b.left), direita: Math.round(b.right) };
+      });
+      expect(caixa.esquerda).toBeGreaterThanOrEqual(0);
+      expect(caixa.direita).toBeLessThanOrEqual(380);
+
+      // Os três destinos continuam alcançáveis.
+      await expect(segmentado.getByRole("link")).toHaveCount(3);
+
+      await semRolagemHorizontal(page);
+      await semViolacoesAxe(page);
+    });
+  }
 });

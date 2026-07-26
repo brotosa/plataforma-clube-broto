@@ -165,14 +165,18 @@ export function MapaDeCobertura({ cobertura }: { cobertura: CoberturaDaTela }) {
                         —
                       </span>
                     ) : (
-                      <Link
+                      // Âncora: a T13 é uma aba de /mercado, então este
+                      // destino muda apenas a querystring — transição que o
+                      // <Link> do App Router não confirma (medição no
+                      // comentário de `segmentado-secao.tsx`).
+                      <a
                         href={`/mercado?categoria=${linha.categoriaId}`}
                         className="btn btn-ghost btn-sm num"
                         style={{ minWidth: 42, textDecoration: "none" }}
                         aria-label={`Abrir funil filtrado em ${linha.categoriaNome} (${celula.quantidade} em ${ROTULOS_ESTAGIO_FUNIL[celula.estagio]})`}
                       >
                         {textoDaCelula(celula.quantidade)}
-                      </Link>
+                      </a>
                     )}
                   </td>
                 ))}

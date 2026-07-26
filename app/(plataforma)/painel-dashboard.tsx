@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -164,6 +165,29 @@ export function PainelDashboard({
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
       <div className="dash-hero">
+        {/* Marca d'água decorativa do protótipo v9.1 — o símbolo do Broto
+            sangrando no canto inferior direito do cartão azul, a 14% de
+            opacidade. A F13 trouxe o CSS (`.dash-marca`) e esqueceu o
+            elemento.
+
+            Três cuidados que a fazem decoração e não conteúdo:
+            • `alt=""` + `aria-hidden` a tiram da árvore de acessibilidade, e
+              <img> não entra na ordem de foco — o leitor de tela não anuncia
+              nada, e o teclado não para aqui;
+            • vem PRIMEIRA no DOM, antes dos dois blocos de conteúdo, que são
+              `position:relative` e portanto pintam por cima;
+            • as células do panorama têm fundo opaco, então a marca não passa
+              sob texto algum — o contraste medido do hero não muda, e o axe
+              AAA continua limpo (verificado em teste). */}
+        <Image
+          className="dash-marca"
+          src="/logos/logo-broto-simbolo-amarelo.svg"
+          alt=""
+          aria-hidden="true"
+          width={490}
+          height={280}
+          priority={false}
+        />
         <div
           style={{
             display: "flex",
