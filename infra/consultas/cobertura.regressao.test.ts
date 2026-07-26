@@ -28,6 +28,16 @@ import { mapaDeCobertura } from "./cobertura-metas";
 
 const SUFIXO = "-regressao-cobertura-f14";
 
+/**
+ * Integração: só executa com banco disponível. O primeiro job do CI
+ * (typecheck, lint e unidade) roda SEM PostgreSQL de propósito — é a
+ * verificação rápida —, e o segundo é que sobe o serviço. Sem esta guarda o
+ * arquivo derruba o job errado, dizendo "DATABASE_URL não encontrada" em vez
+ * de reportar regra de negócio. Mesmo padrão das demais suítes de integração
+ * do repositório.
+ */
+const temBanco = Boolean(process.env.DATABASE_URL);
+
 // ---------------------------------------------------------------------
 // Implementação congelada — como a F9 a deixou, antes da RN51
 // ---------------------------------------------------------------------
@@ -179,110 +189,112 @@ async function criarSolucaoPublicada(empresaId: string, categoriaId: string | nu
   return solucao;
 }
 
-beforeAll(async () => {
-  const base = await prisma.categoria.count();
+describe.skipIf(!temBanco)("RN51 · serviço único de cobertura", () => {
+  beforeAll(async () => {
+    const base = await prisma.categoria.count();
 
-  // Quatro categorias que cobrem as situações que separam as duas lentes.
-  for (const [indice, nome] of [
-    "Coberta com dois aliados",
-    "Aliado único",
-    "Só funil",
-    "Totalmente vazia",
-  ].entries()) {
-    const categoria = await prisma.categoria.create({
-      data: {
-        slug: `regressao-f14-${indice}`,
-        nome: `${nome}${SUFIXO}`,
-        ordem: 900 + indice,
-        ativa: true,
-      },
+    // Quatro categorias que cobrem as situações que separam as duas lentes.
+    for (const [indice, nome] of [
+      "Coberta com dois aliados",
+      "Aliado único",
+      "Só funil",
+      "Totalmente vazia",
+    ].entries()) {
+      const categoria = await prisma.categoria.create({
+        data: {
+          slug: `regressao-f14-${indice}`,
+          nome: `${nome}${SUFIXO}`,
+          ordem: 900 + indice,
+          ativa: true,
+        },
+      });
+      idsCriados.categorias.push(categoria.id);
+    }
+
+    const [coberta, unico, soFunil] = idsCriados.categorias;
+
+    // Coberta: dois aliados ativos, um deles com solução publicada.
+    const a1 = await criarEmpresa("Aliado A", "ALIADA_ATIVA", coberta!);
+    await criarEmpresa("Aliado B", "ALIADA_ATIVA", coberta!, "SP");
+    await criarSolucaoPublicada(a1.id, coberta!);
+
+    // Aliado único: um aliado ativo, SEM solução publicada — frágil na T29,
+    // e deliberadamente NÃO é gap na T13. É o caso que prova que as lentes
+    // divergem sem que os números da T13 mudem.
+    await criarEmpresa("Aliado C", "ALIADA_ATIVA", unico!, "MG");
+
+    // Só funil: ninguém ativo, duas empresas em prospecção.
+    await criarEmpresa("Prospect D", "MAPEADA", soFunil!, "GO");
+    await criarEmpresa("Prospect E", "EM_NEGOCIACAO", soFunil!, "BA");
+
+    // Sem categoria: um aliado e um prospect que ficam fora da distribuição.
+    await criarEmpresa("Aliado sem categoria", "ALIADA_ATIVA", null, "RS");
+    await criarEmpresa("Prospect sem categoria", "PRIORIZADA", null, "AM");
+
+    expect(await prisma.categoria.count()).toBe(base + 4);
+  });
+
+  afterAll(async () => {
+    await prisma.oferta.deleteMany({ where: { id: { in: idsCriados.ofertas } } });
+    await prisma.solucao.deleteMany({ where: { id: { in: idsCriados.solucoes } } });
+    await prisma.empresaCategoria.deleteMany({
+      where: { empresaId: { in: idsCriados.empresas } },
     });
-    idsCriados.categorias.push(categoria.id);
-  }
-
-  const [coberta, unico, soFunil] = idsCriados.categorias;
-
-  // Coberta: dois aliados ativos, um deles com solução publicada.
-  const a1 = await criarEmpresa("Aliado A", "ALIADA_ATIVA", coberta!);
-  await criarEmpresa("Aliado B", "ALIADA_ATIVA", coberta!, "SP");
-  await criarSolucaoPublicada(a1.id, coberta!);
-
-  // Aliado único: um aliado ativo, SEM solução publicada — frágil na T29,
-  // e deliberadamente NÃO é gap na T13. É o caso que prova que as lentes
-  // divergem sem que os números da T13 mudem.
-  await criarEmpresa("Aliado C", "ALIADA_ATIVA", unico!, "MG");
-
-  // Só funil: ninguém ativo, duas empresas em prospecção.
-  await criarEmpresa("Prospect D", "MAPEADA", soFunil!, "GO");
-  await criarEmpresa("Prospect E", "EM_NEGOCIACAO", soFunil!, "BA");
-
-  // Sem categoria: um aliado e um prospect que ficam fora da distribuição.
-  await criarEmpresa("Aliado sem categoria", "ALIADA_ATIVA", null, "RS");
-  await criarEmpresa("Prospect sem categoria", "PRIORIZADA", null, "AM");
-
-  expect(await prisma.categoria.count()).toBe(base + 4);
-});
-
-afterAll(async () => {
-  await prisma.oferta.deleteMany({ where: { id: { in: idsCriados.ofertas } } });
-  await prisma.solucao.deleteMany({ where: { id: { in: idsCriados.solucoes } } });
-  await prisma.empresaCategoria.deleteMany({
-    where: { empresaId: { in: idsCriados.empresas } },
-  });
-  await prisma.empresa.deleteMany({ where: { id: { in: idsCriados.empresas } } });
-  await prisma.categoria.deleteMany({ where: { id: { in: idsCriados.categorias } } });
-});
-
-// ---------------------------------------------------------------------
-// A prova
-// ---------------------------------------------------------------------
-
-describe("RN51 · a extração do serviço único não mudou os números da T13", () => {
-  it("linhas, resumo e volumes excluídos são idênticos aos da implementação da F9", async () => {
-    const [novo, comoNaF9] = await Promise.all([mapaDeCobertura(), mapaDeCoberturaComoNaF9()]);
-
-    // Igualdade estrutural completa: qualquer campo que divergir aparece no diff.
-    expect(novo).toEqual(comoNaF9);
+    await prisma.empresa.deleteMany({ where: { id: { in: idsCriados.empresas } } });
+    await prisma.categoria.deleteMany({ where: { id: { in: idsCriados.categorias } } });
   });
 
-  it("o resumo bate campo a campo — a leitura que a T13 exibe no topo", async () => {
-    const [novo, comoNaF9] = await Promise.all([mapaDeCobertura(), mapaDeCoberturaComoNaF9()]);
+  // ---------------------------------------------------------------------
+  // A prova
+  // ---------------------------------------------------------------------
 
-    expect(novo.resumo.categorias).toBe(comoNaF9.resumo.categorias);
-    expect(novo.resumo.categoriasCobertas).toBe(comoNaF9.resumo.categoriasCobertas);
-    expect(novo.resumo.gaps).toBe(comoNaF9.resumo.gaps);
-    expect(novo.resumo.gapsDescobertos).toBe(comoNaF9.resumo.gapsDescobertos);
-    expect(novo.resumo.aliadasAtivas).toBe(comoNaF9.resumo.aliadasAtivas);
-    expect(novo.resumo.empresasNoFunil).toBe(comoNaF9.resumo.empresasNoFunil);
-    expect(novo.semCategoria).toBe(comoNaF9.semCategoria);
-    expect(novo.aliadasSemCategoria).toBe(comoNaF9.aliadasSemCategoria);
-  });
+  describe("a extração do serviço único não mudou os números da T13", () => {
+    it("linhas, resumo e volumes excluídos são idênticos aos da implementação da F9", async () => {
+      const [novo, comoNaF9] = await Promise.all([mapaDeCobertura(), mapaDeCoberturaComoNaF9()]);
 
-  it("a ordem das linhas segue a taxonomia, como antes", async () => {
-    const [novo, comoNaF9] = await Promise.all([mapaDeCobertura(), mapaDeCoberturaComoNaF9()]);
-    expect(novo.linhas.map((linha) => linha.categoriaId)).toEqual(
-      comoNaF9.linhas.map((linha) => linha.categoriaId),
-    );
-  });
+      // Igualdade estrutural completa: qualquer campo que divergir aparece no diff.
+      expect(novo).toEqual(comoNaF9);
+    });
 
-  it("o cenário exercita mesmo as quatro situações — teste que não testa nada é pior que nenhum", async () => {
-    const { linhas } = await mapaDeCobertura();
-    const doCenario = linhas.filter((linha) => linha.categoriaNome.endsWith(SUFIXO));
-    expect(doCenario).toHaveLength(4);
+    it("o resumo bate campo a campo — a leitura que a T13 exibe no topo", async () => {
+      const [novo, comoNaF9] = await Promise.all([mapaDeCobertura(), mapaDeCoberturaComoNaF9()]);
 
-    const [coberta, unico, soFunil, vazia] = doCenario;
-    expect(coberta!.aliadasAtivas).toBe(2);
-    expect(coberta!.gap).toBe(false);
+      expect(novo.resumo.categorias).toBe(comoNaF9.resumo.categorias);
+      expect(novo.resumo.categoriasCobertas).toBe(comoNaF9.resumo.categoriasCobertas);
+      expect(novo.resumo.gaps).toBe(comoNaF9.resumo.gaps);
+      expect(novo.resumo.gapsDescobertos).toBe(comoNaF9.resumo.gapsDescobertos);
+      expect(novo.resumo.aliadasAtivas).toBe(comoNaF9.resumo.aliadasAtivas);
+      expect(novo.resumo.empresasNoFunil).toBe(comoNaF9.resumo.empresasNoFunil);
+      expect(novo.semCategoria).toBe(comoNaF9.semCategoria);
+      expect(novo.aliadasSemCategoria).toBe(comoNaF9.aliadasSemCategoria);
+    });
 
-    // O caso decisivo: aliado único sem solução publicada continua fora do gap.
-    expect(unico!.aliadasAtivas).toBe(1);
-    expect(unico!.gap).toBe(false);
+    it("a ordem das linhas segue a taxonomia, como antes", async () => {
+      const [novo, comoNaF9] = await Promise.all([mapaDeCobertura(), mapaDeCoberturaComoNaF9()]);
+      expect(novo.linhas.map((linha) => linha.categoriaId)).toEqual(
+        comoNaF9.linhas.map((linha) => linha.categoriaId),
+      );
+    });
 
-    expect(soFunil!.gap).toBe(true);
-    expect(soFunil!.gapDescoberto).toBe(false);
-    expect(soFunil!.totalNoFunil).toBe(2);
+    it("o cenário exercita mesmo as quatro situações — teste que não testa nada é pior que nenhum", async () => {
+      const { linhas } = await mapaDeCobertura();
+      const doCenario = linhas.filter((linha) => linha.categoriaNome.endsWith(SUFIXO));
+      expect(doCenario).toHaveLength(4);
 
-    expect(vazia!.gap).toBe(true);
-    expect(vazia!.gapDescoberto).toBe(true);
+      const [coberta, unico, soFunil, vazia] = doCenario;
+      expect(coberta!.aliadasAtivas).toBe(2);
+      expect(coberta!.gap).toBe(false);
+
+      // O caso decisivo: aliado único sem solução publicada continua fora do gap.
+      expect(unico!.aliadasAtivas).toBe(1);
+      expect(unico!.gap).toBe(false);
+
+      expect(soFunil!.gap).toBe(true);
+      expect(soFunil!.gapDescoberto).toBe(false);
+      expect(soFunil!.totalNoFunil).toBe(2);
+
+      expect(vazia!.gap).toBe(true);
+      expect(vazia!.gapDescoberto).toBe(true);
+    });
   });
 });
