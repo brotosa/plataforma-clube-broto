@@ -285,26 +285,26 @@ export default async function PaginaMercado({
             Filtrar
           </button>
         </form>
-        <Link
+        <a
           href={urlCom({ minhas: minhasEmpresas ? null : "empresas" })}
           className={minhasEmpresas ? "chip on" : "chip"}
           style={{ textDecoration: "none" }}
         >
           Minhas empresas
           {minhasEmpresas ? <span className="sr-oculto"> (filtro ativo — remover)</span> : null}
-        </Link>
-        <Link
+        </a>
+        <a
           href={urlCom({ minhas: minhasNegociacoes ? null : "negociacoes" })}
           className={minhasNegociacoes ? "chip on" : "chip"}
           style={{ textDecoration: "none" }}
         >
           Minhas negociações
           {minhasNegociacoes ? <span className="sr-oculto"> (filtro ativo — remover)</span> : null}
-        </Link>
+        </a>
         {categoriaFiltrada ? (
-          <Link href={urlCom({ categoria: null })} className="chip on" style={{ textDecoration: "none" }}>
+          <a href={urlCom({ categoria: null })} className="chip on" style={{ textDecoration: "none" }}>
             Categoria: {categoriaFiltrada.nome} ✕
-          </Link>
+          </a>
         ) : null}
         <div style={{ flex: 1 }} />
         <Link href="/aliados?estagio=ALIADA_ATIVA" style={{ font: "var(--font-body-label-bold)" }}>

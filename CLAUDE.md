@@ -38,3 +38,9 @@ Aplicação web administrativa do Clube Broto (Broto S.A.). Onda 1: módulo de A
 ## Convenções
 
 TypeScript strict; testes de unidade por regra de negócio (casos positivos e negativos); migrations Prisma reversíveis; commits pequenos com mensagem descritiva; PR por fase com resumo do que foi feito, o que ficou pendente e como testar.
+
+- **Navegação que altera apenas a query string usa âncora nativa, não `<Link>`** — o Router Cache do cliente pode servir a mesma rota sem round-trip, e páginas que leem `searchParams` no servidor não re-renderizam. Vale para alternadores, chips de filtro, "limpar filtros" e células que abrem outra tela já filtrada. `<Link>` segue sendo o padrão para troca de rota sem query.
+
+  **A hipótese acima — Router Cache — não foi confirmada.** O que está medido é o efeito: no alternador de modo da T30, com `<Link>`, **12 falhas em 12 tentativas** (o clique era interceptado, o payload RSC vinha 200 e era descartado, a URL não mudava); com âncora, **0 em 12**. Uma página descartável isolada não reproduziu o defeito em nenhuma variante (com e sem `prefetch`, com `<Link>` para a própria rota, com prefetch de rotas irmãs pesadas — todas 6/6 navegando), então o gatilho é específico daquelas telas e continua sem isolamento. A âncora foi adotada porque funciona e está medida, não porque a causa esteja entendida.
+
+  A cerca de arquitetura está em `infra/arquitetura/navegacao-por-query.test.ts`, com a lista das telas cobertas; tela nova com controle de query entra lá. Se alguém isolar o mecanismo, é nesse arquivo que a conclusão deve ser registrada.
