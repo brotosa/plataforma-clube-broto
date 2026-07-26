@@ -579,10 +579,39 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 
 /* ---- Extensão (Onda 7 · Cobertura do portfólio e mapa da rede) ----
    Mesclado por união a partir do protótipo v9.1: só entraram os seletores
-   ausentes daqui. `.dash-stats` já existe acima com `auto-fit`; a v9.1 o
-   redeclara em quatro colunas fixas para o panorama de oito células nunca
-   fechar uma linha pela metade, e essa redeclaração está no bloco do
-   panorama, adiante. */
+   ausentes daqui. */
+
+/* ---- Grade do panorama do hero (T26): quatro colunas por duas linhas ----
+   `.dash-stats` nasceu na F13 com `auto-fit, minmax(150px, 1fr)`, dimensionado
+   para as CINCO células que o hero tinha então. Com as oito da Onda 7 o
+   `auto-fit` resolvia em três colunas na largura de desktop (1240px de tela,
+   ~558px de coluna), deixando 3+3+2 — e a lacuna da terceira linha aparecia
+   como uma célula fantasma, porque o fundo do grid é a própria cor das
+   divisórias.
+
+   A v9.1 fixa quatro colunas justamente para 8 fechar 4×2 sem sobra. As duas
+   consultas abaixo são as da v9.1 e preservam o colapso já existente: duas
+   colunas no intermediário, uma só no estreito — em ambas o total continua
+   múltiplo do número de colunas. */
+.dash-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1100px){.dash-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.dash-stats{grid-template-columns:minmax(0,1fr)}}
+
+/* fix AAA — texto do hero no estado :hover.
+   `.dash-star` e `.dash-stat` são âncoras, e a regra global `a:hover`
+   (especificidade 0,1,1) VENCE o `color:#fff` das classes (0,1,0): ao passar
+   o ponteiro, o texto virava --azul-texto-aaa sobre a superfície azul escura
+   — o número do panorama media 1,24:1 (axe: color-contrast, serious), e o
+   sublinhado do hover ainda riscava o número.
+
+   Defeito anterior a este acabamento: nasceu na F13, quando o hero ganhou
+   âncoras, e passou despercebido porque o axe só reprova o estado que
+   encontra — e o ponteiro raramente repousava sobre um cartão durante a
+   varredura. A grade em 4 colunas mudou onde as células caem e o expôs.
+   Sobre superfície escura, o texto do hero é branco em qualquer estado. */
+.dash-star:hover,.dash-stat:hover,
+.dash-star:focus-visible,.dash-stat:focus-visible{color:#fff;text-decoration:none}
+.dash-star:hover .dash-lab,.dash-stat:hover .dash-lab{color:var(--amarelo)}
 
 /* Lista, Cobertura e Mapa são abas do mesmo módulo (T1/T29/T30): alternam
    sem transição de tela, como as abas de Mercado & Scout. */
