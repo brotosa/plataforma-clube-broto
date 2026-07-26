@@ -198,17 +198,38 @@ const TABELA_DA_FICHA: ReadonlyArray<{
   {
     acao: "MODELAR_CAMPANHA",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      // Segregação: o Administrador da Plataforma (RN23) configura o
+      // produto e não opera campanha — a ficha da Onda 4 §2 dá modelagem
+      // e ativação a Gestor e Analista.
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
   },
   {
     acao: "ATIVAR_ENCERRAR_CAMPANHA",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
   },
   {
     acao: "GERIR_CESTAS",
     permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
   },
 ];
 

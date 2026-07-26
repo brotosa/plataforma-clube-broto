@@ -117,7 +117,10 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Salvar/editar segmentos segue CRIAR_EDITAR; contagem é aberta a
   // todos os papéis (RN33) e por isso fica sob VISUALIZAR.
   GERIR_SEGMENTOS: ["GESTOR", "ANALISTA"],
-  // Onda 4 (ficha §2): "modelagem e ativação: Gestor e Analista". Se um
+  // Onda 4 (ficha §2): "modelagem e ativação: Gestor e Analista". O
+  // Administrador da Plataforma (RN23) fica DE FORA por segregação: o
+  // papel da Onda 3 configura o produto, não opera campanha — a ficha da
+  // Onda 4 §2 não o menciona, e incluí-lo seria inventar célula. Se um
   // papel de marketing for criado ([A CONFIRMAR] da ficha §2), ele entra
   // nestas três linhas e em mais nada.
   MODELAR_CAMPANHA: ["GESTOR", "ANALISTA"],

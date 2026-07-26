@@ -44,30 +44,30 @@ enum Papel {
 }
 
 model Usuario {
-  id        String   @id @default(cuid())
-  nome      String
-  email     String   @unique
-  senhaHash String   @map("senha_hash")
-  papel     Papel
-  ativo     Boolean  @default(true)
-  criadoEm  DateTime @default(now()) @map("criado_em")
+  id           String   @id @default(cuid())
+  nome         String
+  email        String   @unique
+  senhaHash    String   @map("senha_hash")
+  papel        Papel
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   auditoriaEventos      AuditoriaEvento[]
-  solicitacoesCriadas   AprovacaoSolicitacao[] @relation("solicitante")
-  solicitacoesDecididas AprovacaoSolicitacao[] @relation("aprovador")
+  solicitacoesCriadas   AprovacaoSolicitacao[]    @relation("solicitante")
+  solicitacoesDecididas AprovacaoSolicitacao[]    @relation("aprovador")
   regrasDesignadas      AprovacaoRegraAprovador[]
   publicacoes           Publicacao[]
   importacoes           Importacao[]
-  empresasComoScout     Empresa[] @relation("responsavelScout")
-  empresasComoComercial Empresa[] @relation("responsavelComercial")
+  empresasComoScout     Empresa[]                 @relation("responsavelScout")
+  empresasComoComercial Empresa[]                 @relation("responsavelComercial")
   notasRapidas          NotaRapida[]
   registrosNegociacao   RegistroNegociacao[]
   avaliacoesScout       AvaliacaoScout[]
   segmentos             Segmento[]
   exportacoesLista      ExportacaoLista[]
-  dossiesSolicitados    Dossie[] @relation("dossieSolicitante")
-  dossiesRevisados      Dossie[] @relation("dossieRevisor")
+  dossiesSolicitados    Dossie[]                  @relation("dossieSolicitante")
+  dossiesRevisados      Dossie[]                  @relation("dossieRevisor")
   indicadoresDeclarados IndicadorDeclarado[]
   alteracoesDeValor     ValorRegraHistorico[]
   versoesDeConfiguracao ConfiguracaoVersao[]
@@ -126,7 +126,7 @@ model TipoBeneficio {
   ordem Int
   ativa Boolean @default(true)
 
-  ofertas Oferta[]
+  ofertas            Oferta[]
   ofertasPretendidas OfertaPretendida[]
 
   @@map("tipos_beneficio")
@@ -139,7 +139,7 @@ model Mecanica {
   ordem Int
   ativa Boolean @default(true)
 
-  ofertas Oferta[]
+  ofertas            Oferta[]
   ofertasPretendidas OfertaPretendida[]
 
   @@map("mecanicas")
@@ -203,79 +203,79 @@ enum OrigemEmpresa {
 }
 
 model Empresa {
-  id            String         @id @default(cuid())
-  razaoSocial   String?        @map("razao_social")
-  nomeFantasia  String         @map("nome_fantasia")
+  id                       String           @id @default(cuid())
+  razaoSocial              String?          @map("razao_social")
+  nomeFantasia             String           @map("nome_fantasia")
   /// Único e com validação de dígito no serviço de domínio (RN08).
   /// Opcional apenas em estágio pré-aliança (obrigatório em M2 — promoção).
-  cnpj          String?        @unique
+  cnpj                     String?          @unique
   // Endereço da sede — mínimo contratual, obrigatório para Aliada ativa
-  enderecoCep         String? @map("endereco_cep")
-  enderecoLogradouro  String? @map("endereco_logradouro")
-  enderecoNumero      String? @map("endereco_numero")
-  enderecoComplemento String? @map("endereco_complemento")
-  enderecoBairro      String? @map("endereco_bairro")
-  enderecoMunicipio   String? @map("endereco_municipio")
-  enderecoUf          String? @map("endereco_uf")
-  logoUrl               String?  @map("logo_url")
-  descricaoInstitucional String? @map("descricao_institucional")
-  site                  String?
-  dataEntrada           DateTime? @map("data_entrada") @db.Date
-  estagio               EstagioEmpresa @default(EM_NEGOCIACAO)
+  enderecoCep              String?          @map("endereco_cep")
+  enderecoLogradouro       String?          @map("endereco_logradouro")
+  enderecoNumero           String?          @map("endereco_numero")
+  enderecoComplemento      String?          @map("endereco_complemento")
+  enderecoBairro           String?          @map("endereco_bairro")
+  enderecoMunicipio        String?          @map("endereco_municipio")
+  enderecoUf               String?          @map("endereco_uf")
+  logoUrl                  String?          @map("logo_url")
+  descricaoInstitucional   String?          @map("descricao_institucional")
+  site                     String?
+  dataEntrada              DateTime?        @map("data_entrada") @db.Date
+  estagio                  EstagioEmpresa   @default(EM_NEGOCIACAO)
   /// Suspensão exige motivo tipificado (RN12); "outros" exige descrição.
-  motivoSuspensaoId        String? @map("motivo_suspensao_id")
-  motivoSuspensaoDescricao String? @map("motivo_suspensao_descricao")
+  motivoSuspensaoId        String?          @map("motivo_suspensao_id")
+  motivoSuspensaoDescricao String?          @map("motivo_suspensao_descricao")
   // --- Funil de mercado (Onda 2, ficha §3.1) ---
   /// Obrigatória na entrada pelo radar (RN13, validada em serviço); vazia
   /// nas empresas anteriores à Onda 2 (carga inicial e cadastro T2).
-  origem OrigemEmpresa?
+  origem                   OrigemEmpresa?
   /// Um dos 2 analistas de scout — atribuído ao assumir a avaliação (RN14).
-  responsavelScoutId String? @map("responsavel_scout_id")
+  responsavelScoutId       String?          @map("responsavel_scout_id")
   /// Um dos 8 comerciais — designado no handoff para negociação (RN16).
-  responsavelComercialId String? @map("responsavel_comercial_id")
-  dataEntradaRadar DateTime? @map("data_entrada_radar") @db.Date
+  responsavelComercialId   String?          @map("responsavel_comercial_id")
+  dataEntradaRadar         DateTime?        @map("data_entrada_radar") @db.Date
   /// Início do estágio atual ("há N dias" na T8). Nulo para empresas
   /// anteriores ao rastreamento da F6 — exibido como "—", nunca estimado.
-  estagioDesde DateTime? @map("estagio_desde")
+  estagioDesde             DateTime?        @map("estagio_desde")
   /// Descarte exige motivo tipificado (RN17); "OUTRO" exige descrição.
   /// Limpos na reativação (histórico preservado na auditoria).
-  motivoDescarteId         String? @map("motivo_descarte_id")
-  motivoDescarteDescricao  String? @map("motivo_descarte_descricao")
-  motivoDescarteComentario String? @map("motivo_descarte_comentario")
+  motivoDescarteId         String?          @map("motivo_descarte_id")
+  motivoDescarteDescricao  String?          @map("motivo_descarte_descricao")
+  motivoDescarteComentario String?          @map("motivo_descarte_comentario")
   /// Total 0–100 da avaliação fechada vigente (F7); recalculado a cada
   /// fechamento de versão. Nulo = sem avaliação fechada ("pendente").
-  scoreScouting Int?    @map("score_scouting")
+  scoreScouting            Int?             @map("score_scouting")
   /// RN21 — ligada pelo job diário quando a aliada ativa completa 12 meses
   /// da última avaliação fechada; limpa ao fechar nova avaliação (ou pelo
   /// próprio job quando deixar de valer).
-  reavaliacaoPendente Boolean @default(false) @map("reavaliacao_pendente")
+  reavaliacaoPendente      Boolean          @default(false) @map("reavaliacao_pendente")
   // --- Ficha Cadastral do Aliado v1, seções A e B (M1, Onda 2/F9) ---
   /// Até 5 itens curtos — substitui o parágrafo livre do Word (seção A).
-  diferenciais String[] @default([])
+  diferenciais             String[]         @default([])
   /// Taxonomia herdada do scouting (SaaS, serviço, contrato a prazo…),
   /// texto livre tipado na v1; vira lista de domínio na Onda 3.
-  modeloNegocio String? @map("modelo_negocio")
+  modeloNegocio            String?          @map("modelo_negocio")
   /// Público-alvo em DOIS eixos (seção B): porte do produtor e natureza —
   /// o caso Viasat mostrou que um eixo só não basta.
-  publicoPorte   PorteProdutor[] @map("publico_porte")
-  publicoNatureza NaturezaPublico? @map("publico_natureza")
+  publicoPorte             PorteProdutor[]  @map("publico_porte")
+  publicoNatureza          NaturezaPublico? @map("publico_natureza")
   /// Preenchido na primeira publicação; na carga inicial vem da planilha ("Id do Seller").
-  idExternoMinutrade String? @unique @map("id_externo_minutrade")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  idExternoMinutrade       String?          @unique @map("id_externo_minutrade")
+  criadoEm                 DateTime         @default(now()) @map("criado_em")
+  atualizadoEm             DateTime         @updatedAt @map("atualizado_em")
 
-  motivoSuspensao MotivoSuspensao? @relation(fields: [motivoSuspensaoId], references: [id])
-  motivoDescarte  MotivoDescarte?  @relation(fields: [motivoDescarteId], references: [id])
-  responsavelScout     Usuario? @relation("responsavelScout", fields: [responsavelScoutId], references: [id])
-  responsavelComercial Usuario? @relation("responsavelComercial", fields: [responsavelComercialId], references: [id])
-  categorias      EmpresaCategoria[]
-  contatos        ContatoEmpresa[]
-  contratos       ContratoComercial[]
-  solucoes        Solucao[]
-  notasRapidas        NotaRapida[]
-  registrosNegociacao RegistroNegociacao[]
-  avaliacoesScout     AvaliacaoScout[]
-  dossies             Dossie[]
+  motivoSuspensao       MotivoSuspensao?     @relation(fields: [motivoSuspensaoId], references: [id])
+  motivoDescarte        MotivoDescarte?      @relation(fields: [motivoDescarteId], references: [id])
+  responsavelScout      Usuario?             @relation("responsavelScout", fields: [responsavelScoutId], references: [id])
+  responsavelComercial  Usuario?             @relation("responsavelComercial", fields: [responsavelComercialId], references: [id])
+  categorias            EmpresaCategoria[]
+  contatos              ContatoEmpresa[]
+  contratos             ContratoComercial[]
+  solucoes              Solucao[]
+  notasRapidas          NotaRapida[]
+  registrosNegociacao   RegistroNegociacao[]
+  avaliacoesScout       AvaliacaoScout[]
+  dossies               Dossie[]
   indicadoresDeclarados IndicadorDeclarado[]
   ofertasPretendidas    OfertaPretendida[]
 
@@ -379,37 +379,37 @@ enum RecomendacaoAvaliacao {
 /// são CONGELADOS no fechamento — mudança futura de peso nunca re-pontua
 /// avaliação fechada (antecipação da RN25, Onda 3).
 model AvaliacaoScout {
-  id           String                 @id @default(cuid())
-  empresaId    String                 @map("empresa_id")
+  id                   String                 @id @default(cuid())
+  empresaId            String                 @map("empresa_id")
   /// Sequencial por empresa; a vigente é a FECHADA de maior versão.
-  versao       Int
-  avaliadorId  String                 @map("avaliador_id")
-  status       StatusAvaliacao        @default(RASCUNHO)
-  recomendacao RecomendacaoAvaliacao?
+  versao               Int
+  avaliadorId          String                 @map("avaliador_id")
+  status               StatusAvaliacao        @default(RASCUNHO)
+  recomendacao         RecomendacaoAvaliacao?
   /// Congelado no fechamento: [{dimensao, grupo, media, peso, subtotal}] —
   /// subtotal = média 1–5 das notas da dimensão × 20 (nota de consistência
   /// do seed dos indicadores).
-  subtotais    Json?
+  subtotais            Json?
   /// Total 0–100 congelado no fechamento: média dos subtotais das
   /// dimensões avaliadas ponderada pelos pesos (v1 todos 1).
-  total        Int?
-  fechadaEm    DateTime?              @map("fechada_em")
+  total                Int?
+  fechadaEm            DateTime?              @map("fechada_em")
   /// RN25 — versão de configuração (indicadores, dimensões, pesos) usada
   /// nesta avaliação. É o que torna o efeito prospectivo verificável: uma
   /// avaliação fechada aponta para a configuração vigente à época, e nova
   /// escrita em pesos gera nova versão sem tocar nesta. Opcional apenas
   /// porque a coluna nasceu depois das avaliações da F7 (backfill aponta
   /// as existentes para a versão-seed).
-  configuracaoVersaoId String?        @map("configuracao_versao_id")
-  criadoEm     DateTime               @default(now()) @map("criado_em")
-  atualizadoEm DateTime               @updatedAt @map("atualizado_em")
+  configuracaoVersaoId String?                @map("configuracao_versao_id")
+  criadoEm             DateTime               @default(now()) @map("criado_em")
+  atualizadoEm         DateTime               @updatedAt @map("atualizado_em")
 
-  empresa   Empresa @relation(fields: [empresaId], references: [id])
-  avaliador Usuario @relation(fields: [avaliadorId], references: [id])
-  notas     AvaliacaoNota[]
+  empresa            Empresa                @relation(fields: [empresaId], references: [id])
+  avaliador          Usuario                @relation(fields: [avaliadorId], references: [id])
+  notas              AvaliacaoNota[]
   /// Pedidos de promoção que levaram esta avaliação anexada (RN20).
-  solicitacoes AprovacaoSolicitacao[]
-  configuracaoVersao ConfiguracaoVersao? @relation(fields: [configuracaoVersaoId], references: [id])
+  solicitacoes       AprovacaoSolicitacao[]
+  configuracaoVersao ConfiguracaoVersao?    @relation(fields: [configuracaoVersaoId], references: [id])
 
   @@unique([empresaId, versao])
   @@index([empresaId, status])
@@ -461,33 +461,33 @@ enum OrigemDossie {
 /// dossiê alimenta evidência; a pontuação é sempre humana (garantido em
 /// serviço e verificado por teste de arquitetura).
 model Dossie {
-  id        String       @id @default(cuid())
-  empresaId String       @map("empresa_id")
-  status    StatusDossie @default(GERANDO)
-  origem    OrigemDossie
+  id                String       @id @default(cuid())
+  empresaId         String       @map("empresa_id")
+  status            StatusDossie @default(GERANDO)
+  origem            OrigemDossie
   /// Conteúdo validado contra o schema do template (dominio/dossie/schema.ts).
   /// Nulo enquanto GERANDO e quando a geração falha.
-  conteudo  Json?
+  conteudo          Json?
   /// Identificação da versão do template que originou o prompt — o
   /// template é versionado e sua alteração é alteração de produto.
-  versaoTemplate String? @map("versao_template")
+  versaoTemplate    String?      @map("versao_template")
   /// Quem pediu a geração (nunca em lote: sempre sob demanda de um analista).
-  solicitanteId     String  @map("solicitante_id")
+  solicitanteId     String       @map("solicitante_id")
   /// Notas do analista enviadas ao provedor ({{contexto_adicional}}).
-  contextoAdicional String? @map("contexto_adicional")
+  contextoAdicional String?      @map("contexto_adicional")
   /// RN19 — a marca de revisão e sua autoria.
-  revisado   Boolean   @default(false)
-  revisorId  String?   @map("revisor_id")
-  revisadoEm DateTime? @map("revisado_em")
+  revisado          Boolean      @default(false)
+  revisorId         String?      @map("revisor_id")
+  revisadoEm        DateTime?    @map("revisado_em")
   /// Mensagem da última falha (exibida na T11 com a ação de nova tentativa).
-  erro       String?
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  erro              String?
+  criadoEm          DateTime     @default(now()) @map("criado_em")
+  atualizadoEm      DateTime     @updatedAt @map("atualizado_em")
 
-  empresa     Empresa @relation(fields: [empresaId], references: [id])
-  solicitante Usuario @relation("dossieSolicitante", fields: [solicitanteId], references: [id])
-  revisor     Usuario? @relation("dossieRevisor", fields: [revisorId], references: [id])
-  execucoes   DossieExecucao[]
+  empresa      Empresa                @relation(fields: [empresaId], references: [id])
+  solicitante  Usuario                @relation("dossieSolicitante", fields: [solicitanteId], references: [id])
+  revisor      Usuario?               @relation("dossieRevisor", fields: [revisorId], references: [id])
+  execucoes    DossieExecucao[]
   /// Pedidos de promoção que levaram este dossiê anexado (RN20).
   solicitacoes AprovacaoSolicitacao[]
 
@@ -499,27 +499,27 @@ model Dossie {
 /// custo e duração são registrados por execução, inclusive nas tentativas
 /// que falham — a telemetria de consumo precisa enxergar o gasto real.
 model DossieExecucao {
-  id       String @id @default(cuid())
-  dossieId String @map("dossie_id")
+  id             String    @id @default(cuid())
+  dossieId       String    @map("dossie_id")
   /// Nome do provedor que executou (ex.: "anthropic", "manual").
-  provedor String
+  provedor       String
   /// Modelo usado, quando o provedor é automático.
-  modelo   String?
+  modelo         String?
   /// Sequencial por dossiê: 1 = geração original, 2+ = novas tentativas.
-  tentativa Int
-  iniciadaEm  DateTime  @map("iniciada_em")
-  concluidaEm DateTime? @map("concluida_em")
-  duracaoMs   Int?      @map("duracao_ms")
-  tokensEntrada Int? @map("tokens_entrada")
-  tokensSaida   Int? @map("tokens_saida")
+  tentativa      Int
+  iniciadaEm     DateTime  @map("iniciada_em")
+  concluidaEm    DateTime? @map("concluida_em")
+  duracaoMs      Int?      @map("duracao_ms")
+  tokensEntrada  Int?      @map("tokens_entrada")
+  tokensSaida    Int?      @map("tokens_saida")
   /// Buscas na web realizadas pelo provedor automático, quando informado.
-  buscasWeb     Int? @map("buscas_web")
+  buscasWeb      Int?      @map("buscas_web")
   /// Custo apurado a partir dos tokens e da tarifa configurada em ambiente.
   /// Nulo quando o provedor não tem custo (manual) ou não pôde ser apurado.
-  custoBrl Decimal? @map("custo_brl") @db.Decimal(12, 4)
-  sucesso  Boolean  @default(false)
-  erro     String?
-  versaoTemplate String @map("versao_template")
+  custoBrl       Decimal?  @map("custo_brl") @db.Decimal(12, 4)
+  sucesso        Boolean   @default(false)
+  erro           String?
+  versaoTemplate String    @map("versao_template")
 
   dossie Dossie @relation(fields: [dossieId], references: [id])
 
@@ -546,15 +546,15 @@ enum PapelContato {
 }
 
 model ContatoEmpresa {
-  id        String       @id @default(cuid())
-  empresaId String       @map("empresa_id")
-  papel     PapelContato
-  nome      String
-  cargo     String?
-  email     String
-  telefone  String?
-  criadoEm  DateTime     @default(now()) @map("criado_em")
-  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  id           String       @id @default(cuid())
+  empresaId    String       @map("empresa_id")
+  papel        PapelContato
+  nome         String
+  cargo        String?
+  email        String
+  telefone     String?
+  criadoEm     DateTime     @default(now()) @map("criado_em")
+  atualizadoEm DateTime     @updatedAt @map("atualizado_em")
 
   empresa Empresa @relation(fields: [empresaId], references: [id])
 
@@ -579,24 +579,24 @@ enum AmbientePagamento {
 }
 
 model ContratoComercial {
-  id        String  @id @default(cuid())
-  empresaId String  @map("empresa_id")
+  id                   String            @id @default(cuid())
+  empresaId            String            @map("empresa_id")
   /// Chave do anexo (PDF) no S3; metadados de assinatura eletrônica ao lado.
-  anexoS3Key       String?   @map("anexo_s3_key")
-  dataAssinatura   DateTime? @map("data_assinatura") @db.Date
-  hashVerificacao  String?   @map("hash_verificacao")
+  anexoS3Key           String?           @map("anexo_s3_key")
+  dataAssinatura       DateTime?         @map("data_assinatura") @db.Date
+  hashVerificacao      String?           @map("hash_verificacao")
   /// Data-base da vigência; padrão contratual: 12 meses com renovação automática.
-  vigenciaBase     DateTime  @map("vigencia_base") @db.Date
-  status           StatusContrato @default(VIGENTE)
+  vigenciaBase         DateTime          @map("vigencia_base") @db.Date
+  status               StatusContrato    @default(VIGENTE)
   /// Comissão % sobre o valor efetivamente pago (por aliado, fonte = contrato).
   /// Incide apenas sobre Benefícios pagos; Recompensas não geram comissão.
-  comissaoPct        Decimal?          @map("comissao_pct") @db.Decimal(5, 2)
-  ambientesPagamento AmbientePagamento @map("ambientes_pagamento")
+  comissaoPct          Decimal?          @map("comissao_pct") @db.Decimal(5, 2)
+  ambientesPagamento   AmbientePagamento @map("ambientes_pagamento")
   /// Marcada pelo job diário quando faltam ≤30 dias para o aniversário
   /// contratual (janela de não-renovação); alertada em T1/T2.
-  emJanelaNaoRenovacao Boolean @default(false) @map("em_janela_nao_renovacao")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  emJanelaNaoRenovacao Boolean           @default(false) @map("em_janela_nao_renovacao")
+  criadoEm             DateTime          @default(now()) @map("criado_em")
+  atualizadoEm         DateTime          @updatedAt @map("atualizado_em")
 
   empresa Empresa @relation(fields: [empresaId], references: [id])
 
@@ -620,31 +620,31 @@ enum PorteProdutor {
 }
 
 model Solucao {
-  id        String @id @default(cuid())
+  id                String          @id @default(cuid())
   /// Somente empresas em estágio ALIADA_ATIVA (RN01, garantida em serviço).
-  empresaId String @map("empresa_id")
-  nome      String
+  empresaId         String          @map("empresa_id")
+  nome              String
   /// Texto do card (~140c); obrigatória para publicar oferta (RN09).
-  descricaoCurta    String? @map("descricao_curta")
-  descricaoCompleta String? @map("descricao_completa")
-  categoriaId       String? @map("categoria_id")
+  descricaoCurta    String?         @map("descricao_curta")
+  descricaoCompleta String?         @map("descricao_completa")
+  categoriaId       String?         @map("categoria_id")
   /// Perfil de cliente-alvo (lista fixa na ficha; alimenta recomendação e cestas).
-  perfilCliente PorteProdutor[] @map("perfil_cliente")
+  perfilCliente     PorteProdutor[] @map("perfil_cliente")
   /// Tecnologia/diferenciais como tags (vocabulário herdado do scouting).
-  tecnologias   String[]
-  imagemCardUrl String?  @map("imagem_card_url")
-  linkExterno   String?  @map("link_externo")
-  status        StatusSolucao @default(ATIVA)
+  tecnologias       String[]
+  imagemCardUrl     String?         @map("imagem_card_url")
+  linkExterno       String?         @map("link_externo")
+  status            StatusSolucao   @default(ATIVA)
   /// Cobertura: "nacional" OU conjunto de UFs (join solucao_ufs).
-  coberturaNacional Boolean @default(false) @map("cobertura_nacional")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  coberturaNacional Boolean         @default(false) @map("cobertura_nacional")
+  criadoEm          DateTime        @default(now()) @map("criado_em")
+  atualizadoEm      DateTime        @updatedAt @map("atualizado_em")
 
-  empresa   Empresa    @relation(fields: [empresaId], references: [id])
-  categoria Categoria? @relation(fields: [categoriaId], references: [id])
-  culturas  SolucaoCultura[]
-  ufs       SolucaoUf[]
-  ofertas   Oferta[]
+  empresa            Empresa            @relation(fields: [empresaId], references: [id])
+  categoria          Categoria?         @relation(fields: [categoriaId], references: [id])
+  culturas           SolucaoCultura[]
+  ufs                SolucaoUf[]
+  ofertas            Oferta[]
   ofertasPretendidas OfertaPretendida[]
 
   @@index([empresaId])
@@ -697,55 +697,55 @@ enum StatusOferta {
 }
 
 model Oferta {
-  id        String @id @default(cuid())
-  solucaoId String @map("solucao_id")
-  titulo    String
+  id                   String               @id @default(cuid())
+  solucaoId            String               @map("solucao_id")
+  titulo               String
   /// Recompensa ⇒ preços zero; Cupom ⇒ desconto definido + código/regras.
   /// A comissão do cupom está [A CONFIRMAR]: ver COMISSAO_CUPOM em
   /// dominio/ofertas/constantes.ts — nenhum cálculo de receita para cupom.
-  natureza        NaturezaOferta
-  tipoBeneficioId String         @map("tipo_beneficio_id")
-  precoDe  Decimal? @map("preco_de") @db.Decimal(12, 2)
-  precoPor Decimal? @map("preco_por") @db.Decimal(12, 2)
+  natureza             NaturezaOferta
+  tipoBeneficioId      String               @map("tipo_beneficio_id")
+  precoDe              Decimal?             @map("preco_de") @db.Decimal(12, 2)
+  precoPor             Decimal?             @map("preco_por") @db.Decimal(12, 2)
   /// Somente quando natureza = CUPOM_DESCONTO.
-  cupomCodigoRegras String? @map("cupom_codigo_regras")
+  cupomCodigoRegras    String?              @map("cupom_codigo_regras")
   /// Somente Benefícios; recorrente para prestação continuada.
-  modalidadePagamento ModalidadePagamento? @map("modalidade_pagamento")
+  modalidadePagamento  ModalidadePagamento? @map("modalidade_pagamento")
   /// Compatibilidade mecânica × ambiente habilitado do aliado (RN11, em serviço).
-  mecanicaId        String  @map("mecanica_id")
-  urlResgateExterno String? @map("url_resgate_externo")
+  mecanicaId           String               @map("mecanica_id")
+  urlResgateExterno    String?              @map("url_resgate_externo")
   /// Fluxo operacional quando o resgate não é automático (recomendado
   /// para checkout externo).
-  instrucoesResgate String? @map("instrucoes_resgate")
+  instrucoesResgate    String?              @map("instrucoes_resgate")
   /// Onda 4 (ficha §3, extensão retroativa): onde a oferta vive. A vitrine
   /// é uma só e a publicação Minutrade segue inalterada — o vínculo serve
   /// à gestão e à medição. Quando destinada a campanha, a vigência dela é
   /// SUGERIDA na T5 (editável), nunca imposta.
-  destinacao           DestinacaoOferta @default(VITRINE)
-  destinacaoCampanhaId String?          @map("destinacao_campanha_id")
-  destinacaoCestaId    String?          @map("destinacao_cesta_id")
-  vigenciaInicio DateTime  @map("vigencia_inicio") @db.Date
+  destinacao           DestinacaoOferta     @default(VITRINE)
+  destinacaoCampanhaId String?              @map("destinacao_campanha_id")
+  destinacaoCestaId    String?              @map("destinacao_cesta_id")
+  vigenciaInicio       DateTime             @map("vigencia_inicio") @db.Date
   /// Fim vazio = prazo indeterminado; fim < hoje ⇒ EXPIRADA (RN03, job diário).
-  vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
+  vigenciaFim          DateTime?            @map("vigencia_fim") @db.Date
   /// [A CONFIRMAR] se a Minutrade suporta limite; até lá o campo é interno
   /// (alerta ao atingir), sem efeito na publicação.
-  limiteResgates Int? @map("limite_resgates")
-  status         StatusOferta @default(RASCUNHO)
+  limiteResgates       Int?                 @map("limite_resgates")
+  status               StatusOferta         @default(RASCUNHO)
   /// Ligada quando oferta publicada é alterada após o último export (RN10);
   /// o export seguinte a limpa.
-  pendenteRepublicacao Boolean @default(false) @map("pendente_republicacao")
-  idExternoMinutrade   String? @map("id_externo_minutrade")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  pendenteRepublicacao Boolean              @default(false) @map("pendente_republicacao")
+  idExternoMinutrade   String?              @map("id_externo_minutrade")
+  criadoEm             DateTime             @default(now()) @map("criado_em")
+  atualizadoEm         DateTime             @updatedAt @map("atualizado_em")
 
-  solucao       Solucao       @relation(fields: [solucaoId], references: [id])
-  tipoBeneficio TipoBeneficio @relation(fields: [tipoBeneficioId], references: [id])
-  mecanica      Mecanica      @relation(fields: [mecanicaId], references: [id])
-  telemetriaEventos    TelemetriaEvento[]
-  acumuladosIniciais   TelemetriaAcumuladoInicial[]
+  solucao            Solucao                      @relation(fields: [solucaoId], references: [id])
+  tipoBeneficio      TipoBeneficio                @relation(fields: [tipoBeneficioId], references: [id])
+  mecanica           Mecanica                     @relation(fields: [mecanicaId], references: [id])
+  telemetriaEventos  TelemetriaEvento[]
+  acumuladosIniciais TelemetriaAcumuladoInicial[]
 
-  destinacaoCampanha Campanha? @relation("ofertasDestinadas", fields: [destinacaoCampanhaId], references: [id])
-  destinacaoCesta    Cesta?    @relation("ofertasDestinadas", fields: [destinacaoCestaId], references: [id])
+  destinacaoCampanha Campanha?          @relation("ofertasDestinadas", fields: [destinacaoCampanhaId], references: [id])
+  destinacaoCesta    Cesta?             @relation("ofertasDestinadas", fields: [destinacaoCestaId], references: [id])
   cestas             CestaOferta[]
   campanhasAvulsas   CampanhaOferta[]
   ofertaPretendida   OfertaPretendida[]
@@ -768,23 +768,23 @@ enum TipoEventoTelemetria {
 }
 
 model TelemetriaEvento {
-  id        String               @id @default(cuid())
-  idVoucher String               @map("id_voucher")
-  tipo      TipoEventoTelemetria
+  id              String               @id @default(cuid())
+  idVoucher       String               @map("id_voucher")
+  tipo            TipoEventoTelemetria
   /// Na Onda 1 o CPF entra apenas como hash (dado pessoal pleno só na
   /// Onda 5, com RBAC de PF).
-  cpfHash    String?  @map("cpf_hash")
-  valor      Decimal? @db.Decimal(12, 2)
-  dataEvento DateTime @map("data_evento")
-  canal      String?
+  cpfHash         String?              @map("cpf_hash")
+  valor           Decimal?             @db.Decimal(12, 2)
+  dataEvento      DateTime             @map("data_evento")
+  canal           String?
   /// Identificadores externos crus do arquivo, para rastreabilidade mesmo
   /// quando a resolução para oferta/empresa falha (quarentena, F4).
-  idSellerExterno String? @map("id_seller_externo")
-  idOfertaExterno String? @map("id_oferta_externo")
-  ofertaId        String? @map("oferta_id")
-  arquivoOrigem   String? @map("arquivo_origem")
-  importacaoId    String? @map("importacao_id")
-  criadoEm        DateTime @default(now()) @map("criado_em")
+  idSellerExterno String?              @map("id_seller_externo")
+  idOfertaExterno String?              @map("id_oferta_externo")
+  ofertaId        String?              @map("oferta_id")
+  arquivoOrigem   String?              @map("arquivo_origem")
+  importacaoId    String?              @map("importacao_id")
+  criadoEm        DateTime             @default(now()) @map("criado_em")
 
   oferta     Oferta?     @relation(fields: [ofertaId], references: [id])
   importacao Importacao? @relation(fields: [importacaoId], references: [id])
@@ -819,12 +819,12 @@ model TelemetriaAcumuladoInicial {
 // ---------------------------------------------------------------------
 
 model Publicacao {
-  id      String @id @default(cuid())
-  autorId String @map("autor_id")
+  id       String   @id @default(cuid())
+  autorId  String   @map("autor_id")
   /// Pacote gerado pelo ExportAdapter em uso (layout Minutrade [A CONFIRMAR];
   /// até lá, GenericJsonCsvAdapter).
-  adapter String
-  pacote  Json
+  adapter  String
+  pacote   Json
   /// Diff em relação à publicação anterior (RN10).
   diff     Json?
   criadoEm DateTime @default(now()) @map("criado_em")
@@ -854,34 +854,34 @@ enum PoliticaImportacao {
 }
 
 model Importacao {
-  id          String         @id @default(cuid())
-  tipo        TipoImportacao
-  nomeArquivo String         @map("nome_arquivo")
-  linhasOk    Int            @default(0) @map("linhas_ok")
-  linhasErro  Int            @default(0) @map("linhas_erro")
+  id                     String              @id @default(cuid())
+  tipo                   TipoImportacao
+  nomeArquivo            String              @map("nome_arquivo")
+  linhasOk               Int                 @default(0) @map("linhas_ok")
+  linhasErro             Int                 @default(0) @map("linhas_erro")
   /// Linhas rejeitadas com motivo (relatório pós-carga).
-  relatorioQuarentena Json?   @map("relatorio_quarentena")
+  relatorioQuarentena    Json?               @map("relatorio_quarentena")
   /// T9 (Onda 2): mapeamento de colunas escolhido no passo 2 — o layout
   /// real das listas de prospects é [A CONFIRMAR] e vive como
   /// configuração por importação, nunca como código rígido.
-  configuracaoMapeamento Json? @map("configuracao_mapeamento")
+  configuracaoMapeamento Json?               @map("configuracao_mapeamento")
   /// Onda 5 — política declarada da carga de assinantes (RN29);
   /// null nos tipos das Ondas 1 e 2, que não têm essa semântica.
-  politica PoliticaImportacao?
+  politica               PoliticaImportacao?
   /// Onda 5 — de/para de colunas aplicado pelo mapeador da T20
   /// (o dicionário real do arquivo do comprador é [A CONFIRMAR]).
-  mapeamentoColunas Json? @map("mapeamento_colunas")
+  mapeamentoColunas      Json?               @map("mapeamento_colunas")
   /// Onda 5 — resumo da carga (novos, atualizados, fora da base,
   /// divergências de enriquecimento), exibido na T20 e no histórico.
-  resumo Json?
-  autorId             String  @map("autor_id")
-  criadoEm            DateTime @default(now()) @map("criado_em")
+  resumo                 Json?
+  autorId                String              @map("autor_id")
+  criadoEm               DateTime            @default(now()) @map("criado_em")
 
-  autor Usuario @relation(fields: [autorId], references: [id])
-  telemetriaEventos  TelemetriaEvento[]
-  acumuladosIniciais TelemetriaAcumuladoInicial[]
-  stagingSellers     StagingSeller[]
-  stagingOfertas     StagingOferta[]
+  autor               Usuario                      @relation(fields: [autorId], references: [id])
+  telemetriaEventos   TelemetriaEvento[]
+  acumuladosIniciais  TelemetriaAcumuladoInicial[]
+  stagingSellers      StagingSeller[]
+  stagingOfertas      StagingOferta[]
   stagingAgrupamentos StagingAgrupamento[]
   stagingEmpresas     StagingEmpresa[]
   stagingAssinantes   StagingAssinante[]
@@ -902,21 +902,21 @@ enum EstadoStaging {
 }
 
 model StagingSeller {
-  id           String @id @default(cuid())
-  importacaoId String @map("importacao_id")
-  linhaOrigem  Int    @map("linha_origem")
+  id                 String        @id @default(cuid())
+  importacaoId       String        @map("importacao_id")
+  linhaOrigem        Int           @map("linha_origem")
   /// Linha crua da planilha (tolerante a colunas futuras — dump Minutrade
   /// [A CONFIRMAR] enriquece o staging antes da conferência).
-  dadosOriginais Json @map("dados_originais")
+  dadosOriginais     Json          @map("dados_originais")
   // Campos mapeados da Lista de Sellers (ficha §7)
-  nomeSeller      String?   @map("nome_seller")
-  idSellerExterno String?   @map("id_seller_externo")
-  dataEntrada     DateTime? @map("data_entrada") @db.Date
-  estado       EstadoStaging @default(PENDENTE)
-  mensagemErro String?       @map("mensagem_erro")
-  empresaIdEfetivada String? @map("empresa_id_efetivada")
-  criadoEm     DateTime      @default(now()) @map("criado_em")
-  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+  nomeSeller         String?       @map("nome_seller")
+  idSellerExterno    String?       @map("id_seller_externo")
+  dataEntrada        DateTime?     @map("data_entrada") @db.Date
+  estado             EstadoStaging @default(PENDENTE)
+  mensagemErro       String?       @map("mensagem_erro")
+  empresaIdEfetivada String?       @map("empresa_id_efetivada")
+  criadoEm           DateTime      @default(now()) @map("criado_em")
+  atualizadoEm       DateTime      @updatedAt @map("atualizado_em")
 
   importacao Importacao @relation(fields: [importacaoId], references: [id])
 
@@ -925,27 +925,27 @@ model StagingSeller {
 }
 
 model StagingOferta {
-  id           String @id @default(cuid())
-  importacaoId String @map("importacao_id")
-  linhaOrigem  Int    @map("linha_origem")
-  dadosOriginais Json @map("dados_originais")
+  id                 String        @id @default(cuid())
+  importacaoId       String        @map("importacao_id")
+  linhaOrigem        Int           @map("linha_origem")
+  dadosOriginais     Json          @map("dados_originais")
   // Campos mapeados da Lista de Ofertas (ficha §7)
-  produto         String? // → nome da solução e título da oferta
-  checkout        String? // → mecânica + natureza
-  preco           String?
-  desconto        String?
-  precoFinal      String? @map("preco_final")
-  statusOferta    String? @map("status_oferta")
-  resgates        Int?
-  compras         Int?
-  idSellerExterno String? @map("id_seller_externo")
-  agrupamentoId String? @map("agrupamento_id")
-  estado        EstadoStaging @default(PENDENTE)
-  mensagemErro  String?       @map("mensagem_erro")
-  solucaoIdEfetivada String?  @map("solucao_id_efetivada")
-  ofertaIdEfetivada  String?  @map("oferta_id_efetivada")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  produto            String? // → nome da solução e título da oferta
+  checkout           String? // → mecânica + natureza
+  preco              String?
+  desconto           String?
+  precoFinal         String?       @map("preco_final")
+  statusOferta       String?       @map("status_oferta")
+  resgates           Int?
+  compras            Int?
+  idSellerExterno    String?       @map("id_seller_externo")
+  agrupamentoId      String?       @map("agrupamento_id")
+  estado             EstadoStaging @default(PENDENTE)
+  mensagemErro       String?       @map("mensagem_erro")
+  solucaoIdEfetivada String?       @map("solucao_id_efetivada")
+  ofertaIdEfetivada  String?       @map("oferta_id_efetivada")
+  criadoEm           DateTime      @default(now()) @map("criado_em")
+  atualizadoEm       DateTime      @updatedAt @map("atualizado_em")
 
   importacao  Importacao          @relation(fields: [importacaoId], references: [id])
   agrupamento StagingAgrupamento? @relation(fields: [agrupamentoId], references: [id])
@@ -959,22 +959,22 @@ model StagingOferta {
 /// deduplicação por CNPJ/nome (contra o radar e as aliadas) marca a linha
 /// antes do resumo; a efetivação cria Empresas MAPEADA.
 model StagingEmpresa {
-  id           String @id @default(cuid())
-  importacaoId String @map("importacao_id")
-  linhaOrigem  Int    @map("linha_origem")
-  dadosOriginais Json @map("dados_originais")
+  id                   String        @id @default(cuid())
+  importacaoId         String        @map("importacao_id")
+  linhaOrigem          Int           @map("linha_origem")
+  dadosOriginais       Json          @map("dados_originais")
   // Campos extraídos conforme a configuração de mapeamento
-  nomeFantasia    String? @map("nome_fantasia")
-  site            String?
-  cnpj            String?
-  categoriasTexto String? @map("categorias_texto")
+  nomeFantasia         String?       @map("nome_fantasia")
+  site                 String?
+  cnpj                 String?
+  categoriasTexto      String?       @map("categorias_texto")
   /// Preenchido quando a deduplicação encontra a empresa já cadastrada.
-  duplicataDeEmpresaId String? @map("duplicata_de_empresa_id")
-  estado       EstadoStaging @default(PENDENTE)
-  mensagemErro String?       @map("mensagem_erro")
-  empresaIdEfetivada String? @map("empresa_id_efetivada")
-  criadoEm     DateTime      @default(now()) @map("criado_em")
-  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+  duplicataDeEmpresaId String?       @map("duplicata_de_empresa_id")
+  estado               EstadoStaging @default(PENDENTE)
+  mensagemErro         String?       @map("mensagem_erro")
+  empresaIdEfetivada   String?       @map("empresa_id_efetivada")
+  criadoEm             DateTime      @default(now()) @map("criado_em")
+  atualizadoEm         DateTime      @updatedAt @map("atualizado_em")
 
   importacao Importacao @relation(fields: [importacaoId], references: [id])
 
@@ -985,13 +985,13 @@ model StagingEmpresa {
 /// Agrupamentos produto→solução propostos pela heurística
 /// "mesmo seller + mesmo texto de produto", revisáveis na conferência.
 model StagingAgrupamento {
-  id           String @id @default(cuid())
-  importacaoId String @map("importacao_id")
-  chaveHeuristica     String @map("chave_heuristica")
-  nomeSolucaoProposto String @map("nome_solucao_proposto")
-  estado       EstadoStaging @default(PENDENTE)
-  criadoEm     DateTime      @default(now()) @map("criado_em")
-  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+  id                  String        @id @default(cuid())
+  importacaoId        String        @map("importacao_id")
+  chaveHeuristica     String        @map("chave_heuristica")
+  nomeSolucaoProposto String        @map("nome_solucao_proposto")
+  estado              EstadoStaging @default(PENDENTE)
+  criadoEm            DateTime      @default(now()) @map("criado_em")
+  atualizadoEm        DateTime      @updatedAt @map("atualizado_em")
 
   importacao Importacao      @relation(fields: [importacaoId], references: [id])
   ofertas    StagingOferta[]
@@ -1047,38 +1047,38 @@ enum EstadoSolicitacao {
 }
 
 model AprovacaoSolicitacao {
-  id           String                @id @default(cuid())
-  tipoEntidade TipoEntidadeAprovacao @map("tipo_entidade")
-  entidadeId   String                @map("entidade_id")
-  solicitanteId String               @map("solicitante_id")
-  estado        EstadoSolicitacao    @default(SOLICITADA)
+  id                 String                @id @default(cuid())
+  tipoEntidade       TipoEntidadeAprovacao @map("tipo_entidade")
+  entidadeId         String                @map("entidade_id")
+  solicitanteId      String                @map("solicitante_id")
+  estado             EstadoSolicitacao     @default(SOLICITADA)
   /// Obrigatório na devolução (validado em serviço).
-  comentario String?
+  comentario         String?
   /// Onda 3 (RN27) — conteúdo da mudança que aguarda decisão. As entidades
   /// das Ondas 1 e 2 já existem no banco quando entram na fila (promover
   /// uma empresa, publicar uma oferta), então `entidadeId` bastava. Uma
   /// escrita de parâmetro, não: o valor proposto NÃO pode tocar
   /// `valores_regra` antes de aprovado — a configuração vigente continua
   /// valendo —, e é aqui que ele espera.
-  payload Json?
+  payload            Json?
   /// Segregação RN06 (solicitante ≠ aprovador) garantida em serviço.
-  aprovadorId String?   @map("aprovador_id")
-  decididoEm  DateTime? @map("decidido_em")
-  criadoEm    DateTime  @default(now()) @map("criado_em")
+  aprovadorId        String?               @map("aprovador_id")
+  decididoEm         DateTime?             @map("decidido_em")
+  criadoEm           DateTime              @default(now()) @map("criado_em")
   // --- RN20 (Onda 2, F9): o caso completo viaja com o pedido ---
   /// Avaliação de scout VIGENTE no momento do pedido (a fechada de maior
   /// versão). Fixada aqui, e não consultada na hora de decidir, para que o
   /// aprovador veja o que existia quando o pedido foi feito — avaliações
   /// são imutáveis após fechamento (RN18), mas uma nova versão pode ser
   /// aberta enquanto o pedido espera na fila.
-  avaliacaoVigenteId String? @map("avaliacao_vigente_id")
+  avaliacaoVigenteId String?               @map("avaliacao_vigente_id")
   /// Dossiê vigente no momento do pedido (o mais recente da empresa).
   /// Pode ser nulo: o dossiê é insumo de decisão, não pré-requisito de
   /// promoção — a T6 diz ao aprovador quando não há.
-  dossieVigenteId String? @map("dossie_vigente_id")
+  dossieVigenteId    String?               @map("dossie_vigente_id")
 
-  solicitante Usuario  @relation("solicitante", fields: [solicitanteId], references: [id])
-  aprovador   Usuario? @relation("aprovador", fields: [aprovadorId], references: [id])
+  solicitante      Usuario         @relation("solicitante", fields: [solicitanteId], references: [id])
+  aprovador        Usuario?        @relation("aprovador", fields: [aprovadorId], references: [id])
   avaliacaoVigente AvaliacaoScout? @relation(fields: [avaliacaoVigenteId], references: [id])
   dossieVigente    Dossie?         @relation(fields: [dossieVigenteId], references: [id])
 
@@ -1092,15 +1092,15 @@ model AprovacaoSolicitacao {
 // ---------------------------------------------------------------------
 
 model AuditoriaEvento {
-  id         String @id @default(cuid())
+  id            String   @id @default(cuid())
   /// Nome lógico da entidade (ex.: "empresa", "oferta").
-  entidade   String
-  entidadeId String @map("entidade_id")
-  campo      String
+  entidade      String
+  entidadeId    String   @map("entidade_id")
+  campo         String
   /// Valores serializados em JSON (null = campo ausente/limpo).
-  valorAnterior String? @map("valor_anterior")
-  valorNovo     String? @map("valor_novo")
-  autorId       String  @map("autor_id")
+  valorAnterior String?  @map("valor_anterior")
+  valorNovo     String?  @map("valor_novo")
+  autorId       String   @map("autor_id")
   criadoEm      DateTime @default(now()) @map("criado_em")
 
   autor Usuario @relation(fields: [autorId], references: [id])
@@ -1130,32 +1130,32 @@ enum StatusBaseAssinante {
 }
 
 model Assinante {
-  id String @id @default(cuid())
+  id             String                @id @default(cuid())
   /// Identidade única e chave de junção com telemetria_eventos.cpf_hash
   /// (RN36): HMAC-SHA-256 do CPF normalizado, com chave própria via env
   /// CPF_HASH_KEY (determinístico entre cargas).
-  cpfHash String @unique @map("cpf_hash")
+  cpfHash        String                @unique @map("cpf_hash")
   /// CPF cifrado em repouso (AES-256-GCM com APP_ENCRYPTION_KEY via env —
   /// a chave nunca entra no repositório). Toda exibição nasce mascarada;
   /// a plena é decidida na API, com permissão e auditoria (RN30).
-  cpfCifrado String @map("cpf_cifrado")
-  nome       String
+  cpfCifrado     String                @map("cpf_cifrado")
+  nome           String
   /// Endereço bruto como veio do arquivo (dicionário [A CONFIRMAR]).
-  enderecoBruto String? @map("endereco_bruto")
+  enderecoBruto  String?               @map("endereco_bruto")
   /// CEP quando o arquivo trouxer ([A CONFIRMAR] — ficha §10).
-  cep String?
+  cep            String?
   /// Derivados na importação (RN32); null = estado honesto "não derivado".
-  uf        String?
-  municipio String?
-  email     String?
-  telefone  String?
-  preferencia PreferenciaAssinante?
-  statusBase  StatusBaseAssinante   @default(ATIVO) @map("status_base")
+  uf             String?
+  municipio      String?
+  email          String?
+  telefone       String?
+  preferencia    PreferenciaAssinante?
+  statusBase     StatusBaseAssinante   @default(ATIVO) @map("status_base")
   /// Marca de registro sintético (regra do CLAUDE.md): fixtures e seeds de
   /// PF são gerados e marcados — a UI exibe "registro ilustrativo".
-  marcaSintetico Boolean  @default(false) @map("marca_sintetico")
-  criadoEm       DateTime @default(now()) @map("criado_em")
-  atualizadoEm   DateTime @updatedAt @map("atualizado_em")
+  marcaSintetico Boolean               @default(false) @map("marca_sintetico")
+  criadoEm       DateTime              @default(now()) @map("criado_em")
+  atualizadoEm   DateTime              @updatedAt @map("atualizado_em")
 
   assinatura Assinatura?
   atributos  AtributoEnriquecimento[]
@@ -1179,18 +1179,18 @@ enum PlanoAssinatura {
 /// comprador × extrato Minutrade] (ficha §1.1d e §10). A seção existe no
 /// modelo e no perfil, sinalizada como "origem pendente"; nada é suposto.
 model Assinatura {
-  id          String  @id @default(cuid())
-  assinanteId String  @unique @map("assinante_id")
-  plano       PlanoAssinatura?
+  id           String           @id @default(cuid())
+  assinanteId  String           @unique @map("assinante_id")
+  plano        PlanoAssinatura?
   /// Valores possíveis [A CONFIRMAR] — armazenado como recebido da fonte.
-  status String?
+  status       String?
   /// Vencimento é visibilidade e filtro 30/60/90 (RN37); nenhuma ação.
-  vencimento DateTime? @db.Date
+  vencimento   DateTime?        @db.Date
   /// Fonte real deste registro quando definida ([A CONFIRMAR]);
   /// null = origem do dado ainda em definição (exibido na T19).
-  origemDado   String?  @map("origem_dado")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  origemDado   String?          @map("origem_dado")
+  criadoEm     DateTime         @default(now()) @map("criado_em")
+  atualizadoEm DateTime         @updatedAt @map("atualizado_em")
 
   assinante Assinante @relation(fields: [assinanteId], references: [id])
 
@@ -1205,10 +1205,10 @@ model Assinatura {
 /// ([A CONFIRMAR], ficha §10), EAV dá flexibilidade; quando estabilizarem,
 /// promover os quentes a colunas indexadas.
 model CatalogoAtributo {
-  id       String  @id @default(cuid())
-  slug     String  @unique
+  id       String   @id @default(cuid())
+  slug     String   @unique
   nome     String
-  ativo    Boolean @default(true)
+  ativo    Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   valores AtributoEnriquecimento[]
@@ -1222,10 +1222,10 @@ model CatalogoAtributo {
 /// Enriquecimento nunca sobrescreve o núcleo — divergências são
 /// registradas no resumo da carga.
 model AtributoEnriquecimento {
-  id          String @id @default(cuid())
-  assinanteId String @map("assinante_id")
-  catalogoId  String @map("catalogo_id")
-  valor       String
+  id             String   @id @default(cuid())
+  assinanteId    String   @map("assinante_id")
+  catalogoId     String   @map("catalogo_id")
+  valor          String
   /// Proveniência (RN35): fonte declarada na carga + data de referência.
   fonte          String
   dataReferencia DateTime @map("data_referencia") @db.Date
@@ -1268,19 +1268,19 @@ model Segmento {
 /// gerou a lista e o hash do arquivo. O CSV vai ao armazenamento de
 /// objetos (S3; adapter local em desenvolvimento/teste).
 model ExportacaoLista {
-  id         String @id @default(cuid())
-  autorId    String @map("autor_id")
-  finalidade String
-  contagem   Int
+  id           String   @id @default(cuid())
+  autorId      String   @map("autor_id")
+  finalidade   String
+  contagem     Int
   /// Regra declarativa usada na geração (gravada junto, RN34).
   regras       Json
-  segmentoId   String? @map("segmento_id")
-  arquivoChave String  @map("arquivo_chave")
-  hashArquivo  String  @map("hash_arquivo")
+  segmentoId   String?  @map("segmento_id")
+  arquivoChave String   @map("arquivo_chave")
+  hashArquivo  String   @map("hash_arquivo")
   criadoEm     DateTime @default(now()) @map("criado_em")
 
-  autor    Usuario   @relation(fields: [autorId], references: [id])
-  segmento Segmento? @relation(fields: [segmentoId], references: [id])
+  autor                        Usuario    @relation(fields: [autorId], references: [id])
+  segmento                     Segmento?  @relation(fields: [segmentoId], references: [id])
   /// Onda 4: quando a finalidade é a ativação de uma campanha, este é o
   /// snapshot do público congelado (RN38 herdando RN34).
   campanhasComPublicoCongelado Campanha[]
@@ -1293,16 +1293,16 @@ model ExportacaoLista {
 /// confirmação do passo 5 (RN29). Linhas inválidas ficam REJEITADA com
 /// motivo (RN31 — quarentena, nunca tudo-ou-nada).
 model StagingAssinante {
-  id           String @id @default(cuid())
-  importacaoId String @map("importacao_id")
-  linhaOrigem  Int    @map("linha_origem")
+  id             String        @id @default(cuid())
+  importacaoId   String        @map("importacao_id")
+  linhaOrigem    Int           @map("linha_origem")
   /// Linha crua do arquivo, para rastreabilidade e download de erros.
-  dadosOriginais Json @map("dados_originais")
+  dadosOriginais Json          @map("dados_originais")
   /// Núcleo normalizado pelo mapeador OU pares atributo→valor da família
   /// de enriquecimento (conforme o tipo da importação).
-  camposMapeados Json?   @map("campos_mapeados")
-  cpfHash        String? @map("cpf_hash")
-  cpfCifrado     String? @map("cpf_cifrado")
+  camposMapeados Json?         @map("campos_mapeados")
+  cpfHash        String?       @map("cpf_hash")
+  cpfCifrado     String?       @map("cpf_cifrado")
   estado         EstadoStaging @default(PENDENTE)
   mensagemErro   String?       @map("mensagem_erro")
   criadoEm       DateTime      @default(now()) @map("criado_em")
@@ -1361,25 +1361,25 @@ enum TipoValorRegra {
 /// tela. RN25 — toda escrita é prospectiva e deixa rastro em
 /// ValorRegraHistorico; registro fechado jamais é recalculado.
 model ValorRegra {
-  id     String @id @default(cuid())
+  id           String         @id @default(cuid())
   /// Chave estável referenciada pelo código (ex.: FUNIL_ENVELHECIMENTO_LEVE_DIAS).
-  chave  String @unique
+  chave        String         @unique
   /// Agrupamento visual da T17: REGUAS · COMISSAO · TETOS_DOSSIE.
-  grupo  String
-  rotulo String
+  grupo        String
+  rotulo       String
   /// "Onde isto aparece" — texto da T17, não comentário de código.
-  descricao String
-  tipo   TipoValorRegra
+  descricao    String
+  tipo         TipoValorRegra
   /// NULL = nunca definido. É o caso dos tetos do dossiê, cuja definição
   /// segue [A CONFIRMAR TI] na ficha §8: a UI mostra o campo vazio com a
   /// etiqueta de pendência em vez de um número inventado.
-  valor  Decimal? @db.Decimal(14, 4)
+  valor        Decimal?       @db.Decimal(14, 4)
   /// RN27 — pertence à família sensível (comissão-padrão, tetos). Quando a
   /// regra PARAMETRO_SENSIVEL estiver ligada na T7, a escrita passa a
   /// exigir aprovação sem código novo.
-  sensivel Boolean @default(false)
-  ordem    Int
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  sensivel     Boolean        @default(false)
+  ordem        Int
+  atualizadoEm DateTime       @updatedAt @map("atualizado_em")
 
   historico ValorRegraHistorico[]
 
@@ -1410,9 +1410,9 @@ model ValorRegraHistorico {
 /// pesos gera uma nova versão; as avaliações já fechadas continuam
 /// apontando para a sua, e é isso que prova o efeito prospectivo.
 model ConfiguracaoVersao {
-  id     String @id @default(cuid())
+  id       String   @id @default(cuid())
   /// Sequencial legível (1 = versão-seed criada pela migration).
-  numero Int    @unique
+  numero   Int      @unique
   /// [{indicadorId, slug, nome, grupo, dimensao, peso, ativo}] — congelado.
   snapshot Json
   /// O que provocou a versão (ex.: "carga inicial", "peso de indicador").
@@ -1444,21 +1444,21 @@ enum PeriodoMeta {
 /// unicidade da RN28 (uma meta geral por período; uma por categoria por
 /// período), garantida por índices parciais na migration.
 model MetaPeriodo {
-  id      String      @id @default(cuid())
-  periodo PeriodoMeta
+  id           String      @id @default(cuid())
+  periodo      PeriodoMeta
   /// Janela do período: início inclusivo, fim exclusivo (primeiro instante
   /// do período seguinte) — o mesmo recorte usado para contar o realizado.
-  inicio  DateTime    @db.Date
-  fim     DateTime    @db.Date
+  inicio       DateTime    @db.Date
+  fim          DateTime    @db.Date
   /// Nulo = meta geral; preenchida = meta por categoria (RN28).
-  categoriaId String? @map("categoria_id")
+  categoriaId  String?     @map("categoria_id")
   /// Novos aliados esperados no período.
-  valor       Int
+  valor        Int
   /// De onde veio o número (ex.: decisão de negócio de 24/07) — nenhum
   /// valor de meta nasce sem procedência.
-  origem      String
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  origem       String
+  criadoEm     DateTime    @default(now()) @map("criado_em")
+  atualizadoEm DateTime    @updatedAt @map("atualizado_em")
 
   categoria Categoria? @relation(fields: [categoriaId], references: [id])
 
@@ -1483,21 +1483,21 @@ enum NaturezaPublico {
 /// data da declaração é parte do dado. Destino: aba Scouting da ficha —
 /// nunca o card público, e nunca nota de indicador (RN19 vale igual).
 model IndicadorDeclarado {
-  id             String   @id @default(cuid())
-  empresaId      String   @map("empresa_id")
+  id              String   @id @default(cuid())
+  empresaId       String   @map("empresa_id")
   /// Quando o aliado declarou — sem isso o número não se interpreta.
-  dataDeclaracao DateTime @map("data_declaracao") @db.Date
-  ticketMedio    Decimal? @map("ticket_medio") @db.Decimal(12, 2)
+  dataDeclaracao  DateTime @map("data_declaracao") @db.Date
+  ticketMedio     Decimal? @map("ticket_medio") @db.Decimal(12, 2)
   /// -100 a 100 (escala do NPS).
-  nps            Int?
-  churnMensalPct Decimal? @map("churn_mensal_pct") @db.Decimal(5, 2)
-  numeroClientes Int?     @map("numero_clientes")
-  anoFundacao    Int?     @map("ano_fundacao")
+  nps             Int?
+  churnMensalPct  Decimal? @map("churn_mensal_pct") @db.Decimal(5, 2)
+  numeroClientes  Int?     @map("numero_clientes")
+  anoFundacao     Int?     @map("ano_fundacao")
   /// Quem registrou a declaração na plataforma (o analista, não o aliado).
-  registradoPorId String  @map("registrado_por_id")
-  criadoEm       DateTime @default(now()) @map("criado_em")
+  registradoPorId String   @map("registrado_por_id")
+  criadoEm        DateTime @default(now()) @map("criado_em")
 
-  empresa      Empresa @relation(fields: [empresaId], references: [id])
+  empresa       Empresa @relation(fields: [empresaId], references: [id])
   registradoPor Usuario @relation(fields: [registradoPorId], references: [id])
 
   @@index([empresaId])
@@ -1514,28 +1514,28 @@ enum StatusOfertaPretendida {
 /// vira um rascunho de Solução + Oferta pendente de curadoria: zero
 /// redigitação, completude visível.
 model OfertaPretendida {
-  id        String        @id @default(cuid())
-  empresaId String        @map("empresa_id")
-  natureza  NaturezaOferta
-  titulo    String
-  descricao String?
-  tipoBeneficioId String? @map("tipo_beneficio_id")
-  mecanicaId      String? @map("mecanica_id")
+  id                String                 @id @default(cuid())
+  empresaId         String                 @map("empresa_id")
+  natureza          NaturezaOferta
+  titulo            String
+  descricao         String?
+  tipoBeneficioId   String?                @map("tipo_beneficio_id")
+  mecanicaId        String?                @map("mecanica_id")
   /// Valores pretendidos; Recompensa é gratuidade e mantém ambos vazios
   /// (validado em domínio, mesma regra da oferta real).
-  precoDe  Decimal? @map("preco_de") @db.Decimal(12, 2)
-  precoPor Decimal? @map("preco_por") @db.Decimal(12, 2)
+  precoDe           Decimal?               @map("preco_de") @db.Decimal(12, 2)
+  precoPor          Decimal?               @map("preco_por") @db.Decimal(12, 2)
   /// Texto operacional do pós-voucher (URL ou fluxo de contato/lead) — a
   /// lacuna que o documento em Word não capturava.
-  instrucoesResgate String? @map("instrucoes_resgate")
-  vigenciaInicio DateTime? @map("vigencia_inicio") @db.Date
-  vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
-  status    StatusOfertaPretendida @default(RASCUNHO)
+  instrucoesResgate String?                @map("instrucoes_resgate")
+  vigenciaInicio    DateTime?              @map("vigencia_inicio") @db.Date
+  vigenciaFim       DateTime?              @map("vigencia_fim") @db.Date
+  status            StatusOfertaPretendida @default(RASCUNHO)
   /// Preenchidos quando a promoção converte a linha em rascunho real.
-  solucaoId String? @map("solucao_id")
-  ofertaId  String? @map("oferta_id")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  solucaoId         String?                @map("solucao_id")
+  ofertaId          String?                @map("oferta_id")
+  criadoEm          DateTime               @default(now()) @map("criado_em")
+  atualizadoEm      DateTime               @updatedAt @map("atualizado_em")
 
   empresa       Empresa        @relation(fields: [empresaId], references: [id])
   tipoBeneficio TipoBeneficio? @relation(fields: [tipoBeneficioId], references: [id])
@@ -1545,6 +1545,9 @@ model OfertaPretendida {
 
   @@index([empresaId])
   @@map("ofertas_pretendidas")
+}
+
+// ---------------------------------------------------------------------
 // Campanhas e Cestas (Onda 4, F12) — ficha-onda4-campanhas-cestas.md
 //
 // Modelo operacional (ficha §1.1): a Broto modela e ativa; a MINUTRADE
@@ -1611,39 +1614,39 @@ model FormatoPeca {
 }
 
 model Campanha {
-  id       String @id @default(cuid())
-  nome     String
-  objetivo String?
+  id                String                @id @default(cuid())
+  nome              String
+  objetivo          String?
   /// Público: a regra declarativa (mesmo formato do Segmento, RN33) fica
   /// aqui; copiar de um segmento salvo NÃO cria vínculo de edição — a
   /// campanha passa a ter a regra dela.
-  origemPublico OrigemPublicoCampanha @default(SEGMENTO_SALVO)
-  segmentoId    String?               @map("segmento_id")
-  regrasPublico Json?                 @map("regras_publico")
+  origemPublico     OrigemPublicoCampanha @default(SEGMENTO_SALVO)
+  segmentoId        String?               @map("segmento_id")
+  regrasPublico     Json?                 @map("regras_publico")
   /// Snapshot do público congelado na ativação (RN38): a exportação
   /// auditada da F11, com autor, data, contagem e finalidade.
-  publicoSnapshotId String? @unique @map("publico_snapshot_id")
-  vigenciaInicio DateTime? @map("vigencia_inicio") @db.Date
-  vigenciaFim    DateTime? @map("vigencia_fim") @db.Date
+  publicoSnapshotId String?               @unique @map("publico_snapshot_id")
+  vigenciaInicio    DateTime?             @map("vigencia_inicio") @db.Date
+  vigenciaFim       DateTime?             @map("vigencia_fim") @db.Date
   /// Instruções à operação da Minutrade — viajam no kit.
-  instrucoes String?
-  estado     EstadoCampanha @default(RASCUNHO)
-  ativadaEm  DateTime?      @map("ativada_em")
-  encerradaEm DateTime?     @map("encerrada_em")
-  autorId    String         @map("autor_id")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  instrucoes        String?
+  estado            EstadoCampanha        @default(RASCUNHO)
+  ativadaEm         DateTime?             @map("ativada_em")
+  encerradaEm       DateTime?             @map("encerrada_em")
+  autorId           String                @map("autor_id")
+  criadoEm          DateTime              @default(now()) @map("criado_em")
+  atualizadoEm      DateTime              @updatedAt @map("atualizado_em")
 
   autor           Usuario          @relation(fields: [autorId], references: [id])
   segmento        Segmento?        @relation(fields: [segmentoId], references: [id])
   publicoSnapshot ExportacaoLista? @relation(fields: [publicoSnapshotId], references: [id])
 
-  cestas          CampanhaCesta[]
-  ofertasAvulsas  CampanhaOferta[]
-  pecas           PecaCampanha[]
-  metas           MetaCampanha[]
-  kits            KitCampanha[]
-  ofertasDestinadas Oferta[] @relation("ofertasDestinadas")
+  cestas            CampanhaCesta[]
+  ofertasAvulsas    CampanhaOferta[]
+  pecas             PecaCampanha[]
+  metas             MetaCampanha[]
+  kits              KitCampanha[]
+  ofertasDestinadas Oferta[]         @relation("ofertasDestinadas")
 
   @@index([estado])
   @@map("campanhas")
@@ -1653,32 +1656,32 @@ model Campanha {
 /// narrativa e indicação de perfil-alvo. O perfil-alvo alimenta o
 /// matching assistivo da RN42 — nunca uma aplicação automática.
 model Cesta {
-  id        String  @id @default(cuid())
-  nome      String
-  narrativa String?
+  id           String                @id @default(cuid())
+  nome         String
+  narrativa    String?
   /// Perfil-alvo: segmento salvo OU regra declarativa própria, mesma
   /// escolha da campanha.
   origemPerfil OrigemPublicoCampanha @default(SEGMENTO_SALVO)
   segmentoId   String?               @map("segmento_id")
   regrasPerfil Json?                 @map("regras_perfil")
-  autorId      String   @map("autor_id")
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  autorId      String                @map("autor_id")
+  criadoEm     DateTime              @default(now()) @map("criado_em")
+  atualizadoEm DateTime              @updatedAt @map("atualizado_em")
 
   autor    Usuario   @relation(fields: [autorId], references: [id])
   segmento Segmento? @relation(fields: [segmentoId], references: [id])
 
-  ofertas   CestaOferta[]
-  campanhas CampanhaCesta[]
-  ofertasDestinadas Oferta[] @relation("ofertasDestinadas")
+  ofertas           CestaOferta[]
+  campanhas         CampanhaCesta[]
+  ofertasDestinadas Oferta[]        @relation("ofertasDestinadas")
 
   @@map("cestas")
 }
 
 model CestaOferta {
-  cestaId  String @map("cesta_id")
-  ofertaId String @map("oferta_id")
-  ordem    Int    @default(0)
+  cestaId  String   @map("cesta_id")
+  ofertaId String   @map("oferta_id")
+  ordem    Int      @default(0)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   cesta  Cesta  @relation(fields: [cestaId], references: [id], onDelete: Cascade)
@@ -1690,9 +1693,9 @@ model CestaOferta {
 }
 
 model CampanhaCesta {
-  campanhaId String @map("campanha_id")
-  cestaId    String @map("cesta_id")
-  ordem      Int    @default(0)
+  campanhaId String   @map("campanha_id")
+  cestaId    String   @map("cesta_id")
+  ordem      Int      @default(0)
   criadoEm   DateTime @default(now()) @map("criado_em")
 
   campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
@@ -1705,9 +1708,9 @@ model CampanhaCesta {
 
 /// Ofertas avulsas da campanha — as que entram sem passar por cesta.
 model CampanhaOferta {
-  campanhaId String @map("campanha_id")
-  ofertaId   String @map("oferta_id")
-  ordem      Int    @default(0)
+  campanhaId String   @map("campanha_id")
+  ofertaId   String   @map("oferta_id")
+  ordem      Int      @default(0)
   criadoEm   DateTime @default(now()) @map("criado_em")
 
   campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
@@ -1722,14 +1725,14 @@ model CampanhaOferta {
 /// daqui. A imagem vai ao armazenamento de objetos (S3; adapter local em
 /// desenvolvimento e teste), como o CSV da exportação da F11.
 model PecaCampanha {
-  id         String @id @default(cuid())
-  campanhaId String @map("campanha_id")
-  formatoId  String @map("formato_id")
-  titulo     String
-  texto      String?
-  imagemChave String? @map("imagem_chave")
-  imagemNome  String? @map("imagem_nome")
-  ordem       Int     @default(0)
+  id           String   @id @default(cuid())
+  campanhaId   String   @map("campanha_id")
+  formatoId    String   @map("formato_id")
+  titulo       String
+  texto        String?
+  imagemChave  String?  @map("imagem_chave")
+  imagemNome   String?  @map("imagem_nome")
+  ordem        Int      @default(0)
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
@@ -1745,8 +1748,8 @@ model MetaCampanha {
   campanhaId String           @map("campanha_id")
   tipo       TipoMetaCampanha
   /// Alvo numérico; para CONVERSAO_PCT é o percentual pretendido.
-  alvo     Decimal  @db.Decimal(12, 2)
-  criadoEm DateTime @default(now()) @map("criado_em")
+  alvo       Decimal          @db.Decimal(12, 2)
+  criadoEm   DateTime         @default(now()) @map("criado_em")
 
   campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
 
@@ -1759,19 +1762,19 @@ model MetaCampanha {
 /// diff textual em relação à anterior, tudo auditado. O formato definitivo
 /// de entrega à Minutrade está [A CONFIRMAR] — ver KitAdapter.
 model KitCampanha {
-  id         String @id @default(cuid())
-  campanhaId String @map("campanha_id")
-  versao     Int
-  adapter    String
+  id           String   @id @default(cuid())
+  campanhaId   String   @map("campanha_id")
+  versao       Int
+  adapter      String
   /// Manifesto gerado (ofertas/cestas com ids externos, vigências,
   /// naturezas) — a base do diff entre versões.
-  manifesto Json
-  arquivoChave String  @map("arquivo_chave")
-  hashArquivo  String  @map("hash_arquivo")
+  manifesto    Json
+  arquivoChave String   @map("arquivo_chave")
+  hashArquivo  String   @map("hash_arquivo")
   /// Diff textual desta versão em relação à anterior (vazio na v1).
-  diffTexto String? @map("diff_texto")
-  autorId   String  @map("autor_id")
-  criadoEm  DateTime @default(now()) @map("criado_em")
+  diffTexto    String?  @map("diff_texto")
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
 
   campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
   autor    Usuario  @relation(fields: [autorId], references: [id])

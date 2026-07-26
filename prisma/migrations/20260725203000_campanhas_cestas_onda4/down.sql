@@ -1,12 +1,13 @@
 -- Reversão da Onda 4 (F12). Aplicar manualmente (ver LEIA-ME.md).
 -- A regra de aprovação semeada para a ativação de campanha usa o valor
--- novo do enum: ela sai antes de o enum voltar ao conjunto anterior.
+-- novo do enum: ela sai antes de o enum voltar ao conjunto anterior — que
+-- preserva o PARAMETRO_SENSIVEL da Onda 3.
 DELETE FROM "aprovacao_solicitacoes" WHERE "tipo_entidade" = 'ATIVACAO_CAMPANHA';
 DELETE FROM "aprovacao_regras" WHERE "tipo_entidade" = 'ATIVACAO_CAMPANHA';
 
 -- AlterEnum
 BEGIN;
-CREATE TYPE "TipoEntidadeAprovacao_new" AS ENUM ('PROMOCAO_ALIADA_ATIVA', 'PUBLICACAO_OFERTA');
+CREATE TYPE "TipoEntidadeAprovacao_new" AS ENUM ('PROMOCAO_ALIADA_ATIVA', 'PUBLICACAO_OFERTA', 'PARAMETRO_SENSIVEL');
 ALTER TABLE "aprovacao_regras" ALTER COLUMN "tipo_entidade" TYPE "TipoEntidadeAprovacao_new" USING ("tipo_entidade"::text::"TipoEntidadeAprovacao_new");
 ALTER TABLE "aprovacao_solicitacoes" ALTER COLUMN "tipo_entidade" TYPE "TipoEntidadeAprovacao_new" USING ("tipo_entidade"::text::"TipoEntidadeAprovacao_new");
 ALTER TYPE "TipoEntidadeAprovacao" RENAME TO "TipoEntidadeAprovacao_old";
