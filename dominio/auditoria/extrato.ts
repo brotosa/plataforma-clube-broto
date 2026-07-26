@@ -122,6 +122,78 @@ export function entidadesDeParametro(): ReadonlySet<string> {
 }
 
 // ---------------------------------------------------------------------
+// Tipos de evento (filtro da T28)
+// ---------------------------------------------------------------------
+
+/**
+ * A trilha grava campo a campo, não "ações". O filtro por tipo de evento
+ * da ficha §4 é, portanto, uma LEITURA sobre entidade + campo + valores —
+ * declarada aqui, no domínio, para que a T28 e o extrato CSV filtrem pelo
+ * mesmo critério.
+ */
+export type TipoDeEvento =
+  | "CRIACAO"
+  | "ALTERACAO"
+  | "PUBLICACAO"
+  | "EXPORTACAO"
+  | "ACESSO_PF"
+  | "APROVACAO";
+
+export const ROTULOS_TIPO_EVENTO: Readonly<Record<TipoDeEvento, string>> = {
+  CRIACAO: "Criação",
+  ALTERACAO: "Alteração",
+  PUBLICACAO: "Publicação",
+  EXPORTACAO: "Exportação",
+  ACESSO_PF: "Acesso a dados PF",
+  APROVACAO: "Aprovação",
+};
+
+const ENTIDADES_DE_APROVACAO: ReadonlySet<string> = new Set([
+  "aprovacao_solicitacao",
+  "aprovacao_regra",
+]);
+
+/**
+ * Tipo do evento, na ordem em que as leituras se excluem: as classificações
+ * específicas vêm antes das genéricas, senão toda exportação seria apenas
+ * "criação" (que ela também é, no nível do registro).
+ */
+export function tipoDoEvento(
+  evento: Pick<EventoDeTrilha, "entidade" | "campo" | "valorAnterior" | "valorNovo">,
+): TipoDeEvento {
+  if (CAMPOS_DE_ACESSO_PF.has(evento.campo)) {
+    return "ACESSO_PF";
+  }
+  if (ENTIDADES_DE_EXPORTACAO.has(evento.entidade)) {
+    return "EXPORTACAO";
+  }
+  if (ENTIDADES_DE_APROVACAO.has(evento.entidade)) {
+    return "APROVACAO";
+  }
+  if (evento.entidade === "publicacao" || evento.valorNovo === "PUBLICADA") {
+    return "PUBLICACAO";
+  }
+  return evento.valorAnterior === null ? "CRIACAO" : "ALTERACAO";
+}
+
+/**
+ * Rótulo curto da coluna "Transação" da T28. Diz o que houve sem obrigar
+ * quem lê a decorar nome de campo.
+ */
+export function descricaoDoEvento(
+  evento: Pick<EventoDeTrilha, "entidade" | "campo" | "valorAnterior" | "valorNovo">,
+): string {
+  const tipo = tipoDoEvento(evento);
+  if (tipo === "ACESSO_PF") {
+    return "Acesso pleno a dados pessoais";
+  }
+  if (tipo === "EXPORTACAO") {
+    return "Exportação de dados";
+  }
+  return `${ROTULOS_TIPO_EVENTO[tipo]} · ${evento.campo}`;
+}
+
+// ---------------------------------------------------------------------
 // Visão antes → depois (ficha §4)
 // ---------------------------------------------------------------------
 
