@@ -3,11 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
-import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
+import type { Ator } from "@/infra/casos-de-uso/contexto";
 import { publicarCatalogo } from "@/infra/casos-de-uso/publicacao";
 import type { EstadoFormulario } from "../../aliados/acoes";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 async function atorDaSessao(): Promise<Ator> {
   const sessao = await auth();
@@ -18,14 +17,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function paraEstado(erro: unknown): EstadoFormulario {
-  if (erro instanceof ErroDeValidacao) {
-    return { erros: [...erro.erros] };
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return { erros: ["Seu papel não tem permissão para gerar a exportação (ficha §2)."] };
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada na publicação");
-  return { erros: ["Não foi possível gerar o pacote. Tente novamente."] };
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "gerar o pacote",
+    semPermissao: "Seu papel não tem permissão para gerar a exportação (ficha §2).",
+    contexto: "publicacao-ofertas",
+  });
+  return { erros: mensagens };
 }
 
 export async function acaoPublicarCatalogo(

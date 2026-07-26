@@ -3,9 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
-import { ErroDeSegmentoInvalido } from "@/dominio/segmentacao/compilador";
-import { type Ator, ErroDeValidacao } from "@/infra/casos-de-uso/contexto";
+import type { Ator } from "@/infra/casos-de-uso/contexto";
 import {
   alternarCestaDaCampanha,
   alternarOfertaDaCampanha,
@@ -24,7 +22,7 @@ import {
   atualizarCesta,
   criarCesta,
 } from "@/infra/casos-de-uso/cestas";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /** Ações das telas T22–T25 (Onda 4). O ator vem sempre da sessão. */
 
@@ -37,17 +35,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function mensagensDe(erro: unknown): string[] {
-  if (erro instanceof ErroDeValidacao) {
-    return [...erro.erros];
-  }
-  if (erro instanceof ErroDeSegmentoInvalido) {
-    return [...erro.erros];
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return ["Seu papel não tem permissão para esta ação (ficha §2)."];
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada em ação de campanhas");
-  return ["Não foi possível concluir a ação. Tente novamente."];
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Seu papel não tem permissão para esta ação (ficha §2).",
+    contexto: "acao-campanha",
+  });
+  return mensagens;
 }
 
 export async function acaoCriarCampanha(dados: FormData) {

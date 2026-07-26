@@ -5,8 +5,6 @@ import { redirect } from "next/navigation";
 import type { PoliticaImportacao } from "@prisma/client";
 import { auth } from "@/infra/auth";
 import { type Ator, ErroDeValidacao } from "@/infra/casos-de-uso/contexto";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
-import { ErroDeSegmentoInvalido } from "@/dominio/segmentacao/compilador";
 import type { DestinoMapeamento } from "@/dominio/assinantes/importacao";
 import {
   aplicarMapeamentoEnriquecimento,
@@ -21,7 +19,7 @@ import {
   exportarLista,
   salvarSegmento,
 } from "@/infra/casos-de-uso/assinantes-segmentos";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 async function atorDaSessao(): Promise<Ator> {
   const sessao = await auth();
@@ -32,17 +30,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function mensagensDe(erro: unknown): string[] {
-  if (erro instanceof ErroDeValidacao) {
-    return [...erro.erros];
-  }
-  if (erro instanceof ErroDeSegmentoInvalido) {
-    return [...erro.erros];
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return ["Seu papel não tem permissão para esta ação (ficha §2)."];
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada em ação de assinantes");
-  return ["Não foi possível concluir a ação. Tente novamente."];
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Seu papel não tem permissão para esta ação (ficha §2).",
+    contexto: "acao-assinantes",
+  });
+  return mensagens;
 }
 
 /** Passo 1-2 da T20: família + arquivo → staging bruto e sugestões. */

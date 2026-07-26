@@ -26,13 +26,19 @@ import {
   randomBytes,
 } from "node:crypto";
 
+import { ErroDeConfiguracao } from "@/dominio/erros/falhas";
+
 const FORMATO_CIFRA = "v1";
 
 function valorDaEnv(nome: "CPF_HASH_KEY" | "APP_ENCRYPTION_KEY"): string {
   const valor = process.env[nome];
   if (!valor) {
-    throw new Error(
-      `${nome} ausente no ambiente: a proteção de CPF exige a chave (ver .env.example).`,
+    // F15 (RN55): o texto sempre esteve certo; o que faltava era a CLASSE
+    // para ele atravessar até a tela em vez de virar "Tente novamente".
+    // `ErroDeConfiguracao` recebe o NOME da variável — nunca o valor.
+    throw new ErroDeConfiguracao(
+      nome,
+      "a proteção de CPF exige a chave. Configure-a no ambiente (ver .env.example) e repita a operação.",
     );
   }
   return valor;

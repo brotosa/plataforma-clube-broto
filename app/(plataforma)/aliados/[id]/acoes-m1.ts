@@ -4,15 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { NaturezaOferta, NaturezaPublico, PorteProdutor } from "@prisma/client";
 import { auth } from "@/infra/auth";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
-import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
+import type { Ator } from "@/infra/casos-de-uso/contexto";
 import {
   adicionarOfertaPretendida,
   registrarIndicadoresDeclarados,
   removerOfertaPretendida,
   salvarIdentificacaoM1,
 } from "@/infra/casos-de-uso/ficha-m1";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /** Ações do formulário M1 (T12 — estágio Em negociação). */
 
@@ -30,14 +29,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function paraEstado(erro: unknown): EstadoAcaoM1 {
-  if (erro instanceof ErroDeValidacao) {
-    return { erros: [...erro.erros] };
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return { erros: ["Seu papel não tem permissão para preencher a ficha cadastral."] };
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada em ação da ficha M1");
-  return { erros: ["Não foi possível concluir a ação. Tente novamente."] };
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Seu papel não tem permissão para preencher a ficha cadastral.",
+    contexto: "acao-ficha-m1",
+  });
+  return { erros: mensagens };
 }
 
 function revalidar(empresaId: string) {

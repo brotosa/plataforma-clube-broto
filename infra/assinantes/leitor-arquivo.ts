@@ -11,6 +11,7 @@
  *   sobre zeros à esquerda no caso de uso); datas viram ISO.
  */
 
+import { ErroDeArquivo } from "@/dominio/erros/falhas";
 import ExcelJS from "exceljs";
 
 export interface ArquivoAssinantesLido {
@@ -172,5 +173,5 @@ export async function lerArquivoAssinantes(
   if (/\.csv$/i.test(nomeArquivo)) {
     return lerCsvAssinantes(conteudo);
   }
-  throw new Error("Formato de arquivo não suportado: envie CSV ou XLSX.");
+  throw new ErroDeArquivo("Formato de arquivo não suportado: envie CSV ou XLSX.");
 }

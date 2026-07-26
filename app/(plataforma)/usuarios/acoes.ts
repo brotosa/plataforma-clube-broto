@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/infra/auth";
-import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
+import type { Ator } from "@/infra/casos-de-uso/contexto";
 import {
   atualizarUsuario,
   criarUsuario,
@@ -13,7 +12,7 @@ import {
   redefinirCredencial,
   trocarPropriaSenha,
 } from "@/infra/casos-de-uso/usuarios";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /**
  * Ações da T27. `senhaProvisoria` volta ao formulário porque é o ÚNICO
@@ -35,18 +34,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function paraEstado(erro: unknown): EstadoUsuarios {
-  if (erro instanceof ErroDeValidacao) {
-    return { erros: [...erro.erros] };
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return {
-      erros: [
-        "Criar, editar e inativar usuários é exclusivo do Administrador da Plataforma (RN46).",
-      ],
-    };
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada em ação de usuário");
-  return { erros: ["Não foi possível concluir a ação. Tente novamente."] };
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Criar, editar e inativar usuários é exclusivo do Administrador da Plataforma (RN46).",
+    contexto: "acao-usuario",
+  });
+  return { erros: mensagens };
 }
 
 export async function acaoCriarUsuario(

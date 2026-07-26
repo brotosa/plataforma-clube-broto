@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
-import { ErroDeValidacao, type Ator } from "@/infra/casos-de-uso/contexto";
-import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
+import type { Ator } from "@/infra/casos-de-uso/contexto";
 import {
   aprovarTudo,
   decidirAgrupamentos,
@@ -15,7 +14,7 @@ import {
   renomearAgrupamento,
 } from "@/infra/casos-de-uso/carga-inicial";
 import type { EstadoFormulario } from "../aliados/acoes";
-import { logger } from "@/infra/log/logger";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 async function atorDaSessao(): Promise<Ator> {
   const sessao = await auth();
@@ -26,14 +25,16 @@ async function atorDaSessao(): Promise<Ator> {
 }
 
 function paraEstado(erro: unknown): EstadoFormulario {
-  if (erro instanceof ErroDeValidacao) {
-    return { erros: [...erro.erros] };
-  }
-  if (erro instanceof ErroDeAutorizacao) {
-    return { erros: ["Seu papel não tem permissão para esta ação (ficha §2)."] };
-  }
-  logger.error({ erro: String(erro) }, "falha inesperada na carga inicial");
-  return { erros: ["Não foi possível concluir a ação. Tente novamente."] };
+  // RN55 — a distinção por classe de erro vive em um lugar só, para
+  // todas as server actions. Aqui fica apenas o que é desta tela: a
+  // negativa de permissão com a referência da ficha e o verbo da
+  // mensagem genérica, que nunca sugere repetir a ação.
+  const mensagens = mensagensDeFalha(erro, {
+    operacao: "concluir a ação",
+    semPermissao: "Seu papel não tem permissão para esta ação (ficha §2).",
+    contexto: "carga-inicial",
+  });
+  return { erros: mensagens };
 }
 
 function atualizarTela() {
