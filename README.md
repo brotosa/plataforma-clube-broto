@@ -193,6 +193,7 @@ Senha de todos: `clube-broto-dev` (sobrescrevível com `SENHA_USUARIOS_DEV`).
 | `pnpm db:migrate:dev` | cria/aplica migrations (desenvolvimento) |
 | `pnpm db:seed` | seed de taxonomias, indicadores, regras do motor, valores de regra, meta vigente e usuários dev |
 | `pnpm job:diario` | job diário: expira vigências (RN03), janela contratual e reavaliação (RN21) |
+| `pnpm guia:gerar` | regera `public/guia-da-plataforma.html` a partir de `conteudo/guia-plataforma`. **Não roda no build** — a saída é versionada, e um teste reprova se ela ficar atrás da fonte (ver *Guia da Plataforma*) |
 | `node scripts/gerar-geometria-brasil.mjs` | regenera o asset de geometria do mapa (T30) a partir do Natural Earth. **Não roda no build** — a saída é versionada; o script existe para a proveniência ser reproduzível |
 
 \* os testes de integração (auditoria com banco) só executam quando
@@ -799,6 +800,98 @@ vitrine viva, **mesmo serviço** (`kpiVitrineViva`), com teste provando a
 concordância entre os dois. "de N ativas" desceu para a nota de procedência.
 Sem oferta publicada, traço com motivo (RN50).
 
+## Guia da Plataforma e ajuda contextual (Onda 9 — F16)
+
+### Fonte única — a regra que organiza a fase
+
+O texto do guia existe **uma vez** no repositório, em `conteudo/guia-plataforma`:
+
+| Arquivo | O que é |
+|---|---|
+| `capa.html` · `secoes.html` | o texto, transcrito do documento entregue pelo Design. **Imutável nesta onda** — corrigir o guia é decisão editorial, não de código |
+| `indice.ts` | o sumário: doze entradas, com as âncoras que a rota e o mapa contextual usam |
+| `montar.ts` | monta o documento (capa, corpo, sumário) e o script do realce de seção |
+| `autonomo.ts` | acrescenta a moldura que a rota recebe do shell — `<html>`, estilos e fontes embutidas |
+
+Dois destinos consomem essa fonte: a rota `/ajuda`, dentro do shell, e o
+documento autônomo `public/guia-da-plataforma.html`, que circula por e-mail e
+vira PDF pelo navegador. **Nenhum dos dois guarda cópia do texto.**
+
+Depois de mexer no conteúdo — ou no `dseed-admin.css`, que o autônomo embute —
+rode `pnpm guia:gerar` e commite o resultado. Esquecer não passa: o teste de
+sincronia em `infra/arquitetura/guia-fonte-unica.test.ts` regenera e compara.
+É a cerca contra o risco real desta onda, que é o arquivo que já saiu de casa
+envelhecer sem ninguém notar.
+
+O mesmo arquivo de teste prende mais três coisas: as doze seções com suas
+âncoras, o texto conferido **frase a frase** contra
+`docs/referencias/Guia_da_Plataforma_v1.html`, e o escopo da camada de leitura
+— nenhum seletor do bloco `.gd` do `dseed-admin.css` vale fora de `.gd`, porque
+a tipografia de 16px/1,7 do documento não pode vazar para os 14/24 do produto.
+
+### RN58 — a ajuda é leitura, para todos
+
+`/ajuda` vive dentro do shell e não exige papel algum: pede sessão como toda
+tela, e nada além disso. Não consulta o banco e não exibe dado da operação —
+é conteúdo editorial. Não há caminho de edição pela interface.
+
+Rota e não modal (ficha §1.1, decisão fechada): doze seções e leitura longa
+pedem rolagem, âncora por seção, endereço compartilhável, botão voltar do
+navegador e impressão. `/ajuda#j4` é endereço publicado — trocar um
+identificador de âncora quebra link já compartilhado.
+
+### RN59 — contexto orienta, nunca aprisiona
+
+O botão **"?"** fica no cabeçalho, à esquerda do sino — ajuda antes do alerta.
+Leva à seção do módulo de origem pelo `MAPA_AJUDA`
+(`dominio/ajuda/mapa-contextual.ts`), **uma constante nomeada** com a tabela da
+ficha §1.3. Módulo sem mapeamento abre na abertura; nunca em erro.
+
+A origem viaja em `?de=` e a seção na âncora. Como o caminho chega pela URL,
+ele é **entrada não confiável** e a validação é estrutural, não por prefixo:
+
+1. gramática por segmento (sem `%`, sem `:`, sem `..`), que já derruba
+   `//externo.com` e `https://externo.com` — os dois que atravessam qualquer
+   checagem ingênua de "começa com barra" e viram redirecionamento aberto;
+2. allowlist: algum módulo do `MAPA_AJUDA` precisa casar;
+3. o destino é **reconstruído** dos segmentos aprovados, nunca ecoado.
+
+Caminho não reconhecido: sem barra de volta, sem adivinhação. Acesso direto
+pela URL cai nesse caso, e é o comportamento certo.
+
+Em Mercado & Scout a query **é** a tela — Funil, Cobertura e Metas diferem só
+pelo `?aba=` —, então ela viaja junto e a volta devolve à aba certa. O botão e
+a barra de volta são **âncoras nativas**, pela convenção de navegação por query
+registrada no `CLAUDE.md`; a cerca de `navegacao-por-query.test.ts` cobre os
+dois arquivos.
+
+### Duas correções de AAA sobre o documento entregue
+
+Achadas pelos testes desta fase, e ambas de marcação — nenhuma palavra do texto
+mudou:
+
+- **salto de nível de cabeçalho**: `<h4>` logo depois do `<h2>` da seção, no
+  cartão e no item de princípio. Promovidos a `<h3>`, com o CSS distinguindo
+  por contexto para o desenho não mudar. Preso por teste, porque quem comparar
+  a transcrição com o documento vai achar que é erro de transcrição;
+- **célula de prosa a 380px**: o colapso do `.tbl-resp` põe a célula em
+  `display:flex`, e aí cada `<em>` vira um item próprio — a frase era disposta
+  como caixas lado a lado que não quebram, estourava a largura e o cartão
+  virava região rolável inalcançável por teclado. Dentro de `.gd` a célula
+  volta a ser bloco, com o rótulo acima do valor. As tabelas do produto não
+  foram tocadas.
+
+Como a fonte é única, as duas correções chegaram de graça ao arquivo que
+circula.
+
+### Rótulo institucional (ficha §2)
+
+O descritivo da lateral passou a **"Plataforma de gestão do Clube"**; no login e
+nos metadados do documento, **"Plataforma de gestão do Clube Broto"**. O nome
+formal do sistema — *Plataforma de Administração e Gestão do Clube Broto* — não
+muda: segue neste README, no `CLAUDE.md`, nas fichas e no cabeçalho do kit
+entregue à Minutrade. O que mudou é rótulo de interface.
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
@@ -819,6 +912,7 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | **Configurar parâmetros** | `/parametrizador`: réguas, comissão-padrão, tetos, metas e listas de domínio (RN23) | Administrador |
 | **Enviar a marca do aliado** | `/aliados/{id}/editar`, cartão *Marca do aliado*: PNG/JPG/WEBP/SVG até 200 KB, tipo conferido pelo conteúdo e SVG higienizado (RN54) | Gestor · Analista |
 | **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
+| **Abrir a ajuda** | botão **?** no cabeçalho, à esquerda do sino: abre `/ajuda` na seção do módulo em que se estava (RN59). O guia também circula como arquivo: `public/guia-da-plataforma.html` | todos |
 | **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |
 
 ### Pendências abertas, com dono
