@@ -72,7 +72,9 @@ test.describe("funil e radar — T8/T9 (F6) — testes isolados", () => {
 
     await entrar(page, "scout@dev.clubebroto.local");
     await page.goto("/mercado");
-    await expect(page.getByRole("heading", { level: 1, name: "Mercado & Scout" })).toBeVisible();
+    // F9: a T8 ganhou as abas Funil · Cobertura · Metas e o título passou a
+    // ser o da aba corrente, como no protótipo v6.1.
+    await expect(page.getByRole("heading", { level: 1, name: "Funil de mercado" })).toBeVisible();
 
     // Tab até o gatilho do card; Enter abre o menu com foco no 1º item
     await tabAteAcoesDoCard(page, nome);

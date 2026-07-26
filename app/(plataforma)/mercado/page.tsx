@@ -10,7 +10,10 @@ import {
   responsaveisComerciaisDisponiveis,
 } from "@/infra/consultas/funil";
 import { REGUA_ENVELHECIMENTO, ROTULOS_ORIGEM } from "@/dominio/funil/regras";
+import { mapaDeCobertura, painelDeMetas } from "@/infra/consultas/cobertura-metas";
 import { KanbanFunil } from "./kanban";
+import { MapaDeCobertura } from "./mapa-cobertura";
+import { PainelDeMetas } from "./painel-metas";
 
 export const metadata: Metadata = {
   title: "Mercado & Scout",
@@ -42,6 +45,11 @@ export default async function PaginaMercado({
   const usuarioId = sessao?.user?.id ?? "";
   const parametros = await searchParams;
 
+  // Abas da T8 no protótipo v6.1: Funil · Cobertura (T13) · Metas (T14).
+  const aba =
+    parametros.aba === "cobertura" || parametros.aba === "metas"
+      ? (parametros.aba as "cobertura" | "metas")
+      : ("funil" as const);
   const visao = parametros.visao === "tabela" ? ("tabela" as const) : ("kanban" as const);
   const origem =
     typeof parametros.origem === "string" &&
@@ -72,11 +80,15 @@ export default async function PaginaMercado({
       prisma.categoria.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
     ]);
 
+  const cobertura = aba === "cobertura" ? await mapaDeCobertura() : null;
+  const metas = aba === "metas" ? await painelDeMetas() : null;
+
   const categoriaFiltrada = categorias.find((categoria) => categoria.id === categoriaId);
   const temFiltros = Boolean(origem || faixaScore || categoriaId || minhasEmpresas || minhasNegociacoes);
   const totalVisivel = contadores.identificadas;
 
   const parametrosBase = new URLSearchParams();
+  if (aba !== "funil") parametrosBase.set("aba", aba);
   if (visao === "tabela") parametrosBase.set("visao", "tabela");
   if (origem) parametrosBase.set("origem", origem);
   if (faixaScore) parametrosBase.set("score", faixaScore);
@@ -105,9 +117,11 @@ export default async function PaginaMercado({
         }}
       >
         <div>
-          <h1 className="h-page">Mercado &amp; Scout</h1>
+          <h1 className="h-page">
+            {aba === "cobertura" ? "Mapa de cobertura" : aba === "metas" ? "Metas" : "Funil de mercado"}
+          </h1>
           <div className="cap" style={{ marginTop: 4 }}>
-            Funil de prospecção · radar de até 100 empresas/mês · 2 scouts · comercial de 8 pessoas
+            Mercado &amp; Scout · radar de até 100 empresas/mês · 2 scouts · comercial de 8 pessoas
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -123,6 +137,38 @@ export default async function PaginaMercado({
         </Link>
       </div>
 
+      <nav className="seg" aria-label="Visões do Mercado &amp; Scout" style={{ marginBottom: 14 }}>
+        <Link
+          href="/mercado"
+          className={aba === "funil" ? "on" : ""}
+          aria-current={aba === "funil" ? "page" : undefined}
+          style={{ textDecoration: "none" }}
+        >
+          Funil
+        </Link>
+        <Link
+          href="/mercado?aba=cobertura"
+          className={aba === "cobertura" ? "on" : ""}
+          aria-current={aba === "cobertura" ? "page" : undefined}
+          style={{ textDecoration: "none" }}
+        >
+          Cobertura
+        </Link>
+        <Link
+          href="/mercado?aba=metas"
+          className={aba === "metas" ? "on" : ""}
+          aria-current={aba === "metas" ? "page" : undefined}
+          style={{ textDecoration: "none" }}
+        >
+          Metas
+        </Link>
+      </nav>
+
+      {aba === "cobertura" && cobertura ? <MapaDeCobertura cobertura={cobertura} /> : null}
+      {aba === "metas" && metas ? <PainelDeMetas metas={metas} /> : null}
+
+      {aba === "funil" ? (
+      <>
       <div className="contadores" style={{ marginBottom: 14 }}>
         <div className="c">
           <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
@@ -312,6 +358,8 @@ export default async function PaginaMercado({
         (RN15) — avalie pelo menu do card. Score vem da avaliação ScoutCB (T10); valores
         ausentes aparecem como “—”, nunca estimados.
       </p>
+      </>
+      ) : null}
     </div>
   );
 }

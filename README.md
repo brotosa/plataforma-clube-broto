@@ -2,17 +2,27 @@
 
 Aplicação web administrativa do Clube Broto (Broto S.A.). **Onda 1**: módulo de
 Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch
-(Minutrade) e carga inicial.
+(Minutrade) e carga inicial. **Onda 2**: Mercado & Scout — funil de prospecção,
+avaliação com score, dossiê assistido, cobertura e metas.
 
 - Fonte da verdade funcional: `docs/especificacao/ficha-onda1-aliados-solucoes-ofertas.md` (v0.6)
-- Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md`
+  e `docs/especificacao/ficha-onda2-mercado-scout.md` (v0.1)
+- Arquitetura e fases: `docs/especificacao/prompt-claude-code-onda1.md` e
+  `docs/especificacao/prompt-claude-code-onda2.md`
 - Especificação visual: `docs/referencias/Plataforma_Broto_-_Prototipo_v6.1.html`
 
-**Estado atual: F5 — Endurecimento** (F1–F4 concluídas; a Onda 2 avança em
-paralelo a partir da F6). Sobre o domínio completo (RN01–RN12, motor de
-aprovação, T1–T7), a carga inicial pelas planilhas de `dados/` e o ciclo batch
-com a operadora (publicação atrás de `ExportAdapter`, telemetria com quarentena
-e idempotência, T4 completa), a F5 fecha a Onda 1 com:
+**Estado atual: Onda 2 concluída (F6 a F9)**, sobre a Onda 1 inteira
+(RN01–RN12, motor de aprovação, T1–T7, publicação e telemetria batch, carga
+inicial pelas planilhas de `dados/`). A Onda 2 entregou o radar e o funil
+(T8/T9), a avaliação com score do ScoutCB (T10), o dossiê de due diligence
+assistido (T11), a ficha da empresa com Scouting, Dossiê e o formulário M1
+(T12), o mapa de cobertura (T13) e o painel de metas (T14) — e levou a
+avaliação e o dossiê para dentro da fila de aprovação (RN20), de modo que a
+promoção a Aliada ativa é decidida com o caso completo à vista. As demais ondas
+avançam em frentes próprias (o módulo de Assinantes, da Onda 5, já vive no
+repositório).
+
+**F5 — Endurecimento** fecha a Onda 1 por cima disso com:
 
 - **auditoria AAA** — o axe passa a rodar em modo AAA de verdade, com as três
   regras AAA que o axe-core traz desligadas por padrão ligadas nome a nome, e
@@ -105,6 +115,8 @@ segredo conhecido.
 |---|---|
 | `gestor@dev.clubebroto.local` | Gestor do Clube |
 | `analista@dev.clubebroto.local` | Analista de Aliados |
+| `scout@dev.clubebroto.local` | Analista de Scout (Onda 2) |
+| `comercial@dev.clubebroto.local` | Comercial (Onda 2) |
 | `aprovador@dev.clubebroto.local` | Aprovador |
 | `leitura@dev.clubebroto.local` | Leitura |
 
@@ -257,6 +269,63 @@ resta. Durante a pesquisa, o custo é reapurado a cada rodada de busca e a
 execução é interrompida ao ultrapassar o teto unitário, com o gasto
 registrado. Os valores dos tetos passam a ser editáveis sem código no
 Parametrizador (Onda 3, T17).
+
+## Cobertura, metas e ficha cadastral (Onda 2 — F9)
+
+**T13 — Mapa de cobertura** (`/mercado?aba=cobertura`). Matriz categoria ×
+(aliadas ativas · funil por estágio). *Gap de portfólio* é a categoria sem
+nenhuma aliada ativa; *gap descoberto* é o gap que também não tem ninguém no
+funil — onde o scouting rende mais. Ambos são **derivados da contagem real**,
+nunca escritos à mão, e qualquer célula do funil abre a T8 já filtrada na
+categoria. Enquanto a carga inicial não for classificada, o rodapé diz quantas
+aliadas ativas ainda estão sem categoria: um gap pode significar portfólio não
+classificado, e a tela não deixa confundir as duas coisas.
+
+**T14 — Metas** (`/mercado?aba=metas`). Meta × realizado do período, geral e
+por categoria. O valor da meta vem sempre da tabela `metas_periodo`; não há
+meta escrita em código, e sem meta configurada a tela mostra só o realizado e
+diz que a definição é do Administrador da Plataforma. *Realizado* (RN22) é
+**promoção efetivada no período**, contada na trilha de auditoria pela mudança
+de estágio para Aliada ativa com valor anterior preenchido — as 46 aliadas da
+carga inicial nasceram ativas e por isso não contam.
+
+A tela é somente leitura nesta onda: criar e editar metas é do Administrador da
+Plataforma no Parametrizador (Onda 3, T17, RN28). A tabela já nasce no formato
+que esse editor espera — período, janela, categoria opcional, valor e a
+`origem` da decisão —, e o seed grava a meta vigente (24 novos aliados no ano
+de 2026) de forma idempotente, sem sobrescrever o que já existir.
+
+**RN20 — o caso completo na fila.** O pedido de promoção congela, no momento em
+que é feito, a avaliação fechada vigente e o dossiê pronto da empresa. A T6
+mostra os dois ao aprovador: score explicado por dimensão, recomendação, autor
+e data; e o estado de revisão do dossiê. Quando faltam, a tela diz que faltam —
+promoção não exige avaliação nem dossiê, mas quem aprova precisa saber que
+decidiu sem eles. O que o aprovador vê é o que foi submetido, não o que mudou
+enquanto o pedido esperava.
+
+**T12 — Ficha Cadastral M1** (aba *Ficha M1* da ficha da empresa, estágio *Em
+negociação*), conforme `docs/especificacao/ficha-cadastral-aliado-v1.md`. Vale
+a **obrigatoriedade progressiva**: o medidor por seção mostra o que falta para
+M1 sem bloquear a gravação, e CNPJ, endereço completo e contrato assinado
+seguem exigidos só na promoção (M2, régua da Onda 1). Dois pontos merecem
+atenção de quem opera:
+
+- os **indicadores da seção D** são declarações datadas e marcadas como
+  autodeclaradas; guardam histórico (o número de um ano não corrige o do
+  anterior), aparecem na aba Scouting e **nunca preenchem nota de indicador**;
+- cada **oferta pretendida** da seção F vira, na promoção, um rascunho de
+  Solução + Oferta pendente de curadoria — zero redigitação. A linha que não
+  tiver tipo de benefício e mecânica definidos permanece como intenção: nada é
+  inventado para completar o rascunho.
+
+As abas *Scouting* e *Dossiê* da ficha **reaproveitam** os componentes da T10 e
+da T11 — a ficha é uma segunda porta para a mesma informação, não uma segunda
+implementação dela.
+
+**Fora desta fase, por decisão de operação:** a carga inicial do funil. As
+listas reais de prospects ainda não estão disponíveis e nenhum mapeamento foi
+inventado; quando os arquivos chegarem, a importação da T9 (com mapeador
+configurável, entregue na F6) já cobre a operação.
 
 ## Convenções
 

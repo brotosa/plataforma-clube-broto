@@ -103,6 +103,8 @@ export default async function configuracaoGlobal() {
       await prisma.auditoriaEvento.deleteMany({
         where: { entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds] } },
       });
+      await prisma.ofertaPretendida.deleteMany({ where: { empresaId: empresa.id } });
+      await prisma.indicadorDeclarado.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.oferta.deleteMany({ where: { id: { in: ofertaIds } } });
       await prisma.solucaoCultura.deleteMany({ where: { solucaoId: { in: solucaoIds } } });
       await prisma.solucaoUf.deleteMany({ where: { solucaoId: { in: solucaoIds } } });
@@ -135,23 +137,60 @@ export default async function configuracaoGlobal() {
           select: { id: true },
         })
       ).map((avaliacao) => avaliacao.id);
-      await prisma.avaliacaoNota.deleteMany({
-        where: { avaliacaoId: { in: avaliacaoIdsFunil } },
-      });
-      await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIdsFunil } } });
       const dossieIdsFunil = (
         await prisma.dossie.findMany({
           where: { empresaId: { in: idsFunil } },
           select: { id: true },
         })
       ).map((dossie) => dossie.id);
+      // F9: uma empresa do funil pode ter chegado a Aliada ativa (percurso
+      // ponta a ponta), então carrega também soluções, ofertas, contrato,
+      // contatos e a ficha M1. O pedido de promoção sai primeiro: a RN20
+      // faz dele o dono das referências à avaliação e ao dossiê.
+      const solucoesFunil = await prisma.solucao.findMany({
+        where: { empresaId: { in: idsFunil } },
+        include: { ofertas: { select: { id: true } } },
+      });
+      const solucaoIdsFunil = solucoesFunil.map((solucao) => solucao.id);
+      const ofertaIdsFunil = solucoesFunil.flatMap((solucao) =>
+        solucao.ofertas.map((oferta) => oferta.id),
+      );
+      await prisma.aprovacaoSolicitacao.deleteMany({
+        where: { entidadeId: { in: [...idsFunil, ...solucaoIdsFunil, ...ofertaIdsFunil] } },
+      });
+      await prisma.avaliacaoNota.deleteMany({
+        where: { avaliacaoId: { in: avaliacaoIdsFunil } },
+      });
+      await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIdsFunil } } });
       await prisma.dossieExecucao.deleteMany({ where: { dossieId: { in: dossieIdsFunil } } });
       await prisma.dossie.deleteMany({ where: { id: { in: dossieIdsFunil } } });
       await prisma.notaRapida.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.registroNegociacao.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.auditoriaEvento.deleteMany({
-        where: { entidadeId: { in: [...idsFunil, ...avaliacaoIdsFunil, ...dossieIdsFunil] } },
+        where: {
+          entidadeId: {
+            in: [
+              ...idsFunil,
+              ...solucaoIdsFunil,
+              ...ofertaIdsFunil,
+              ...avaliacaoIdsFunil,
+              ...dossieIdsFunil,
+            ],
+          },
+        },
       });
+      await prisma.ofertaPretendida.deleteMany({ where: { empresaId: { in: idsFunil } } });
+      await prisma.indicadorDeclarado.deleteMany({ where: { empresaId: { in: idsFunil } } });
+      await prisma.telemetriaEvento.deleteMany({ where: { ofertaId: { in: ofertaIdsFunil } } });
+      await prisma.telemetriaAcumuladoInicial.deleteMany({
+        where: { ofertaId: { in: ofertaIdsFunil } },
+      });
+      await prisma.oferta.deleteMany({ where: { id: { in: ofertaIdsFunil } } });
+      await prisma.solucaoCultura.deleteMany({ where: { solucaoId: { in: solucaoIdsFunil } } });
+      await prisma.solucaoUf.deleteMany({ where: { solucaoId: { in: solucaoIdsFunil } } });
+      await prisma.solucao.deleteMany({ where: { id: { in: solucaoIdsFunil } } });
+      await prisma.contratoComercial.deleteMany({ where: { empresaId: { in: idsFunil } } });
+      await prisma.contatoEmpresa.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.empresaCategoria.deleteMany({ where: { empresaId: { in: idsFunil } } });
       await prisma.stagingEmpresa.deleteMany({
         where: { empresaIdEfetivada: { in: idsFunil } },

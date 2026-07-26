@@ -106,13 +106,15 @@ export async function entrar(page: Page, email: string): Promise<void> {
   // a sessão anterior e o servidor redireciona para /aliados, sumindo com o
   // formulário. Observado ao TROCAR de usuário dentro do mesmo teste (RN06).
   //
-  // A recuperação anterior era uma única repetição sem espera: bastava a
-  // segunda tentativa cair na mesma corrida para o teste morrer 60s depois em
-  // `locator.fill`, apontando o campo de e-mail em vez da causa. Agora são até
-  // três tentativas, cada uma ESPERANDO o formulário aparecer (tolera hidratação
-  // lenta sem repetir à toa), e o esgotamento falha nomeando o que aconteceu.
-  const TENTATIVAS = 3;
-  for (let tentativa = 1; ; tentativa++) {
+  // Cinco tentativas (contagem da F9: o percurso da Onda 2 troca de papel
+  // quatro vezes e uma única repetição não bastava), cada uma ESPERANDO o
+  // formulário aparecer — tolera hidratação lenta sem repetir à toa.
+  //
+  // O esgotamento FALHA NOMEANDO a causa (F5): antes o laço apenas terminava e
+  // o `fill` abaixo morria 60s depois apontando o campo de e-mail, escondendo
+  // que o problema era a sessão anterior sobrevivente.
+  const TENTATIVAS = 5;
+  for (let tentativa = 1; ; tentativa += 1) {
     await page.context().clearCookies();
     await page.goto("/entrar");
     const apareceu = await page
@@ -301,18 +303,20 @@ export async function limparAliadoPorNome(nome: string): Promise<void> {
         select: { id: true },
       })
     ).map((avaliacao) => avaliacao.id);
-    await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
-    await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIds } } });
     const dossieIds = (
       await prisma.dossie.findMany({ where: { empresaId: empresa.id }, select: { id: true } })
     ).map((dossie) => dossie.id);
+    // F9/RN20: o pedido de promoção referencia a avaliação e o dossiê
+    // congelados — some antes deles, senão a FK barra a limpeza.
+    await prisma.aprovacaoSolicitacao.deleteMany({
+      where: { entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds] } },
+    });
+    await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
+    await prisma.avaliacaoScout.deleteMany({ where: { id: { in: avaliacaoIds } } });
     await prisma.dossieExecucao.deleteMany({ where: { dossieId: { in: dossieIds } } });
     await prisma.dossie.deleteMany({ where: { id: { in: dossieIds } } });
     await prisma.telemetriaEvento.deleteMany({ where: { ofertaId: { in: ofertaIds } } });
     await prisma.telemetriaAcumuladoInicial.deleteMany({ where: { ofertaId: { in: ofertaIds } } });
-    await prisma.aprovacaoSolicitacao.deleteMany({
-      where: { entidadeId: { in: [empresa.id, ...solucaoIds, ...ofertaIds] } },
-    });
     await prisma.auditoriaEvento.deleteMany({
       where: {
         entidadeId: {
@@ -320,6 +324,10 @@ export async function limparAliadoPorNome(nome: string): Promise<void> {
         },
       },
     });
+    // F9: a ficha M1 pendura declarações e ofertas pretendidas na empresa —
+    // as pretendidas apontam para solução/oferta, então saem antes delas.
+    await prisma.ofertaPretendida.deleteMany({ where: { empresaId: empresa.id } });
+    await prisma.indicadorDeclarado.deleteMany({ where: { empresaId: empresa.id } });
     await prisma.oferta.deleteMany({ where: { id: { in: ofertaIds } } });
     await prisma.solucaoCultura.deleteMany({ where: { solucaoId: { in: solucaoIds } } });
     await prisma.solucaoUf.deleteMany({ where: { solucaoId: { in: solucaoIds } } });

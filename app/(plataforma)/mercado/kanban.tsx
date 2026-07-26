@@ -463,16 +463,6 @@ function CardDoFunil({
               Mover para {ROTULO_DESTINO[destino] ?? destino}
             </button>
           ))}
-          {card.estagio === "PRIORIZADA" ? (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={pendente}
-              onClick={() => aoMover(card, "EM_NEGOCIACAO")}
-            >
-              Mover para Em negociação
-            </button>
-          ) : null}
           {podeDescartar ? (
             <button
               type="button"
