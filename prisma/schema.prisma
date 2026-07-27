@@ -89,6 +89,12 @@ model Usuario {
   marcasEnviadas           MarcaAliado[]
   imagensDeSolucaoEnviadas ImagemSolucao[]
 
+  // Onda 12 (F19)
+  patrociniosComoComercial Patrocinador[]               @relation("responsavelComercialPatrocinio")
+  minutasEnviadas          MinutaContrato[]
+  evidenciasDeAprovacao    EvidenciaAprovacaoCampanha[]
+  relatoriosDePatrocinador RelatorioPatrocinador[]
+
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
   /// cada troca de papel, para provar que não é o último.
   @@index([papel, ativo])
@@ -1182,35 +1188,46 @@ enum StatusBaseAssinante {
 }
 
 model Assinante {
-  id             String                @id @default(cuid())
+  id               String                  @id @default(cuid())
   /// Identidade única e chave de junção com telemetria_eventos.cpf_hash
   /// (RN36): HMAC-SHA-256 do CPF normalizado, com chave própria via env
   /// CPF_HASH_KEY (determinístico entre cargas).
-  cpfHash        String                @unique @map("cpf_hash")
+  cpfHash          String                  @unique @map("cpf_hash")
   /// CPF cifrado em repouso (AES-256-GCM com APP_ENCRYPTION_KEY via env —
   /// a chave nunca entra no repositório). Toda exibição nasce mascarada;
   /// a plena é decidida na API, com permissão e auditoria (RN30).
-  cpfCifrado     String                @map("cpf_cifrado")
-  nome           String
+  cpfCifrado       String                  @map("cpf_cifrado")
+  nome             String
   /// Endereço bruto como veio do arquivo (dicionário [A CONFIRMAR]).
-  enderecoBruto  String?               @map("endereco_bruto")
+  enderecoBruto    String?                 @map("endereco_bruto")
   /// CEP quando o arquivo trouxer ([A CONFIRMAR] — ficha §10).
-  cep            String?
+  cep              String?
   /// Derivados na importação (RN32); null = estado honesto "não derivado".
-  uf             String?
-  municipio      String?
-  email          String?
-  telefone       String?
-  preferencia    PreferenciaAssinante?
-  statusBase     StatusBaseAssinante   @default(ATIVO) @map("status_base")
+  uf               String?
+  municipio        String?
+  email            String?
+  telefone         String?
+  preferencia      PreferenciaAssinante?
+  statusBase       StatusBaseAssinante     @default(ATIVO) @map("status_base")
+  /// Onda 12 (RN63) — perfil de assinatura, com de-para declarado na fonte.
+  /// NULO é o estado honesto e o único possível para as 2.000 linhas que já
+  /// estão na base: o perfil vem da coluna nativa `Patrocinador` do
+  /// relatório da operadora, que a F20 vai ingerir. Preencher com um
+  /// palpite aqui seria inventar dado de negócio.
+  perfilAssinatura PerfilAssinatura?       @map("perfil_assinatura")
+  /// Onda 12 (RN63) — estado do usuário, que NÃO é perfil: alimenta o funil
+  /// de ativação (cadastrado → freemium → assinante). Mesma razão para ser
+  /// nulo: a fonte é o relatório da operadora.
+  estadoUsuario    EstadoUsuarioAssinante? @map("estado_usuario")
   /// Marca de registro sintético (regra do CLAUDE.md): fixtures e seeds de
   /// PF são gerados e marcados — a UI exibe "registro ilustrativo".
-  marcaSintetico Boolean               @default(false) @map("marca_sintetico")
-  criadoEm       DateTime              @default(now()) @map("criado_em")
-  atualizadoEm   DateTime              @updatedAt @map("atualizado_em")
+  marcaSintetico   Boolean                 @default(false) @map("marca_sintetico")
+  criadoEm         DateTime                @default(now()) @map("criado_em")
+  atualizadoEm     DateTime                @updatedAt @map("atualizado_em")
 
   assinatura Assinatura?
   atributos  AtributoEnriquecimento[]
+  vinculos   VinculoPatrocinio[]
 
   // Índices do catálogo de segmentação — contagem viva em milissegundos
   // no volume de projeto (ficha §7).
@@ -1218,6 +1235,8 @@ model Assinante {
   @@index([municipio])
   @@index([preferencia])
   @@index([statusBase])
+  /// Onda 12 — coluna e filtro de Perfil na T18.
+  @@index([perfilAssinatura])
   @@map("assinantes")
 }
 
@@ -1231,18 +1250,30 @@ enum PlanoAssinatura {
 /// comprador × extrato Minutrade] (ficha §1.1d e §10). A seção existe no
 /// modelo e no perfil, sinalizada como "origem pendente"; nada é suposto.
 model Assinatura {
-  id           String           @id @default(cuid())
-  assinanteId  String           @unique @map("assinante_id")
-  plano        PlanoAssinatura?
+  id              String           @id @default(cuid())
+  assinanteId     String           @unique @map("assinante_id")
+  plano           PlanoAssinatura?
   /// Valores possíveis [A CONFIRMAR] — armazenado como recebido da fonte.
-  status       String?
+  status          String?
   /// Vencimento é visibilidade e filtro 30/60/90 (RN37); nenhuma ação.
-  vencimento   DateTime?        @db.Date
+  vencimento      DateTime?        @db.Date
   /// Fonte real deste registro quando definida ([A CONFIRMAR]);
   /// null = origem do dado ainda em definição (exibido na T19).
-  origemDado   String?          @map("origem_dado")
-  criadoEm     DateTime         @default(now()) @map("criado_em")
-  atualizadoEm DateTime         @updatedAt @map("atualizado_em")
+  origemDado      String?          @map("origem_dado")
+  /// Onda 12 (RN63) — os três campos que **só fazem sentido em
+  /// autoassinatura**, ao lado do `plano` que já morava aqui desde a F11.
+  ///
+  /// Ficam na Assinatura, e não no Assinante, de propósito: `plano` já
+  /// está aqui, e espalhar os quatro entre duas tabelas criaria duas
+  /// fontes para o mesmo fato. O que a ficha §3 agrupa sob "Assinante" é
+  /// o conceito; a Assinatura é o satélite 1:1 que a F11 criou justamente
+  /// para ele. Todos nulos porque a fonte é o relatório da operadora — os
+  /// valores possíveis seguem `[A CONFIRMAR — Minutrade]`.
+  periodicidade   String?          @map("periodicidade")
+  metodoPagamento String?          @map("metodo_pagamento")
+  preco           Decimal?         @map("preco") @db.Decimal(12, 2)
+  criadoEm        DateTime         @default(now()) @map("criado_em")
+  atualizadoEm    DateTime         @updatedAt @map("atualizado_em")
 
   assinante Assinante @relation(fields: [assinanteId], references: [id])
 
@@ -1666,32 +1697,47 @@ model FormatoPeca {
 }
 
 model Campanha {
-  id                String                @id @default(cuid())
-  nome              String
-  objetivo          String?
+  id                     String                @id @default(cuid())
+  nome                   String
+  objetivo               String?
   /// Público: a regra declarativa (mesmo formato do Segmento, RN33) fica
   /// aqui; copiar de um segmento salvo NÃO cria vínculo de edição — a
   /// campanha passa a ter a regra dela.
-  origemPublico     OrigemPublicoCampanha @default(SEGMENTO_SALVO)
-  segmentoId        String?               @map("segmento_id")
-  regrasPublico     Json?                 @map("regras_publico")
+  origemPublico          OrigemPublicoCampanha @default(SEGMENTO_SALVO)
+  segmentoId             String?               @map("segmento_id")
+  regrasPublico          Json?                 @map("regras_publico")
   /// Snapshot do público congelado na ativação (RN38): a exportação
   /// auditada da F11, com autor, data, contagem e finalidade.
-  publicoSnapshotId String?               @unique @map("publico_snapshot_id")
-  vigenciaInicio    DateTime?             @map("vigencia_inicio") @db.Date
-  vigenciaFim       DateTime?             @map("vigencia_fim") @db.Date
+  publicoSnapshotId      String?               @unique @map("publico_snapshot_id")
+  vigenciaInicio         DateTime?             @map("vigencia_inicio") @db.Date
+  vigenciaFim            DateTime?             @map("vigencia_fim") @db.Date
   /// Instruções à operação da Minutrade — viajam no kit.
-  instrucoes        String?
-  estado            EstadoCampanha        @default(RASCUNHO)
-  ativadaEm         DateTime?             @map("ativada_em")
-  encerradaEm       DateTime?             @map("encerrada_em")
-  autorId           String                @map("autor_id")
-  criadoEm          DateTime              @default(now()) @map("criado_em")
-  atualizadoEm      DateTime              @updatedAt @map("atualizado_em")
+  instrucoes             String?
+  estado                 EstadoCampanha        @default(RASCUNHO)
+  ativadaEm              DateTime?             @map("ativada_em")
+  encerradaEm            DateTime?             @map("encerrada_em")
+  autorId                String                @map("autor_id")
+  /// Onda 12 (RN64) — patrocinador é **etiqueta**, não dono: a campanha
+  /// sob medida é um recorte de público mais esta marcação. Opcional, e
+  /// toda campanha existente permanece sem ela.
+  patrocinadorId         String?               @map("patrocinador_id")
+  /// Onda 12 (RN64) — bloco de aprovação externa. A decisão é humana e
+  /// pode ocorrer fora da plataforma: aqui se REGISTRA quem aprovou,
+  /// quando e quem registrou. Não há workflow novo, não há estado novo de
+  /// campanha e nada bloqueia — sem registro, a tela diz "pendente de
+  /// registro" e o kit sai carimbado com a pendência.
+  aprovacaoAprovador     String?               @map("aprovacao_aprovador")
+  aprovacaoData          DateTime?             @map("aprovacao_data") @db.Date
+  aprovacaoRegistradaPor String?               @map("aprovacao_registrada_por")
+  aprovacaoRegistradaEm  DateTime?             @map("aprovacao_registrada_em")
+  criadoEm               DateTime              @default(now()) @map("criado_em")
+  atualizadoEm           DateTime              @updatedAt @map("atualizado_em")
 
-  autor           Usuario          @relation(fields: [autorId], references: [id])
-  segmento        Segmento?        @relation(fields: [segmentoId], references: [id])
-  publicoSnapshot ExportacaoLista? @relation(fields: [publicoSnapshotId], references: [id])
+  autor           Usuario                     @relation(fields: [autorId], references: [id])
+  segmento        Segmento?                   @relation(fields: [segmentoId], references: [id])
+  publicoSnapshot ExportacaoLista?            @relation(fields: [publicoSnapshotId], references: [id])
+  patrocinador    Patrocinador?               @relation(fields: [patrocinadorId], references: [id])
+  evidencia       EvidenciaAprovacaoCampanha?
 
   cestas            CampanhaCesta[]
   ofertasAvulsas    CampanhaOferta[]
@@ -1701,6 +1747,8 @@ model Campanha {
   ofertasDestinadas Oferta[]         @relation("ofertasDestinadas")
 
   @@index([estado])
+  /// Onda 12 — a T33 lista as campanhas do patrocinador.
+  @@index([patrocinadorId])
   @@map("campanhas")
 }
 
@@ -1910,4 +1958,237 @@ model ImagemSolucao {
   autor   Usuario @relation(fields: [autorId], references: [id])
 
   @@map("imagens_solucao")
+}
+
+// ---------------------------------------------------------------------
+// Onda 12 (F19) — Patrocinadores (RN62–RN66)
+// ---------------------------------------------------------------------
+
+/// Status do patrocinador (ficha §3). Encerrar NÃO apaga: os vínculos e o
+/// contrato continuam existindo, porque a RN05 vale aqui como em toda
+/// entidade publicável — e porque o relatório de um período passado
+/// precisa continuar sendo gerável depois do encerramento.
+enum StatusPatrocinador {
+  ATIVO
+  ENCERRADO
+}
+
+/// RN62 — o patrocinador: empresa que compra assinaturas do Clube para dar
+/// aos próprios clientes PF.
+///
+/// Até esta onda o dado existia e não tinha casa: o primeiro contrato real
+/// vivia em pasta, o saldo em planilha e o relatório era feito à mão.
+model Patrocinador {
+  id                     String             @id @default(cuid())
+  razaoSocial            String             @map("razao_social")
+  /// Único e validado pelos dígitos verificadores (`dominio/empresas/cnpj.ts`
+  /// — a mesma régua da Empresa, porque é o mesmo documento).
+  cnpj                   String             @unique
+  segmento               String?
+  contatoNome            String?            @map("contato_nome")
+  contatoEmail           String?            @map("contato_email")
+  contatoTelefone        String?            @map("contato_telefone")
+  /// Responsável comercial INTERNO — usuário da plataforma, não contato do
+  /// patrocinador. Opcional: sem designação, a T32 mostra o traço, nunca um
+  /// nome plausível.
+  responsavelComercialId String?            @map("responsavel_comercial_id")
+  status                 StatusPatrocinador @default(ATIVO)
+  observacoes            String?
+  criadoEm               DateTime           @default(now()) @map("criado_em")
+  atualizadoEm           DateTime           @updatedAt @map("atualizado_em")
+
+  responsavelComercial Usuario? @relation("responsavelComercialPatrocinio", fields: [responsavelComercialId], references: [id])
+
+  contrato   ContratoPatrocinio?
+  vinculos   VinculoPatrocinio[]
+  campanhas  Campanha[]
+  relatorios RelatorioPatrocinador[]
+
+  @@index([status])
+  @@map("patrocinadores")
+}
+
+/// RN62 — contrato do patrocínio. **Um por patrocinador nesta fase**
+/// (`patrocinador_id` é único): a renovação como segundo contrato é
+/// modelagem que a ficha não pediu e que a F19 não antecipa.
+///
+/// **Não existe coluna de `ativadas` nem de `saldo`, e isto é regra, não
+/// esquecimento.** Saldo é `adquiridas − vínculos vigentes`, derivado em
+/// `dominio/patrocinio/saldo.ts` e lido por T32, T33, R1 e Dashboard pela
+/// mesma consulta. Persistir qualquer um dos dois criaria um número que
+/// envelhece calado no primeiro vínculo encerrado — e a cerca de
+/// `infra/arquitetura/saldo-derivado.test.ts` quebra o build se alguém
+/// tentar.
+///
+/// Todos os campos de valor são opcionais porque **os valores do contrato
+/// Yamer são `[A CONFIRMAR — Marco]`** (ficha §7): entram pela tela quando
+/// chegarem. Sem `assinaturasAdquiridas` não há saldo — traço com motivo,
+/// nunca zero.
+model ContratoPatrocinio {
+  id                    String    @id @default(cuid())
+  patrocinadorId        String    @unique @map("patrocinador_id")
+  dataAssinatura        DateTime? @map("data_assinatura") @db.Date
+  vigenciaInicio        DateTime? @map("vigencia_inicio") @db.Date
+  vigenciaFim           DateTime? @map("vigencia_fim") @db.Date
+  /// Preço unitário por assinatura/ano.
+  precoUnitario         Decimal?  @map("preco_unitario") @db.Decimal(12, 2)
+  valorTotalContratado  Decimal?  @map("valor_total_contratado") @db.Decimal(14, 2)
+  assinaturasAdquiridas Int?      @map("assinaturas_adquiridas")
+  criadoEm              DateTime  @default(now()) @map("criado_em")
+  atualizadoEm          DateTime  @updatedAt @map("atualizado_em")
+
+  patrocinador Patrocinador    @relation(fields: [patrocinadorId], references: [id], onDelete: Cascade)
+  minuta       MinutaContrato?
+
+  @@map("contratos_patrocinio")
+}
+
+/// RN62 — a minuta do contrato, guardada pela própria plataforma.
+///
+/// **Terceira generalização da infraestrutura de arquivo.** A F15 a criou
+/// para a marca do aliado (RN54), a F17 a generalizou para a imagem do
+/// card (RN60) e a F19 a estende a documento PDF. O desenho é o mesmo das
+/// duas anteriores, e pelo mesmo motivo: **tabela própria, 1:1, nunca
+/// coluna de `contratos_patrocinio`** — o Prisma seleciona escalares por
+/// padrão, e um BYTEA no contrato faria a lista de patrocinadores e o R1
+/// carregarem o PDF inteiro em toda consulta.
+///
+/// Substituir a minuta grava evento de auditoria com o estado anterior; a
+/// anterior não some da trilha (RN49). O binário anterior, sim: auditoria
+/// é registro de mudança, não cópia de arquivo.
+model MinutaContrato {
+  /// A própria chave do contrato: 1:1 sem coluna de id redundante.
+  contratoId  String @id @map("contrato_id")
+  /// O arquivo já validado — nunca o que chegou cru.
+  conteudo    Bytes
+  /// Tipo REAL, apurado pela assinatura do conteúdo, nunca pela extensão.
+  tipoMime    String @map("tipo_mime")
+  bytes       Int
+  /// SHA-256 do conteúdo — identidade de versão para o ETag da rota.
+  hash        String
+  /// Nome do arquivo enviado, preservado para a auditoria. É dado do
+  /// usuário: nunca compõe caminho de arquivo nem URL.
+  nomeArquivo String @map("nome_arquivo")
+
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  contrato ContratoPatrocinio @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  autor    Usuario            @relation(fields: [autorId], references: [id])
+
+  @@map("minutas_contrato")
+}
+
+/// RN62 — o vínculo de patrocínio: qual assinante ocupa qual vaga, e
+/// **desde quando até quando**.
+///
+/// É este registro que sustenta a derivação do saldo e a rotatividade de
+/// vaga. `fim` nulo = vigente. Encerrar um vínculo devolve a vaga ao saldo
+/// e preserva o histórico — o modelo comporta rotatividade **sem decidir
+/// se ela é permitida**: se a minuta proibir substituição, basta nunca
+/// encerrar vínculo, e nada no código muda (premissa de trabalho da ficha
+/// §7).
+model VinculoPatrocinio {
+  id             String    @id @default(cuid())
+  patrocinadorId String    @map("patrocinador_id")
+  assinanteId    String    @map("assinante_id")
+  inicio         DateTime  @map("inicio") @db.Date
+  fim            DateTime? @map("fim") @db.Date
+  /// Motivo do encerramento, quando houver. Texto livre: a plataforma não
+  /// tem taxonomia de motivo e inventar uma seria supor regra de negócio.
+  motivoFim      String?   @map("motivo_fim")
+  criadoEm       DateTime  @default(now()) @map("criado_em")
+  atualizadoEm   DateTime  @updatedAt @map("atualizado_em")
+
+  patrocinador Patrocinador @relation(fields: [patrocinadorId], references: [id], onDelete: Cascade)
+  assinante    Assinante    @relation(fields: [assinanteId], references: [id])
+
+  /// O índice da contagem de vigentes por patrocinador (prompt §1): a
+  /// derivação do saldo é `count(fim IS NULL)` por patrocinador, e ela roda
+  /// na lista inteira da T32.
+  @@index([patrocinadorId, fim])
+  @@index([assinanteId])
+  @@map("vinculos_patrocinio")
+}
+
+/// RN64 — evidência da aprovação externa da campanha.
+///
+/// Mesma infraestrutura da minuta e pelo mesmo critério da decisão de
+/// arquitetura nomeada na RN60: arquivo pequeno, pouco e identitário vive
+/// no banco da plataforma. Uma evidência por campanha, e ela É a prova de
+/// que a aprovação existiu — perdê-la num bucket nunca provisionado seria
+/// perder o próprio registro. As **peças** da campanha continuam no S3 via
+/// `ExportAdapter`: aquelas são grandes, numerosas e descartáveis.
+///
+/// Aceita PDF e imagem, porque evidência real é tanto um contrato assinado
+/// quanto a captura de tela de um e-mail de aprovação.
+model EvidenciaAprovacaoCampanha {
+  campanhaId  String @id @map("campanha_id")
+  conteudo    Bytes
+  tipoMime    String @map("tipo_mime")
+  bytes       Int
+  hash        String
+  nomeArquivo String @map("nome_arquivo")
+
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  campanha Campanha @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  autor    Usuario  @relation(fields: [autorId], references: [id])
+
+  @@map("evidencias_aprovacao_campanha")
+}
+
+/// RN66 — registro de geração do R1.
+///
+/// Toda geração do Relatório do Patrocinador é auditada **com período e
+/// finalidade**, no mesmo espírito da exportação de listas da Onda 5: o
+/// relatório é agregado e não carrega dado pessoal, mas sai da plataforma
+/// e vai para as mãos do patrocinador — quem pediu, para quê e de que
+/// período é informação de governança.
+///
+/// A tabela existe além do evento de auditoria porque a T33 exibe as
+/// gerações anteriores do patrocinador, e varrer a trilha inteira para
+/// montar essa lista seria consulta cara sobre a tabela que mais cresce.
+model RelatorioPatrocinador {
+  id             String   @id @default(cuid())
+  patrocinadorId String   @map("patrocinador_id")
+  periodoInicio  DateTime @map("periodo_inicio") @db.Date
+  periodoFim     DateTime @map("periodo_fim") @db.Date
+  /// Por que o relatório foi gerado — declarada por quem gera, como na
+  /// exportação da RN35. Não há lista fechada: a finalidade é texto.
+  finalidade     String
+  autorId        String   @map("autor_id")
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  patrocinador Patrocinador @relation(fields: [patrocinadorId], references: [id], onDelete: Cascade)
+  autor        Usuario      @relation(fields: [autorId], references: [id])
+
+  @@index([patrocinadorId, criadoEm])
+  @@map("relatorios_patrocinador")
+}
+
+/// RN63 — perfil de assinatura, com o de-para da fonte declarado.
+///
+/// `PATROCINADA` ← "Assinatura Patrocinada" (exige vínculo) ·
+/// `PROMOCIONAL_BROTO` ← o valor `Broto` na coluna nativa `Patrocinador` ·
+/// `AUTOASSINATURA` ← "Assinatura Paga". A semântica final está presa ao
+/// dicionário requisitado à operadora (`[A CONFIRMAR — Minutrade]`).
+enum PerfilAssinatura {
+  PATROCINADA
+  PROMOCIONAL_BROTO
+  AUTOASSINATURA
+}
+
+/// RN63 — estado do usuário, que **não é perfil**.
+///
+/// "Usuário Cadastrado" e "Usuário Freemium" descrevem onde a pessoa está
+/// no funil de ativação, não que tipo de assinatura ela tem. Tratá-los
+/// como perfis criaria uma categoria que a fonte não tem.
+enum EstadoUsuarioAssinante {
+  CADASTRADO
+  FREEMIUM
+  ASSINANTE
 }
