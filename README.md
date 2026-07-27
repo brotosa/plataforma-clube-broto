@@ -1173,6 +1173,159 @@ régua do domínio linha a linha.
 *Quando extrair:* em fase própria, com o teste acima como rede, provando
 antes e depois que os percentuais não se moveram.
 
+## Patrocinadores (Onda 12 — F19)
+
+Um **patrocinador** é a empresa que compra assinaturas do Clube para dar aos
+próprios clientes pessoa física. Até esta fase o dado existia e não tinha
+casa: o contrato vivia em pasta e o saldo, em planilha.
+
+A F19 entrega o **dado próprio da plataforma** — entidade, contrato com
+minuta anexada, vínculo com vigência, perfil de assinatura e campanha
+etiquetada. A **F20** entrega a esteira de ingestão dos quatro relatórios da
+operadora; nada aqui depende dela.
+
+### Saldo é derivação, nunca coluna (RN62)
+
+`saldo = adquiridas − vínculos vigentes`, calculado em
+`dominio/patrocinio/saldo.ts` e lido por T32, T33 e R1 pela mesma consulta
+(`infra/consultas/patrocinadores.ts`). Não existe coluna de `saldo` nem de
+`ativadas`, e `infra/arquitetura/saldo-derivado.test.ts` quebra o build se
+alguma reaparecer — um número gravado envelheceria calado no primeiro
+vínculo encerrado.
+
+Três consequências que se leem na tela:
+
+- **Sem `assinaturasAdquiridas` confirmada não há saldo**, há motivo. A
+  célula exibe traço e a razão, nunca zero: zero afirmaria não haver vaga, e
+  a verdade é que ninguém sabe quantas foram compradas.
+- **Encerrar um vínculo devolve a vaga e preserva a linha.** O modelo
+  comporta rotatividade sem decidir se ela é permitida — se a minuta proibir
+  substituição, basta nunca encerrar vínculo, e nada no código muda.
+- **Estourar as vagas não é impedido.** O excesso aparece como saldo
+  negativo e marcado; escondê-lo atrás de um `Math.max(0, …)` transformaria
+  um erro visível em um erro invisível.
+
+### A minuta e a terceira generalização do arquivo
+
+A F15 escreveu a régua de arquivo para a marca do aliado, a F17 a
+parametrizou por perfil quando a imagem do card chegou, e a F19 moveu para
+`dominio/arquivos/arquivo-enviado.ts` o que é comum a qualquer arquivo: tipo
+real pelo conteúdo, coerência de extensão, teto e ordem das recusas. Em
+`dominio/imagens/imagem.ts` ficou o que é de imagem.
+
+**As suítes de marca e de imagem do card não foram tocadas** e continuam
+verdes — são elas que provam que a generalização não regrediu nada. Uma
+delas afirma desde a F15 que `detectarTipoReal("%PDF-1.7")` é `null`; por
+isso o **universo de detecção passou a ser parâmetro do perfil**, e não uma
+lista global: o núcleo aprendeu a reconhecer PDF sem que a camada de imagem
+mudasse de comportamento.
+
+Quatro calibragens hoje, um mecanismo só:
+
+| Arquivo | Formatos | Teto | Higieniza |
+|---|---|---|---|
+| Marca do aliado (RN54) | PNG · JPG · WEBP · SVG | 200 KB | SVG |
+| Imagem do card (RN60) | PNG · JPG · WEBP | 400 KB | — |
+| Minuta do contrato (RN62) | PDF | 2 MB | — |
+| Evidência de aprovação (RN64) | PDF · PNG · JPG · WEBP | 2 MB | — |
+
+A decisão de arquitetura da RN60 continua valendo: *arquivo pequeno, pouco e
+identitário vive no banco da plataforma; arquivo grande, numeroso e
+descartável vive em armazenamento de objetos.* Minuta e evidência são do
+primeiro tipo — uma por contrato, uma por campanha, e cada uma **é** o
+registro. As peças de campanha seguem no S3 via `ExportAdapter`.
+
+As rotas que servem os dois documentos usam `Content-Disposition:
+attachment`: documento é para baixar, não para renderizar dentro da
+plataforma.
+
+### Os seis cards de Consumo (RN65)
+
+Cada card declara a origem no selo, e onde não há número há o motivo:
+
+- **vivo** — dado próprio: base por perfil e vagas ativadas;
+- **aguarda chave** — resgates, compras e funil de ativação: a fonte existe,
+  falta o CPF que liga cada linha ao assinante (RN69);
+- **aguarda fonte** — acessos e consumo de soluções: relatório requisitado à
+  operadora em 27/07.
+
+Os cards acendem **sem mudança de layout** quando cada camada chegar.
+
+**Leitura declarada, para poder ser corrigida:** a ficha §4 enumera sete
+medidas e o prompt §4 diz "os seis cards". A única aritmética que fecha em
+seis é *base por perfil e ativação* ser um card só — o que também é o
+agrupamento natural, já que os dois são dado próprio. A lista vive em
+`cardsDeConsumo`, num lugar só, para que a conferência contra o protótipo
+seja uma edição dela.
+
+### O R1 é agregado por construção (RN66)
+
+O corpo do relatório vem de `montarCorpoDoRelatorio`, que **não consulta**
+nome, CPF, e-mail nem telefone de assinante — a garantia não é lembrar de
+não incluir. O teste varre o corpo gerado atrás dos quatro, inclusive partes
+do nome, o CPF formatado e o CPF-HMAC.
+
+Listagem nominal tem outro caminho: a exportação com finalidade da Onda 5,
+que já é auditada e exige permissão própria. Toda geração de R1 grava
+período e finalidade na trilha, e o documento **não é guardado como
+arquivo** — é reproduzível a partir do registro, e um PDF salvo criaria uma
+segunda verdade que envelheceria sozinha.
+
+### Perfil de assinatura, com de-para (RN63)
+
+| Valor da fonte | Vira |
+|---|---|
+| "Assinatura Paga" | `AUTOASSINATURA` |
+| "Assinatura Patrocinada" + coluna `Patrocinador` ≠ Broto | `PATROCINADA` |
+| "Assinatura Patrocinada" + coluna `Patrocinador` = Broto | `PROMOCIONAL_BROTO` |
+| "Usuário Cadastrado" · "Usuário Freemium" | **não é perfil** — é estado do usuário |
+
+Valor desconhecido devolve `null`, que é o estado honesto. A semântica final
+segue presa ao dicionário requisitado (`[A CONFIRMAR — Minutrade]`).
+
+Perfil e Patrocinador entraram como **campos do construtor de segmentos**, e
+não como filtro solto da T18: assim a coluna da carteira, o filtro e o
+recorte de público da campanha leem a mesma definição (RN33).
+
+### Aprovação de campanha se registra, não se substitui (RN64)
+
+A campanha ganha a etiqueta do patrocinador e um bloco onde se registra
+**quem aprovou, quando e a evidência anexada**. Não há workflow novo, não há
+estado novo de campanha: a decisão é humana e pode ter acontecido fora da
+plataforma.
+
+Sem registro, a tela diz "pendente de registro" e **o kit é gerado assim
+mesmo**, com o campo `pendencia` escrito no manifesto. Bloquear seria a
+escolha mais destrutiva e menos reversível; quem executa precisa saber, e o
+que não pode é descobrir depois.
+
+O registro **não exige rascunho**, diferente do resto da edição de campanha:
+a aprovação costuma chegar depois da ativação, e travá-la garantiria que
+nunca fosse feita.
+
+### Pendências desta fase
+
+- **O protótipo v11.2 não está no repositório.** A ficha e o prompt o citam
+  como contrato visual, mas `docs/referencias/` vai até o v10.1. T32, T33 e
+  R1 foram derivadas da ficha §5 e reusam os componentes existentes; o bloco
+  `.pt-drop` foi escrito no padrão do próprio `dseed-admin.css`. **A
+  conferência visual das três telas é trabalho pendente** — não uma
+  reimplementação.
+- **O texto da §4.7 do Guia foi redigido nesta fase.** O documento de
+  referência é da Onda 9 e não a contém. A fonte continua única
+  (`conteudo/guia-plataforma/secoes.html`), e a cerca da RN58 passou a
+  distinguir seção transcrita de seção nascida depois. A revisão editorial é
+  de quem cuida do guia.
+- **O contrato da Yamer não foi semeado.** Os valores são
+  `[A CONFIRMAR — Marco]` e o CNPJ da empresa não consta de `dados/` —
+  semeá-lo exigiria inventar dado real, que o `CLAUDE.md` proíbe. O registro
+  entra pela tela quando os dados chegarem.
+- **Célula de permissão não enumerada pela ficha.** `GERAR_RELATORIO_PATROCINADOR`
+  ficou com o Gestor, pela leitura mais restritiva compatível com a RN66.
+  Ampliar é uma linha em `dominio/autorizacao/permissoes.ts`.
+- **O R1 imprime a barra de volta.** Escondê-la pediria uma regra
+  `@media print` nova, e a instrução de CSS da onda admite um seletor só.
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
