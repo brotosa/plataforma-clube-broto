@@ -21,6 +21,19 @@ ARG NODE_VERSAO=22
 FROM node:${NODE_VERSAO}-bookworm-slim AS dependencias
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+
+# OpenSSL ANTES do install — o postinstall roda `prisma generate`, e é a
+# libssl do sistema que o Prisma inspeciona para escolher qual engine gravar.
+# A imagem slim vem SEM ela: medido na F18, a imagem saía com
+# `libquery_engine-debian-openssl-1.1.x` num Debian bookworm, que é
+# OpenSSL 3.x, e o Prisma avisava a cada start que "may not work as expected".
+# O engine liga OpenSSL estaticamente (verificado com `ldd`: nenhuma
+# dependência de libssl), então o 1.1.x até funcionava — o defeito é a
+# plataforma errada gravada na imagem e o aviso permanente em log de
+# produção, que manda a TI investigar o que não é problema.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /app
 
@@ -58,6 +71,18 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+
+# Duas coisas distintas, do lado de quem executa. `openssl` porque o cliente
+# refaz a mesma inspeção no start para escolher qual engine carregar — sem
+# ela, o aviso volta mesmo com o engine certo gravado. `ca-certificates`
+# porque a imagem slim não traz `/etc/ssl/certs/ca-certificates.crt`
+# (verificado na F18): o Node tem as raízes dele compiladas, mas o OpenSSL
+# embutido no engine do Prisma lê o armazenamento do sistema, e é ele que
+# valida o certificado do PostgreSQL. Com RDS exigindo TLS, a ausência
+# aparece na implantação — nunca aqui. Como root, antes do USER node.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # `node` já existe na imagem oficial (uid 1000) — não criamos usuário novo.
 USER node
