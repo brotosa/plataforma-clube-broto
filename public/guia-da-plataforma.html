@@ -1142,6 +1142,14 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 @media (max-width:560px){.gd-volta{padding:10px 16px}}
 @media print{.gd-volta{display:none}}
 
+/* ---- Extensão (Onda 12 · Patrocinadores): dropzone da minuta ----
+   Único seletor novo da onda. A moldura do cartão de arquivo já traz
+   tamanho, raio e centralização; aqui só a borda tracejada e o fundo que
+   distinguem "área para soltar o documento" de "moldura de imagem". */
+.pt-drop{border:1px dashed var(--borda);background:var(--off)}
+.pt-drop a{display:block;text-decoration:none;color:var(--azul-texto-aaa)}
+.pt-drop a:hover{text-decoration:underline}
+
 </style>
 <style>
 html{scroll-behavior:smooth}
@@ -1183,6 +1191,7 @@ a:hover{color:var(--azul)}
       <a href="#j4">4.4 · Rodar uma campanha</a>
       <a href="#j5">4.5 · Acompanhar a rede</a>
       <a href="#j6">4.6 · Configurar a plataforma</a>
+      <a href="#j7">4.7 · Patrocinadores</a>
       <div class="g">Referência</div><a href="#papeis">5 · Papéis e permissões</a>
       <a href="#faltam">6 · Por que alguns números não aparecem</a>
       <a href="#glossario">7 · Glossário</a>
@@ -1474,6 +1483,38 @@ a:hover{color:var(--azul)}
   </div>
 </section>
 
+<section class="gd-sec" id="j7">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.7</span> Patrocinadores</h2>
+  <p class="gd-lead">Um patrocinador é a empresa que compra assinaturas do Clube para dar aos próprios clientes. Antes desta tela, o contrato vivia em pasta e o saldo, em planilha.</p>
+
+  <p>A ficha do patrocinador reúne quatro leituras:</p>
+  <ul>
+    <li><strong>Contrato</strong> — vigência, preço por assinatura/ano, valor total e quantas assinaturas foram adquiridas. A minuta assinada fica anexada aqui, guardada pela própria plataforma.</li>
+    <li><strong>Base</strong> — quem ocupa as vagas hoje. É a tabela de assinantes, recortada pelo vínculo e com os dados pessoais mascarados.</li>
+    <li><strong>Consumo</strong> — o que se sabe sobre o uso dessa base, com a origem de cada número declarada.</li>
+    <li><strong>Campanhas</strong> — as campanhas etiquetadas com este patrocinador, e o registro de quem aprovou cada uma.</li>
+  </ul>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">O saldo não é digitado</span>
+      <p>O saldo é sempre <strong>adquiridas menos vínculos vigentes</strong>, calculado na hora. Encerrar um vínculo devolve a vaga e mantém o histórico de quem a ocupou. Enquanto o número de assinaturas adquiridas não estiver confirmado, o saldo aparece como pendência com o motivo escrito — e nunca como zero, que afirmaria não haver vaga.</p>
+    </div>
+  </div>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"></path></svg>
+    <div>
+      <span class="gd-rot">Por que alguns cards de Consumo estão em espera</span>
+      <p>Cada card diz de onde vem o que exibe. <strong>Vivo</strong> é dado da própria plataforma. <strong>Aguarda chave</strong> é dado que a operadora já envia, mas sem o CPF que liga cada linha a um assinante. <strong>Aguarda fonte</strong> é relatório ainda não fornecido. Nenhum número é estimado enquanto se espera — ver a seção 6.</p>
+    </div>
+  </div>
+
+  <p>O <strong>Relatório do Patrocinador</strong> sai da ficha, por período e com a finalidade declarada. Ele é agregado: não leva nome, CPF, e-mail nem telefone de assinante. Quando a listagem nominal for necessária, o caminho é a exportação da base de assinantes, que exige permissão própria e fica registrada.</p>
+</section>
+
 <section class="gd-sec" id="papeis">
   <div class="gd-sec-grupo">Referência</div>
   <h2><span class="gd-num">5</span> Papéis e permissões</h2>
@@ -1610,6 +1651,7 @@ a:hover{color:var(--azul)}
       <li><a href="#j4">4.4 · Rodar uma campanha</a></li>
       <li><a href="#j5">4.5 · Acompanhar a rede</a></li>
       <li><a href="#j6">4.6 · Configurar a plataforma</a></li>
+      <li><a href="#j7">4.7 · Patrocinadores</a></li>
       <li class="g">Referência</li>
       <li><a href="#papeis">5 · Papéis e permissões</a></li>
       <li><a href="#faltam">6 · Por que alguns números não aparecem</a></li>
@@ -1621,7 +1663,7 @@ a:hover{color:var(--azul)}
 
 <script>
 (function () {
-  var secoes = ["oquee","vocab","princ","j1","j2","j3","j4","j5","j6","papeis","faltam","glossario"];
+  var secoes = ["oquee","vocab","princ","j1","j2","j3","j4","j5","j6","j7","papeis","faltam","glossario"];
   var raiz = document.querySelector('.gd');
   if (!raiz) return;
 

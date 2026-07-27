@@ -92,6 +92,14 @@ export interface FiltrosCarteira {
   regras?: unknown;
   busca?: string;
   pagina?: number;
+  /**
+   * Onda 12 — recorte "base do patrocinador": só quem tem vínculo VIGENTE
+   * com o patrocinador informado. É o que a aba Base da T33 usa para
+   * reusar esta tabela em vez de escrever outra.
+   */
+  patrocinadorId?: string;
+  /** Onda 12 (RN63) — filtro de Perfil na T18. */
+  perfilAssinatura?: string;
 }
 
 /**
@@ -134,7 +142,25 @@ export async function listarCarteira(
       sqlBusca = ` AND a.nome ILIKE $${parametros.length}`;
     }
   }
-  const baseWhere = `a.status_base = 'ATIVO' AND (${compilado.sql})${sqlBusca}`;
+  /**
+   * Recortes da Onda 12. Ambos entram por parâmetro numerado, como todo o
+   * resto desta consulta — nenhum valor é concatenado no SQL.
+   *
+   * O do patrocinador é `EXISTS` e não `JOIN` de propósito: um assinante
+   * pode ter mais de um vínculo com o mesmo patrocinador ao longo do
+   * tempo, e o JOIN duplicaria a linha na lista. `fim IS NULL` é a
+   * definição de vigente, a mesma de `dominio/patrocinio/saldo.ts`.
+   */
+  let sqlRecorte = "";
+  if (filtros.patrocinadorId) {
+    parametros.push(filtros.patrocinadorId);
+    sqlRecorte += ` AND EXISTS (SELECT 1 FROM vinculos_patrocinio v WHERE v.assinante_id = a.id AND v.patrocinador_id = $${parametros.length} AND v.fim IS NULL)`;
+  }
+  if (filtros.perfilAssinatura) {
+    parametros.push(filtros.perfilAssinatura);
+    sqlRecorte += ` AND a.perfil_assinatura = $${parametros.length}::"PerfilAssinatura"`;
+  }
+  const baseWhere = `a.status_base = 'ATIVO' AND (${compilado.sql})${sqlBusca}${sqlRecorte}`;
 
   const totalLinhas = await prisma.$queryRawUnsafe<Array<{ total: bigint }>>(
     `SELECT count(*)::bigint AS total FROM assinantes a WHERE ${baseWhere}`,
@@ -157,6 +183,13 @@ export async function listarCarteira(
     include: {
       assinatura: true,
       atributos: { include: { catalogo: { select: { slug: true, nome: true } } } },
+      // Onda 12 — a coluna Patrocinador da T18. Só os vigentes: quem já
+      // saiu da vaga não é patrocinado hoje, e listá-lo seria afirmar o
+      // contrário.
+      vinculos: {
+        where: { fim: null },
+        select: { patrocinador: { select: { razaoSocial: true } } },
+      },
     },
   });
   const porId = new Map(registros.map((registro) => [registro.id, registro]));
@@ -192,6 +225,13 @@ export async function listarCarteira(
           ? janelaVencimento(registro.assinatura.vencimento, hoje)
           : null,
         marcaSintetico: registro.marcaSintetico,
+        /**
+         * Onda 12 (RN63). `null` é o estado honesto e o mais comum hoje:
+         * o perfil vem da coluna nativa `Patrocinador` do relatório da
+         * operadora, que só a F20 ingere. A tela escreve o motivo.
+         */
+        perfilAssinatura: registro.perfilAssinatura,
+        patrocinadores: registro.vinculos.map((vinculo) => vinculo.patrocinador.razaoSocial),
       };
     });
 

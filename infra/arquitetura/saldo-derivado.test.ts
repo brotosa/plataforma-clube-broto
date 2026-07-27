@@ -149,7 +149,18 @@ describe("RN62 — a derivação tem um dono só", () => {
       const codigo = readFileSync(arquivo, "utf8");
       for (const [numero, linha] of codigo.split("\n").entries()) {
         if (linha.trim().startsWith("*") || linha.trim().startsWith("//")) continue;
-        if (/adquiridas\s*-\s*\w/i.test(linha) || /-\s*\w*[Vv]inculosVigentes/.test(linha)) {
+        /**
+         * O `(?<![-\w])` no começo é o que separa subtração de identificador
+         * hifenizado. Sem ele, `id="ct-adquiridas-ajuda"` — um rótulo de
+         * campo do formulário do contrato — era acusado de refazer a conta,
+         * e uma cerca que grita em cima de coisa certa é uma cerca que a
+         * equipe aprende a desligar. O `\w*` antes permite pegar
+         * `assinaturasAdquiridas - x`, que é a forma real do defeito.
+         */
+        if (
+          /(?<![-\w])\w*[Aa]dquiridas\s*-\s*\w/.test(linha) ||
+          /[\s)]-\s*\w*[Vv]inculosVigentes/.test(linha)
+        ) {
           suspeitas.push(`${caminho}:${numero + 1}`);
         }
       }

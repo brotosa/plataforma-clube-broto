@@ -8,7 +8,6 @@ import {
   listarPatrocinadores,
   lerPatrocinador,
 } from "@/infra/consultas/patrocinadores";
-import { ErroDeValidacao } from "./contexto";
 import {
   ENTIDADE_MINUTA,
   ENTIDADE_PATROCINADOR,

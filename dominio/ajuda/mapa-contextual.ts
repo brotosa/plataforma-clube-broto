@@ -58,6 +58,8 @@ export const MAPA_AJUDA: ReadonlyArray<ModuloDeAjuda> = [
   { padrao: "/assinantes", rotulo: "Assinantes", secao: "j3" },
   // Campanhas & Cestas → 4.4 Rodar uma campanha
   { padrao: "/campanhas", rotulo: "Campanhas & Cestas", secao: "j4" },
+  // Onda 12 — Patrocinadores (lista, ficha, relatório) → 4.7
+  { padrao: "/patrocinadores", rotulo: "Patrocinadores", secao: "j7" },
   // Parametrizador → 4.6 Configurar a plataforma
   { padrao: "/parametrizador", rotulo: "Parametrizador", secao: "j6" },
   // Usuários → 5 Papéis e permissões

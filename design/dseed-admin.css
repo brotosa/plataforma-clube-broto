@@ -982,3 +982,11 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   background:var(--branco);border-bottom:1px solid var(--borda);padding:10px 32px}
 @media (max-width:560px){.gd-volta{padding:10px 16px}}
 @media print{.gd-volta{display:none}}
+
+/* ---- Extensão (Onda 12 · Patrocinadores): dropzone da minuta ----
+   Único seletor novo da onda. A moldura do cartão de arquivo já traz
+   tamanho, raio e centralização; aqui só a borda tracejada e o fundo que
+   distinguem "área para soltar o documento" de "moldura de imagem". */
+.pt-drop{border:1px dashed var(--borda);background:var(--off)}
+.pt-drop a{display:block;text-decoration:none;color:var(--azul-texto-aaa)}
+.pt-drop a:hover{text-decoration:underline}
