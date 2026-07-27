@@ -522,3 +522,45 @@ test.describe("Onda 9 — Ajuda contextual a 380px", () => {
     await semViolacoesAxe(page);
   });
 });
+
+/**
+ * Onda 10 (F17) — o cartão de imagem da solução a 380px.
+ *
+ * Mesmo sinal que a F15 mediu para o cartão da marca: o campo de arquivo é
+ * o controle que mais costuma estourar a largura.
+ */
+test.describe("Onda 10 — Imagem do card a 380px", () => {
+  test("T3: o cartão da imagem cabe e é operável a 380px", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-380-imagem`;
+    const aliado = await semearAliadoAtivoComContrato(nome);
+    const solucao = await semearSolucaoCompleta(aliado.id, `Solução ${nome}`);
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+    await expect(page.getByRole("heading", { name: "Imagem do card" })).toBeVisible();
+
+    const campo = page.getByLabel("Enviar a imagem do card");
+    await expect(campo).toBeVisible();
+    const caixa = await campo.evaluate((no) => {
+      const b = no.getBoundingClientRect();
+      return { esquerda: Math.round(b.left), direita: Math.round(b.right) };
+    });
+    expect(caixa.esquerda).toBeGreaterThanOrEqual(0);
+    expect(caixa.direita).toBeLessThanOrEqual(380);
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("cabeçalho: o \"?\" continua alcançável a 380px, na ponta direita", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    const ajuda = page.locator("header").first().getByRole("link", {
+      name: "Ajuda — abrir o guia da plataforma",
+    });
+    await expect(ajuda).toBeVisible();
+    const caixa = await ajuda.boundingBox();
+    expect(caixa?.x ?? 0).toBeGreaterThan(0);
+    expect((caixa?.x ?? 0) + (caixa?.width ?? 0)).toBeLessThanOrEqual(380);
+    await semRolagemHorizontal(page);
+  });
+});
