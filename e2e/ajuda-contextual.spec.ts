@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entrar, semViolacoesAxe } from "./ajudantes";
+import { INDICE_DO_GUIA } from "@/conteudo/guia-plataforma/indice";
 
 /**
  * F16 (Onda 9) pela interface: ajuda contextual (RN58, RN59) e o rótulo
@@ -197,9 +198,12 @@ test.describe("RN58 — a ajuda é leitura, para todos os papéis", () => {
       await entrar(page, email);
       await page.goto("/ajuda");
 
-      // Sem redirecionamento, sem tela de recusa: as doze seções inteiras.
+      // Sem redirecionamento, sem tela de recusa: o guia INTEIRO. A
+      // contagem vem do sumário, e não de um número escrito aqui — eram 12
+      // até a Onda 11, e a 4.7 da Onda 12 fez este teste reprovar por
+      // desatualização, não por defeito.
       await expect(page).toHaveURL(/\/ajuda$/);
-      await expect(page.locator("section.gd-sec")).toHaveCount(12);
+      await expect(page.locator("section.gd-sec")).toHaveCount(INDICE_DO_GUIA.length);
       await expect(page.getByRole("link", { name: ROTULO_DA_AJUDA })).toBeVisible();
     });
   }

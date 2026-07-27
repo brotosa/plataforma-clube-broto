@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  prisma,
   entrar,
   runId,
   semRolagemHorizontal,
@@ -11,6 +12,7 @@ import {
   semearOfertaPublicada,
   semearSolucaoCompleta,
 } from "./ajudantes";
+import { INDICE_DO_GUIA } from "@/conteudo/guia-plataforma/indice";
 
 /**
  * Responsividade a 380px (F5) — o piso declarado no prompt da Onda 1:
@@ -442,7 +444,11 @@ test.describe("Onda 9 — Ajuda contextual a 380px", () => {
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/ajuda");
 
-    await expect(page.locator("section.gd-sec")).toHaveCount(12);
+    // A contagem vem do SUMÁRIO, não de um número escrito aqui. Eram 12
+    // até a Onda 11; a Onda 12 acrescentou a 4.7 e este teste reprovou por
+    // estar desatualizado, não por defeito. Lendo da fonte única, ele passa
+    // a acompanhar o guia sozinho — que é a disciplina da RN58.
+    await expect(page.locator("section.gd-sec")).toHaveCount(INDICE_DO_GUIA.length);
 
     // Sumário recolhido por padrão: o texto começa na primeira dobra.
     const sumario = page.locator("details.gd-idx-mob");
@@ -550,6 +556,47 @@ test.describe("Onda 10 — Imagem do card a 380px", () => {
 
     await semRolagemHorizontal(page);
     await semViolacoesAxe(page);
+  });
+
+  test("T32/T33: as telas do patrocínio cabem e são operáveis a 380px", async ({ page }) => {
+    // Onda 12 (F19). O que a 380px costuma quebrar aqui: a célula de
+    // três números (adquiridas × ativadas = saldo) e a moldura da minuta,
+    // que é a única caixa de largura fixa da T33.
+    const nome = `[E2E-380] Patrocinadora ${runId()}`;
+    await prisma.patrocinador.deleteMany({ where: { razaoSocial: { startsWith: "[E2E-380]" } } });
+    const patrocinador = await prisma.patrocinador.create({
+      data: { razaoSocial: nome, cnpj: "11444777000161" },
+      select: { id: true },
+    });
+    await prisma.contratoPatrocinio.create({
+      data: { patrocinadorId: patrocinador.id, assinaturasAdquiridas: 500 },
+    });
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/patrocinadores");
+    await expect(page.getByRole("heading", { name: "Patrocinadores", level: 1 })).toBeVisible();
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+
+    await page.goto(`/patrocinadores/${patrocinador.id}`);
+    const campo = page.getByLabel("Anexar a minuta");
+    await expect(campo).toBeVisible();
+    const caixa = await campo.evaluate((no) => {
+      const b = no.getBoundingClientRect();
+      return { esquerda: Math.round(b.left), direita: Math.round(b.right) };
+    });
+    expect(caixa.esquerda).toBeGreaterThanOrEqual(0);
+    expect(caixa.direita).toBeLessThanOrEqual(380);
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+
+    await page.goto(`/patrocinadores/${patrocinador.id}?aba=consumo`);
+    await expect(page.getByRole("heading", { name: "Base por perfil e ativação" })).toBeVisible();
+    await semRolagemHorizontal(page);
+
+    await prisma.contratoPatrocinio.deleteMany({ where: { patrocinadorId: patrocinador.id } });
+    await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: patrocinador.id } });
+    await prisma.patrocinador.delete({ where: { id: patrocinador.id } });
   });
 
   test("cabeçalho: o \"?\" continua alcançável a 380px, na ponta direita", async ({ page }) => {
