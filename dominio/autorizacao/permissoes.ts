@@ -47,7 +47,11 @@ export type Acao =
   // Onda 6 — Dashboard, Usuários e Auditoria (ficha §3 e §4, RN46/RN48).
   | "GERIR_USUARIOS"
   | "VISUALIZAR_AUDITORIA"
-  | "EXPORTAR_EXTRATO_AUDITORIA";
+  | "EXPORTAR_EXTRATO_AUDITORIA"
+  // Onda 12 — Patrocinadores (ficha §4, RN62 e RN66).
+  | "VISUALIZAR_PATROCINADORES"
+  | "GERIR_PATROCINADORES"
+  | "GERAR_RELATORIO_PATROCINADOR";
 
 /**
  * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
@@ -151,7 +155,52 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // só Gestor e Administrador exportam, e a exportação é ela própria
   // auditada (meta-trilha garantida no caso de uso).
   EXPORTAR_EXTRATO_AUDITORIA: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+  // Onda 12 (RN62): "Gestor cria, edita e inativa; leitura para todos os
+  // papéis". A leitura aberta é coerente com o resto da plataforma — o
+  // patrocinador é contraparte comercial do Clube, não dado sensível, e o
+  // R1 é agregado por definição (RN66).
+  VISUALIZAR_PATROCINADORES: [
+    "GESTOR",
+    "ANALISTA",
+    "ANALISTA_SCOUT",
+    "COMERCIAL",
+    "APROVADOR",
+    "LEITURA",
+    "ADMINISTRADOR_PLATAFORMA",
+  ],
+  // Escrita de patrocinador, contrato, minuta e vínculo — tudo o que muda
+  // a base do saldo. O ADMINISTRADOR_PLATAFORMA fica DE FORA pela mesma
+  // segregação da RN46 que já o exclui de campanha: quem configura o
+  // produto não opera o negócio. A célula está explicitada na matriz do
+  // teste, como a ficha manda, e não herdada por omissão.
+  GERIR_PATROCINADORES: ["GESTOR"],
+  /**
+   * RN66 — gerar o R1.
+   *
+   * **A ficha não enumerou esta célula**, e a decisão aqui é a leitura
+   * mais restritiva compatível com o que ela diz. O relatório é agregado e
+   * não carrega dado pessoal, mas SAI da plataforma e vai às mãos do
+   * patrocinador, e toda geração é auditada com período e finalidade — a
+   * mesma forma de `GERAR_EXPORTACAO` e `EXPORTAR_EXTRATO_AUDITORIA`, que
+   * o produto já restringe. Como a ficha atribui ao Gestor tudo o que é do
+   * patrocinador, é dele a geração.
+   *
+   * Ampliar depois é uma linha; ter aberto a todos e descobrir que não
+   * podia, não. Se o negócio decidir que o Analista também gera, esta é a
+   * única linha a mudar.
+   */
+  GERAR_RELATORIO_PATROCINADOR: ["GESTOR"],
 };
+
+/**
+ * Todas as ações declaradas, para quem precisa varrer a matriz inteira.
+ *
+ * Existe por causa do teste de completude: sem uma lista enumerável, uma
+ * ação nova podia entrar no tipo `Acao` e no mapa acima sem nunca aparecer
+ * na tabela da ficha — e a matriz deixaria de ser "célula a célula" sem
+ * que nada acusasse.
+ */
+export const ACOES = Object.keys(PERMISSOES) as ReadonlyArray<Acao>;
 
 /** Verifica se o papel pode executar a ação. */
 export function podeExecutar(papel: Papel, acao: Acao): boolean {

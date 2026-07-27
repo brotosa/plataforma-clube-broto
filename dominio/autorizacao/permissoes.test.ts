@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type Acao,
+  ACOES,
   ErroDeAutorizacao,
   exigirPermissao,
   podeExecutar,
@@ -260,6 +261,53 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
+  // ---- Onda 12: Patrocinadores (ficha §4, RN62 e RN66) ----
+  {
+    // "leitura para todos os papéis" — inclusive o Administrador da
+    // Plataforma, cuja célula a ficha manda explicitar.
+    acao: "VISUALIZAR_PATROCINADORES",
+    permitidos: [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+    negados: [],
+  },
+  {
+    // "Gestor cria, edita e inativa". O Analista, que opera aliados e
+    // campanhas, NÃO opera patrocinador: a ficha nomeia só o Gestor, e
+    // acrescentá-lo seria inventar célula. O Administrador fica de fora
+    // pela segregação da RN46.
+    acao: "GERIR_PATROCINADORES",
+    permitidos: ["GESTOR"],
+    negados: [
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+  },
+  {
+    // Célula que a ficha NÃO enumerou — ver a justificativa em
+    // `permissoes.ts`. Restrita ao Gestor porque o R1 sai da plataforma e
+    // é auditado, como toda saída de dado no produto.
+    acao: "GERAR_RELATORIO_PATROCINADOR",
+    permitidos: ["GESTOR"],
+    negados: [
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+  },
 ];
 
 describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {
@@ -295,6 +343,25 @@ describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {
       const declarados = [...linha.permitidos, ...linha.negados].sort();
       expect(declarados, `ação ${linha.acao}`).toEqual([...PAPEIS].sort());
     }
+  });
+
+  /**
+   * O complemento que faltava ao teste acima.
+   *
+   * Até a F19 a completude era verificada apenas *dentro* das linhas
+   * existentes: uma ação nova podia entrar no tipo `Acao` e no mapa de
+   * permissões sem nunca aparecer aqui, e a matriz deixaria de ser "célula
+   * a célula" em silêncio. Com a lista `ACOES` exportada, a ausência passa
+   * a quebrar o build — que é o que a Onda 12 diz já ser exigido "de toda
+   * ação".
+   */
+  it("toda ação do código tem linha na tabela da ficha", () => {
+    const naTabela = new Set(TABELA_DA_FICHA.map((linha) => linha.acao));
+    const semLinha = ACOES.filter((acao) => !naTabela.has(acao));
+    expect(
+      semLinha,
+      `ações sem decisão declarada na ficha: ${semLinha.join(", ")}`,
+    ).toEqual([]);
   });
 
   it("expõe papel e ação no erro de autorização", () => {
