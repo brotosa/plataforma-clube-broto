@@ -52,6 +52,14 @@ export interface ManifestoKit {
    * entrada vazia.
    */
   marcas?: ReadonlyArray<{ aliado: string; arquivo: string }>;
+  /**
+   * F17 (RN60) — imagens de card das soluções cujas ofertas entram no kit,
+   * quando existirem. Mesmo tratamento das marcas: solução sem imagem
+   * simplesmente não aparece aqui — ausência é ausência, não arquivo
+   * vazio —, e a chave só existe no manifesto quando há pelo menos uma,
+   * para o JSON de quem não tem nenhuma continuar idêntico ao da F16.
+   */
+  imagensDeSolucao?: ReadonlyArray<{ solucao: string; aliado: string; arquivo: string }>;
 }
 
 /** Marca de um aliado a embarcar no pacote (RN54). */
@@ -60,6 +68,16 @@ export interface MarcaDoKit {
   aliado: string;
   conteudo: Buffer;
   /** Extensão canônica do tipo real apurado no envio (".png", ".svg"…). */
+  extensao: string;
+}
+
+export interface ImagemDeSolucaoDoKit {
+  /** Nome da solução — vira o nome do arquivo no zip. */
+  solucao: string;
+  /** Nome do aliado, para o manifesto dizer de quem é a solução. */
+  aliado: string;
+  conteudo: Buffer;
+  /** Extensão canônica do tipo real apurado no envio (".png", ".webp"…). */
   extensao: string;
 }
 
@@ -84,6 +102,8 @@ export interface ConteudoDoKit {
   pecas: ReadonlyArray<PecaDoKit>;
   /** Vazio quando nenhum aliado do kit tem marca — o zip só não tem a pasta. */
   marcas?: ReadonlyArray<MarcaDoKit>;
+  /** Vazio quando nenhuma solução do kit tem imagem — o zip só não tem a pasta. */
+  imagensDeSolucao?: ReadonlyArray<ImagemDeSolucaoDoKit>;
   versao: number;
   momento: Date;
 }
@@ -117,6 +137,18 @@ function nomeSeguro(texto: string, indice: number): string {
  */
 export function nomeDoArquivoDaMarca(marca: { aliado: string; extensao: string }, indice: number): string {
   return `marcas/${nomeSeguro(marca.aliado, indice)}${marca.extensao}`;
+}
+
+/**
+ * Caminho da imagem de solução dentro do zip (RN60). Pasta própria, para
+ * não se confundir com as marcas: quem abre o kit precisa saber o que é
+ * logotipo do aliado e o que é ilustração da oferta.
+ */
+export function nomeDoArquivoDaImagemDeSolucao(
+  imagem: { solucao: string; extensao: string },
+  indice: number,
+): string {
+  return `imagens-solucao/${nomeSeguro(imagem.solucao, indice)}${imagem.extensao}`;
 }
 
 /** instrucoes.md — o texto que a operação lê antes de disparar. */
@@ -175,6 +207,14 @@ function instrucoesMarkdown(conteudo: ConteudoDoKit): string {
     linhas.push("");
   }
 
+  if (manifesto.imagensDeSolucao && manifesto.imagensDeSolucao.length > 0) {
+    linhas.push("## Imagens de card das soluções", "");
+    for (const imagem of manifesto.imagensDeSolucao) {
+      linhas.push(`- ${imagem.solucao} (${imagem.aliado}): \`${imagem.arquivo}\``);
+    }
+    linhas.push("");
+  }
+
   linhas.push("## Instruções da operação", "", campanha.instrucoes?.trim() || "—", "");
   return linhas.join("\n");
 }
@@ -223,6 +263,15 @@ export function criarKitAdapterGenericoZip(): KitAdapter {
         arquivos.push({
           nome: nomeDoArquivoDaMarca(marca, indice),
           conteudo: marca.conteudo,
+        });
+      });
+
+      // Imagens de solução depois das marcas, na ordem recebida (o caso de
+      // uso ordena por nome da solução): mesma disciplina de determinismo.
+      (conteudo.imagensDeSolucao ?? []).forEach((imagem, indice) => {
+        arquivos.push({
+          nome: nomeDoArquivoDaImagemDeSolucao(imagem, indice),
+          conteudo: imagem.conteudo,
         });
       });
 

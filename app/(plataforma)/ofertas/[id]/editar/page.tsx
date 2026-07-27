@@ -29,6 +29,8 @@ export default async function PaginaEditarOferta({
           include: {
             empresa: { include: { contratos: { where: { status: "VIGENTE" } } } },
             categoria: true,
+            // Só a existência: o binário sai do banco pela rota (RN60).
+            imagemCard: { select: { solucaoId: true } },
           },
         },
       },
@@ -69,6 +71,7 @@ export default async function PaginaEditarOferta({
           solucaoNome: oferta.solucao.nome,
           categoriaNome: oferta.solucao.categoria?.nome ?? null,
           ambientes: contratoVigente?.ambientesPagamento ?? null,
+          solucaoComImagem: oferta.solucao.imagemCard !== null ? oferta.solucao.id : null,
         }}
         tiposBeneficio={tiposBeneficio.map((tipo) => ({
           id: tipo.id,

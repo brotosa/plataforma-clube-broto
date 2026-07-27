@@ -389,10 +389,35 @@ export function ShellPlataforma({
 
           <div style={{ flex: 1 }} />
 
+
+          {/* F14: o `title` antigo prometia "alertas de vigência e janela
+              contratual chegam com a carga de dados" — alertas que nunca
+              existiriam. Saiu junto com o botão decorativo. */}
+          <SinoPendencias pendencias={pendencias} />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="dot-avatar" aria-hidden="true">
+              {iniciaisDe(usuario.nome)}
+            </span>
+            <div className="user-meta">
+              <div style={{ font: "var(--font-body-label-bold)" }}>{usuario.nome}</div>
+              <div className="cap">{usuario.rotuloPapel}</div>
+            </div>
+            <form action={sair}>
+              <button type="submit" className="btn btn-ghost btn-sm">
+                Sair
+              </button>
+            </form>
+          </div>
+
           {/*
-            Ajuda antes do alerta (ficha §1.2): o sino é o item de maior
-            urgência do cabeçalho e fica na ponta; o "?" entra à esquerda
-            dele.
+            F17 (ficha Onda 10 §2) — a ajuda passa para a EXTREMIDADE
+            DIREITA, como último elemento da barra, depois do bloco de
+            identidade e do papel. Inverte o racional da Onda 9 ("ajuda
+            antes do alerta") por decisão da Superintendência, e a
+            consequência é desejável: a ajuda vira o último item na ordem
+            de tabulação do cabeçalho, o que é apropriado para algo que
+            não é ação urgente.
 
             Âncora e não `<Link>`: o endereço leva query (`?de=`) e âncora
             (`#secao`), e a convenção do repositório manda âncora sempre
@@ -422,26 +447,6 @@ export function ShellPlataforma({
               <path d="M12 17h.01" />
             </svg>
           </a>
-
-          {/* F14: o `title` antigo prometia "alertas de vigência e janela
-              contratual chegam com a carga de dados" — alertas que nunca
-              existiriam. Saiu junto com o botão decorativo. */}
-          <SinoPendencias pendencias={pendencias} />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="dot-avatar" aria-hidden="true">
-              {iniciaisDe(usuario.nome)}
-            </span>
-            <div className="user-meta">
-              <div style={{ font: "var(--font-body-label-bold)" }}>{usuario.nome}</div>
-              <div className="cap">{usuario.rotuloPapel}</div>
-            </div>
-            <form action={sair}>
-              <button type="submit" className="btn btn-ghost btn-sm">
-                Sair
-              </button>
-            </form>
-          </div>
         </header>
 
         <main style={{ flex: 1, overflow: "auto" }}>{children}</main>

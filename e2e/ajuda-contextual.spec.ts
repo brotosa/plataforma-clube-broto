@@ -138,6 +138,44 @@ test.describe("RN59 — a ajuda abre na seção do módulo de origem", () => {
   });
 });
 
+test.describe("Ficha Onda 10 §2 — o \"?\" fecha o cabeçalho", () => {
+  test("a ajuda é o último elemento da barra, depois da identidade e do papel", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    const cabecalho = page.locator("header").first();
+    const ajuda = cabecalho.getByRole("link", { name: ROTULO_DA_AJUDA });
+    await expect(ajuda).toBeVisible();
+
+    // Posição: a ajuda fica à direita do sino e do bloco de usuário — o
+    // inverso da Onda 9, por decisão da Superintendência.
+    const caixaDaAjuda = await ajuda.boundingBox();
+    const caixaDoSino = await cabecalho
+      .getByRole("button", { name: /pendência/i })
+      .first()
+      .boundingBox();
+    const caixaDoSair = await cabecalho.getByRole("button", { name: "Sair" }).boundingBox();
+    expect(caixaDaAjuda?.x ?? 0).toBeGreaterThan(caixaDoSino?.x ?? 0);
+    expect(caixaDaAjuda?.x ?? 0).toBeGreaterThan(caixaDoSair?.x ?? 0);
+  });
+
+  test("a ajuda é o último item na ordem de tabulação do cabeçalho", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    // Consequência aceita e desejável da mudança: ajuda não é ação
+    // urgente, então fechar a tabulação do cabeçalho é o lugar certo.
+    const foco = await page.evaluate(() => {
+      const cabecalho = document.querySelector("header");
+      if (!cabecalho) return null;
+      const focaveis = [
+        ...cabecalho.querySelectorAll<HTMLElement>("a[href], button, input, [tabindex]:not([tabindex='-1'])"),
+      ].filter((no) => no.offsetParent !== null);
+      const ultimo = focaveis[focaveis.length - 1];
+      return ultimo?.getAttribute("aria-label") ?? ultimo?.textContent ?? null;
+    });
+    expect(foco).toBe(ROTULO_DA_AJUDA);
+  });
+});
+
 test.describe("RN58 — a ajuda é leitura, para todos os papéis", () => {
   const papeis = [
     "leitura@dev.clubebroto.local",
