@@ -72,7 +72,8 @@ function camposDeclarados(corpo: string): string[] {
     .split("\n")
     .map((linha) => linha.trim())
     .filter((linha) => linha !== "" && !linha.startsWith("//") && !linha.startsWith("@@"))
-    .map((linha) => linha.split(/\s+/)[0]);
+    .map((linha) => linha.split(/\s+/)[0] ?? "")
+    .filter((campo) => campo !== "");
 }
 
 const PROIBIDOS = [
