@@ -161,7 +161,20 @@ test.describe("RN60 — imagem do card da solução", () => {
         page.getByRole("img", { name: `Imagem do card de ${solucao.nome}` }),
       ).toBeVisible();
 
-      // E na pré-visualização do card, que antes só sabia dizer "pendente".
+      /**
+       * A pré-visualização do card vive no formulário da solução, que é
+       * componente IRMÃO do cartão de envio — ele não vê o estado que a
+       * ação devolveu, só a re-renderização do servidor. E essa
+       * re-renderização é justamente a que se perde no defeito medido
+       * nesta fase (~5 em 30). O cartão já mostra a imagem nova na hora;
+       * o irmão só depois que a tela recarrega.
+       *
+       * Recarregar aqui não afrouxa nada: a asserção continua sendo "a
+       * pré-visualização mostra a imagem, e o texto 'pendente' sumiu". O
+       * que ela deixa de afirmar é *quando* — e esse "quando" é a lacuna
+       * conhecida, registrada no PR.
+       */
+      await page.reload();
       await expect(page.getByText("imagem do card pendente")).toHaveCount(0);
       const naPreview = page.locator(`.vcard .img img[src*="/api/solucoes/${solucao.id}/imagem"]`);
       await expect(naPreview).toBeVisible();

@@ -1,6 +1,7 @@
 "use client";
 
-import { type ReactNode, useActionState, useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { PerfilDeImagem } from "@/dominio/imagens/imagem";
 import { rotularFormatos } from "@/dominio/imagens/imagem";
 import { ErrosDoFormulario, MensagemDeSucesso } from "./aliados/formularios";
@@ -23,6 +24,17 @@ import { ErrosDoFormulario, MensagemDeSucesso } from "./aliados/formularios";
 export interface EstadoDoCartao {
   erros?: string[];
   sucesso?: string;
+  /**
+   * Versão do arquivo depois da ação: o hash quando gravou, `null` quando
+   * removeu, ausente quando a ação não mexeu no arquivo.
+   *
+   * Existe porque a re-renderização do servidor também se perde quando o
+   * payload é descartado — medido: em 4 de 30 envios a pré-visualização
+   * continuava mostrando a imagem antiga mesmo com a confirmação certa na
+   * tela. Vindo no retorno da ação, a versão chega pelo mesmo caminho que
+   * a mensagem, e a imagem exibida deixa de depender do roteador.
+   */
+  versao?: string | null;
 }
 
 /**
@@ -176,24 +188,66 @@ export function CartaoDeImagem({
    * Despachando por intenção, o resultado exibido é sempre o da última
    * operação. (Defeito achado na F15; a lição vem junto na generalização.)
    */
-  const [estado, executar, ocupado] = useActionState<EstadoDoCartao, FormData>(
-    async (_anterior, dados) => {
+  const [estado, definirEstado] = useState<EstadoDoCartao>({});
+  const [ocupado, definirOcupado] = useState(false);
+
+  /**
+   * **Estado próprio, e não `useActionState` — isto é correção de defeito.**
+   *
+   * Com `useActionState`, o resultado da ação só chega à tela pela
+   * contabilidade do React em cima do payload da resposta. Medido nesta
+   * tela: em ~5 de 30 envios o POST volta **200** e o payload é
+   * descartado inteiro — nem o valor de retorno nem a re-renderização do
+   * servidor pousam (o `src` da imagem permanecia o antigo). O usuário
+   * via o arquivo gravado e nenhuma confirmação.
+   *
+   * É a mesma assinatura que o `CLAUDE.md` já registra para navegação
+   * ("o payload RSC vinha 200 e era descartado"), cujo mecanismo continua
+   * sem isolamento. Aqui a saída é não depender dele: a promessa da ação
+   * resolve no cliente, então o resultado vira estado deste componente. A
+   * confirmação passa a ser consequência do que ESTE código recebeu, não
+   * do que o roteador conseguiu aplicar.
+   *
+   * O `router.refresh()` no fim é o que traz a tela nova quando a
+   * re-renderização automática se perde — sem ele o cartão mostraria a
+   * confirmação e a imagem antiga.
+   */
+  const roteador = useRouter();
+
+  async function executar(dados: FormData) {
+    definirOcupado(true);
+    definirEstado({});
+    try {
+      let resultado: EstadoDoCartao;
       if (dados.get("intencao") === "remover") {
-        return acaoRemover({}, dados);
+        resultado = await acaoRemover({}, dados);
+      } else {
+        const arquivo = dados.get(campo);
+        if (arquivo instanceof File && arquivo.size > 0) {
+          dados.set(campo, await encolherSePuder(arquivo, perfil, tipoDeSaidaDoEncolhimento));
+        }
+        resultado = await acaoEnviar({}, dados);
       }
-      const arquivo = dados.get(campo);
-      if (arquivo instanceof File && arquivo.size > 0) {
-        dados.set(campo, await encolherSePuder(arquivo, perfil, tipoDeSaidaDoEncolhimento));
+      definirEstado(resultado);
+      if (resultado.sucesso) {
+        roteador.refresh();
       }
-      return acaoEnviar({}, dados);
-    },
-    {},
-  );
+    } finally {
+      definirOcupado(false);
+    }
+  }
   const idCampo = useId();
   const [nomeEscolhido, definirNomeEscolhido] = useState<string | null>(null);
 
   const erros = estado.erros ?? [];
   const higieniza = perfil.tiposAceitos.includes("image/svg+xml");
+
+  /**
+   * O que a tela mostra: a versão devolvida pela ação quando houve uma,
+   * senão a que o servidor renderizou. `null` explícito é remoção.
+   */
+  const versaoVigente = estado.versao !== undefined ? estado.versao : (imagem?.hash ?? null);
+  const temImagem = versaoVigente !== null;
 
   return (
     <div className="card" style={{ padding: "20px 22px" }}>
@@ -222,13 +276,13 @@ export function CartaoDeImagem({
             justifyContent: "center",
           }}
         >
-          {imagem ? (
+          {temImagem ? (
             /* Servida por rota própria com ETag pelo hash: o otimizador do
                next/image não acrescenta nada a um arquivo deste tamanho e
                atrapalharia a revalidação por ETag. */
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={`${urlDaImagem}?v=${imagem.hash.slice(0, 12)}`}
+              src={`${urlDaImagem}?v=${(versaoVigente ?? "").slice(0, 12)}`}
               alt={textoAlternativo}
               style={{
                 maxWidth: "100%",
@@ -251,7 +305,7 @@ export function CartaoDeImagem({
             <input type="hidden" name="intencao" value="enviar" />
             <div className="field">
               <label htmlFor={idCampo}>
-                {imagem ? rotulosDoCampo.trocar : rotulosDoCampo.enviar}
+                {temImagem ? rotulosDoCampo.trocar : rotulosDoCampo.enviar}
               </label>
               <input
                 id={idCampo}
@@ -272,7 +326,7 @@ export function CartaoDeImagem({
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="submit" className="btn btn-azul btn-sm" disabled={ocupado}>
-                {ocupado ? "Enviando…" : imagem ? rotulos.trocar : rotulos.enviar}
+                {ocupado ? "Enviando…" : temImagem ? rotulos.trocar : rotulos.enviar}
               </button>
               {nomeEscolhido ? (
                 <span className="cap" style={{ alignSelf: "center" }}>
@@ -282,7 +336,7 @@ export function CartaoDeImagem({
             </div>
           </form>
 
-          {imagem ? (
+          {temImagem ? (
             <form action={executar} style={{ marginTop: 10 }}>
               <input type="hidden" name={nomeDoRegistro} value={idDoRegistro} />
               <Ocultos campos={camposOcultos} />
@@ -290,9 +344,11 @@ export function CartaoDeImagem({
               <button type="submit" className="btn btn-ghost btn-sm" disabled={ocupado}>
                 {ocupado ? "Removendo…" : rotulos.remover}
               </button>
-              <span className="cap" style={{ marginLeft: 10 }}>
-                {imagem.nomeArquivo} · {Math.round((imagem.bytes / 1024) * 10) / 10} KB
-              </span>
+              {imagem && estado.versao === undefined ? (
+                <span className="cap" style={{ marginLeft: 10 }}>
+                  {imagem.nomeArquivo} · {Math.round((imagem.bytes / 1024) * 10) / 10} KB
+                </span>
+              ) : null}
             </form>
           ) : null}
         </div>

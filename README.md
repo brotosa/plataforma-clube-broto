@@ -940,6 +940,33 @@ Superintendência; a consequência é desejável — a ajuda fecha a ordem de
 tabulação, e ajuda não é ação urgente. Rótulo, destino contextual e
 comportamento seguem iguais.
 
+### O payload da ação que às vezes é descartado
+
+**Medido nesta fase, com número.** No cartão de imagem da solução, ~5 de 30
+envios voltavam **200** do servidor e o cliente descartava o payload
+inteiro: nem o valor de retorno da ação nem a re-renderização chegavam (o
+`src` da imagem permanecia o antigo). O usuário via o arquivo gravado e
+nenhuma confirmação. Na tela da marca, 0 de 20 — é específico desta tela, e
+o mecanismo continua sem isolamento.
+
+É a mesma assinatura que a seção *Convenções* do `CLAUDE.md` já registra
+para navegação por query ("o payload RSC vinha 200 e era descartado").
+
+**O que foi feito:** o cartão deixou de usar `useActionState` e passou a
+guardar o resultado em estado próprio — a promessa da ação resolve no
+cliente, então a confirmação é consequência do que o componente recebeu, e
+não do que o roteador conseguiu aplicar. A versão do arquivo (hash, ou
+`null` na remoção) viaja no retorno da ação, então a miniatura do cartão
+também não depende da re-renderização. Depois disso: **0 de 30 sem
+confirmação**.
+
+**O que continua aberto:** a pré-visualização do card dentro do formulário
+da solução é componente *irmão* do cartão — não vê esse estado, e só se
+atualiza quando a re-renderização pousa. Na prática: o cartão mostra a
+imagem nova na hora, a pré-visualização ao lado pode levar até a próxima
+navegação. Fechar isso exige subir o estado da imagem para um pai cliente
+comum, o que é mudança de desenho da T3 e merece fase própria.
+
 ### Dívidas nomeadas
 
 **1. `solucoes.imagem_card_url` — coluna obsoleta.** Segue o caminho de

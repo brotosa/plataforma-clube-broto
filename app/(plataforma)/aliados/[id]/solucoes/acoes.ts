@@ -154,16 +154,19 @@ export async function acaoEnviarImagemDaSolucao(
   if (!(arquivo instanceof File) || arquivo.size === 0) {
     return { erros: ["Selecione um arquivo de imagem para enviar."] };
   }
+  let hash: string;
   try {
-    await enviarImagemDaSolucao(ator, solucaoId, {
+    ({ hash } = await enviarImagemDaSolucao(ator, solucaoId, {
       nome: arquivo.name,
       conteudo: new Uint8Array(await arquivo.arrayBuffer()),
-    });
+    }));
   } catch (erro) {
     return paraEstado(erro);
   }
   revalidarTelasDaImagem(empresaId, solucaoId);
-  return { sucesso: "Imagem do card atualizada." };
+  // A versão viaja no retorno: é o que permite à tela mostrar a imagem
+  // nova sem depender da re-renderização, que às vezes se perde.
+  return { sucesso: "Imagem do card atualizada.", versao: hash };
 }
 
 /** Remove a imagem; o card volta ao tratamento neutro. */
@@ -180,7 +183,7 @@ export async function acaoRemoverImagemDaSolucao(
     return paraEstado(erro);
   }
   revalidarTelasDaImagem(empresaId, solucaoId);
-  return { sucesso: "Imagem do card removida." };
+  return { sucesso: "Imagem do card removida.", versao: null };
 }
 
 /**
