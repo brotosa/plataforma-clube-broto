@@ -45,6 +45,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
 
       // Sem imagem: tratamento neutro, nunca espaço quebrado.
       await expect(page.getByRole("heading", { name: "Imagem do card" })).toBeVisible();
@@ -86,6 +93,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
         name: "card.png",
         mimeType: "image/png",
@@ -117,6 +131,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
 
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
         name: "card.png",
@@ -142,6 +163,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
 
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
         name: "card.svg",
@@ -168,6 +196,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
 
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
         name: "card.png",
@@ -188,6 +223,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
 
       // Conteúdo PNG com nome .webp: a extensão nunca decide.
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
@@ -211,6 +253,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
 
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
         name: "card.png",
@@ -239,6 +288,13 @@ test.describe("RN60 — imagem do card da solução", () => {
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
       await expect(page.getByRole("heading", { name: "Imagem do card" })).toBeVisible();
       await semViolacoesAxe(page);
     } finally {
@@ -269,6 +325,13 @@ test.describe("RN60 — imagem do card da solução", () => {
 
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      // Hidratação completa antes de tocar no campo de arquivo: interagir
+      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
+      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
+      // asserção de sucesso espera por 15s antes de desistir. Foi assim
+      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
+      // que `fluxo-principal.spec.ts` já registrava.
+      await page.waitForLoadState("networkidle");
       await expect(
         page.getByRole("img", { name: `Imagem do card de ${solucao.nome}` }),
       ).toBeVisible();
