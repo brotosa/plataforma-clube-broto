@@ -46,6 +46,15 @@ export async function camposDoConstrutor() {
     orderBy: { nome: "asc" },
   });
   const ufs = await prisma.uf.findMany({ orderBy: { sigla: "asc" } });
+  // Onda 12 — a lista de patrocinadores é viva, como a de UFs: o valor da
+  // regra é o id, e o rótulo, a razão social. Só os ATIVOS entram no
+  // construtor; recorte por patrocinador encerrado se faz no relatório
+  // dele, não na segmentação corrente.
+  const patrocinadores = await prisma.patrocinador.findMany({
+    where: { status: "ATIVO" },
+    select: { id: true, razaoSocial: true },
+    orderBy: { razaoSocial: "asc" },
+  });
   return {
     nucleo: CAMPOS_NUCLEO_CATALOGO.map((campo) => ({
       slug: campo.slug,
@@ -54,7 +63,9 @@ export async function camposDoConstrutor() {
       valores:
         campo.slug === "uf"
           ? ufs.map((uf) => ({ valor: uf.sigla, rotulo: uf.sigla }))
-          : campo.valores,
+          : campo.slug === "patrocinador"
+            ? patrocinadores.map((p) => ({ valor: p.id, rotulo: p.razaoSocial }))
+            : campo.valores,
     })),
     enriquecimento: catalogo.map((atributo) => ({
       slug: atributo.slug,

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
@@ -28,6 +29,7 @@ import {
   type PecaDoKit,
 } from "@/infra/kits/adapter";
 import { EXTENSAO_POR_TIPO, type TipoMarca } from "@/dominio/marca/marca";
+import { validarEvidencia } from "@/dominio/campanhas/evidencia";
 import { criarArmazenadorLocal, hashDeSnapshot } from "@/infra/exportacoes/armazenador";
 import { logger } from "@/infra/log/logger";
 import {
@@ -91,6 +93,11 @@ const dataDeTexto = (valor: string | null | undefined): Date | null =>
 const INCLUSAO_COMPLETA = {
   segmento: true,
   publicoSnapshot: true,
+  // Onda 12 (RN64) — a etiqueta do patrocinador e a existência da
+  // evidência. Só o `hash` da evidência: o binário nunca entra numa
+  // consulta de leitura de campanha.
+  patrocinador: { select: { razaoSocial: true } },
+  evidencia: { select: { hash: true } },
   metas: { orderBy: { criadoEm: "asc" } },
   pecas: { orderBy: { ordem: "asc" }, include: { formato: true } },
   kits: { orderBy: { versao: "asc" } },
@@ -250,6 +257,182 @@ export async function atualizarCampanha(
     });
     return atualizada;
   });
+}
+
+/**
+ * RN64 — etiqueta do patrocinador e registro da aprovação externa.
+ *
+ * Um caso de uso só para as duas coisas porque elas se editam juntas na
+ * tela, e separá-las produziria duas transações e dois eventos de
+ * auditoria para uma decisão só.
+ *
+ * **Não há workflow novo, e isso é a regra.** A aprovação pode ter
+ * acontecido em reunião, por e-mail ou em papel timbrado: a plataforma
+ * registra QUEM aprovou, QUANDO e a evidência — e não pretende ter sido
+ * o lugar onde a decisão foi tomada. Sem registro, a campanha exibe
+ * "pendente de registro" e o kit sai carimbado, nunca bloqueado.
+ *
+ * Diferente de `atualizarCampanha`, esta função **não** exige rascunho: a
+ * aprovação costuma chegar depois da ativação, e travá-la no rascunho
+ * garantiria que o registro nunca fosse feito — o oposto do que a regra
+ * quer.
+ */
+export async function registrarPatrocinioDaCampanha(
+  ator: Ator,
+  campanhaId: string,
+  parametros: {
+    patrocinadorId?: string | null;
+    aprovacaoAprovador?: string | null;
+    aprovacaoData?: string | null;
+  },
+) {
+  exigirPermissao(ator.papel, "MODELAR_CAMPANHA");
+
+  return prisma.$transaction(async (tx) => {
+    const anterior = await tx.campanha.findUniqueOrThrow({ where: { id: campanhaId } });
+
+    const dados: Prisma.CampanhaUpdateInput = {};
+    if (parametros.patrocinadorId !== undefined) {
+      if (parametros.patrocinadorId) {
+        const patrocinador = await tx.patrocinador.findUnique({
+          where: { id: parametros.patrocinadorId },
+          select: { id: true },
+        });
+        if (patrocinador === null) {
+          throw new ErroDeValidacao(["Patrocinador não encontrado."]);
+        }
+        dados.patrocinador = { connect: { id: parametros.patrocinadorId } };
+      } else {
+        dados.patrocinador = { disconnect: true };
+      }
+    }
+    if (parametros.aprovacaoAprovador !== undefined) {
+      const aprovador = parametros.aprovacaoAprovador?.trim() || null;
+      dados.aprovacaoAprovador = aprovador;
+      // Quem registrou e quando registrou são da plataforma; quem aprovou
+      // e quando aprovou são do mundo. Os quatro juntos é o que permite
+      // auditar sem confundir as duas coisas.
+      dados.aprovacaoRegistradaPor = aprovador === null ? null : ator.id;
+      dados.aprovacaoRegistradaEm = aprovador === null ? null : new Date();
+    }
+    if (parametros.aprovacaoData !== undefined) {
+      dados.aprovacaoData = dataDeTexto(parametros.aprovacaoData);
+    }
+
+    const atualizada = await tx.campanha.update({ where: { id: campanhaId }, data: dados });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: "campanha",
+      entidadeId: campanhaId,
+      autorId: ator.id,
+      anterior: {
+        patrocinadorId: anterior.patrocinadorId,
+        aprovacaoAprovador: anterior.aprovacaoAprovador,
+        aprovacaoData: anterior.aprovacaoData,
+      },
+      novo: {
+        patrocinadorId: atualizada.patrocinadorId,
+        aprovacaoAprovador: atualizada.aprovacaoAprovador,
+        aprovacaoData: atualizada.aprovacaoData,
+      },
+    });
+    return atualizada;
+  });
+}
+
+/**
+ * RN64 — a evidência anexada da aprovação externa.
+ *
+ * Quarta calibragem da infraestrutura de arquivo da F15/F17/F19 — PDF ou
+ * captura de tela. Substituir não apaga a anterior da trilha (RN49).
+ */
+export async function enviarEvidenciaDaAprovacao(
+  ator: Ator,
+  campanhaId: string,
+  arquivo: { nome: string; conteudo: Uint8Array },
+): Promise<{ hash: string }> {
+  exigirPermissao(ator.papel, "MODELAR_CAMPANHA");
+
+  const campanha = await prisma.campanha.findUnique({
+    where: { id: campanhaId },
+    select: { id: true },
+  });
+  if (campanha === null) {
+    throw new ErroDeValidacao(["Campanha não encontrada."]);
+  }
+  const validada = validarEvidencia(arquivo.conteudo, arquivo.nome);
+  const hash = createHash("sha256").update(validada.conteudo).digest("hex");
+
+  await prisma.$transaction(async (tx) => {
+    const anterior = await tx.evidenciaAprovacaoCampanha.findUnique({
+      where: { campanhaId },
+      select: { nomeArquivo: true, tipoMime: true, bytes: true, hash: true },
+    });
+    const dados = {
+      conteudo: Buffer.from(validada.conteudo),
+      tipoMime: validada.tipoMime,
+      bytes: validada.bytes,
+      hash,
+      nomeArquivo: arquivo.nome,
+      autorId: ator.id,
+    };
+    await tx.evidenciaAprovacaoCampanha.upsert({
+      where: { campanhaId },
+      create: { campanhaId, ...dados },
+      update: dados,
+    });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: "EvidenciaAprovacaoCampanha",
+      entidadeId: campanhaId,
+      autorId: ator.id,
+      anterior:
+        anterior === null
+          ? null
+          : { arquivo: anterior.nomeArquivo, tipo: anterior.tipoMime, hash: anterior.hash },
+      novo: { arquivo: arquivo.nome, tipo: validada.tipoMime, hash },
+    });
+  });
+  return { hash };
+}
+
+/** Remove a evidência; a aprovação registrada continua, sem anexo. */
+export async function removerEvidenciaDaAprovacao(ator: Ator, campanhaId: string): Promise<void> {
+  exigirPermissao(ator.papel, "MODELAR_CAMPANHA");
+  await prisma.$transaction(async (tx) => {
+    const anterior = await tx.evidenciaAprovacaoCampanha.findUnique({
+      where: { campanhaId },
+      select: { nomeArquivo: true, tipoMime: true, hash: true },
+    });
+    if (anterior === null) {
+      throw new ErroDeValidacao(["Esta campanha não tem evidência para remover."]);
+    }
+    await tx.evidenciaAprovacaoCampanha.delete({ where: { campanhaId } });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: "EvidenciaAprovacaoCampanha",
+      entidadeId: campanhaId,
+      autorId: ator.id,
+      anterior: { arquivo: anterior.nomeArquivo, tipo: anterior.tipoMime, hash: anterior.hash },
+      novo: { arquivo: null, tipo: null, hash: null },
+    });
+  });
+}
+
+/** Lê a evidência para servir pela rota. Só aqui o binário sai do banco. */
+export async function lerEvidenciaDaAprovacao(
+  ator: Ator,
+  campanhaId: string,
+): Promise<{ conteudo: Uint8Array; tipoMime: string; hash: string; nomeArquivo: string } | null> {
+  exigirPermissao(ator.papel, "VISUALIZAR");
+  const evidencia = await prisma.evidenciaAprovacaoCampanha.findUnique({
+    where: { campanhaId },
+    select: { conteudo: true, tipoMime: true, hash: true, nomeArquivo: true },
+  });
+  if (evidencia === null) return null;
+  return {
+    conteudo: new Uint8Array(evidencia.conteudo),
+    tipoMime: evidencia.tipoMime,
+    hash: evidencia.hash,
+    nomeArquivo: evidencia.nomeArquivo,
+  };
 }
 
 /** Vincula ou desvincula uma oferta avulsa (T23 — Conteúdo). */
@@ -625,6 +808,36 @@ async function montarConteudoDoKit(
         arquivoImagem: nomes.imagem,
       };
     }),
+    /**
+     * RN64 — patrocínio e o carimbo da aprovação.
+     *
+     * Campanha sem patrocinador não traz a chave (como em `marcas`), para
+     * que a forma do manifesto das campanhas existentes não mude e o diff
+     * da RN45 não acuse diferença onde nada mudou.
+     *
+     * Com patrocinador e SEM aprovação registrada, o kit é gerado assim
+     * mesmo — e leva a pendência escrita. Quem executa precisa saber; o
+     * que não pode é descobrir depois.
+     */
+    ...(campanha.patrocinador
+      ? {
+          patrocinio: {
+            patrocinador: campanha.patrocinador.razaoSocial,
+            aprovacao:
+              campanha.aprovacaoAprovador === null
+                ? null
+                : {
+                    aprovador: campanha.aprovacaoAprovador,
+                    data: campanha.aprovacaoData?.toISOString().slice(0, 10) ?? null,
+                    evidencia: campanha.evidencia !== null,
+                  },
+            pendencia:
+              campanha.aprovacaoAprovador === null
+                ? "APROVACAO EXTERNA PENDENTE DE REGISTRO — esta campanha foi liberada sem que a aprovacao do patrocinador estivesse registrada na plataforma."
+                : null,
+          },
+        }
+      : {}),
     ...(marcas.length > 0
       ? {
           marcas: marcas.map((marca, indice) => ({

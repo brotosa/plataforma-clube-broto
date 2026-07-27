@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { ROTULOS_META } from "@/dominio/campanhas/atribuicao";
 import { portasDaAtivacao } from "@/dominio/campanhas/regras";
+import { listarPatrocinadoresParaEtiqueta } from "@/infra/consultas/patrocinadores";
 import { camposDoConstrutor } from "@/infra/consultas/assinantes";
 import {
   conteudoDisponivel,
@@ -40,12 +41,14 @@ export default async function PaginaModelagem({
       ? ((campanha.segmento?.regras ?? []) as never[])
       : ((campanha.regrasPublico ?? []) as never[]);
 
-  const [campos, segmentos, formatos, conteudo, ativacao] = await Promise.all([
+  const [campos, segmentos, formatos, conteudo, ativacao, patrocinadores] = await Promise.all([
     camposDoConstrutor(),
     segmentosDisponiveis(),
     formatosDePeca(),
     conteudoDisponivel(regrasPublico),
     dadosDaAtivacao(id),
+    // Onda 12 (RN64) — a etiqueta do patrocinador na modelagem.
+    listarPatrocinadoresParaEtiqueta(),
   ]);
 
   const cestasVinculadas = new Set(campanha.cestas.map(({ cestaId }) => cestaId));
@@ -105,7 +108,13 @@ export default async function PaginaModelagem({
         vigenciaInicio: campanha.vigenciaInicio?.toISOString().slice(0, 10) ?? null,
         vigenciaFim: campanha.vigenciaFim?.toISOString().slice(0, 10) ?? null,
         instrucoes: campanha.instrucoes,
+        // Onda 12 (RN64)
+        patrocinadorId: campanha.patrocinadorId,
+        aprovacaoAprovador: campanha.aprovacaoAprovador,
+        aprovacaoData: campanha.aprovacaoData?.toISOString().slice(0, 10) ?? null,
+        temEvidencia: campanha.evidencia !== null,
       }}
+      patrocinadores={patrocinadores}
       campos={[...campos.nucleo, ...campos.enriquecimento]}
       segmentos={segmentos.map((segmento) => ({ id: segmento.id, nome: segmento.nome }))}
       formatos={formatos.map((formato) => ({ slug: formato.slug, nome: formato.nome }))}

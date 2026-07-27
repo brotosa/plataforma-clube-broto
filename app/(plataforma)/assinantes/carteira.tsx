@@ -23,6 +23,17 @@ import {
  * modais de salvar segmento e exportar lista seguem o protótipo v6.1.
  */
 
+/**
+ * Onda 12 (RN63) — rótulo humano do perfil, com o de-para da fonte
+ * declarado na ficha §4. O enum do banco não vai à tela: "PROMOCIONAL_BROTO"
+ * é nome de constante, não texto de produto.
+ */
+const ROTULO_PERFIL: Readonly<Record<string, string>> = {
+  PATROCINADA: "Patrocinada",
+  PROMOCIONAL_BROTO: "Promocional Broto",
+  AUTOASSINATURA: "Autoassinatura",
+};
+
 export interface LinhaCarteira {
   id: string;
   nome: string;
@@ -37,6 +48,14 @@ export interface LinhaCarteira {
   vencimento: string | null;
   janelaVencimento: number | null;
   marcaSintetico: boolean;
+  /**
+   * Onda 12 (RN63). `null` é o estado honesto e o mais comum hoje: o
+   * perfil vem da coluna nativa `Patrocinador` do relatório da operadora,
+   * que só a F20 ingere. A coluna diz isso, não finge um valor.
+   */
+  perfilAssinatura: string | null;
+  /** Patrocinadores com vínculo VIGENTE. Vazio = não patrocinado hoje. */
+  patrocinadores: string[];
 }
 
 export interface DadosCarteira {
@@ -334,6 +353,8 @@ export function CarteiraAssinantes({
                   <th>Contato</th>
                   <th>Unidades produtivas</th>
                   <th>Preferência</th>
+                  <th>Perfil</th>
+                  <th>Patrocinador</th>
                   <th>Cultura</th>
                   <th>Uso 90 d</th>
                   <th style={{ width: 34 }}>
@@ -406,6 +427,24 @@ export function CarteiraAssinantes({
                           <span className="cap">—</span>
                         )}
                       </div>
+                    </td>
+                    <td data-label="Perfil">
+                      {linha.perfilAssinatura ? (
+                        <span>{ROTULO_PERFIL[linha.perfilAssinatura] ?? linha.perfilAssinatura}</span>
+                      ) : (
+                        <span className="cap">aguarda a fonte</span>
+                      )}
+                    </td>
+                    <td data-label="Patrocinador">
+                      {linha.patrocinadores.length > 0 ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {linha.patrocinadores.map((patrocinador) => (
+                            <span key={patrocinador}>{patrocinador}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="cap">—</span>
+                      )}
                     </td>
                     <td data-label="Cultura">
                       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>

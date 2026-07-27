@@ -187,6 +187,11 @@ function aplicarDeParaNucleo(
     email: valores.email ?? null,
     telefone: valores.telefone ?? null,
     preferencia: valores.preferencia ?? null,
+    // Onda 12 (RN63): colunas novas do mapeador. Ausentes do arquivo =
+    // null, que é o estado honesto — o perfil só existe quando a fonte o
+    // traz.
+    perfilAssinatura: valores.perfilAssinatura ?? null,
+    patrocinador: valores.patrocinador ?? null,
   };
 }
 
@@ -380,6 +385,8 @@ async function efetivarLoteNucleo(
         email: nucleo.email,
         telefone: nucleo.telefone,
         preferencia: nucleo.preferencia,
+        perfilAssinatura: nucleo.perfilAssinatura,
+        estadoUsuario: nucleo.estadoUsuario,
         statusBase: "ATIVO",
       });
       continue;
@@ -395,6 +402,8 @@ async function efetivarLoteNucleo(
       email: nucleo.email,
       telefone: nucleo.telefone,
       preferencia: nucleo.preferencia,
+      perfilAssinatura: nucleo.perfilAssinatura,
+      estadoUsuario: nucleo.estadoUsuario,
       statusBase: "ATIVO" as const,
     };
     const anteriorAuditavel = estadoAuditavelAssinante(atual);

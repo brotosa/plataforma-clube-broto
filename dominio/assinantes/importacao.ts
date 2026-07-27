@@ -15,7 +15,11 @@
  * aplicado fica gravado na importação.
  */
 
-import type { PreferenciaAssinante } from "@prisma/client";
+import type {
+  EstadoUsuarioAssinante,
+  PerfilAssinatura,
+  PreferenciaAssinante,
+} from "@prisma/client";
 import { normalizarCpf, validarCpf } from "./cpf";
 
 /** Destinos possíveis de uma coluna do arquivo (núcleo, ficha §1.1a). */
@@ -27,6 +31,12 @@ export const CAMPOS_NUCLEO = [
   "email",
   "telefone",
   "preferencia",
+  // Onda 12 (RN63). Duas colunas que a fonte da operadora já traz — a
+  // tipologia da assinatura e a coluna NATIVA `Patrocinador` — e que até
+  // aqui não tinham destino no mapeador. Entram agora para que a carga que
+  // as contiver não as descarte em silêncio.
+  "perfilAssinatura",
+  "patrocinador",
 ] as const;
 export type CampoNucleo = (typeof CAMPOS_NUCLEO)[number];
 
@@ -43,6 +53,8 @@ export const ROTULOS_CAMPO_NUCLEO: Readonly<Record<CampoNucleo, string>> = {
   email: "E-mail",
   telefone: "Telefone",
   preferencia: "Preferência",
+  perfilAssinatura: "Perfil de assinatura",
+  patrocinador: "Patrocinador",
 };
 
 function normalizarCabecalho(cabecalho: string): string {
@@ -72,6 +84,12 @@ export function sugerirMapeamento(
     else if (chave.includes("mail")) destino = "email";
     else if (/fone|celular|whatsapp/.test(chave)) destino = "telefone";
     else if (chave.includes("prefer")) destino = "preferencia";
+    // Onda 12: a ordem importa — "patrocinador" precisa ser testado ANTES
+    // de "assinatura", porque o cabeçalho nativo da fonte é literalmente
+    // `Patrocinador` e o da tipologia contém "assinatura".
+    else if (chave.includes("patrocinador")) destino = "patrocinador";
+    else if (chave.includes("perfil") || chave.includes("tipo assinatura"))
+      destino = "perfilAssinatura";
     else if (chave.includes("endereco") || chave.includes("logradouro")) destino = "endereco";
     else if (chave.includes("nome")) destino = "nome";
     if (destino && usados.has(destino)) {
@@ -111,6 +129,10 @@ export interface LinhaNucleo {
   email: string | null;
   telefone: string | null;
   preferencia: string | null;
+  /** Onda 12 (RN63) — texto cru da fonte; o de-para é feito abaixo. */
+  perfilAssinatura: string | null;
+  /** Onda 12 (RN63) — coluna nativa `Patrocinador` da fonte. */
+  patrocinador: string | null;
 }
 
 /**
@@ -239,6 +261,58 @@ export function montarResumoNucleo(parametros: {
   };
 }
 
+/**
+ * RN63 — de-para do perfil de assinatura, declarado na ficha §4.
+ *
+ * `Patrocinada` ← "Assinatura Patrocinada"; `Autoassinatura` ← "Assinatura
+ * Paga"; e o valor `Broto` na coluna nativa `Patrocinador` mapeia para
+ * `Promocional Broto`. Por isso a função recebe as DUAS colunas: o perfil
+ * de uma linha patrocinada só se decide sabendo quem é o patrocinador.
+ *
+ * `Usuário Cadastrado` e `Usuário Freemium` **não viram perfil** — são
+ * estados do usuário, e devolver um perfil para eles inventaria uma
+ * categoria que a fonte não tem. Voltam `null`, e o estado vai à parte.
+ *
+ * A semântica final segue presa ao dicionário requisitado à operadora
+ * (`[A CONFIRMAR — Minutrade]`): valor desconhecido devolve `null`, que é
+ * o estado honesto, e nunca um palpite.
+ */
+export function interpretarPerfilAssinatura(
+  perfil: string | null | undefined,
+  patrocinador: string | null | undefined,
+): PerfilAssinatura | null {
+  const texto = (perfil ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  if (!texto) return null;
+  if (texto.includes("paga")) return "AUTOASSINATURA";
+  if (texto.includes("patrocinada")) {
+    const quem = (patrocinador ?? "").trim().toLowerCase();
+    return quem === "broto" ? "PROMOCIONAL_BROTO" : "PATROCINADA";
+  }
+  return null;
+}
+
+/**
+ * RN63 — estado do usuário no funil de ativação. **Não é perfil.**
+ */
+export function interpretarEstadoDoUsuario(
+  perfil: string | null | undefined,
+): EstadoUsuarioAssinante | null {
+  const texto = (perfil ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  if (!texto) return null;
+  if (texto.includes("cadastrado")) return "CADASTRADO";
+  if (texto.includes("freemium")) return "FREEMIUM";
+  if (texto.includes("assinatura")) return "ASSINANTE";
+  return null;
+}
+
 /** Normaliza a linha para persistência (CPF só dígitos, textos aparados). */
 export function normalizarLinhaNucleo(linha: LinhaNucleo): {
   cpf: string;
@@ -248,6 +322,9 @@ export function normalizarLinhaNucleo(linha: LinhaNucleo): {
   email: string | null;
   telefone: string | null;
   preferencia: PreferenciaAssinante | null;
+  perfilAssinatura: PerfilAssinatura | null;
+  estadoUsuario: EstadoUsuarioAssinante | null;
+  patrocinador: string | null;
 } {
   return {
     cpf: normalizarCpf(linha.cpf),
@@ -257,5 +334,8 @@ export function normalizarLinhaNucleo(linha: LinhaNucleo): {
     email: linha.email?.trim() || null,
     telefone: linha.telefone?.trim() || null,
     preferencia: interpretarPreferencia(linha.preferencia),
+    perfilAssinatura: interpretarPerfilAssinatura(linha.perfilAssinatura, linha.patrocinador),
+    estadoUsuario: interpretarEstadoDoUsuario(linha.perfilAssinatura),
+    patrocinador: linha.patrocinador?.trim() || null,
   };
 }

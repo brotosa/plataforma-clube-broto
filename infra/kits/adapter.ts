@@ -25,6 +25,25 @@ export interface ManifestoKit {
     exportacaoId: string;
     hashArquivo: string;
   };
+  /**
+   * F19 (RN64) — patrocinador da campanha e o **carimbo da aprovação**.
+   *
+   * Chave NOVA e opcional, pela mesma razão de `marcas`: campanha sem
+   * patrocinador não a traz, então manifesto já gerado segue com a mesma
+   * forma e o diff da RN45 não acusa mudança onde nada mudou.
+   *
+   * **O kit é gerado mesmo sem aprovação registrada**, e sai carimbado com
+   * a pendência — decisão declarada na ficha §7 como premissa de trabalho,
+   * porque bloquear é a escolha mais destrutiva e menos reversível. Quem
+   * receber o kit precisa saber que a aprovação não está registrada; o que
+   * não se pode é a operação descobrir isso depois de executar.
+   */
+  patrocinio?: {
+    patrocinador: string;
+    /** `null` = pendente de registro — e o campo `pendencia` diz isso. */
+    aprovacao: { aprovador: string; data: string | null; evidencia: boolean } | null;
+    pendencia: string | null;
+  };
   cestas: ReadonlyArray<{ id: string; nome: string; narrativa: string | null }>;
   ofertas: ReadonlyArray<{
     id: string;

@@ -89,6 +89,39 @@ export const CAMPOS_NUCLEO_CATALOGO: ReadonlyArray<CampoNucleoCatalogo> = [
       { valor: "sem", rotulo: "sem uso" },
     ],
   },
+  /**
+   * Onda 12 (RN63) — perfil de assinatura.
+   *
+   * Entra como campo do CONSTRUTOR, e não como um filtro solto da T18, de
+   * propósito: assim a coluna da carteira, o filtro e o recorte de público
+   * da campanha leem a mesma definição. Um filtro paralelo divergiria da
+   * segmentação no primeiro valor novo — que é exatamente o que a RN33
+   * evita ao fazer do catálogo a allowlist única.
+   */
+  {
+    slug: "perfil-assinatura",
+    rotulo: "perfil de assinatura",
+    operadores: ["e", "nao_e"],
+    valores: [
+      { valor: "patrocinada", rotulo: "patrocinada" },
+      { valor: "promocional_broto", rotulo: "promocional Broto" },
+      { valor: "autoassinatura", rotulo: "autoassinatura" },
+    ],
+  },
+  /**
+   * Onda 12 (RN62) — o recorte "base do patrocinador".
+   *
+   * `valores: null` porque a lista é viva: vem de `patrocinadores`, como as
+   * UFs vêm de `ufs`. O valor é o id do patrocinador, e o operador `e`
+   * significa "tem vínculo VIGENTE com" — vínculo encerrado não é base de
+   * ninguém hoje.
+   */
+  {
+    slug: "patrocinador",
+    rotulo: "patrocinador",
+    operadores: ["e", "nao_e"],
+    valores: null,
+  },
 ];
 
 export const SLUGS_NUCLEO: ReadonlySet<string> = new Set(
