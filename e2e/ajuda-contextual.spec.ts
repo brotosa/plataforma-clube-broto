@@ -149,13 +149,21 @@ test.describe("Ficha Onda 10 §2 — o \"?\" fecha o cabeçalho", () => {
     // Posição: a ajuda fica à direita do sino e do bloco de usuário — o
     // inverso da Onda 9, por decisão da Superintendência.
     const caixaDaAjuda = await ajuda.boundingBox();
-    const caixaDoSino = await cabecalho
-      .getByRole("button", { name: /pendência/i })
-      .first()
-      .boundingBox();
     const caixaDoSair = await cabecalho.getByRole("button", { name: "Sair" }).boundingBox();
-    expect(caixaDaAjuda?.x ?? 0).toBeGreaterThan(caixaDoSino?.x ?? 0);
     expect(caixaDaAjuda?.x ?? 0).toBeGreaterThan(caixaDoSair?.x ?? 0);
+
+    // E é o elemento mais à direita do cabeçalho, ponto final.
+    const maisADireita = await cabecalho.evaluate((barra) => {
+      const focaveis = [...barra.querySelectorAll<HTMLElement>("a[href], button")].filter(
+        (no) => no.offsetParent !== null,
+      );
+      const ordenados = focaveis.sort(
+        (a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left,
+      );
+      const ultimo = ordenados[ordenados.length - 1];
+      return ultimo?.getAttribute("aria-label") ?? ultimo?.textContent ?? null;
+    });
+    expect(maisADireita).toBe(ROTULO_DA_AJUDA);
   });
 
   test("a ajuda é o último item na ordem de tabulação do cabeçalho", async ({ page }) => {
