@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   entrar,
   limparAliadoPorNome,
@@ -32,6 +32,13 @@ const SVG_VALIDO = Buffer.from(
 /** PNG com cabeçalho válido e corpo grande — passa do teto de 400 KB. */
 const PNG_GRANDE = Buffer.concat([PNG_1X1.subarray(0, 8), Buffer.alloc(420 * 1024, 0x7a)]);
 
+/**
+ * Prefixo "Aliado E2E" de propósito: é o que a limpeza global da suíte
+ * (`configuracao-global.ts`) varre entre execuções. Nome fora dele
+ * sobrevive a uma execução interrompida e vira resíduo que desestabiliza
+ * a contagem de outras telas — foi o que aconteceu no meu ambiente, com
+ * 69 empresas órfãs derrubando um teste da F15.
+ */
 async function prepararSolucao(nome: string) {
   const aliado = await semearAliadoAtivoComContrato(nome);
   const solucao = await semearSolucaoCompleta(aliado.id, `Solução ${nome}`);
@@ -39,28 +46,97 @@ async function prepararSolucao(nome: string) {
 }
 
 /**
- * **Orçamento de 30s nas confirmações de envio.** O envio grava, audita e
- * revalida quatro rotas — entre elas a HOME, que é o painel mais pesado do
- * produto. Na primeira execução do arquivo isso passa do orçamento padrão
- * de 15s (medido: 16,6s na primeira tentativa, 2,1s no retry, com o botão
- * ainda em "Enviando…"). O teto maior não mascara defeito: um elemento
- * realmente ausente continua falhando, só que sem culpar o relógio. Mesmo
- * padrão de `fluxo-principal.spec.ts`.
+ * **Estabilização: esperar sinal, não relógio.**
+ *
+ * O cartão de imagem tem duas transições que o teste precisa respeitar, e
+ * ignorá-las foi o que o fez falhar no runner do CI e não na máquina local
+ * — lá as duas pousam em milissegundos.
+ *
+ * 1. **Antes da primeira interação, a hidratação.** O `<form action={fn}>`
+ *    do `useActionState` não é aprimoramento progressivo: antes de o React
+ *    atar os manipuladores, o clique vira POST nativo e a ação nunca roda.
+ *    A prova de que o componente está vivo é o próprio nome do arquivo
+ *    aparecendo ao lado do botão — ele só é renderizado pelo `onChange`.
+ *
+ * 2. **Entre uma ação e a seguinte, a re-renderização do servidor.** A ação
+ *    revalida a própria rota, e o cartão volta com outro estado: o rótulo
+ *    do campo passa de "Enviar" para "Trocar", e o botão "Remover imagem"
+ *    nasce. Clicar no próximo passo antes disso é agir sobre a árvore
+ *    anterior. O rótulo do campo é o sinal, porque quem o decide é o
+ *    servidor.
+ *
+ * Nenhuma asserção foi afrouxada: as esperas são por estado observável, e
+ * um elemento realmente ausente continua reprovando.
  */
+
+/**
+ * Escolhe o arquivo, **reenviando até o React aceitar**.
+ *
+ * `setInputFiles` dispara o evento de mudança UMA vez. Se o componente
+ * ainda não estiver hidratado, o `onChange` não está atado, o evento se
+ * perde para sempre e nenhuma espera posterior conserta — o clique seguinte
+ * vira POST nativo e a confirmação nunca chega. Foi esta corrida que
+ * reprovou no runner do CI e não na máquina local, onde a hidratação pousa
+ * em milissegundos.
+ *
+ * Medido: com ~10 requisições de prefetch por navegação (uma por `<Link>`
+ * da lateral) competindo com a hidratação, o nome do arquivo chegou a não
+ * aparecer em 30 s.
+ *
+ * `toPass` refaz a escolha até o nome aparecer ao lado do botão — e esse
+ * nome só é renderizado pelo `onChange`, então vê-lo é a prova de que o
+ * componente está vivo. Espera de precondição, não asserção afrouxada.
+ */
+async function escolherArquivo(
+  page: Page,
+  rotulo: string,
+  arquivo: { name: string; mimeType: string; buffer: Buffer },
+) {
+  await expect(async () => {
+    await page.getByLabel(rotulo).setInputFiles(arquivo);
+    await expect(page.getByText(arquivo.name, { exact: false }).first()).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 30_000 });
+}
+
+/** Envia um arquivo pelo cartão, com a hidratação garantida antes do clique. */
+async function enviarPeloCartao(
+  page: Page,
+  arquivo: { name: string; mimeType: string; buffer: Buffer },
+  { trocando = false }: { trocando?: boolean } = {},
+) {
+  await escolherArquivo(
+    page,
+    trocando ? "Trocar a imagem do card" : "Enviar a imagem do card",
+    arquivo,
+  );
+  await page.getByRole("button", { name: trocando ? "Trocar imagem" : "Enviar imagem" }).click();
+}
+
+/**
+ * Espera a re-renderização do servidor pousar depois de uma ação.
+ *
+ * `comImagem` diz qual estado se espera: com imagem o campo pede "Trocar",
+ * sem imagem pede "Enviar". Como quem decide esse rótulo é o servidor,
+ * vê-lo na tela prova que a resposta da ação já foi aplicada.
+ */
+async function aguardarCartaoAssentado(page: Page, comImagem: boolean) {
+  await expect(page.getByRole("button", { name: /Enviando…|Removendo…/ })).toHaveCount(0);
+  await expect(
+    page.getByLabel(comImagem ? "Trocar a imagem do card" : "Enviar a imagem do card"),
+  ).toBeVisible();
+}
 
 test.describe("RN60 — imagem do card da solução", () => {
   test("envia a imagem e ela aparece na pré-visualização e no card de oferta", async ({ page }) => {
-    const nome = `Aliado Imagem ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-imagem`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
 
       // Sem imagem: tratamento neutro, nunca espaço quebrado.
@@ -69,15 +145,16 @@ test.describe("RN60 — imagem do card da solução", () => {
         0,
       );
 
-      await page.getByLabel("Enviar a imagem do card").setInputFiles({
+      await enviarPeloCartao(page, {
         name: "card.png",
         mimeType: "image/png",
         buffer: PNG_1X1,
       });
-      await page.getByRole("button", { name: "Enviar imagem" }).click();
       await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
         timeout: 30_000,
       });
+
+      await aguardarCartaoAssentado(page, true);
 
       // Na moldura do cartão.
       await expect(
@@ -100,27 +177,26 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("a rota serve a imagem com ETag pelo hash", async ({ page }) => {
-    const nome = `Aliado ETag ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-etag`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
-      await page.getByLabel("Enviar a imagem do card").setInputFiles({
+      await enviarPeloCartao(page, {
         name: "card.png",
         mimeType: "image/png",
         buffer: PNG_1X1,
       });
-      await page.getByRole("button", { name: "Enviar imagem" }).click();
       await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
         timeout: 30_000,
       });
+
+      // A rota só tem o que servir depois de a gravação concluir; assentar
+      // aqui evita perguntar antes de a resposta da ação ser aplicada.
+      await aguardarCartaoAssentado(page, true);
 
       const resposta = await page.request.get(`/api/solucoes/${solucao.id}/imagem`);
       expect(resposta.status()).toBe(200);
@@ -140,28 +216,29 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("troca e remoção, com a mensagem certa em cada uma", async ({ page }) => {
-    const nome = `Aliado Troca ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-troca`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
 
-      await page.getByLabel("Enviar a imagem do card").setInputFiles({
+      await enviarPeloCartao(page, {
         name: "card.png",
         mimeType: "image/png",
         buffer: PNG_1X1,
       });
-      await page.getByRole("button", { name: "Enviar imagem" }).click();
       await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
         timeout: 30_000,
       });
+
+      // A re-renderização do envio precisa pousar antes do próximo clique:
+      // com ela o rótulo do campo vira "Trocar" e o botão de remover nasce.
+      // Sem esta espera, o clique cai na árvore anterior — foi exatamente
+      // aqui que o CI reprovou duas vezes seguidas.
+      await aguardarCartaoAssentado(page, true);
 
       // Remover: a mensagem é a da última operação, não a do envio anterior.
       await page.getByRole("button", { name: "Remover imagem" }).click();
@@ -169,24 +246,20 @@ test.describe("RN60 — imagem do card da solução", () => {
         timeout: 30_000,
       });
       await expect(page.getByText("Imagem do card atualizada.")).toHaveCount(0);
-      await expect(page.getByLabel("Enviar a imagem do card")).toBeVisible();
+      await aguardarCartaoAssentado(page, false);
     } finally {
       await limparAliadoPorNome(nome);
     }
   });
 
   test("recusa SVG nomeando o formato, ainda que o arquivo seja válido", async ({ page }) => {
-    const nome = `Aliado SVG ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-svg`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
 
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
@@ -209,17 +282,13 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("recusa acima de 400 KB dizendo o tamanho e o limite", async ({ page }) => {
-    const nome = `Aliado Grande ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-grande`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
 
       await page.getByLabel("Enviar a imagem do card").setInputFiles({
@@ -236,17 +305,13 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("recusa tipo real divergente da extensão, dizendo os dois", async ({ page }) => {
-    const nome = `Aliado Divergente ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-divergente`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
 
       // Conteúdo PNG com nome .webp: a extensão nunca decide.
@@ -266,25 +331,20 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("a régua de completude conta a imagem enviada", async ({ page }) => {
-    const nome = `Aliado Régua ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-regua`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
 
-      await page.getByLabel("Enviar a imagem do card").setInputFiles({
+      await enviarPeloCartao(page, {
         name: "card.png",
         mimeType: "image/png",
         buffer: PNG_1X1,
       });
-      await page.getByRole("button", { name: "Enviar imagem" }).click();
       await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
         timeout: 30_000,
       });
@@ -303,17 +363,13 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("axe AAA limpo na tela sem imagem", async ({ page }) => {
-    const nome = `Aliado AAA ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-aaa`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
       await expect(page.getByRole("heading", { name: "Imagem do card" })).toBeVisible();
       await semViolacoesAxe(page);
@@ -323,7 +379,7 @@ test.describe("RN60 — imagem do card da solução", () => {
   });
 
   test("axe AAA limpo na tela com imagem", async ({ page }) => {
-    const nome = `Aliado AAA img ${runId()}`;
+    const nome = `Aliado E2E ${runId()}-aaa-img`;
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       // Semeada direto: a varredura de acessibilidade mede a tela COM
@@ -345,12 +401,8 @@ test.describe("RN60 — imagem do card da solução", () => {
 
       await entrar(page, "gestor@dev.clubebroto.local");
       await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
-      // Hidratação completa antes de tocar no campo de arquivo: interagir
-      // antes dela faz o `setInputFiles` não chegar ao formulário, o envio
-      // sai vazio e a recusa que aparece é "Selecione um arquivo" — que a
-      // asserção de sucesso espera por 15s antes de desistir. Foi assim
-      // que este teste ficou instável na suíte cheia, e é o mesmo padrão
-      // que `fluxo-principal.spec.ts` já registrava.
+      // Assentamento barato da navegação. NÃO é a proteção da hidratação —
+      // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
       await expect(
         page.getByRole("img", { name: `Imagem do card de ${solucao.nome}` }),

@@ -190,14 +190,23 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
 
     // F17 — e o oitavo item fecha aqui, com a imagem enviada: a régua
     // chega a 100% e a solução fica publicável (RN02).
-    await page.getByLabel("Enviar a imagem do card").setInputFiles({
-      name: "card.png",
-      mimeType: "image/png",
-      buffer: Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-        "base64",
-      ),
-    });
+    /**
+     * `setInputFiles` dispara o evento de mudança uma vez só: se o React
+     * ainda não atou o `onChange`, ele se perde e o clique seguinte vira
+     * POST nativo. Reenviar até o nome aparecer ao lado do botão é a
+     * prova de hidratação — mesmo padrão de `imagem-solucao.spec.ts`.
+     */
+    await expect(async () => {
+      await page.getByLabel("Enviar a imagem do card").setInputFiles({
+        name: "card.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      });
+      await expect(page.getByText("card.png").first()).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
     await page.getByRole("button", { name: "Enviar imagem" }).click();
     await expect(page.getByText("Imagem do card atualizada.")).toBeVisible();
     await expect(page.getByText("100%")).toBeVisible();

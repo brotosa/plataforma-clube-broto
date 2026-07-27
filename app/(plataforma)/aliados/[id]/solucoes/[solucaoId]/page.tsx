@@ -167,6 +167,7 @@ export default async function PaginaSolucao({
             culturas={culturas.map((cultura) => ({ id: cultura.id, nome: cultura.nome }))}
             ufs={ufs.map((uf) => ({ id: uf.id, sigla: uf.sigla }))}
             temImagem={solucao.imagemCard !== null}
+            hashDaImagem={solucao.imagemCard?.hash ?? null}
             valores={{
               solucaoId: solucao.id,
               nome: solucao.nome,

@@ -39,6 +39,7 @@ export function FormularioSolucao({
   ufs,
   valores,
   temImagem = false,
+  hashDaImagem = null,
 }: {
   empresaId: string;
   aliado: { nomeFantasia: string; temMarca: boolean; logoUrl: string | null };
@@ -54,6 +55,14 @@ export function FormularioSolucao({
    * completude e a pré-visualização não mentirem.
    */
   temImagem?: boolean;
+  /**
+   * Hash da imagem vigente. Existe para a pré-visualização usar EXATAMENTE
+   * a mesma URL do cartão de envio (`?v=<hash>`): duas URLs diferentes
+   * para os mesmos bytes fazem o navegador buscar duas vezes e revalidar a
+   * cada renderização, e essa concorrência estava na origem de envios que
+   * voltavam 200 sem a tela atualizar.
+   */
+  hashDaImagem?: string | null;
 }) {
   const edicao = Boolean(valores?.solucaoId);
   const [estado, despachar, pendente] = useActionState<EstadoFormulario, FormData>(
@@ -314,7 +323,7 @@ export function FormularioSolucao({
                 /* Servida por rota própria com ETag pelo hash (RN60). */
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={`/api/solucoes/${valores.solucaoId}/imagem`}
+                  src={`/api/solucoes/${valores.solucaoId}/imagem${hashDaImagem ? `?v=${hashDaImagem.slice(0, 12)}` : ""}`}
                   alt=""
                   style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
                 />
