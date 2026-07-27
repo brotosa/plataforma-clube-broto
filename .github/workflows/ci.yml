@@ -116,3 +116,127 @@ jobs:
             test-results/
             playwright-report/
           retention-days: 7
+
+  # =====================================================================
+  # RN61 — a esteira de imagem (Onda 11, F18).
+  #
+  # Em pull request: constrói e roda a fumaça, mas NÃO publica.
+  # Em push na main: o mesmo, e publica no GHCR se tudo passar.
+  #
+  # A fumaça roda também no PR, e não só na main, de propósito: um teste de
+  # fumaça que só é exercitado depois do merge é um teste em que ninguém
+  # confia na hora que importa — e a RN61 é justamente sobre não publicar o
+  # que não subiu. O que o PR não faz é publicar.
+  #
+  # PLATAFORMA: só `linux/amd64`. `arm64` no runner amd64 sai por emulação
+  # QEMU, e o `next build` emulado leva dezenas de minutos — encarece o job
+  # muito além do que a ficha admite. Pior: build multi-plataforma não pode
+  # ser carregado no daemon local, e sem imagem local não há teste de
+  # fumaça. Publicar sem fumaça viola a RN61, então a decisão é dupla: fica
+  # de fora enquanto o alvo declarado (ECS Fargate / App Runner) for amd64.
+  # =====================================================================
+  imagem:
+    name: Imagem de contêiner — build, fumaça e publicação
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Só isto é preciso para publicar no GHCR: o token nativo do Actions
+      # basta, e não há segredo novo a provisionar (ficha §2).
+      packages: write
+    services:
+      # Mesma configuração do segundo job — banco descartável do runner.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: broto
+          POSTGRES_PASSWORD: broto
+          POSTGRES_DB: clube_broto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U broto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://broto:broto@localhost:5432/clube_broto?schema=public
+      IMAGEM_LOCAL: clube-broto-admin:fumaca
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sem "version" aqui: o pnpm/action-setup lê a versão de "packageManager"
+      # no package.json. Declarar nos dois lugares quebra o setup logo no início
+      # (ERR_PNPM_BAD_PM_VERSION) — foi o que deixava o CI vermelho.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        run: pnpm db:generate
+
+      # Caminho de deploy REAL, não um atalho: o mesmo script que a
+      # hospedagem executa. Via `pnpm exec` porque ele invoca `prisma` sem
+      # caminho, e só o PATH montado pelo pnpm o encontra — rodar
+      # `node scripts/…` direto falha com exit 127 (medido na F18).
+      - name: Aplicar migrations e seed pelo caminho de deploy
+        run: pnpm exec node scripts/preparar-banco-deploy.mjs
+
+      - uses: docker/setup-buildx-action@v3
+
+      # `load: true` põe a imagem no daemon local do runner, que é o que
+      # permite a fumaça rodar contra ela. O cache de camadas do Actions
+      # evita que o job vire o gargalo do CI.
+      - name: Construir a imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGEM_LOCAL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Teste de fumaça (RN61)
+        run: ./scripts/fumaca-imagem.sh "$IMAGEM_LOCAL"
+
+      # --- Daqui para baixo, só em push na main. ---
+
+      - name: Autenticar no GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Publica a imagem QUE PASSOU NA FUMAÇA — retaguear a local, e não
+      # reconstruir, é o que garante que o binário publicado é exatamente o
+      # que foi testado. Reconstruir abriria uma fresta entre o que passou e
+      # o que subiu, que é o buraco que a RN61 existe para fechar.
+      #
+      # Três etiquetas, com papéis distintos (ficha §2): a versão do
+      # package.json permite à TI fixar o que está em produção, o sha curto
+      # permite rastrear exatamente o que subiu, e `latest` serve ambientes
+      # de teste.
+      - name: Publicar no GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          # Pelo ambiente, não interpolado no corpo do script: é a forma
+          # recomendada para valores do contexto do GitHub em `run`.
+          REPOSITORIO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          destino="ghcr.io/$(echo "$REPOSITORIO" | tr '[:upper:]' '[:lower:]')"
+          versao="$(node -p "require('./package.json').version")"
+          sha_curto="$(git rev-parse --short HEAD)"
+          for etiqueta in "$versao" "$sha_curto" latest; do
+            docker tag "$IMAGEM_LOCAL" "$destino:$etiqueta"
+            docker push "$destino:$etiqueta"
+            echo "publicado: $destino:$etiqueta"
+          done
