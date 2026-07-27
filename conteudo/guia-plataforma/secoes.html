@@ -1,0 +1,405 @@
+<section class="gd-sec" id="oquee">
+  <div class="gd-sec-grupo">Fundamentos</div>
+  <h2><span class="gd-num">1</span> O que é e o que não é</h2>
+  <p class="gd-lead">A plataforma é o <strong>sistema de administração do Clube Broto</strong>: onde a Broto organiza a rede de aliados, o portfólio de ofertas, a prospecção de novos parceiros, a base de assinantes e as campanhas do Clube.</p>
+
+  <p>Ela não é o Clube Broto que o produtor acessa. O Clube — a vitrine onde o assinante vê ofertas, emite e resgata vouchers — é operado pela <strong>Minutrade</strong>. Esta plataforma fica atrás dessa vitrine: decide o que entra nela, com quem, em que condições, e mede o que aconteceu.</p>
+
+  <div class="gd-card">
+    <h3>A divisão de trabalho, em uma frase</h3>
+    <p><strong>A Broto decide e modela; a Minutrade executa e opera.</strong> A plataforma produz decisões, cadastros e pacotes de campanha; a operação do voucher, o disparo da comunicação e o atendimento ao assinante acontecem do lado da Minutrade.</p>
+  </div>
+
+  <h3>O que está deliberadamente fora</h3>
+  <p>Saber o que a plataforma <em>não</em> faz evita procurar o que não existe:</p>
+  <ul>
+    <li><strong>Conciliação de comissões.</strong> O ciclo mensal do relatório gerencial — apurar vouchers, registrar manifestação do aliado, calcular e cobrar comissão — permanece fora, por decisão registrada. A plataforma exibe <em>receita de comissão estimada</em>, de caráter gerencial, nunca para cobrança.</li>
+    <li><strong>Disparo de campanha.</strong> A plataforma monta o público, o conteúdo e as peças, e entrega um <em>kit</em>. Quem dispara é a Minutrade.</li>
+    <li><strong>Emissão e resgate de voucher.</strong> Acontece no Clube; aqui chegam apenas os fatos, por importação de telemetria.</li>
+    <li><strong>Atendimento ao assinante.</strong> A base existe para segmentar e medir, não para atender.</li>
+  </ul>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+    <div>
+      <span class="gd-rot">Por que isso importa</span>
+      <p>Cada uma dessas fronteiras foi uma decisão consciente, e todas estão registradas. Se um dia o escopo mudar, o caminho é uma nova onda de especificação — não uma exceção improvisada dentro da tela.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="vocab">
+  <div class="gd-sec-grupo">Fundamentos</div>
+  <h2><span class="gd-num">2</span> Vocabulário</h2>
+  <p class="gd-lead">Metade dos mal-entendidos numa plataforma vem de palavras parecidas com significados diferentes. Estas são as que mais confundem.</p>
+
+  <h3>Aliado, Solução, Oferta — três coisas, não uma</h3>
+  <div class="card" style="overflow-x:auto;margin:16px 0">
+    <table class="tbl tbl-resp">
+      <thead><tr><th style="width:22%">Termo</th><th>O que é</th><th style="width:26%">Exemplo</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Aliado</strong></td><td data-label="O que é">A empresa parceira. Tem cadastro, contrato, contatos e categorias. No vocabulário da Minutrade chama-se <em>seller</em> — mesma coisa, nome diferente.</td><td data-label="Exemplo">Uma empresa de monitoramento por satélite</td></tr>
+        <tr><td><strong>Solução</strong></td><td data-label="O que é">O que o aliado faz ou vende. Um aliado pode ter várias. Carrega as culturas e a cobertura de atendimento.</td><td data-label="Exemplo">O serviço de monitoramento de lavoura</td></tr>
+        <tr><td><strong>Oferta</strong></td><td data-label="O que é">A condição comercial daquela solução publicada na vitrine, com preço, desconto, vigência e mecânica.</td><td data-label="Exemplo">15% de desconto no primeiro ano</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A cadeia é sempre a mesma: <strong>um aliado tem soluções; cada solução gera ofertas; ofertas é que aparecem na vitrine</strong>. Um aliado sem oferta ativa está na rede mas não está no ar.</p>
+
+  <h3>As três naturezas de oferta</h3>
+  <div class="card" style="overflow-x:auto;margin:16px 0">
+    <table class="tbl tbl-resp">
+      <thead><tr><th style="width:26%">Natureza</th><th>Característica</th><th style="width:26%">Comissão</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill pill-ok"><i></i>Recompensa</span></td><td data-label="Característica">Gratuita para o assinante. Não tem preço.</td><td data-label="Comissão">Não gera</td></tr>
+        <tr><td><span class="pill pill-info">Benefício</span></td><td data-label="Característica">Tem preço e condição especial. É a que sustenta a receita.</td><td data-label="Comissão">Percentual do valor pago</td></tr>
+        <tr><td><span class="pill pill-cupom">Cupom</span></td><td data-label="Característica">Desconto aplicado fora da plataforma.</td><td data-label="Comissão">Regra em confirmação</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>O funil de mercado</h3>
+  <p>Toda empresa que a Broto considera passa por estágios, e a passagem entre eles é registrada com autor e data:</p>
+  <div class="gd-fluxo">
+    <span class="pill pill-neutra">Mapeada</span><span class="sep">→</span>
+    <span class="pill pill-neutra">Em avaliação</span><span class="sep">→</span>
+    <span class="pill pill-neutra">Priorizada</span><span class="sep">→</span>
+    <span class="pill pill-neutra">Em negociação</span><span class="sep">→</span>
+    <span class="pill pill-cupom">Em aprovação</span><span class="sep">→</span>
+    <span class="pill pill-ok"><i></i>Aliada ativa</span>
+  </div>
+  <p>Duas saídas laterais existem em qualquer ponto: <span class="pill pill-neutra">Descartada</span>, que exige um dos seis motivos tipificados, e <span class="pill pill-neutra">Encerrada</span>, para relação que terminou. <strong>Em aprovação</strong> é especial: ali o caso está parado na fila do motor de aprovação e não se move por decisão individual.</p>
+
+  <h3>Avaliação, score e dossiê</h3>
+  <p>Três instrumentos que ajudam a decidir — e que <em>não decidem</em>:</p>
+  <ul>
+    <li><strong>ScoutCB</strong> é a metodologia de avaliação: 23 indicadores agrupados em 14 dimensões, cada um pontuado de 1 a 5 com evidência escrita.</li>
+    <li><strong>Score</strong> é o número de 0 a 100 que resulta dessa avaliação. Ele <em>informa</em> a priorização; nunca a executa sozinho.</li>
+    <li><strong>Dossiê</strong> é a pesquisa de due diligence assistida por IA sobre a empresa. Nasce marcado <em>requer revisão</em>, cita fontes, e <strong>jamais preenche uma nota</strong> — o avaliador pode citá-lo na evidência, mas a nota é dele.</li>
+  </ul>
+
+  <h3>Assinantes, segmentos, campanhas</h3>
+  <dl class="gd-glo">
+    <dt>Assinante</dt><dd>O produtor que faz parte do Clube. Tem CPF cifrado, contato, preferência e histórico de uso.</dd>
+    <dt>Segmento</dt><dd>Um filtro salvo sobre a base — "produtores de MT com preferência agricultura". Mostra a contagem viva enquanto você monta.</dd>
+    <dt>Cesta</dt><dd>Um agrupamento reutilizável de ofertas, montado uma vez e usado em várias campanhas.</dd>
+    <dt>Campanha</dt><dd>A união de um público, um conjunto de ofertas ou cestas, peças de comunicação e metas, com vigência.</dd>
+    <dt>Kit</dt><dd>O pacote que a campanha gera na ativação e que vai para a Minutrade executar: lista do público, manifesto das ofertas, peças e instruções. É <strong>versionado e imutável</strong> — alterar a campanha ativa gera um kit novo, com o registro do que mudou.</dd>
+  </dl>
+
+  <h3>Medidas</h3>
+  <dl class="gd-glo">
+    <dt>Vitrine viva</dt><dd>Percentual das ofertas ativas publicadas que tiveram ao menos um resgate na janela de 90 dias. É a tese do Clube em métrica: vitrine grande não vale nada se ninguém usa.</dd>
+    <dt>Atribuição</dt><dd>De onde um número vem. <em>Por oferta</em> significa agregado da própria oferta; <em>por público</em> significa cruzamento com a base de assinantes. Todo número de campanha carrega essa etiqueta, porque a leitura muda conforme a origem.</dd>
+    <dt>Completude</dt><dd>Quanto do cadastro obrigatório do aliado está preenchido. Cadastro incompleto <strong>bloqueia publicação</strong>.</dd>
+  </dl>
+</section>
+
+<section class="gd-sec" id="princ">
+  <div class="gd-sec-grupo">Fundamentos</div>
+  <h2><span class="gd-num">3</span> Os seis princípios</h2>
+  <p class="gd-lead">A plataforma tem atritos deliberados. Eles não são falhas de usabilidade — são as regras da casa, e conhecê-las evita brigar com a ferramenta.</p>
+
+  <div class="gd-princ">
+    <div class="it"><h3><span class="n">01</span> Nenhum dado inventado</h3>
+      <p>Quando não existe base de cálculo, a tela exibe um traço com o motivo — nunca zero, nunca uma aproximação plausível. "Aguarda telemetria por assinante" é uma resposta honesta; um número estimado seria uma mentira confortável. Se um indicador aparece vazio, é porque a fonte dele ainda não chegou.</p></div>
+
+    <div class="it"><h3><span class="n">02</span> A decisão é sempre humana</h3>
+      <p>Score não promove empresa. Dossiê não preenche nota. Sugestão de conteúdo não entra na campanha sozinha. A plataforma calcula, ordena e sugere; quem decide assina o ato, e o ato fica registrado com nome e data.</p></div>
+
+    <div class="it"><h3><span class="n">03</span> Quem pede não aprova</h3>
+      <p>Segregação de funções vale sem exceção: ninguém aprova o próprio pedido, mesmo tendo permissão para as duas coisas. É o que torna a fila de aprovação um controle de verdade e não um carimbo.</p></div>
+
+    <div class="it"><h3><span class="n">04</span> Tudo deixa rastro</h3>
+      <p>Toda mudança relevante grava autor, data, valor anterior e valor novo. A trilha é somente leitura — não se apaga, não se edita. Até a exportação do extrato de auditoria gera o seu próprio registro.</p></div>
+
+    <div class="it"><h3><span class="n">05</span> Dado pessoal só sob finalidade</h3>
+      <p>CPF é cifrado, aparece mascarado por padrão, e a exibição plena é um ato registrado. Exportar lista de contatos exige declarar a finalidade e gera uma fotografia do que foi exportado. Não é burocracia: é a LGPD implementada, não apenas mencionada.</p></div>
+
+    <div class="it"><h3><span class="n">06</span> Configuração, não código</h3>
+      <p>Réguas de prazo, listas de domínio, metas e percentuais vivem no Parametrizador e mudam sem depender de desenvolvimento. Mudanças valem daqui em diante — nunca reescrevem o passado já registrado.</p></div>
+  </div>
+</section>
+
+<section class="gd-sec" id="j1">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.1</span> Trazer um aliado novo</h2>
+  <p class="gd-lead">Do primeiro contato ao aliado publicando oferta na vitrine. É a jornada mais longa e a que mais gente atravessa.</p>
+
+  <ol class="gd-jorn">
+    <li><b>Entrar no radar</b>
+      <p>Em <em>Mercado &amp; Scout</em>, use <em>+ Incluir empresa</em> para uma empresa por vez, ou <em>Importar lista</em> para trazer uma planilha inteira — o mapeador deixa você dizer qual coluna é o quê, sem depender de formato fixo. Exige nome, origem e ao menos uma categoria-alvo. A empresa nasce em <span class="pill pill-neutra">Mapeada</span>.</p></li>
+
+    <li><b>Avaliar pelo ScoutCB</b>
+      <p>No menu do card, abra a avaliação. Pontue de 1 a 5 com evidência em cada indicador; o score se forma ao vivo, com os subtotais por dimensão à vista. Concluir congela a avaliação. Precisou corrigir? Uma nova versão é criada, e a anterior permanece consultável — nada se sobrescreve.</p></li>
+
+    <li><b>Gerar o dossiê, se ajudar</b>
+      <p>Pesquisa de due diligence assistida, sob demanda, uma empresa por vez. Vem com fontes por afirmação e a marca <em>requer revisão</em>. Leia antes de usar; marque como revisado quando conferir.</p></li>
+
+    <li><b>Priorizar</b>
+      <p>Mover para <span class="pill pill-neutra">Priorizada</span> exige avaliação fechada. É aqui que o método aparece: prioriza-se com base em análise registrada, não em impressão.</p></li>
+
+    <li><b>Negociar e preencher a Ficha M1</b>
+      <p>Em <span class="pill pill-neutra">Em negociação</span>, o responsável comercial registra o andamento e preenche a Ficha Cadastral. Ofertas pretendidas anotadas ali viram rascunho de solução e oferta quando a empresa for promovida — nada se digita duas vezes.</p></li>
+
+    <li><b>Pedir a promoção</b>
+      <p>O pedido entra na fila de <em>Aprovações</em> levando junto a avaliação vigente e o dossiê. A empresa passa a <span class="pill pill-cupom">Em aprovação</span> e fica congelada: o aprovador vê exatamente o caso que foi submetido.</p></li>
+
+    <li><b>Aprovar</b>
+      <p>Outra pessoa aprova — nunca quem pediu. Aprovado, a empresa vira <span class="pill pill-ok"><i></i>Aliada ativa</span> e ganha cadastro na rede. Devolvido, volta para negociação com o comentário obrigatório de quem devolveu.</p></li>
+
+    <li><b>Completar cadastro e publicar</b>
+      <p>Complete o cadastro comercial e contratual; a completude sobe conforme os campos obrigatórios são preenchidos. Só então a oferta pode ser publicada.</p></li>
+  </ol>
+
+  <div class="gd-bloco gd-trava">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+    <div>
+      <span class="gd-rot">O que trava, e por quê</span>
+      <p><strong>Priorizar sem avaliação fechada:</strong> recusado — a priorização precisa de lastro. <strong>Descartar sem motivo:</strong> recusado — o descarte exige um dos seis motivos tipificados, porque a memória do "por que não" é o que evita reabordar a mesma empresa em seis meses. <strong>Aprovar o próprio pedido:</strong> recusado, sempre. <strong>Publicar oferta de aliado com cadastro incompleto:</strong> recusado — a vitrine não recebe cadastro pela metade.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="j2">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.2</span> Publicar e manter ofertas</h2>
+  <p class="gd-lead">A vitrine é o produto. Mantê-la viva é o trabalho recorrente mais importante.</p>
+
+  <ol class="gd-jorn">
+    <li><b>Cadastrar a solução</b>
+      <p>Na ficha do aliado, registre o que ele oferece: categoria, culturas atendidas e cobertura. É isso que alimenta os mapas de cobertura e o casamento com públicos de campanha.</p></li>
+    <li><b>Criar a oferta</b>
+      <p>Escolha a natureza — Recompensa, Benefício ou Cupom —, defina preço e desconto quando couber, a vigência e a destinação (vitrine, campanha ou cesta). Cada natureza tem seus campos obrigatórios: Benefício sem preço, por exemplo, não passa.</p></li>
+    <li><b>Publicar</b>
+      <p>A publicação monta um pacote do que está publicável e registra o que mudou em relação à publicação anterior. Ofertas marcadas como pendentes de republicação são resolvidas nesse mesmo ato.</p></li>
+    <li><b>Acompanhar vigência</b>
+      <p>O painel avisa com antecedência sobre vigências a vencer e janelas contratuais de não-renovação. É pendência na HOME e no sino — não depende de alguém lembrar.</p></li>
+  </ol>
+
+  <div class="gd-bloco gd-atencao">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+    <div>
+      <span class="gd-rot">Atenção</span>
+      <p>Despublicar um pacote leva junto as ofertas dele, em cascata — e o aviso mostra quais antes de confirmar. Encerrar uma campanha pausa as ofertas que existiam exclusivamente para ela, também com aviso prévio e reversão manual disponível.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="j3">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.3</span> Base de assinantes</h2>
+  <p class="gd-lead">Quem são os produtores do Clube, como segmentá-los e o que é preciso cuidar ao lidar com dado pessoal.</p>
+
+  <ol class="gd-jorn">
+    <li><b>Importar</b>
+      <p>Em <em>Assinantes → Importações</em>, envie o arquivo. O mapeador sugere de/para das colunas; você confirma. Escolha a política: <em>incremental</em> acrescenta e atualiza; <em>foto completa</em> substitui a base — e por isso passa por confirmação em duas etapas, com o resumo do que será removido antes de qualquer coisa acontecer.</p></li>
+    <li><b>Conferir a quarentena</b>
+      <p>Linhas inaproveitáveis não derrubam a carga: vão para quarentena com o motivo. Vale sempre abrir o resumo — é ali que se descobre que metade do arquivo veio com uma coluna fora do padrão.</p></li>
+    <li><b>Montar segmentos</b>
+      <p>Use o construtor de filtros e observe a contagem viva enquanto ajusta. Salve o segmento para reutilizar em campanhas. Assinante sem um atributo fica de fora tanto do filtro positivo quanto do negativo — a ausência não é tratada como resposta.</p></li>
+    <li><b>Exportar quando necessário</b>
+      <p>A exportação exige <strong>declarar a finalidade</strong>, guarda uma fotografia do que foi exportado e registra o ato. Não há caminho alternativo.</p></li>
+  </ol>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path></svg>
+    <div>
+      <span class="gd-rot">Dado pessoal</span>
+      <p>CPF é cifrado no banco e mascarado na tela. Ver os dados plenos é uma ação explícita, restrita a quem tem permissão, e fica registrada — inclusive quem viu e quando. Reimportar o mesmo arquivo não duplica ninguém: a identidade é o CPF.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="j4">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.4</span> Rodar uma campanha</h2>
+  <p class="gd-lead">Do público ao kit entregue. A plataforma modela; a Minutrade dispara.</p>
+
+  <ol class="gd-jorn">
+    <li><b>Definir o público</b>
+      <p>Escolha um segmento salvo ou monte um na hora, com a contagem à vista. Sem público com pelo menos uma pessoa, a campanha não ativa.</p></li>
+    <li><b>Escolher o conteúdo</b>
+      <p>Vincule ofertas publicadas, avulsas ou em cestas. A plataforma sugere ofertas aderentes ao público — sugestão rotulada como tal, que você aceita ou ignora; nada entra sozinho.</p></li>
+    <li><b>Montar as peças</b>
+      <p>E-mail, banner, push, WhatsApp: título, texto e imagem por formato. As peças vão no kit; a plataforma não dispara nada.</p></li>
+    <li><b>Definir metas</b>
+      <p>Resgates, conversão, aliados participantes ou ofertas ativas. É contra elas que o painel vai medir.</p></li>
+    <li><b>Ativar</b>
+      <p>A ativação valida tudo, <strong>congela o público</strong> numa fotografia e gera o <strong>kit v1</strong>. A partir daí, quem entrar na base depois não entra nesta campanha — e é isso que torna a medição confiável.</p></li>
+    <li><b>Acompanhar</b>
+      <p>O painel mostra meta contra realizado, com a etiqueta de atribuição em cada número. O que depende de granularidade por assinante aparece como indisponível, com o motivo.</p></li>
+    <li><b>Encerrar</b>
+      <p>Ao encerrar, a plataforma avisa quais ofertas exclusivas daquela campanha serão pausadas, antes de confirmar. Ofertas de vitrine apenas se desvinculam.</p></li>
+  </ol>
+
+  <div class="gd-bloco gd-atencao">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+    <div>
+      <span class="gd-rot">Kit é versionado</span>
+      <p>Alterar uma campanha já ativa <strong>não altera o kit entregue</strong>: gera uma versão nova, com o registro do que mudou. A versão anterior fica intacta e consultável — é o que permite saber exatamente o que a Minutrade recebeu em cada momento.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="j5">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.5</span> Acompanhar a rede</h2>
+  <p class="gd-lead">Onde olhar para saber como o Clube está — e o que cada número está de fato dizendo.</p>
+
+  <h3>O painel inicial</h3>
+  <p>A HOME abre com <strong>O Clube hoje</strong>: a vitrine viva em destaque, o panorama de aliados, soluções, ofertas, campanhas, cestas, assinantes e resgates, e a faixa de <strong>pendências que exigem ação</strong> — cada uma clicável para a tela onde se resolve. O sino no cabeçalho repete essa contagem, e o número é sempre o mesmo dos cartões.</p>
+  <p>Abaixo, quatro blocos por domínio: Rede e Aliados, Mercado e Funil, Assinantes e Uso, Campanhas. Todos respeitam o período selecionado.</p>
+
+  <h3>Cobertura do portfólio</h3>
+  <p>Em <em>Aliados &amp; Soluções → Cobertura</em>: o que a rede cobre por categoria, onde é frágil, onde não existe, e o quanto está concentrado nas três maiores categorias. Cada lacuna tem o atalho <em>Buscar no radar</em>, que abre o funil filtrado por aquela categoria — a pergunta certa antes de prospectar é sempre "já estamos atrás de alguém aqui?".</p>
+
+  <h3>Mapa da rede</h3>
+  <p>Em <em>Aliados &amp; Soluções → Mapa da rede</em>: distribuição geográfica com dois modos que <strong>nunca se misturam</strong> — <em>sede do aliado</em> e <em>abrangência declarada de atendimento</em>. São leituras diferentes: uma empresa sediada em São Paulo pode atender todo o Centro-Oeste. O modo ativo está sempre visível, e o volume sem declaração é informado em vez de omitido.</p>
+
+  <h3>Cobertura e metas do funil</h3>
+  <p>Em <em>Mercado &amp; Scout → Cobertura</em> e <em>Metas</em>: a matriz de categorias contra o que já está na rede e o que está no funil, e o acompanhamento da meta anual de novos aliados. O realizado conta promoções efetivadas — aliados que já nasceram na carga inicial não entram na conta.</p>
+</section>
+
+<section class="gd-sec" id="j6">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.6</span> Configurar a plataforma</h2>
+  <p class="gd-lead">O Parametrizador existe para que mudar uma régua não seja um pedido de desenvolvimento.</p>
+
+  <p>Restrito ao <strong>Administrador da Plataforma</strong>, ele guarda:</p>
+  <ul>
+    <li><strong>Réguas de prazo</strong> — envelhecimento no funil, aviso de vigência, janela de reavaliação, janela da vitrine viva.</li>
+    <li><strong>Listas de domínio</strong> — categorias, culturas, motivos de descarte, formatos de peça. Item em uso não se exclui: inativa-se, e a plataforma mostra quantos registros o utilizam.</li>
+    <li><strong>Metas</strong> — a meta de novos aliados por período, sem sobreposição de períodos.</li>
+    <li><strong>Percentuais e tetos</strong> — comissão padrão e limites de custo do dossiê.</li>
+  </ul>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Efeito prospectivo</span>
+      <p>Alterações valem <strong>daqui em diante</strong>. Avaliações já fechadas guardam a configuração vigente na época e não mudam retroativamente — o passado registrado permanece legível como foi decidido.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="papeis">
+  <div class="gd-sec-grupo">Referência</div>
+  <h2><span class="gd-num">5</span> Papéis e permissões</h2>
+  <p class="gd-lead">Cada pessoa vê e faz o que o papel dela permite. A atribuição de papéis segue a política de uso da plataforma.</p>
+
+  <div class="card" style="overflow-x:auto;margin:16px 0">
+    <table class="tbl tbl-resp">
+      <thead><tr><th style="width:22%">Papel</th><th>Faz</th><th>Não faz</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Administrador da Plataforma</strong></td>
+          <td data-label="Faz">Configura réguas, listas, metas e percentuais; cria e inativa usuários; define papéis</td>
+          <td data-label="Não faz">Não modela nem ativa campanha; não opera o dia a dia comercial</td>
+        </tr>
+        <tr>
+          <td><strong>Gestor do Clube</strong></td>
+          <td data-label="Faz">Cadastra e publica ofertas; aprova pedidos; monta e ativa campanhas; importa e segmenta assinantes; exporta com finalidade</td>
+          <td data-label="Não faz">Não aprova o que ele mesmo pediu; não altera parâmetros</td>
+        </tr>
+        <tr>
+          <td><strong>Analista</strong></td>
+          <td data-label="Faz">Cadastra aliados, soluções e ofertas; importa assinantes; solicita publicação e promoção</td>
+          <td data-label="Não faz">Não aprova; não publica sem passar pela aprovação quando exigida</td>
+        </tr>
+        <tr>
+          <td><strong>Analista de Scout</strong></td>
+          <td data-label="Faz">Inclui empresas no radar; avalia pelo ScoutCB; gera dossiê; movimenta o funil até a priorização</td>
+          <td data-label="Não faz">Não acessa dados pessoais de assinantes; não opera campanhas</td>
+        </tr>
+        <tr>
+          <td><strong>Comercial</strong></td>
+          <td data-label="Faz">Conduz negociação; preenche a Ficha M1; pede promoção</td>
+          <td data-label="Não faz">Não aprova a própria promoção; não acessa dados pessoais de assinantes</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+    <div>
+      <span class="gd-rot">Duas garantias que valem para todos</span>
+      <p>Ninguém aprova o próprio pedido, mesmo tendo as duas permissões. E não é possível rebaixar ou inativar o <strong>último administrador</strong> — a plataforma impede, para que ninguém fique trancado do lado de fora da própria casa.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="faltam">
+  <div class="gd-sec-grupo">Referência</div>
+  <h2><span class="gd-num">6</span> Por que alguns números não aparecem</h2>
+  <p class="gd-lead">Ver um traço no lugar de um número não é erro. É a plataforma dizendo que a fonte daquele número ainda não existe.</p>
+
+  <div class="card" style="overflow-x:auto;margin:16px 0">
+    <table class="tbl tbl-resp">
+      <thead><tr><th style="width:24%">O que aparece</th><th>O que significa</th><th style="width:28%">O que destrava</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Aguarda telemetria por assinante</strong></td>
+          <td data-label="O que significa">A Minutrade fornece hoje os números agregados por oferta; ainda não o evento individual com CPF. Sem isso não há como saber <em>quem</em> usou — só <em>quanto</em> foi usado.</td>
+          <td data-label="O que destrava">Recebimento do evento individual de uso. Destrava a régua de assinante ativo, a conversão de campanha e a medição por público.</td>
+        </tr>
+        <tr>
+          <td><strong>Sem base de cálculo no período</strong></td>
+          <td data-label="O que significa">Não há denominador para a conta na janela escolhida — por exemplo, nenhuma oferta publicada para medir a vitrine viva.</td>
+          <td data-label="O que destrava">Publicar ofertas, ou ampliar o período.</td>
+        </tr>
+        <tr>
+          <td><strong>Depende da carga inicial</strong></td>
+          <td data-label="O que significa">A informação existirá quando a carga daquele domínio for feita.</td>
+          <td data-label="O que destrava">Executar a carga correspondente.</td>
+        </tr>
+        <tr>
+          <td><strong>Regra em confirmação</strong></td>
+          <td data-label="O que significa">A regra de negócio ainda não foi definida — é o caso da comissão sobre cupom.</td>
+          <td data-label="O que destrava">Definição comercial, registrada e configurada no Parametrizador.</td>
+        </tr>
+        <tr>
+          <td><strong>Não derivado / não declarado</strong></td>
+          <td data-label="O que significa">Aquele registro específico não tem o atributo. Não é zero: é ausência, e por isso fica fora tanto do filtro positivo quanto do negativo.</td>
+          <td data-label="O que destrava">Enriquecimento do cadastro.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Em todos os casos vale o primeiro princípio: <strong>a plataforma prefere admitir que não sabe a apresentar uma estimativa que pareça verdade</strong>. Um número aproximado num painel executivo vira decisão errada semanas depois, quando ninguém lembra que era aproximado.</p>
+</section>
+
+<section class="gd-sec" id="glossario">
+  <div class="gd-sec-grupo">Referência</div>
+  <h2><span class="gd-num">7</span> Glossário</h2>
+
+  <dl class="gd-glo">
+    <dt>Aliado</dt><dd>Empresa parceira com cadastro na rede. Chamado de <em>seller</em> no vocabulário da Minutrade.</dd>
+    <dt>Assinante</dt><dd>Produtor que integra o Clube Broto.</dd>
+    <dt>Atribuição</dt><dd>Etiqueta que indica a origem de um número: por oferta ou por público.</dd>
+    <dt>Campanha</dt><dd>Público, ofertas, peças e metas com vigência, que ao ativar gera um kit.</dd>
+    <dt>Cesta</dt><dd>Conjunto reutilizável de ofertas.</dd>
+    <dt>Completude</dt><dd>Percentual do cadastro obrigatório preenchido; abaixo do exigido, bloqueia publicação.</dd>
+    <dt>Dossiê</dt><dd>Pesquisa de due diligence assistida por IA, com fontes, que nasce exigindo revisão humana.</dd>
+    <dt>Efetivação</dt><dd>Ato de confirmar uma importação depois da conferência, gravando os registros de fato.</dd>
+    <dt>Kit</dt><dd>Pacote versionado e imutável entregue à Minutrade para executar a campanha.</dd>
+    <dt>Motor de aprovação</dt><dd>Fila que segura pedidos que exigem aprovação de outra pessoa, com segregação de funções.</dd>
+    <dt>Oferta</dt><dd>Condição comercial publicada de uma solução, com natureza, preço, vigência e destinação.</dd>
+    <dt>Parametrizador</dt><dd>Onde vivem réguas, listas, metas e percentuais, editáveis pelo Administrador.</dd>
+    <dt>Quarentena</dt><dd>Linhas de uma importação recusadas com motivo, sem derrubar o restante da carga.</dd>
+    <dt>Score ScoutCB</dt><dd>Nota de 0 a 100 derivada da avaliação por indicadores; informa, não decide.</dd>
+    <dt>Segmento</dt><dd>Filtro salvo sobre a base de assinantes, com contagem viva.</dd>
+    <dt>Solução</dt><dd>O que o aliado oferece; origem das ofertas.</dd>
+    <dt>Staging</dt><dd>Área de conferência de uma importação antes da efetivação.</dd>
+    <dt>Telemetria</dt><dd>Fatos de uso vindos da operação: emissão, resgate e compra confirmada. Imutáveis.</dd>
+    <dt>Vitrine viva</dt><dd>Percentual de ofertas ativas publicadas com resgate na janela de 90 dias.</dd>
+  </dl>
+
+  <div class="gd-card" style="margin-top:32px">
+    <h3>Sobre este documento</h3>
+    <p>Guia de referência da Plataforma de Administração e Gestão do Clube Broto, versão 1.0. Descreve conceitos, princípios e jornadas de uso — não substitui a especificação funcional, que é a fonte da verdade para regras detalhadas. Quando plataforma e documento divergirem, a plataforma e a especificação vencem, e este guia deve ser corrigido.</p>
+    <p><strong>Capturas de tela:</strong> esta versão não traz imagens, por escolha — telas mudam a cada onda e imagens desatualizadas confundem mais do que ajudam. Se forem incluídas, o lugar natural é ao lado de cada jornada.</p>
+  </div>
+</section>

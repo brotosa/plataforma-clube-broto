@@ -430,3 +430,95 @@ test.describe("responsividade a 380px — F15 (Onda 8)", () => {
     await semViolacoesAxe(page);
   });
 });
+
+/**
+ * Onda 9 (F16) — a rota de ajuda a 380px.
+ *
+ * O guia é o conteúdo mais longo da plataforma e o único com tabelas de
+ * texto corrido, então é onde o colapso mobile tem mais a errar.
+ */
+test.describe("Onda 9 — Ajuda contextual a 380px", () => {
+  test("T31: o guia cabe a 380px, com sumário fechado e tabelas em cards", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/ajuda");
+
+    await expect(page.locator("section.gd-sec")).toHaveCount(12);
+
+    // Sumário recolhido por padrão: o texto começa na primeira dobra.
+    const sumario = page.locator("details.gd-idx-mob");
+    await expect(sumario).toBeVisible();
+    expect(await sumario.evaluate((no) => (no as HTMLDetailsElement).open)).toBe(false);
+    // A coluna fixa do desktop some — duas listas de seções na mesma tela
+    // seriam duas navegações concorrentes.
+    await expect(page.getByRole("navigation", { name: "Sumário do guia" })).toBeHidden();
+
+    // Abrir, escolher e o recolhido se fecha sozinho.
+    await sumario.getByText("Neste guia").click();
+    await sumario.getByRole("link", { name: "4.4 · Rodar uma campanha" }).click();
+    await expect(page.getByRole("heading", { name: "4.4 Rodar uma campanha" })).toBeVisible();
+    expect(await sumario.evaluate((no) => (no as HTMLDetailsElement).open)).toBe(false);
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T31: a linha do tempo das jornadas põe o número acima do título", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/ajuda#j1");
+
+    // A 380px o marcador deixa de ser coluna à esquerda: sem isso ele sairia
+    // da tela pelo deslocamento negativo do desktop.
+    const recuo = await page
+      .locator("#j1 ol.gd-jorn > li")
+      .first()
+      .evaluate((no) => getComputedStyle(no).paddingLeft);
+    expect(recuo).toBe("0px");
+
+    await semRolagemHorizontal(page);
+  });
+
+  test("T31: as tabelas do guia colapsam com rótulo por célula", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/ajuda#papeis");
+
+    const tabela = page.locator("#papeis table.tbl-resp").first();
+    await expect(tabela).toBeVisible();
+    await expect(tabela.locator("thead")).toBeHidden();
+
+    /**
+     * A convenção do guia difere da do produto, e de propósito: a primeira
+     * célula da linha é o NOME da linha — no card colapsado ela é o título,
+     * e um rótulo de coluna acima dela seria ruído. As demais declaram a
+     * coluna a que pertencem. Por isso a asserção não é o
+     * `tabelaColapsadaEmCards` compartilhado, que exige rótulo em todas.
+     */
+    const semRotulo = await tabela.locator("tbody td:not([data-label])").count();
+    const linhas = await tabela.locator("tbody tr").count();
+    expect(semRotulo, "só a primeira célula de cada linha fica sem rótulo").toBe(linhas);
+
+    const rotuloVisivel = await tabela
+      .locator("tbody td[data-label]")
+      .first()
+      .evaluate((no) => getComputedStyle(no, "::before").content);
+    expect(rotuloVisivel).not.toBe("none");
+    expect(rotuloVisivel).not.toBe('""');
+
+    await semRolagemHorizontal(page);
+  });
+
+  test("T31: célula de prosa não estoura a largura da tabela", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/ajuda#faltam");
+
+    // O defeito que originou o patch: célula com <em> no meio da frase era
+    // fatiada em itens de flex que não quebravam, e o card virava região
+    // rolável sem foco de teclado. Aqui a régua é o próprio estouro.
+    const estouros = await page.evaluate(() =>
+      [...document.querySelectorAll(".gd-doc .card")].map((c) => c.scrollWidth - c.clientWidth),
+    );
+    expect(Math.max(...estouros), "estouro dentro dos cards do guia").toBeLessThanOrEqual(0);
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+});

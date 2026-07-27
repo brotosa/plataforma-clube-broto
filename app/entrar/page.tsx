@@ -64,13 +64,17 @@ export default async function PaginaEntrar({
             priority
             style={{ height: 26, width: "auto" }}
           />
-          {/* F15 — descritivo da marca. Aqui vai o nome inteiro ("Gestão do
-              Clube Broto"), diferente da lateral: naquela o logo logo acima
-              já diz "Broto", e repetir soaria redundante; nesta o logo é a
-              marca institucional isolada, então o descritivo precisa nomear
-              o sistema por completo. */}
+          {/* F15 — descritivo da marca. Aqui vai o nome inteiro, diferente
+              da lateral: naquela o logo logo acima já diz "Broto", e repetir
+              soaria redundante; nesta o logo é a marca institucional
+              isolada, então o descritivo precisa nomear o sistema por
+              completo.
+              F16 (ficha §2) — o rótulo de interface passa a "Plataforma de
+              gestão do Clube Broto". O nome formal do sistema ("Plataforma
+              de Administração e Gestão do Clube Broto") não muda: ele
+              continua na documentação e no cabeçalho do kit da Minutrade. */}
           <p className="cap" style={{ margin: 0 }}>
-            Gestão do Clube Broto
+            Plataforma de gestão do Clube Broto
           </p>
         </div>
 

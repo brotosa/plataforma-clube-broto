@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { PendenciaApurada } from "@/dominio/dashboard/indicadores";
+import { secaoParaOrigem } from "@/dominio/ajuda/mapa-contextual";
 import { SinoPendencias } from "./sino-pendencias";
 
 /**
@@ -163,6 +164,24 @@ export function ShellPlataforma({
   const [recolhida, setRecolhida] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
   const rota = usePathname();
+  const busca = useSearchParams();
+
+  /**
+   * Endereço da ajuda contextual (Onda 9, RN59).
+   *
+   * A origem carrega a query porque em algumas seções ela *é* a tela: em
+   * Mercado & Scout, Funil, Cobertura e Metas diferem só pelo `?aba=`, e a
+   * ficha §1.3 manda as três abrirem seções diferentes do guia. Sem a
+   * query, Metas abriria em 4.1 e a volta devolveria ao Funil.
+   *
+   * A seção vai na âncora, e não em parâmetro: `/ajuda#j4` é endereço que
+   * se compartilha, que o navegador reposiciona sozinho e que sobrevive à
+   * impressão.
+   */
+  const consulta = busca.toString();
+  const origemDaAjuda = consulta ? `${rota}?${consulta}` : rota;
+  const enderecoDaAjuda = `/ajuda?de=${encodeURIComponent(origemDaAjuda)}#${secaoParaOrigem(origemDaAjuda)}`;
+  const rotuloDaAjuda = "Ajuda — abrir o guia da plataforma";
 
   const classeAside = ["aside", recolhida ? "col" : "", menuAberto ? "open" : ""]
     .filter(Boolean)
@@ -232,8 +251,18 @@ export function ShellPlataforma({
                 em AAA. Branco é o maior contraste possível neste fundo —
                 mesma decisão que a F5 já havia tomado para a legenda do
                 rodapé. Medição em docs/acessibilidade-aaa.md. */}
-            <div className="cap" style={{ color: "var(--branco)", fontSize: 11 }}>
-              Gestão do Clube
+            {/* F16 (ficha §2) — o descritivo passa a "Plataforma de gestão
+                do Clube". É mais longo do que o anterior e a lateral tem
+                largura fixa, então a quebra é controlada em vez de sorteada:
+                o espaço entre "do" e "Clube" é inquebrável, de modo que a
+                segunda linha, quando existir, seja "do Clube" e nunca
+                "Clube" sozinho. `lineHeight` apertado porque duas linhas de
+                legenda não podem empurrar o menu para baixo. */}
+            <div
+              className="cap"
+              style={{ color: "var(--branco)", fontSize: 11, lineHeight: 1.25, maxWidth: "100%" }}
+            >
+              Plataforma de gestão do&nbsp;Clube
             </div>
           </div>
         )}
@@ -359,6 +388,40 @@ export function ShellPlataforma({
           </form>
 
           <div style={{ flex: 1 }} />
+
+          {/*
+            Ajuda antes do alerta (ficha §1.2): o sino é o item de maior
+            urgência do cabeçalho e fica na ponta; o "?" entra à esquerda
+            dele.
+
+            Âncora e não `<Link>`: o endereço leva query (`?de=`) e âncora
+            (`#secao`), e a convenção do repositório manda âncora sempre
+            que a query participa da navegação. A navegação de documento
+            também é o que faz o navegador posicionar a seção sozinho.
+          */}
+          <a
+            className="btn btn-ghost"
+            style={{ width: 38, height: 38, padding: 0, borderRadius: "50%", flex: "none" }}
+            href={enderecoDaAjuda}
+            aria-label={rotuloDaAjuda}
+            title={rotuloDaAjuda}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4" />
+              <path d="M12 17h.01" />
+            </svg>
+          </a>
 
           {/* F14: o `title` antigo prometia "alertas de vigência e janela
               contratual chegam com a carga de dados" — alertas que nunca
