@@ -38,6 +38,16 @@ async function prepararSolucao(nome: string) {
   return { aliado, solucao };
 }
 
+/**
+ * **Orçamento de 30s nas confirmações de envio.** O envio grava, audita e
+ * revalida quatro rotas — entre elas a HOME, que é o painel mais pesado do
+ * produto. Na primeira execução do arquivo isso passa do orçamento padrão
+ * de 15s (medido: 16,6s na primeira tentativa, 2,1s no retry, com o botão
+ * ainda em "Enviando…"). O teto maior não mascara defeito: um elemento
+ * realmente ausente continua falhando, só que sem culpar o relógio. Mesmo
+ * padrão de `fluxo-principal.spec.ts`.
+ */
+
 test.describe("RN60 — imagem do card da solução", () => {
   test("envia a imagem e ela aparece na pré-visualização e no card de oferta", async ({ page }) => {
     const nome = `Aliado Imagem ${runId()}`;
@@ -65,7 +75,9 @@ test.describe("RN60 — imagem do card da solução", () => {
         buffer: PNG_1X1,
       });
       await page.getByRole("button", { name: "Enviar imagem" }).click();
-      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible();
+      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
+        timeout: 30_000,
+      });
 
       // Na moldura do cartão.
       await expect(
@@ -106,7 +118,9 @@ test.describe("RN60 — imagem do card da solução", () => {
         buffer: PNG_1X1,
       });
       await page.getByRole("button", { name: "Enviar imagem" }).click();
-      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible();
+      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
+        timeout: 30_000,
+      });
 
       const resposta = await page.request.get(`/api/solucoes/${solucao.id}/imagem`);
       expect(resposta.status()).toBe(200);
@@ -145,11 +159,15 @@ test.describe("RN60 — imagem do card da solução", () => {
         buffer: PNG_1X1,
       });
       await page.getByRole("button", { name: "Enviar imagem" }).click();
-      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible();
+      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
+        timeout: 30_000,
+      });
 
       // Remover: a mensagem é a da última operação, não a do envio anterior.
       await page.getByRole("button", { name: "Remover imagem" }).click();
-      await expect(page.getByText("Imagem do card removida.")).toBeVisible();
+      await expect(page.getByText("Imagem do card removida.")).toBeVisible({
+        timeout: 30_000,
+      });
       await expect(page.getByText("Imagem do card atualizada.")).toHaveCount(0);
       await expect(page.getByLabel("Enviar a imagem do card")).toBeVisible();
     } finally {
@@ -267,7 +285,9 @@ test.describe("RN60 — imagem do card da solução", () => {
         buffer: PNG_1X1,
       });
       await page.getByRole("button", { name: "Enviar imagem" }).click();
-      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible();
+      await expect(page.getByText("Imagem do card atualizada.")).toBeVisible({
+        timeout: 30_000,
+      });
 
       // O item da régua acende — é o que a RN09 exige para publicar.
       const itemDaRegua = page.locator("li,div", { hasText: "Imagem do card" }).first();

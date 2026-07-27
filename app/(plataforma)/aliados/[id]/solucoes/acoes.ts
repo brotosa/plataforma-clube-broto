@@ -186,10 +186,18 @@ export async function acaoRemoverImagemDaSolucao(
 /**
  * As telas que mostram a imagem, ou que mostram um número que ela move.
  *
- * `/ofertas` e `/` entram porque a imagem participa da régua de completude
- * (RN09): sem revalidar, o percentual da T4 e a contagem de cadastros
- * incompletos da HOME ficariam um passo atrás do que a tela acabou de
- * mudar. Foi a lição que a F15 registrou ao esquecer `/mercado` na marca.
+ * `/ofertas` entra porque a imagem participa da régua de completude (RN09)
+ * e o percentual da T4 ficaria um passo atrás do que a tela acabou de
+ * mudar.
+ *
+ * **A HOME não entra, e isto foi medido.** A primeira versão revalidava
+ * `/` para atualizar a contagem de cadastros incompletos do painel, e o
+ * envio passou a levar 16 a 17 segundos — contra ~1,6 s do envio da marca,
+ * que faz exatamente o mesmo trabalho. A diferença era só esta chamada:
+ * revalidar a raiz invalida a árvore inteira a partir do layout, não uma
+ * página. O painel se atualiza na própria navegação, e é assim que a marca
+ * (RN54) já se comporta desde a F15 para o mesmo contador — manter os dois
+ * iguais também evita que a diferença vire pergunta.
  */
 function revalidarTelasDaImagem(empresaId: string, solucaoId: string): void {
   if (empresaId) {
@@ -197,5 +205,4 @@ function revalidarTelasDaImagem(empresaId: string, solucaoId: string): void {
     revalidatePath(`/aliados/${empresaId}/solucoes/${solucaoId}`);
   }
   revalidatePath("/ofertas");
-  revalidatePath("/");
 }
