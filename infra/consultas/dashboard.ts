@@ -174,6 +174,8 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
           imagemCardUrl: true,
           categoriaId: true,
           coberturaNacional: true,
+          // Só a existência: o binário não entra em consulta de painel.
+          imagemCard: { select: { solucaoId: true } },
           empresa: {
             select: {
               nomeFantasia: true,
@@ -197,7 +199,7 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
       Boolean(solucao.categoriaId),
       solucao._count.culturas > 0,
       solucao.coberturaNacional || solucao._count.ufs > 0,
-      Boolean(solucao.imagemCardUrl?.trim()),
+      solucao.imagemCard !== null || Boolean(solucao.imagemCardUrl?.trim()),
     ];
     return itens.some((ok) => !ok);
   }).length;

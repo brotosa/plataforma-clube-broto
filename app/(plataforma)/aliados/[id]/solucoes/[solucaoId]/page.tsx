@@ -7,6 +7,7 @@ import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { FormularioComEstado } from "../../../formularios";
 import { FormularioSolucao } from "../formulario-solucao";
 import { acaoMudarStatusSolucao } from "../acoes";
+import { CartaoImagemSolucao } from "../cartao-imagem-solucao";
 
 export const metadata: Metadata = {
   title: "Solução",
@@ -37,6 +38,9 @@ export default async function PaginaSolucao({
       include: {
         // `marca` só pela existência (RN09): o binário fica fora da consulta.
         empresa: { include: { marca: { select: { empresaId: true } } } },
+        // Metadados da imagem, nunca o binário: ele só sai do banco pela
+        // rota que o serve (RN60).
+        imagemCard: { select: { hash: true, nomeArquivo: true, bytes: true } },
         culturas: { select: { culturaId: true } },
         ufs: { select: { ufId: true } },
         ofertas: { orderBy: { criadoEm: "asc" }, include: { tipoBeneficio: true, mecanica: true } },
@@ -162,6 +166,8 @@ export default async function PaginaSolucao({
             categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
             culturas={culturas.map((cultura) => ({ id: cultura.id, nome: cultura.nome }))}
             ufs={ufs.map((uf) => ({ id: uf.id, sigla: uf.sigla }))}
+            temImagem={solucao.imagemCard !== null}
+            hashDaImagem={solucao.imagemCard?.hash ?? null}
             valores={{
               solucaoId: solucao.id,
               nome: solucao.nome,
@@ -177,6 +183,15 @@ export default async function PaginaSolucao({
               ufIds: solucao.ufs.map((vinculo) => vinculo.ufId),
             }}
           />
+
+          <div style={{ marginTop: 18 }}>
+            <CartaoImagemSolucao
+              empresaId={id}
+              solucaoId={solucao.id}
+              nomeDaSolucao={solucao.nome}
+              imagem={solucao.imagemCard}
+            />
+          </div>
         </>
       ) : null}
     </div>

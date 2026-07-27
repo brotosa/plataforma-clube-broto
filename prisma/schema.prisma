@@ -44,19 +44,19 @@ enum Papel {
 }
 
 model Usuario {
-  id           String   @id @default(cuid())
-  nome         String
-  email        String   @unique
-  senhaHash    String   @map("senha_hash")
-  papel        Papel
-  ativo        Boolean  @default(true)
+  id                    String  @id @default(cuid())
+  nome                  String
+  email                 String  @unique
+  senhaHash             String  @map("senha_hash")
+  papel                 Papel
+  ativo                 Boolean @default(true)
   /// Onda 6 (RN47) — época da sessão. O JWT emitido no login carrega a época
   /// vigente; toda revogação (inativação, troca de papel, troca de senha)
   /// incrementa esta coluna e a divergência derruba as sessões abertas na
   /// requisição seguinte. Com `strategy: "jwt"` não existe tabela de sessão
   /// para apagar — a época é o que torna a revogação imediata em vez de
   /// valer só no próximo login.
-  sessaoEpoca  Int      @default(0) @map("sessao_epoca")
+  sessaoEpoca           Int     @default(0) @map("sessao_epoca")
   /// Onda 6 (ficha §3) — credencial provisória: nasce marcada e só desmarca
   /// quando o próprio dono troca a senha. O Administrador emite e redefine
   /// credenciais na T27, mas nunca conhece a senha final de ninguém.
@@ -65,28 +65,29 @@ model Usuario {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
-  auditoriaEventos      AuditoriaEvento[]
-  solicitacoesCriadas   AprovacaoSolicitacao[]    @relation("solicitante")
-  solicitacoesDecididas AprovacaoSolicitacao[]    @relation("aprovador")
-  regrasDesignadas      AprovacaoRegraAprovador[]
-  publicacoes           Publicacao[]
-  importacoes           Importacao[]
-  empresasComoScout     Empresa[]                 @relation("responsavelScout")
-  empresasComoComercial Empresa[]                 @relation("responsavelComercial")
-  notasRapidas          NotaRapida[]
-  registrosNegociacao   RegistroNegociacao[]
-  avaliacoesScout       AvaliacaoScout[]
-  segmentos             Segmento[]
-  exportacoesLista      ExportacaoLista[]
-  dossiesSolicitados    Dossie[]                  @relation("dossieSolicitante")
-  dossiesRevisados      Dossie[]                  @relation("dossieRevisor")
-  indicadoresDeclarados IndicadorDeclarado[]
-  alteracoesDeValor     ValorRegraHistorico[]
-  versoesDeConfiguracao ConfiguracaoVersao[]
-  campanhas             Campanha[]
-  cestas                Cesta[]
-  kits                  KitCampanha[]
-  marcasEnviadas        MarcaAliado[]
+  auditoriaEventos         AuditoriaEvento[]
+  solicitacoesCriadas      AprovacaoSolicitacao[]    @relation("solicitante")
+  solicitacoesDecididas    AprovacaoSolicitacao[]    @relation("aprovador")
+  regrasDesignadas         AprovacaoRegraAprovador[]
+  publicacoes              Publicacao[]
+  importacoes              Importacao[]
+  empresasComoScout        Empresa[]                 @relation("responsavelScout")
+  empresasComoComercial    Empresa[]                 @relation("responsavelComercial")
+  notasRapidas             NotaRapida[]
+  registrosNegociacao      RegistroNegociacao[]
+  avaliacoesScout          AvaliacaoScout[]
+  segmentos                Segmento[]
+  exportacoesLista         ExportacaoLista[]
+  dossiesSolicitados       Dossie[]                  @relation("dossieSolicitante")
+  dossiesRevisados         Dossie[]                  @relation("dossieRevisor")
+  indicadoresDeclarados    IndicadorDeclarado[]
+  alteracoesDeValor        ValorRegraHistorico[]
+  versoesDeConfiguracao    ConfiguracaoVersao[]
+  campanhas                Campanha[]
+  cestas                   Cesta[]
+  kits                     KitCampanha[]
+  marcasEnviadas           MarcaAliado[]
+  imagensDeSolucaoEnviadas ImagemSolucao[]
 
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
   /// cada troca de papel, para provar que não é o último.
@@ -658,6 +659,12 @@ model Solucao {
   perfilCliente     PorteProdutor[] @map("perfil_cliente")
   /// Tecnologia/diferenciais como tags (vocabulário herdado do scouting).
   tecnologias       String[]
+  /// OBSOLETA desde a F17 (RN60): endereço de objeto para a imagem do
+  /// card, num bucket que nunca foi provisionado — mesmo impasse que
+  /// `empresas.logo_url` tinha antes da F15. A imagem passou a ser arquivo
+  /// da plataforma em `ImagemSolucao`. Não é mais escrita; a leitura
+  /// prefere a imagem nova e usa esta como retaguarda enquanto houver
+  /// valor. Queda registrada como dívida no README, com condição objetiva.
   imagemCardUrl     String?         @map("imagem_card_url")
   linkExterno       String?         @map("link_externo")
   status            StatusSolucao   @default(ATIVA)
@@ -672,6 +679,7 @@ model Solucao {
   ufs                SolucaoUf[]
   ofertas            Oferta[]
   ofertasPretendidas OfertaPretendida[]
+  imagemCard         ImagemSolucao?
 
   @@index([empresaId])
   @@map("solucoes")
@@ -1844,26 +1852,62 @@ model KitCampanha {
 /// quando a rota da marca o pede explicitamente.
 model MarcaAliado {
   /// A própria chave da empresa: 1:1 sem coluna de id redundante.
-  empresaId String @id @map("empresa_id")
+  empresaId   String @id @map("empresa_id")
   /// O arquivo já validado e higienizado (RN54) — nunca o que chegou cru.
-  conteudo  Bytes
+  conteudo    Bytes
   /// Tipo REAL, apurado pela assinatura do conteúdo, nunca pela extensão.
-  tipoMime  String @map("tipo_mime")
+  tipoMime    String @map("tipo_mime")
   /// Tamanho em bytes do que foi gravado (teto de 200 KB, RN54).
-  bytes     Int
+  bytes       Int
   /// SHA-256 do conteúdo — identificador de versão do cache: a rota da
   /// marca o usa como ETag para nunca servir marca antiga depois da troca.
-  hash      String
+  hash        String
   /// Nome do arquivo enviado, preservado para o kit e para a auditoria.
   /// É dado do usuário: nunca compõe caminho de arquivo nem URL.
   nomeArquivo String @map("nome_arquivo")
 
-  autorId   String   @map("autor_id")
-  criadoEm  DateTime @default(now()) @map("criado_em")
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   autor   Usuario @relation(fields: [autorId], references: [id])
 
   @@map("marcas_aliado")
+}
+
+/// RN60 — imagem do card da solução, guardada pela própria plataforma.
+///
+/// Mesmo desenho de `MarcaAliado`, e pelo mesmo motivo: **tabela própria,
+/// relação 1:1 — nunca coluna de `solucoes`**. O Prisma seleciona escalares
+/// por padrão, então um `Bytes` na solução faria a lista de soluções, a
+/// vitrine e o painel carregarem o arquivo em toda consulta.
+///
+/// A calibragem é outra (400 KB, PNG/JPG/WEBP, sem SVG — `dominio/solucoes/
+/// imagem-card.ts`), mas o mecanismo é o mesmo núcleo de validação: a F17
+/// generalizou em vez de duplicar.
+model ImagemSolucao {
+  /// A própria chave da solução: 1:1 sem coluna de id redundante.
+  solucaoId   String @id @map("solucao_id")
+  /// O arquivo já validado (RN60) — nunca o que chegou cru.
+  conteudo    Bytes
+  /// Tipo REAL, apurado pela assinatura do conteúdo, nunca pela extensão.
+  tipoMime    String @map("tipo_mime")
+  /// Tamanho em bytes do que foi gravado (teto de 400 KB, RN60).
+  bytes       Int
+  /// SHA-256 do conteúdo — identificador de versão do cache: a rota da
+  /// imagem o usa como ETag para nunca servir imagem antiga após a troca.
+  hash        String
+  /// Nome do arquivo enviado, preservado para o kit e para a auditoria.
+  /// É dado do usuário: nunca compõe caminho de arquivo nem URL.
+  nomeArquivo String @map("nome_arquivo")
+
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  solucao Solucao @relation(fields: [solucaoId], references: [id], onDelete: Cascade)
+  autor   Usuario @relation(fields: [autorId], references: [id])
+
+  @@map("imagens_solucao")
 }

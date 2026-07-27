@@ -32,6 +32,12 @@ import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 export interface EstadoFormulario {
   erros?: string[];
   sucesso?: string;
+  /**
+   * Versão do arquivo depois de uma ação de imagem: hash quando gravou,
+   * `null` quando removeu, ausente quando a ação não mexe em arquivo.
+   * Só o cartão de imagem lê este campo — ver `cartao-de-imagem.tsx`.
+   */
+  versao?: string | null;
 }
 
 async function atorDaSessao(): Promise<Ator> {
@@ -307,18 +313,21 @@ export async function acaoEnviarMarca(
   if (!(arquivo instanceof File) || arquivo.size === 0) {
     return { erros: ["Selecione um arquivo de marca para enviar."] };
   }
+  let hash: string;
   try {
-    await enviarMarca(ator, empresaId, {
+    ({ hash } = await enviarMarca(ator, empresaId, {
       nome: arquivo.name,
       conteudo: new Uint8Array(await arquivo.arrayBuffer()),
-    });
+    }));
   } catch (erro) {
     return paraEstado(erro);
   }
   revalidatePath(`/aliados/${empresaId}`);
   revalidatePath("/aliados");
   revalidatePath("/mercado");
-  return { sucesso: "Marca do aliado atualizada." };
+  // Mesma razão da imagem da solução: a versão no retorno faz a tela
+  // exibir a marca nova sem depender da re-renderização automática.
+  return { sucesso: "Marca do aliado atualizada.", versao: hash };
 }
 
 /** Remove a marca; o aliado volta a exibir a placa com a inicial. */
@@ -336,7 +345,7 @@ export async function acaoRemoverMarca(
   revalidatePath(`/aliados/${empresaId}`);
   revalidatePath("/aliados");
   revalidatePath("/mercado");
-  return { sucesso: "Marca removida. O aliado volta a exibir a inicial." };
+  return { sucesso: "Marca removida. O aliado volta a exibir a inicial.", versao: null };
 }
 
 // ---------------------------------------------------------------------

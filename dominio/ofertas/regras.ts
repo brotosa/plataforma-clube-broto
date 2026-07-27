@@ -143,6 +143,19 @@ export interface DadosCompletudeCard {
     quantidadeCulturas: number;
     coberturaNacional: boolean;
     quantidadeUfs: number;
+    /**
+     * F17 (RN60) — imagem do card guardada pela plataforma. É a fonte a
+     * partir daqui.
+     */
+    temImagem: boolean;
+    /**
+     * OBSOLETO desde a F17: endereço de objeto da imagem do card, de um
+     * bucket nunca provisionado. Continua sendo lido **apenas como
+     * fallback**, para que nenhuma solução que porventura tenha o campo
+     * preenchido perca o ponto de completude que já contava — a régua da
+     * RN09 não pode mudar de valor por causa da troca de armazenamento.
+     * Sai junto com a coluna. Mesmo tratamento que a F15 deu a `logoUrl`.
+     */
     imagemCardUrl: string | null;
   };
 }
@@ -175,7 +188,12 @@ export function calcularCompletudeCard(dados: DadosCompletudeCard): {
       rotulo: "Cobertura (UFs ou nacional)",
       ok: dados.solucao.coberturaNacional || dados.solucao.quantidadeUfs > 0,
     },
-    { rotulo: "Imagem do card", ok: Boolean(dados.solucao.imagemCardUrl?.trim()) },
+    // F17 — a imagem da plataforma satisfaz o item; o endereço obsoleto
+    // continua satisfazendo quem já o tinha, para a régua não regredir.
+    {
+      rotulo: "Imagem do card",
+      ok: dados.solucao.temImagem || Boolean(dados.solucao.imagemCardUrl?.trim()),
+    },
   ];
   const feitos = itens.filter((item) => item.ok).length;
   return {

@@ -20,9 +20,11 @@ import { validarEstruturaRegras } from "@/dominio/segmentacao/compilador";
 import {
   criarKitAdapterGenericoZip,
   nomeDoArquivoDaMarca,
+  nomeDoArquivoDaImagemDeSolucao,
   nomesDosArquivosDaPeca,
   type ManifestoKit,
   type MarcaDoKit,
+  type ImagemDeSolucaoDoKit,
   type PecaDoKit,
 } from "@/infra/kits/adapter";
 import { EXTENSAO_POR_TIPO, type TipoMarca } from "@/dominio/marca/marca";
@@ -553,6 +555,38 @@ async function montarConteudoDoKit(
     ];
   });
 
+  /**
+   * RN60 — imagens de card das soluções cujas ofertas entram no kit. Uma
+   * solução aparece uma vez só, ordenada por nome, e quem não tem imagem
+   * fica de fora: mesma disciplina das marcas, e o determinismo do zip
+   * depende dessa ordem.
+   */
+  const solucoesNoKit = [
+    ...new Map(
+      ofertas.map((oferta) => [
+        oferta.solucao.id,
+        { nome: oferta.solucao.nome, aliado: oferta.solucao.empresa.nomeFantasia },
+      ]),
+    ),
+  ].sort((a, b) => a[1].nome.localeCompare(b[1].nome, "pt-BR"));
+  const imagensGravadas = await prisma.imagemSolucao.findMany({
+    where: { solucaoId: { in: solucoesNoKit.map(([id]) => id) } },
+    select: { solucaoId: true, conteudo: true, tipoMime: true },
+  });
+  const porSolucao = new Map(imagensGravadas.map((imagem) => [imagem.solucaoId, imagem]));
+  const imagensDeSolucao: ImagemDeSolucaoDoKit[] = solucoesNoKit.flatMap(([id, dados]) => {
+    const gravada = porSolucao.get(id);
+    if (!gravada) return [];
+    return [
+      {
+        solucao: dados.nome,
+        aliado: dados.aliado,
+        conteudo: Buffer.from(new Uint8Array(gravada.conteudo)),
+        extensao: EXTENSAO_POR_TIPO[gravada.tipoMime as TipoMarca] ?? "",
+      },
+    ];
+  });
+
   const manifesto: ManifestoKit = {
     campanha: {
       id: campanha.id,
@@ -599,9 +633,21 @@ async function montarConteudoDoKit(
           })),
         }
       : {}),
+    // A chave só existe quando há imagem: sem isto, o manifesto de toda
+    // campanha mudaria de forma e o teste do zip determinístico da F12
+    // acusaria diferença onde nada mudou de fato.
+    ...(imagensDeSolucao.length > 0
+      ? {
+          imagensDeSolucao: imagensDeSolucao.map((imagem, indice) => ({
+            solucao: imagem.solucao,
+            aliado: imagem.aliado,
+            arquivo: nomeDoArquivoDaImagemDeSolucao(imagem, indice),
+          })),
+        }
+      : {}),
   };
 
-  return { manifesto, pecas, marcas };
+  return { manifesto, pecas, marcas, imagensDeSolucao };
 }
 
 /** O manifesto no formato que o diff da RN45 compara. */
@@ -637,7 +683,10 @@ async function gerarKitDentroDaTransacao(
   snapshot: { contagem: number; hash: string; exportacaoId: string; finalidade: string },
   momento: Date,
 ): Promise<GravacaoPendente[]> {
-  const { manifesto, pecas, marcas } = await montarConteudoDoKit(campanha, snapshot);
+  const { manifesto, pecas, marcas, imagensDeSolucao } = await montarConteudoDoKit(
+    campanha,
+    snapshot,
+  );
   const versao = proximaVersaoDoKit(campanha.kits.map((kit) => kit.versao));
   const anterior = campanha.kits.at(-1);
   const diff = diffDoKit(
@@ -662,6 +711,7 @@ async function gerarKitDentroDaTransacao(
     manifesto,
     pecas,
     marcas,
+    imagensDeSolucao,
     versao,
     momento,
   });

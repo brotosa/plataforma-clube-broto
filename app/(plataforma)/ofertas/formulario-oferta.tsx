@@ -87,6 +87,12 @@ export function FormularioOferta({
     solucaoNome: string;
     categoriaNome: string | null;
     ambientes: AmbientePagamento | null;
+    /**
+     * F17 (RN60) — id da solução, quando ela tem imagem do card. A oferta
+     * apresenta a solução, então é a imagem dela que o card mostra. `null`
+     * mantém o tratamento neutro que já existia.
+     */
+    solucaoComImagem: string | null;
   };
   tiposBeneficio: OpcaoTipoBeneficio[];
   mecanicas: OpcaoMecanica[];
@@ -492,6 +498,15 @@ export function FormularioOferta({
         </div>
         <div className="vcard">
           <div className="img">
+            {contexto.solucaoComImagem ? (
+              /* Servida por rota própria com ETag pelo hash (RN60). */
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/solucoes/${contexto.solucaoComImagem}/imagem`}
+                alt=""
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : null}
             <span className="tipo">
               {natureza === "RECOMPENSA"
                 ? "Recompensa"

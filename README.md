@@ -892,6 +892,120 @@ formal do sistema — *Plataforma de Administração e Gestão do Clube Broto* �
 muda: segue neste README, no `CLAUDE.md`, nas fichas e no cabeçalho do kit
 entregue à Minutrade. O que mudou é rótulo de interface.
 
+## Imagem do card da solução (Onda 10 — F17)
+
+### RN60 — a imagem passa a ser arquivo da plataforma
+
+O cadastro da solução pedia o **endereço** de uma imagem (`imagemCardUrl`),
+apontando para um bucket que nunca foi provisionado — o mesmo impasse que o
+logotipo tinha antes da Onda 8, e a razão de nenhum card de solução ter
+imagem. Agora é upload na própria tela, arquivo guardado pela plataforma e
+servido por rota própria com ETag pelo hash.
+
+**A infraestrutura é a da marca, generalizada — não uma segunda cópia.** O
+núcleo de validação vive em `dominio/imagens/imagem.ts`, parametrizado por
+`PerfilDeImagem`; `dominio/marca/marca.ts` e `dominio/solucoes/imagem-card.ts`
+são só calibragem. A tela é `app/(plataforma)/cartao-de-imagem.tsx`, dividida
+pelos dois usos.
+
+| | Marca do aliado (RN54) | Imagem do card (RN60) |
+|---|---|---|
+| Limite | 200 KB | 400 KB |
+| Formatos | PNG, JPG, WEBP, SVG | PNG, JPG, WEBP — **sem SVG** |
+| Maior dimensão de uso | 320 px | 640 px |
+| Papel | identidade da empresa | ilustração do que a solução é |
+
+SVG fica fora do card por decisão: imagem de card é fotográfica por
+natureza, o vetor não traz ganho e traria de volta toda a superfície de
+higienização. A recusa **nomeia o formato** em vez de dizer que o arquivo é
+inválido — porque não é: ele só não serve aqui.
+
+**Decisão de arquitetura, para não se rediscutir a cada imagem nova:**
+*imagem pequena, pouca e identitária vive no banco da plataforma; imagem
+grande, numerosa e descartável vive em armazenamento de objetos.* Marca e
+card de solução são do primeiro tipo; **peças de campanha** seguem no S3 via
+`ExportAdapter`, sem alteração nesta onda.
+
+Onde a imagem aparece: formulário e ficha da solução, pré-visualização do
+card, cards de oferta e o kit de campanha (pasta `imagens-solucao/`, ao lado
+de `marcas/`). Onde não houver, o lugar mantém o tratamento neutro — nunca
+espaço quebrado.
+
+### Posição do botão de ajuda
+
+O **"?"** passou da esquerda do sino para a **extremidade direita** do
+cabeçalho, como último elemento, depois do bloco de identidade e do papel
+(ficha Onda 10 §2). Inverte o racional da Onda 9 por decisão da
+Superintendência; a consequência é desejável — a ajuda fecha a ordem de
+tabulação, e ajuda não é ação urgente. Rótulo, destino contextual e
+comportamento seguem iguais.
+
+### O payload da ação que às vezes é descartado
+
+**Medido nesta fase, com número.** No cartão de imagem da solução, ~5 de 30
+envios voltavam **200** do servidor e o cliente descartava o payload
+inteiro: nem o valor de retorno da ação nem a re-renderização chegavam (o
+`src` da imagem permanecia o antigo). O usuário via o arquivo gravado e
+nenhuma confirmação. Na tela da marca, 0 de 20 — é específico desta tela, e
+o mecanismo continua sem isolamento.
+
+É a mesma assinatura que a seção *Convenções* do `CLAUDE.md` já registra
+para navegação por query ("o payload RSC vinha 200 e era descartado").
+
+**O que foi feito:** o cartão deixou de usar `useActionState` e passou a
+guardar o resultado em estado próprio — a promessa da ação resolve no
+cliente, então a confirmação é consequência do que o componente recebeu, e
+não do que o roteador conseguiu aplicar. A versão do arquivo (hash, ou
+`null` na remoção) viaja no retorno da ação, então a miniatura do cartão
+também não depende da re-renderização. Depois disso: **0 de 30 sem
+confirmação**.
+
+**O que continua aberto:** a pré-visualização do card dentro do formulário
+da solução é componente *irmão* do cartão — não vê esse estado, e só se
+atualiza quando a re-renderização pousa. Na prática: o cartão mostra a
+imagem nova na hora, a pré-visualização ao lado pode levar até a próxima
+navegação. Fechar isso exige subir o estado da imagem para um pai cliente
+comum, o que é mudança de desenho da T3 e merece fase própria.
+
+### Dívidas nomeadas
+
+**1. `solucoes.imagem_card_url` — coluna obsoleta.** Segue o caminho de
+`empresas.logo_url`: deixou de ser escrita, e a leitura prefere a imagem
+nova usando a antiga como retaguarda enquanto houver valor. Não foi
+derrubada porque a queda é irreversível e não é exigida pela ficha.
+
+*Condição objetiva de execução:* nenhuma solução com valor na coluna.
+
+```sql
+SELECT count(*) FROM solucoes WHERE imagem_card_url IS NOT NULL;
+```
+
+Zero → a migration de queda pode ser escrita, reversível, em fase própria.
+
+**Cuidado que já quase custou dado:** o campo saiu do formulário, mas a ação
+continuava lendo `imagemCardUrl` do `FormData`, e o ajudante `texto()`
+devolve `null` para campo ausente. Cada edição de nome ou descrição gravaria
+`null` sobre o endereço legado, e a solução perderia o ponto da régua RN09
+que já tinha. A chave saiu do caminho de escrita, com teste de comportamento
+e cerca no código: `infra/casos-de-uso/solucoes.integracao.test.ts`.
+
+**2. A régua da RN09 está implementada duas vezes.** `calcularCompletudeCard`
+em `dominio/ofertas/regras.ts` é a fonte que a T4 e a T5 exibem e que a RN02
+usa; `contarCadastrosBloqueandoPublicacao` em `infra/consultas/dashboard.ts`
+**reimplementa os mesmos oito itens inline**, para contar rascunhos no painel
+sem instanciar a estrutura por linha.
+
+A extração para fonte única **não** foi feita na F17, e por decisão: mexer
+no cálculo que produz percentual em produção para arrumar arquitetura troca
+um risco pequeno por um grande. O risco real — as duas listas divergirem em
+silêncio — está coberto por
+`infra/consultas/completude-equivalente.regressao.test.ts`, que monta a
+tabela-verdade dos oito itens e confere que a contagem do painel bate com a
+régua do domínio linha a linha.
+
+*Quando extrair:* em fase própria, com o teste acima como rede, provando
+antes e depois que os percentuais não se moveram.
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
@@ -911,6 +1025,7 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | **Exportar lista de contato** | T21: exige finalidade declarada e gera exportação auditada (RN34) | Gestor · Administrador |
 | **Configurar parâmetros** | `/parametrizador`: réguas, comissão-padrão, tetos, metas e listas de domínio (RN23) | Administrador |
 | **Enviar a marca do aliado** | `/aliados/{id}/editar`, cartão *Marca do aliado*: PNG/JPG/WEBP/SVG até 200 KB, tipo conferido pelo conteúdo e SVG higienizado (RN54) | Gestor · Analista |
+| **Enviar a imagem do card** | `/aliados/{id}/solucoes/{solucaoId}`, cartão *Imagem do card*: PNG/JPG/WEBP até 400 KB, sem SVG, tipo conferido pelo conteúdo (RN60) | Gestor · Analista |
 | **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
 | **Abrir a ajuda** | botão **?** no cabeçalho, à esquerda do sino: abre `/ajuda` na seção do módulo em que se estava (RN59). O guia também circula como arquivo: `public/guia-da-plataforma.html` | todos |
 | **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |

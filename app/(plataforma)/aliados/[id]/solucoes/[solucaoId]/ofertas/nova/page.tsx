@@ -23,6 +23,8 @@ export default async function PaginaNovaOferta({
       include: {
         empresa: { include: { contratos: { where: { status: "VIGENTE" } } } },
         categoria: true,
+        // Só a existência: o binário sai do banco pela rota (RN60).
+        imagemCard: { select: { solucaoId: true } },
       },
     }),
     prisma.tipoBeneficio.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
@@ -61,6 +63,7 @@ export default async function PaginaNovaOferta({
           solucaoNome: solucao.nome,
           categoriaNome: solucao.categoria?.nome ?? null,
           ambientes: contratoVigente?.ambientesPagamento ?? null,
+          solucaoComImagem: solucao.imagemCard !== null ? solucao.id : null,
         }}
         tiposBeneficio={tiposBeneficio.map((tipo) => ({
           id: tipo.id,

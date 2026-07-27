@@ -38,6 +38,8 @@ export function FormularioSolucao({
   culturas,
   ufs,
   valores,
+  temImagem = false,
+  hashDaImagem = null,
 }: {
   empresaId: string;
   aliado: { nomeFantasia: string; temMarca: boolean; logoUrl: string | null };
@@ -45,6 +47,22 @@ export function FormularioSolucao({
   culturas: Opcao[];
   ufs: Array<{ id: string; sigla: string }>;
   valores?: ValoresSolucao;
+  /**
+   * F17 (RN60) — a imagem do card é arquivo da plataforma e vive fora
+   * deste formulário, no cartão de envio ao lado (a solução precisa
+   * existir antes de receber arquivo, como o aliado precisa existir antes
+   * de receber marca). Aqui ela entra só como fato, para a régua de
+   * completude e a pré-visualização não mentirem.
+   */
+  temImagem?: boolean;
+  /**
+   * Hash da imagem vigente. Existe para a pré-visualização usar EXATAMENTE
+   * a mesma URL do cartão de envio (`?v=<hash>`): duas URLs diferentes
+   * para os mesmos bytes fazem o navegador buscar duas vezes e revalidar a
+   * cada renderização, e essa concorrência estava na origem de envios que
+   * voltavam 200 sem a tela atualizar.
+   */
+  hashDaImagem?: string | null;
 }) {
   const edicao = Boolean(valores?.solucaoId);
   const [estado, despachar, pendente] = useActionState<EstadoFormulario, FormData>(
@@ -55,7 +73,6 @@ export function FormularioSolucao({
   const [nome, definirNome] = useState(valores?.nome ?? "");
   const [descricaoCurta, definirDescricaoCurta] = useState(valores?.descricaoCurta ?? "");
   const [categoriaId, definirCategoriaId] = useState(valores?.categoriaId ?? "");
-  const [imagemCardUrl, definirImagemCardUrl] = useState(valores?.imagemCardUrl ?? "");
   const [coberturaNacional, definirCoberturaNacional] = useState(
     valores?.coberturaNacional ?? false,
   );
@@ -75,7 +92,11 @@ export function FormularioSolucao({
       quantidadeCulturas: culturaIds.length,
       coberturaNacional,
       quantidadeUfs: ufIds.length,
-      imagemCardUrl,
+      temImagem,
+      // F17 — o campo não é mais editável aqui: a imagem virou arquivo, e
+      // o endereço obsoleto entra só como retaguarda de leitura, com o
+      // valor que já estava gravado.
+      imagemCardUrl: valores?.imagemCardUrl ?? null,
     },
   });
 
@@ -148,17 +169,6 @@ export function FormularioSolucao({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="field">
-                <label htmlFor="campo-sol-imagem">Imagem do card (chave do arquivo)</label>
-                <input
-                  id="campo-sol-imagem"
-                  className="input"
-                  name="imagemCardUrl"
-                  placeholder="s3://cards/…"
-                  value={imagemCardUrl}
-                  onChange={(evento) => definirImagemCardUrl(evento.target.value)}
-                />
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label htmlFor="campo-sol-link">Link externo</label>
@@ -309,7 +319,16 @@ export function FormularioSolucao({
           </div>
           <div className="vcard">
             <div className="img">
-              {!imagemCardUrl ? (
+              {temImagem && valores?.solucaoId ? (
+                /* Servida por rota própria com ETag pelo hash (RN60). */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/solucoes/${valores.solucaoId}/imagem${hashDaImagem ? `?v=${hashDaImagem.slice(0, 12)}` : ""}`}
+                  alt=""
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : null}
+              {!temImagem ? (
                 <span
                   className="cap"
                   style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
