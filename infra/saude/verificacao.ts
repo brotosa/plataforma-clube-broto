@@ -98,9 +98,12 @@ async function sondarComLimite(sonda: SondaDeBanco, limiteMs: number): Promise<v
  * mande tráfego agora", que é exatamente o estado. 500 diria falha da
  * aplicação e 404 diria que o endereço não existe; os dois mentiriam.
  */
-export async function responderPronto(sonda: SondaDeBanco = sondaPadrao): Promise<Response> {
+export async function responderPronto(
+  sonda: SondaDeBanco = sondaPadrao,
+  limiteMs: number = LIMITE_DA_SONDA_MS,
+): Promise<Response> {
   try {
-    await sondarComLimite(sonda, LIMITE_DA_SONDA_MS);
+    await sondarComLimite(sonda, limiteMs);
     return resposta("pronto", 200);
   } catch (erro) {
     // O detalhe COMPLETO fica aqui, onde só a TI alcança. A mensagem de
