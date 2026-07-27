@@ -41,6 +41,8 @@ export function CartaoImagemSolucao({
       campo="imagem"
       nomeDoRegistro="solucaoId"
       idDoRegistro={solucaoId}
+      /* A ação revalida a ficha do aliado, que não é a chave da entidade. */
+      camposOcultos={{ empresaId }}
       imagem={imagem}
       urlDaImagem={`/api/solucoes/${solucaoId}/imagem`}
       textoAlternativo={`Imagem do card de ${nomeDaSolucao}`}

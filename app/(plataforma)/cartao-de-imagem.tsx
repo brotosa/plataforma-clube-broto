@@ -95,6 +95,18 @@ function acceptDoPerfil(perfil: PerfilDeImagem): string {
   return [...perfil.tiposAceitos, ...extensoes].join(",");
 }
 
+/** Campos ocultos extras, iguais nos dois formulários do cartão. */
+function Ocultos({ campos }: { campos?: Record<string, string> }) {
+  if (!campos) return null;
+  return (
+    <>
+      {Object.entries(campos).map(([nome, valor]) => (
+        <input key={nome} type="hidden" name={nome} value={valor} />
+      ))}
+    </>
+  );
+}
+
 export function CartaoDeImagem({
   titulo,
   descricao,
@@ -103,6 +115,7 @@ export function CartaoDeImagem({
   campo,
   nomeDoRegistro,
   idDoRegistro,
+  camposOcultos,
   imagem,
   urlDaImagem,
   textoAlternativo,
@@ -125,6 +138,15 @@ export function CartaoDeImagem({
   /** Nome do campo oculto com o id da entidade. */
   nomeDoRegistro: string;
   idDoRegistro: string;
+  /**
+   * Campos ocultos extras enviados nas duas ações.
+   *
+   * Existe porque a ação da imagem da solução precisa do `empresaId` para
+   * revalidar a ficha do aliado, e ele não é a chave da entidade. Sem
+   * isto o `revalidatePath` da ficha simplesmente não rodava — defeito
+   * que o aviso de variável não usada denunciou.
+   */
+  camposOcultos?: Record<string, string>;
   /** Metadados da imagem vigente, ou null quando não há. */
   imagem: { hash: string; nomeArquivo: string; bytes: number } | null;
   /** Rota que serve a imagem (sem o parâmetro de versão). */
@@ -225,6 +247,7 @@ export function CartaoDeImagem({
         <div style={{ flex: "1 1 240px", minWidth: 0 }}>
           <form action={executar} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <input type="hidden" name={nomeDoRegistro} value={idDoRegistro} />
+            <Ocultos campos={camposOcultos} />
             <input type="hidden" name="intencao" value="enviar" />
             <div className="field">
               <label htmlFor={idCampo}>
@@ -262,6 +285,7 @@ export function CartaoDeImagem({
           {imagem ? (
             <form action={executar} style={{ marginTop: 10 }}>
               <input type="hidden" name={nomeDoRegistro} value={idDoRegistro} />
+              <Ocultos campos={camposOcultos} />
               <input type="hidden" name="intencao" value="remover" />
               <button type="submit" className="btn btn-ghost btn-sm" disabled={ocupado}>
                 {ocupado ? "Removendo…" : rotulos.remover}
