@@ -225,6 +225,9 @@ export async function avaliarPublicacao(ofertaId: string) {
         include: {
           culturas: true,
           ufs: true,
+          // Só a existência da imagem interessa aqui (RN09/RN60): o
+          // binário fica fora da consulta, como o da marca.
+          imagemCard: { select: { solucaoId: true } },
           empresa: {
             include: {
               contratos: { where: { status: "VIGENTE" } },
@@ -252,6 +255,7 @@ export async function avaliarPublicacao(ofertaId: string) {
       quantidadeCulturas: oferta.solucao.culturas.length,
       coberturaNacional: oferta.solucao.coberturaNacional,
       quantidadeUfs: oferta.solucao.ufs.length,
+      temImagem: oferta.solucao.imagemCard !== null,
       imagemCardUrl: oferta.solucao.imagemCardUrl,
     },
   });

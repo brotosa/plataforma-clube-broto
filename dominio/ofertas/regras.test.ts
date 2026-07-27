@@ -142,6 +142,11 @@ function cardCompleto(): DadosCompletudeCard {
       quantidadeCulturas: 1,
       coberturaNacional: true,
       quantidadeUfs: 0,
+      // F17 — `false` de propósito: o card completo desta fixture continua
+      // sendo satisfeito pelo endereço obsoleto, que é o estado das
+      // soluções já cadastradas. Se a régua tivesse passado a exigir a
+      // imagem nova, é aqui que ela quebraria.
+      temImagem: false,
       imagemCardUrl: "s3://cards/exemplo.png",
     },
   };
@@ -212,6 +217,56 @@ describe("RN09 — régua de completude do card", () => {
     expect(resultado.completa).toBe(true);
   });
 
+  // -------------------------------------------------------------------
+  // F17 (RN60) — a imagem do card mudou de lugar; a régua NÃO pode mudar
+  // de valor. Mesmo raciocínio da F15, e os mesmos quatro casos: o
+  // percentual já é exibido na T4 e na T5, e `completa` é condição de
+  // publicação (RN02).
+  // -------------------------------------------------------------------
+
+  it("F17: imagem da plataforma satisfaz o item do card, sem endereço obsoleto", () => {
+    const dados = cardCompleto();
+    dados.solucao.imagemCardUrl = null;
+    dados.solucao.temImagem = true;
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.itens.find((i) => i.rotulo === "Imagem do card")?.ok).toBe(true);
+    expect(resultado.percentual).toBe(100);
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("F17: sem imagem e sem endereço obsoleto, o item continua faltando", () => {
+    const dados = cardCompleto();
+    dados.solucao.imagemCardUrl = null;
+    dados.solucao.temImagem = false;
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.itens.find((i) => i.rotulo === "Imagem do card")?.ok).toBe(false);
+    expect(resultado.percentual).toBe(88);
+  });
+
+  it("F17 (não-regressão): quem tinha só o endereço antigo mantém o ponto", () => {
+    // O fallback existe exatamente para esta solução: nada foi enviado
+    // pela tela nova, mas o campo obsoleto está preenchido. O número que
+    // ela já via na T5 tem de continuar o mesmo — 100%, publicável.
+    const dados = cardCompleto();
+    dados.solucao.temImagem = false;
+    dados.solucao.imagemCardUrl = "s3://cards/exemplo.png";
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.percentual).toBe(100);
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("F17: a imagem nova e o endereço antigo juntos não contam duas vezes", () => {
+    // Parece óbvio, mas é o defeito clássico de fallback escrito com dois
+    // itens em vez de um OU: a régua passaria a ter 9 itens e todos os
+    // percentuais de produção mudariam.
+    const dados = cardCompleto();
+    dados.solucao.temImagem = true;
+    dados.solucao.imagemCardUrl = "s3://cards/exemplo.png";
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.itens).toHaveLength(8);
+    expect(resultado.percentual).toBe(100);
+  });
+
   it("F15 (não-regressão): a régua segue com 8 itens e os mesmos rótulos", () => {
     // Percentual é feitos/total: item novo ou rótulo renomeado moveria
     // TODOS os percentuais já exibidos em produção. A lista é congelada.
@@ -238,6 +293,7 @@ describe("RN09 — régua de completude do card", () => {
         quantidadeCulturas: 0,
         coberturaNacional: false,
         quantidadeUfs: 0,
+        temImagem: false,
         imagemCardUrl: null,
       },
     };

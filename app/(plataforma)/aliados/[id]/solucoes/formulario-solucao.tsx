@@ -38,6 +38,7 @@ export function FormularioSolucao({
   culturas,
   ufs,
   valores,
+  temImagem = false,
 }: {
   empresaId: string;
   aliado: { nomeFantasia: string; temMarca: boolean; logoUrl: string | null };
@@ -45,6 +46,14 @@ export function FormularioSolucao({
   culturas: Opcao[];
   ufs: Array<{ id: string; sigla: string }>;
   valores?: ValoresSolucao;
+  /**
+   * F17 (RN60) — a imagem do card é arquivo da plataforma e vive fora
+   * deste formulário, no cartão de envio ao lado (a solução precisa
+   * existir antes de receber arquivo, como o aliado precisa existir antes
+   * de receber marca). Aqui ela entra só como fato, para a régua de
+   * completude e a pré-visualização não mentirem.
+   */
+  temImagem?: boolean;
 }) {
   const edicao = Boolean(valores?.solucaoId);
   const [estado, despachar, pendente] = useActionState<EstadoFormulario, FormData>(
@@ -75,6 +84,7 @@ export function FormularioSolucao({
       quantidadeCulturas: culturaIds.length,
       coberturaNacional,
       quantidadeUfs: ufIds.length,
+      temImagem,
       imagemCardUrl,
     },
   });
