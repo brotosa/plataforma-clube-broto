@@ -233,31 +233,198 @@ restrita ao Gestor.
 Imagem multi-stage (`Dockerfile`): dependências → build standalone → runtime
 sem toolchain, rodando como usuário `node`.
 
+A imagem é construída, testada e publicada pela esteira do repositório a cada
+merge na main (Onda 11 — RN61). **Para implantar, use a imagem publicada**:
+a seção *Executando a imagem* abaixo tem os comandos prontos. Construir
+localmente só é necessário para desenvolver o próprio `Dockerfile`:
+
 ```bash
 docker build -t clube-broto-admin .
-
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL="postgresql://usuario:senha@host:5432/clube_broto?schema=public" \
-  -e AUTH_SECRET="$(openssl rand -base64 32)" \
-  -e AUTH_URL="http://localhost:3000" \
-  -e AUTH_TRUST_HOST=true \
-  clube-broto-admin
 ```
 
 O contêiner **não** aplica migrations no start — ver abaixo.
 
+## Executando a imagem
+
+Roteiro de implantação, para quem não conhece o projeto. Todos os comandos
+são literais: substitua apenas os valores entre `<>`.
+
+### 1. Obter a imagem
+
+A esteira publica no GHCR a cada merge na main, com três etiquetas:
+
+| Etiqueta | Quando usar |
+|---|---|
+| `1.0.0` (versão do `package.json`) | **produção** — fixa exatamente o que está no ar |
+| `a1b2c3d` (sha curto do commit) | rastrear ou voltar para um commit específico |
+| `latest` | ambientes de teste, nunca produção |
+
+```bash
+docker login ghcr.io -u <seu-usuario-github>
+# (senha: um Personal Access Token com escopo read:packages)
+
+docker pull ghcr.io/marcosantos1804-blip/plataforma-clube-broto:1.0.0
+```
+
+> O registro definitivo é `[A CONFIRMAR — TI]`: o GHCR foi escolhido porque
+> já vem com o repositório e não exige provisionar nada. Migrar para um
+> registro corporativo é mudança de configuração — trocar o destino no job
+> `imagem` do `.github/workflows/ci.yml` —, não de arquitetura.
+
+### 2. Variáveis obrigatórias
+
+As cinco abaixo são obrigatórias. Faltando qualquer uma, a aplicação falha
+alto na primeira operação que a usaria — não há valor padrão embutido, de
+propósito.
+
+| Variável | O que é |
+|---|---|
+| `DATABASE_URL` | PostgreSQL, com `?schema=public` no fim. Ex.: `postgresql://broto:<senha>@<host-rds>:5432/clube_broto?schema=public` |
+| `AUTH_SECRET` | segredo que assina a sessão. Trocar desloga todo mundo |
+| `AUTH_URL` | URL **pública** da plataforma, a que o usuário digita. Ex.: `https://clube.broto.com.br` |
+| `CPF_HASH_KEY` | chave do HMAC de CPF — **permanente** |
+| `APP_ENCRYPTION_KEY` | chave da cifragem de CPF em repouso — **permanente** |
+
+Acrescente `AUTH_TRUST_HOST=true` quando a aplicação ficar atrás de
+balanceador ou proxy (é o caso no ECS e no App Runner).
+
+> **As duas chaves criptográficas são permanentes.** Gere **uma vez**, guarde
+> no cofre de segredos e nunca troque sem plano de recarga. `CPF_HASH_KEY`
+> re-identifica a base inteira ao ser girada e desliga a junção telemetria ↔
+> assinante (RN36); `APP_ENCRYPTION_KEY` torna ilegível todo CPF já cifrado.
+> Não são segredos rotativos como `AUTH_SECRET`.
+
+Gerar as três (uma única vez, no primeiro deploy do ambiente):
+
+```bash
+echo "AUTH_SECRET=$(openssl rand -base64 32)"
+echo "CPF_HASH_KEY=$(openssl rand -base64 32)"
+echo "APP_ENCRYPTION_KEY=$(openssl rand -base64 32)"
+```
+
+### 3. Migrations — passo separado, antes de trocar a versão
+
+O contêiner **não** aplica migrations no start, de propósito: várias
+instâncias subindo em paralelo disputariam o schema, e a que perdesse a
+disputa subiria contra um banco a meio caminho. As migrations rodam como
+passo pontual, **antes** de apontar o serviço para a imagem nova.
+
+> **A imagem publicada não roda as migrations.** Ela contém apenas o
+> servidor standalone — sem `prisma/`, sem o CLI do Prisma e sem `scripts/`
+> (verificado na F18). Isso é intencional: CLI de migration numa imagem de
+> produção também sabe fazer `migrate reset`. O passo de banco roda a partir
+> de um **checkout do repositório no commit correspondente à imagem** — e é
+> para isso que serve a etiqueta com o sha curto.
+
+```bash
+git clone https://github.com/marcosantos1804-blip/plataforma-clube-broto.git
+cd plataforma-clube-broto
+
+# O MESMO commit da imagem que vai subir — é o que garante que as migrations
+# aplicadas são exatamente as que aquela versão espera.
+git checkout <sha-curto-da-etiqueta-da-imagem>
+
+corepack enable
+pnpm install --frozen-lockfile
+
+export DATABASE_URL="postgresql://broto:<senha>@<host-rds>:5432/clube_broto?schema=public"
+pnpm db:migrate
+```
+
+No **primeiro** deploy do ambiente, e só nele, rode também o seed — ele
+popula taxonomias e o estado de nascimento das regras de aprovação (RN06).
+Usuários de desenvolvimento não são criados fora de desenvolvimento:
+
+```bash
+pnpm db:seed
+```
+
+### 4. Subir
+
+```bash
+docker run -d --name clube-broto -p 3000:3000 \
+  -e DATABASE_URL="postgresql://broto:<senha>@<host-rds>:5432/clube_broto?schema=public" \
+  -e AUTH_SECRET="<o valor gerado no passo 2>" \
+  -e AUTH_URL="https://clube.broto.com.br" \
+  -e AUTH_TRUST_HOST=true \
+  -e CPF_HASH_KEY="<o valor gerado no passo 2>" \
+  -e APP_ENCRYPTION_KEY="<o valor gerado no passo 2>" \
+  ghcr.io/marcosantos1804-blip/plataforma-clube-broto:1.0.0
+```
+
+A aplicação escuta em `0.0.0.0:3000`. Para encerrar, `docker stop
+clube-broto`: o processo do Node é o PID 1 e recebe o `SIGTERM` direto.
+
+### 5. Verificar que subiu
+
+Duas rotas públicas, que não exigem sessão e não revelam nada do ambiente:
+
+```bash
+curl -i http://localhost:3000/api/saude         # o processo responde
+curl -i http://localhost:3000/api/saude/pronto  # alcança o banco
+```
+
+| Rota | Resposta esperada | Se falhar |
+|---|---|---|
+| `/api/saude` | `200` · `{"estado":"vivo"}` | o processo não subiu — **reinicie** o contêiner |
+| `/api/saude/pronto` | `200` · `{"estado":"pronto"}` | `503` · `{"estado":"indisponivel"}` significa aplicação de pé sem alcançar o banco — **espere** e verifique `DATABASE_URL`, rede e grupo de segurança do RDS. Reiniciar não resolve |
+
+No balanceador ou orquestrador, aponte a verificação de vida para
+`/api/saude` e a de prontidão para `/api/saude/pronto`. **Não use `/entrar`**:
+ela responde `200` mesmo com o banco fora, e a instância continuaria
+recebendo tráfego que não consegue atender.
+
+A causa da indisponibilidade nunca aparece no corpo da resposta — ela fica
+no log do contêiner (`docker logs clube-broto`), que é onde procurar.
+
+### 6. Agendar o job diário
+
+`pnpm job:diario` expira vigências (RN03), marca a janela contratual de
+não-renovação e sinaliza reavaliação vencida (RN21). É idempotente e
+auditado por um usuário de sistema — rodar duas vezes no mesmo dia não
+duplica nada. Agende **uma vez por dia**, fora do horário de pico.
+
+Pela mesma razão do passo 3, ele roda do checkout do repositório, não da
+imagem publicada — `scripts/` não entra no standalone:
+
+```bash
+cd plataforma-clube-broto   # o mesmo checkout do passo 3
+
+export DATABASE_URL="postgresql://broto:<senha>@<host-rds>:5432/clube_broto?schema=public"
+export CPF_HASH_KEY="<o valor gerado no passo 2>"
+export APP_ENCRYPTION_KEY="<o valor gerado no passo 2>"
+pnpm job:diario
+```
+
+No ECS, o caminho é uma regra do EventBridge Scheduler disparando uma task
+com esse comando; no App Runner, o cron do serviço. Há também disparo manual
+pela plataforma (`POST /api/jobs/diario`), restrito ao Gestor — útil para
+conferir o funcionamento sem esperar o horário agendado.
+
+### 7. Voltar atrás
+
+Aponte o serviço para a etiqueta da versão anterior. Se a versão nova trouxe
+migration, aplique o `down.sql` correspondente
+(`prisma/migrations/<carimbo>/down.sql`, todos verificados) **antes** de
+voltar a imagem.
+
 ## Deploy (ECS Fargate ou App Runner)
 
-1. **Construir e publicar a imagem** no ECR (`docker build` + `docker push`).
+Roteiro resumido; os comandos literais estão em *Executando a imagem*.
+
+1. **Obter a imagem publicada** — a esteira constrói, ensaia e publica no
+   GHCR a cada merge na main (RN61). Não é preciso construir nada.
 2. **Aplicar as migrations como passo separado**, antes de trocar a versão em
-   execução: `pnpm db:migrate` (ou `npx prisma migrate deploy`) numa task
-   pontual com a mesma `DATABASE_URL`. Fazer isso no start do contêiner faria
-   várias instâncias subindo em paralelo disputarem o schema.
+   execução: `pnpm db:migrate` a partir de um checkout no commit da imagem.
+   Fazer isso no start do contêiner faria várias instâncias subindo em
+   paralelo disputarem o schema.
 3. **Seed**: `pnpm db:seed` popula taxonomias e o estado de nascimento das
    regras do motor (RN06). Rodar **uma vez**, no primeiro deploy do ambiente.
    Os usuários de desenvolvimento não são criados fora de desenvolvimento.
 4. **Subir o serviço** com as variáveis da tabela acima. A aplicação escuta em
-   `0.0.0.0:3000`; aponte o health check para `/entrar` (rota pública).
+   `0.0.0.0:3000`; aponte a verificação de vida para `/api/saude` e a de
+   prontidão para `/api/saude/pronto`. **Não use `/entrar`**: ela responde
+   `200` mesmo com o banco fora.
 5. **Agendar o job diário** (seção anterior).
 6. **Rollback**: voltar a imagem anterior. Se a versão nova trouxe migration,
    aplicar o `down.sql` correspondente (`prisma/migrations/*/down.sql`, todos
@@ -274,8 +441,8 @@ prisma/     schema das oito ondas, migrations reversíveis (com down.sql), seed
 design/     DSeed: tokens.css (intocável) + dseed-admin.css (extensões)
 e2e/        Playwright + axe-core (fluxos, acessibilidade, teclado, 380px)
 dados/      planilhas reais da carga inicial (consumidas na F3)
-scripts/    job diário e geração do asset de geometria do mapa
-Dockerfile  imagem multi-stage de produção (standalone)
+scripts/    job diário, geometria do mapa, preparo de banco e fumaça da imagem
+Dockerfile  imagem multi-stage de produção (standalone); construída e publicada pelo CI
 ```
 
 ## Dossiê assistido (Onda 2 — F8)
@@ -1013,7 +1180,7 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | O quê | Como | Quem |
 |---|---|---|
 | **Subir local** | `pnpm install` → `.env` (ver *Variáveis de ambiente*) → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev` | TI |
-| **Deploy** | imagem no ECR → `pnpm db:migrate` como passo separado → subir serviço → agendar job diário (ver *Deploy*) | TI |
+| **Deploy** | imagem publicada no GHCR → `pnpm db:migrate` como passo separado → subir serviço → verificar por `/api/saude/pronto` → agendar job diário (ver *Executando a imagem*) | TI |
 | **Job diário** | `pnpm job:diario` uma vez por dia: expira vigências (RN03), marca janela contratual e reavaliação vencida (RN21) | agendador |
 | **Carga inicial** | T-carga (`/carga-inicial`): planilhas de `dados/` → staging → conferência → efetivação (ver *Carga inicial*) | Gestor |
 | **Importar telemetria** | `/ofertas/telemetria`: arquivo da Minutrade → validação linha a linha → quarentena por motivo. Fatos são imutáveis (RN07) | Gestor · Analista |
@@ -1027,7 +1194,8 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | **Enviar a marca do aliado** | `/aliados/{id}/editar`, cartão *Marca do aliado*: PNG/JPG/WEBP/SVG até 200 KB, tipo conferido pelo conteúdo e SVG higienizado (RN54) | Gestor · Analista |
 | **Enviar a imagem do card** | `/aliados/{id}/solucoes/{solucaoId}`, cartão *Imagem do card*: PNG/JPG/WEBP até 400 KB, sem SVG, tipo conferido pelo conteúdo (RN60) | Gestor · Analista |
 | **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
-| **Abrir a ajuda** | botão **?** no cabeçalho, à esquerda do sino: abre `/ajuda` na seção do módulo em que se estava (RN59). O guia também circula como arquivo: `public/guia-da-plataforma.html` | todos |
+| **Abrir a ajuda** | botão **?** na extremidade direita do cabeçalho (movido na F17): abre `/ajuda` na seção do módulo em que se estava (RN59). O guia também circula como arquivo: `public/guia-da-plataforma.html` | todos |
+| **Verificar que a plataforma está no ar** | `GET /api/saude` (o processo responde) e `GET /api/saude/pronto` (alcança o banco). Públicas, sem sessão, sem revelar ambiente (RN61) | TI · balanceador |
 | **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |
 
 ### Pendências abertas, com dono
@@ -1060,7 +1228,8 @@ do dump completo do catálogo e a tag "Recompensa" em cards pagos na vitrine.
 
 | Pendência | Efeito hoje |
 |---|---|
-| **Imagem Docker não construída** (herdada da F5) | O `Dockerfile` multi-stage está escrito e revisado, mas **`docker build` nunca foi executado** em nenhum ambiente deste repositório — não há daemon Docker no ambiente de desenvolvimento usado. A TI deve rodar `docker build -t clube-broto-admin .` e conferir a imagem no primeiro deploy, antes de depender dela. O deploy na Vercel, usado para a demonstração, não passa por essa imagem. |
+| ~~**Imagem Docker não construída**~~ **(resolvida na F18)** | A imagem é construída, ensaiada e **publicada no GHCR a cada merge na main** (RN61), com etiquetas de versão, sha curto e `latest`. Consuma a etiqueta da versão em produção — ver *Executando a imagem*. O primeiro build real corrigiu dois defeitos do `Dockerfile` (engine do Prisma de plataforma errada e ausência de `ca-certificates`). O deploy na Vercel, usado para a demonstração, continua não passando por essa imagem. |
+| **Migrations e job diário não rodam a partir da imagem** (F18) | A imagem publicada contém só o servidor standalone: sem `prisma/`, sem CLI do Prisma, sem `scripts/`. Os dois passos rodam de um **checkout do repositório no commit da imagem** (a etiqueta com o sha curto existe para isso), o que exige Node e pnpm no ambiente de implantação. É intencional que o CLI de migration fique fora de uma imagem de produção — ele também sabe fazer `migrate reset` —, mas obriga a TI a manter esse segundo caminho. Se a operação preferir um caminho só, o desenho seria um **alvo `ferramentas` no `Dockerfile`**, publicado como imagem separada com `prisma/` e o CLI: decisão de arquitetura, não de código, e por isso não foi tomada aqui. |
 | **Chaves de ambiente** | Sem `CPF_HASH_KEY` e `APP_ENCRYPTION_KEY` a plataforma **falha alto** ao hashear ou cifrar CPF — não há fallback embutido, de propósito. Girar a `CPF_HASH_KEY` re-identifica a base inteira e desliga a junção telemetria ↔ assinante (RN36): não girar sem plano de recarga. `AUTH_SECRET` é obrigatória para a sessão. |
 | **Chave e tarifas do dossiê** | `ANTHROPIC_API_KEY`, `DOSSIE_TETO_MENSAL_BRL`, `DOSSIE_CUSTO_MAX_UNITARIO_BRL`, `DOSSIE_CUSTO_ENTRADA_BRL_MTOK` e `DOSSIE_CUSTO_SAIDA_BRL_MTOK` são **[A CONFIRMAR TI]** e nunca commitadas. Faltando qualquer uma, a T11 exibe o provedor automático como indisponível dizendo o que falta, e só a inserção manual do dossiê opera. As tarifas em real dependem da cotação adotada pela TI — por isso são configuração, não constante. |
 | Recorte "Safra 25/26" no seletor de período da T26 | O protótipo mostra a opção; o recorte de safra é definição de negócio (início e fim variam por cultura e região) e não consta de ficha nem do Parametrizador. O seletor entrega os três períodos computáveis (30 dias, 90 dias, 12 meses); a safra entra quando a janela for declarada. |
