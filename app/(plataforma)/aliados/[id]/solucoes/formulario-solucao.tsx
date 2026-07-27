@@ -64,7 +64,6 @@ export function FormularioSolucao({
   const [nome, definirNome] = useState(valores?.nome ?? "");
   const [descricaoCurta, definirDescricaoCurta] = useState(valores?.descricaoCurta ?? "");
   const [categoriaId, definirCategoriaId] = useState(valores?.categoriaId ?? "");
-  const [imagemCardUrl, definirImagemCardUrl] = useState(valores?.imagemCardUrl ?? "");
   const [coberturaNacional, definirCoberturaNacional] = useState(
     valores?.coberturaNacional ?? false,
   );
@@ -85,7 +84,10 @@ export function FormularioSolucao({
       coberturaNacional,
       quantidadeUfs: ufIds.length,
       temImagem,
-      imagemCardUrl,
+      // F17 — o campo não é mais editável aqui: a imagem virou arquivo, e
+      // o endereço obsoleto entra só como retaguarda de leitura, com o
+      // valor que já estava gravado.
+      imagemCardUrl: valores?.imagemCardUrl ?? null,
     },
   });
 
@@ -158,17 +160,6 @@ export function FormularioSolucao({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="field">
-                <label htmlFor="campo-sol-imagem">Imagem do card (chave do arquivo)</label>
-                <input
-                  id="campo-sol-imagem"
-                  className="input"
-                  name="imagemCardUrl"
-                  placeholder="s3://cards/…"
-                  value={imagemCardUrl}
-                  onChange={(evento) => definirImagemCardUrl(evento.target.value)}
-                />
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label htmlFor="campo-sol-link">Link externo</label>
@@ -319,7 +310,16 @@ export function FormularioSolucao({
           </div>
           <div className="vcard">
             <div className="img">
-              {!imagemCardUrl ? (
+              {temImagem && valores?.solucaoId ? (
+                /* Servida por rota própria com ETag pelo hash (RN60). */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/solucoes/${valores.solucaoId}/imagem`}
+                  alt=""
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : null}
+              {!temImagem ? (
                 <span
                   className="cap"
                   style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
