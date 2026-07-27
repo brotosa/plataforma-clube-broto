@@ -12,7 +12,10 @@ import {
   criarCampanha,
   definirMeta,
   encerrarCampanha,
+  enviarEvidenciaDaAprovacao,
   gerarNovaVersaoDoKit,
+  registrarPatrocinioDaCampanha,
+  removerEvidenciaDaAprovacao,
   removerMeta,
   removerPeca,
   salvarPeca,
@@ -80,6 +83,69 @@ export async function acaoAtualizarCampanha(parametros: {
     return { ok: true as const };
   } catch (erro) {
     return { ok: false as const, erros: mensagensDe(erro) };
+  }
+}
+
+/**
+ * RN64 — etiqueta do patrocinador e registro da aprovação externa.
+ *
+ * Diferente de `acaoAtualizarCampanha`, esta não exige rascunho: a
+ * aprovação costuma chegar depois da ativação, e travá-la garantiria que o
+ * registro nunca fosse feito.
+ */
+export async function acaoRegistrarPatrocinio(parametros: {
+  campanhaId: string;
+  patrocinadorId?: string | null;
+  aprovacaoAprovador?: string | null;
+  aprovacaoData?: string | null;
+}) {
+  const ator = await atorDaSessao();
+  const { campanhaId, ...resto } = parametros;
+  try {
+    await registrarPatrocinioDaCampanha(ator, campanhaId, resto);
+    revalidatePath(`/campanhas/${campanhaId}`);
+    revalidatePath("/campanhas");
+    return { ok: true as const };
+  } catch (erro) {
+    return { ok: false as const, erros: mensagensDe(erro) };
+  }
+}
+
+export async function acaoEnviarEvidencia(
+  _estado: { erros?: string[]; sucesso?: string; versao?: string | null },
+  dados: FormData,
+) {
+  const ator = await atorDaSessao();
+  const campanhaId = String(dados.get("campanhaId") ?? "");
+  const arquivo = dados.get("evidencia");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erros: ["Selecione a evidência da aprovação e envie novamente."] };
+  }
+  try {
+    const conteudo = new Uint8Array(await arquivo.arrayBuffer());
+    const { hash } = await enviarEvidenciaDaAprovacao(ator, campanhaId, {
+      nome: arquivo.name,
+      conteudo,
+    });
+    revalidatePath(`/campanhas/${campanhaId}`);
+    return { sucesso: "Evidência anexada à aprovação.", versao: hash };
+  } catch (erro) {
+    return { erros: mensagensDe(erro) };
+  }
+}
+
+export async function acaoRemoverEvidencia(
+  _estado: { erros?: string[]; sucesso?: string; versao?: string | null },
+  dados: FormData,
+) {
+  const ator = await atorDaSessao();
+  const campanhaId = String(dados.get("campanhaId") ?? "");
+  try {
+    await removerEvidenciaDaAprovacao(ator, campanhaId);
+    revalidatePath(`/campanhas/${campanhaId}`);
+    return { sucesso: "Evidência removida. O registro da aprovação continua.", versao: null };
+  } catch (erro) {
+    return { erros: mensagensDe(erro) };
   }
 }
 

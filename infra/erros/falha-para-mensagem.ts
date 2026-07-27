@@ -1,7 +1,7 @@
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
+import { ErroDeEnvioDeArquivo } from "@/dominio/arquivos/arquivo-enviado";
 import { ErroDeArquivo, ErroDeConfiguracao } from "@/dominio/erros/falhas";
 import { ErroDeLayoutTelemetria } from "@/dominio/integracao/telemetria";
-import { ErroDeMarca } from "@/dominio/marca/marca";
 import { ErroDeSegmentoInvalido } from "@/dominio/segmentacao/compilador";
 import { ErroDeTemplate } from "@/dominio/dossie/template";
 import { ErroDeValidacao } from "@/infra/casos-de-uso/contexto";
@@ -34,7 +34,13 @@ const FALHAS_CONHECIDAS = [
   ErroDeArquivo,
   ErroDeLayoutTelemetria,
   ErroDeLeitura,
-  ErroDeMarca,
+  // Recusa de arquivo ENVIADO pela tela — marca do aliado (RN54), imagem
+  // do card (RN60), minuta do contrato e evidência de aprovação (RN62,
+  // RN64). Uma classe só para as quatro: `ErroDeMarca` e `ErroDeImagem`
+  // são aliases dela, decisão da F17 que a F19 manteve ao generalizar.
+  // Listá-la pelo nome do núcleo evita que a entrada pareça específica da
+  // marca quando já não é há duas fases.
+  ErroDeEnvioDeArquivo,
   ErroDeSegmentoInvalido,
   ErroDeTemplate,
   ErroDeProvedor,

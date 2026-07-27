@@ -68,6 +68,14 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
     href: "/assinantes",
     icone: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0M16 11l2 2 4-4",
   },
+  {
+    // Onda 12 — logo APÓS Assinantes (prompt §4): o patrocinador é quem
+    // paga a assinatura patrocinada, e a leitura natural é a base primeiro,
+    // quem a custeia em seguida.
+    rotulo: "Patrocinadores",
+    href: "/patrocinadores",
+    icone: "M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M9 5h6v2H9zM2 12h20",
+  },
   { rotulo: "Aprovações", href: "/aprovacoes", icone: "M22 11.1V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" },
   {
     rotulo: "Parametrizador",

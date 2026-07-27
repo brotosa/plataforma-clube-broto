@@ -42,6 +42,10 @@ describe("RN59 — a ajuda abre na seção do módulo de origem (ficha §1.3)", 
     ["/campanhas", "j4"],
     ["/campanhas/ccmp1/painel", "j4"],
     ["/campanhas/cestas", "j4"],
+    // Patrocinadores → 4.7 (Onda 12)
+    ["/patrocinadores", "j7"],
+    ["/patrocinadores/cpt1b2c3", "j7"],
+    ["/patrocinadores/cpt1b2c3?aba=consumo", "j7"],
     // Parametrizador → 4.6
     ["/parametrizador", "j6"],
     ["/parametrizador/valores", "j6"],

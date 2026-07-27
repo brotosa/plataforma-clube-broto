@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   calcularForaDaBase,
   confirmacaoFotoCompletaValida,
+  interpretarEstadoDoUsuario,
+  interpretarPerfilAssinatura,
   interpretarPreferencia,
   type LinhaNucleo,
   montarResumoNucleo,
@@ -21,6 +23,8 @@ function linha(parcial: Partial<LinhaNucleo>): LinhaNucleo {
     email: null,
     telefone: null,
     preferencia: null,
+    perfilAssinatura: null,
+    patrocinador: null,
     ...parcial,
   };
 }
@@ -199,6 +203,59 @@ describe("normalizarLinhaNucleo", () => {
       email: null,
       telefone: null,
       preferencia: "PECUARIA",
+      // Onda 12 (RN63): sem as colunas novas no arquivo, os três nascem
+      // nulos — que é o estado honesto, e não um perfil suposto.
+      perfilAssinatura: null,
+      estadoUsuario: null,
+      patrocinador: null,
+    });
+  });
+
+  describe("RN63 — de-para do perfil de assinatura", () => {
+    it('"Assinatura Paga" vira autoassinatura', () => {
+      expect(interpretarPerfilAssinatura("Assinatura Paga", null)).toBe("AUTOASSINATURA");
+    });
+
+    it('"Assinatura Patrocinada" vira patrocinada — e Broto vira promocional', () => {
+      expect(interpretarPerfilAssinatura("Assinatura Patrocinada", "Yamer")).toBe("PATROCINADA");
+      expect(interpretarPerfilAssinatura("Assinatura Patrocinada", "Broto")).toBe(
+        "PROMOCIONAL_BROTO",
+      );
+      // O valor da coluna nativa vem como vier: caixa não decide nada.
+      expect(interpretarPerfilAssinatura("assinatura patrocinada", " broto ")).toBe(
+        "PROMOCIONAL_BROTO",
+      );
+    });
+
+    it("estado do usuário NÃO vira perfil — a fonte não tem essa categoria", () => {
+      expect(interpretarPerfilAssinatura("Usuário Cadastrado", null)).toBeNull();
+      expect(interpretarPerfilAssinatura("Usuário Freemium", null)).toBeNull();
+    });
+
+    it("valor desconhecido devolve null, nunca um palpite", () => {
+      expect(interpretarPerfilAssinatura("Plano Ouro", null)).toBeNull();
+      expect(interpretarPerfilAssinatura("", null)).toBeNull();
+      expect(interpretarPerfilAssinatura(null, "Yamer")).toBeNull();
+    });
+
+    it("o estado do usuário sai da mesma coluna, e é outra leitura", () => {
+      expect(interpretarEstadoDoUsuario("Usuário Cadastrado")).toBe("CADASTRADO");
+      expect(interpretarEstadoDoUsuario("Usuário Freemium")).toBe("FREEMIUM");
+      expect(interpretarEstadoDoUsuario("Assinatura Paga")).toBe("ASSINANTE");
+      expect(interpretarEstadoDoUsuario("Assinatura Patrocinada")).toBe("ASSINANTE");
+      expect(interpretarEstadoDoUsuario("Plano Ouro")).toBeNull();
+    });
+  });
+
+  describe("RN63 — o mapeador reconhece as duas colunas novas", () => {
+    it('a coluna nativa "Patrocinador" tem destino próprio', () => {
+      const sugestao = sugerirMapeamento(["CPF", "Nome", "Patrocinador", "Tipo Assinatura"]);
+      expect(sugestao["Patrocinador"]).toBe("patrocinador");
+      expect(sugestao["Tipo Assinatura"]).toBe("perfilAssinatura");
+    });
+
+    it("coluna sem correspondência continua sem sugestão", () => {
+      expect(sugerirMapeamento(["Coluna Estranha"])["Coluna Estranha"]).toBeNull();
     });
   });
 });

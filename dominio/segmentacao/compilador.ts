@@ -175,6 +175,33 @@ function compilarCondicaoNucleo(
         parametros: [Number(regra.valor)],
       };
     }
+    case "perfil-assinatura": {
+      const indice = proximoIndice();
+      // Onda 12 (RN63). `nao_e` usa `IS DISTINCT FROM` e não `<>` porque
+      // perfil NULO é o estado mais comum hoje — e "não é patrocinada"
+      // precisa incluir quem ainda não tem perfil informado, senão o
+      // recorte esconde a maior parte da base sem dizer.
+      return {
+        sql:
+          regra.operador === "e"
+            ? `a.perfil_assinatura = CAST($${indice} AS "PerfilAssinatura")`
+            : `a.perfil_assinatura IS DISTINCT FROM CAST($${indice} AS "PerfilAssinatura")`,
+        parametros: [regra.valor.toUpperCase()],
+      };
+    }
+    case "patrocinador": {
+      const indice = proximoIndice();
+      // Onda 12 (RN62). Vínculo VIGENTE (`fim IS NULL`) — a mesma
+      // definição de `dominio/patrocinio/saldo.ts`, e a única que faz o
+      // recorte significar "a base do patrocinador hoje".
+      const existe =
+        `EXISTS (SELECT 1 FROM vinculos_patrocinio v WHERE v.assinante_id = a.id ` +
+        `AND v.patrocinador_id = $${indice} AND v.fim IS NULL)`;
+      return {
+        sql: regra.operador === "e" ? existe : `NOT ${existe}`,
+        parametros: [regra.valor],
+      };
+    }
     default:
       throw new ErroDeSegmentoInvalido([
         `Campo "${regra.campo}" sem compilação definida.`,

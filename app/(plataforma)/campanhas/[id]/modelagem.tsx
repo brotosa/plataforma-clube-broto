@@ -13,6 +13,7 @@ import {
   acaoAlternarConteudo,
   acaoAtivarCampanha,
   acaoAtualizarCampanha,
+  acaoRegistrarPatrocinio,
   acaoDefinirMeta,
   acaoRemoverMeta,
   acaoRemoverPeca,
@@ -119,6 +120,7 @@ function IconeInfo() {
 
 export function ModelagemCampanha({
   campanha,
+  patrocinadores,
   campos,
   segmentos,
   formatos,
@@ -139,7 +141,14 @@ export function ModelagemCampanha({
     vigenciaInicio: string | null;
     vigenciaFim: string | null;
     instrucoes: string | null;
+    /** Onda 12 (RN64) — a etiqueta e o registro da aprovação externa. */
+    patrocinadorId: string | null;
+    aprovacaoAprovador: string | null;
+    aprovacaoData: string | null;
+    temEvidencia: boolean;
   };
+  /** Patrocinadores ativos, para a etiqueta (RN64). */
+  patrocinadores: ReadonlyArray<{ id: string; razaoSocial: string }>;
   campos: ReadonlyArray<CampoConstrutor>;
   segmentos: ReadonlyArray<{ id: string; nome: string }>;
   formatos: ReadonlyArray<{ slug: string; nome: string }>;
@@ -159,6 +168,9 @@ export function ModelagemCampanha({
   const [tipoMeta, setTipoMeta] = useState<MetaExibida["tipo"]>("RESGATES");
   const [alvoMeta, setAlvoMeta] = useState("");
   const [confirmandoAtivacao, setConfirmandoAtivacao] = useState(false);
+  const [patrocinadorId, setPatrocinadorId] = useState(campanha.patrocinadorId ?? "");
+  const [aprovador, setAprovador] = useState(campanha.aprovacaoAprovador ?? "");
+  const [dataAprovacao, setDataAprovacao] = useState(campanha.aprovacaoData ?? "");
   const [pendente, iniciar] = useTransition();
   const router = useRouter();
 
@@ -277,6 +289,92 @@ export function ModelagemCampanha({
                   com autor, data, contagem e finalidade (RN34/RN38). Até lá, a contagem é viva.
                 </span>
               </div>
+              <div className="card" style={{ padding: "20px 22px" }}>
+                <h2 className="h-el" style={{ marginBottom: 4 }}>
+                  Patrocinador e aprovação externa
+                </h2>
+                <p className="cap" style={{ margin: "0 0 12px", maxWidth: "62ch" }}>
+                  Campanha sob medida é recorte de público mais esta etiqueta. A aprovação pode
+                  acontecer fora da plataforma — o que se registra aqui é quem aprovou, quando e a
+                  evidência. Sem registro, o kit é gerado assim mesmo, carimbado com a pendência.
+                </p>
+                <div
+                  className="g-resp"
+                  style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}
+                >
+                  <div className="field">
+                    <label htmlFor="cp-patrocinador">Patrocinador</label>
+                    <select
+                      id="cp-patrocinador"
+                      className="input"
+                      value={patrocinadorId}
+                      onChange={(evento) => setPatrocinadorId(evento.target.value)}
+                    >
+                      <option value="">Sem patrocinador</option>
+                      {patrocinadores.map((patrocinador) => (
+                        <option key={patrocinador.id} value={patrocinador.id}>
+                          {patrocinador.razaoSocial}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="cp-aprovador">Quem aprovou</label>
+                    <input
+                      id="cp-aprovador"
+                      className="input"
+                      value={aprovador}
+                      onChange={(evento) => setAprovador(evento.target.value)}
+                      placeholder="Nome de quem aprovou, do lado do patrocinador"
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="cp-data-aprovacao">Data da aprovação</label>
+                    <input
+                      id="cp-data-aprovacao"
+                      className="input"
+                      type="date"
+                      value={dataAprovacao}
+                      onChange={(evento) => setDataAprovacao(evento.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <span className="cap">Evidência</span>
+                    <div style={{ paddingTop: 6 }}>
+                      {campanha.temEvidencia ? (
+                        <a className="cap" href={`/api/campanhas/${campanha.id}/evidencia`}>
+                          evidência anexada — abrir
+                        </a>
+                      ) : (
+                        <span className="cap">sem evidência anexada</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {campanha.aprovacaoAprovador === null ? (
+                  <p className="aviso-inline" style={{ margin: "0 0 12px" }}>
+                    pendente de registro — o kit sairá carimbado com esta pendência
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-azul btn-sm"
+                  disabled={pendente}
+                  onClick={() =>
+                    executar(() =>
+                      acaoRegistrarPatrocinio({
+                        campanhaId: campanha.id,
+                        patrocinadorId: patrocinadorId || null,
+                        aprovacaoAprovador: aprovador.trim() || null,
+                        aprovacaoData: dataAprovacao || null,
+                      }),
+                    )
+                  }
+                >
+                  {pendente ? "Salvando…" : "Salvar patrocínio"}
+                </button>
+              </div>
+
               <div className="card" style={{ padding: "20px 22px" }}>
                 <h2 className="h-el" style={{ marginBottom: 12 }}>
                   Público

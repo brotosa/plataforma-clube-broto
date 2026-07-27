@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -75,6 +75,14 @@ const TELAS_COM_CONTROLE_DE_QUERY: ReadonlyArray<{ arquivo: string; rota: string
   { arquivo: "app/(plataforma)/shell-plataforma.tsx", rota: "*" },
   // A barra de volta leva a query da tela de origem (`/mercado?aba=metas`).
   { arquivo: "app/(plataforma)/ajuda/page.tsx", rota: "*" },
+  /**
+   * Onda 12 (F19). A T32 tem chips de status e de vigência em alerta; a
+   * T33 tem o segmentado das quatro abas. Ambos alteram apenas a query da
+   * própria rota, então entram aqui junto com as telas — que é o que o
+   * cabeçalho desta cerca pede de tela nova com controle de query.
+   */
+  { arquivo: "app/(plataforma)/patrocinadores/page.tsx", rota: "/patrocinadores" },
+  { arquivo: "app/(plataforma)/patrocinadores/[id]/page.tsx", rota: "/patrocinadores" },
 ];
 
 /**

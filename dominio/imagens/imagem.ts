@@ -1,57 +1,60 @@
+import {
+  type ArquivoValidado,
+  ErroDeEnvioDeArquivo,
+  EXTENSAO_POR_TIPO_DE_ARQUIVO,
+  type PerfilDeArquivo,
+  rotularFormatos as rotularFormatosDeArquivo,
+  type TipoDeArquivo,
+  detectarTipoRealEntre,
+  pareceSvg,
+  validarArquivo,
+} from "@/dominio/arquivos/arquivo-enviado";
+
 /**
- * Régua de arquivo de imagem sob controle da plataforma (RN54, RN60).
+ * Régua de arquivo de **imagem** sob controle da plataforma (RN54, RN60).
  *
- * Este núcleo nasceu em `dominio/marca/marca.ts` na F15, para a marca do
- * aliado, e foi **generalizado** na F17 quando a imagem do card da solução
- * passou a precisar do mesmo tratamento. Generalizado, e não copiado: um
- * segundo caminho paralelo para "validar imagem enviada" divergiria na
- * primeira correção de segurança, e a correção iria para um lado só.
+ * Este arquivo era, até a F19, o núcleo inteiro. Quando a minuta do contrato
+ * (RN62) passou a precisar da mesma régua para um **PDF**, o que era comum a
+ * qualquer arquivo — tipo real pelo conteúdo, coerência de extensão, teto,
+ * ordem das recusas — subiu para `dominio/arquivos/arquivo-enviado.ts`, e
+ * aqui ficou o que é de imagem: a maior dimensão de uso, a higienização de
+ * SVG e o texto das recusas em linguagem de imagem.
  *
- * O que varia entre uma imagem e outra é **calibragem**, não mecanismo:
- * teto, formatos aceitos, maior dimensão de uso e o substantivo das
- * mensagens. Tudo isso vive no `PerfilDeImagem` de cada entidade. O que não
- * varia — apuração do tipo real pelo conteúdo, higienização de SVG, ordem
- * das recusas — vive aqui, uma vez.
+ * **A API pública deste módulo não mudou de forma nenhuma** — nomes, tipos e
+ * mensagens são os mesmos —, e é de propósito: `dominio/marca/marca.test.ts`
+ * e `dominio/solucoes/imagem-card.test.ts` não foram tocados nesta fase,
+ * então eles provam, sozinhos, que a terceira generalização não alterou o
+ * comportamento das duas primeiras. É a mesma prova que a F17 usou quando
+ * generalizou pela primeira vez.
  *
  * Domínio puro: nada depende de banco, rede ou sessão.
  *
- * **Por que os limites não são parâmetros do Parametrizador.** A RN23 manda
- * toda régua, teto e meta de NEGÓCIO vir do Serviço de Configuração. Estes
- * números não são régua de negócio: são a condição de arquitetura que
- * torna guardar o binário no banco uma decisão defensável (ficha Onda 8 §1
- * — "limites, que são a condição da decisão"). Afrouxá-los pela tela
- * derrubaria a premissa — poucas dezenas de arquivos pequenos — sem que
- * ninguém revisse a decisão. Mudança aqui é mudança de código, com PR.
+ * **Por que os limites não são parâmetros do Parametrizador:** ver o
+ * cabeçalho de `arquivo-enviado.ts` — a razão é a mesma e vale para os dois.
  */
 
-/** Os quatro formatos que a plataforma sabe reconhecer pelo conteúdo. */
-export const TIPOS_CONHECIDOS = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"] as const;
+/** Os quatro formatos de IMAGEM que a plataforma sabe reconhecer. */
+export const TIPOS_CONHECIDOS = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+] as const;
 
 export type TipoDeImagem = (typeof TIPOS_CONHECIDOS)[number];
 
 /** Extensão canônica por tipo — usada no nome do arquivo dentro do kit. */
 export const EXTENSAO_POR_TIPO: Record<TipoDeImagem, string> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/webp": ".webp",
-  "image/svg+xml": ".svg",
+  "image/png": EXTENSAO_POR_TIPO_DE_ARQUIVO["image/png"],
+  "image/jpeg": EXTENSAO_POR_TIPO_DE_ARQUIVO["image/jpeg"],
+  "image/webp": EXTENSAO_POR_TIPO_DE_ARQUIVO["image/webp"],
+  "image/svg+xml": EXTENSAO_POR_TIPO_DE_ARQUIVO["image/svg+xml"],
 };
 
-/** Extensões que combinam com cada tipo real (JPEG aceita as duas formas). */
-const EXTENSOES_COERENTES: Record<TipoDeImagem, ReadonlyArray<string>> = {
-  "image/png": [".png"],
-  "image/jpeg": [".jpg", ".jpeg"],
-  "image/webp": [".webp"],
-  "image/svg+xml": [".svg"],
-};
-
-/** Nome curto do formato, para compor o rótulo humano. */
-const ROTULO_POR_TIPO: Record<TipoDeImagem, string> = {
-  "image/png": "PNG",
-  "image/jpeg": "JPG",
-  "image/webp": "WEBP",
-  "image/svg+xml": "SVG",
-};
+/** Rótulo humano dos formatos de um perfil ("PNG, JPG, WEBP ou SVG"). */
+export function rotularFormatos(tipos: ReadonlyArray<TipoDeImagem>): string {
+  return rotularFormatosDeArquivo(tipos);
+}
 
 /**
  * Calibragem de uma imagem por entidade.
@@ -73,99 +76,34 @@ export interface PerfilDeImagem {
   readonly complementoDeSelecao: string;
 }
 
-/** Rótulo humano dos formatos de um perfil ("PNG, JPG, WEBP ou SVG"). */
-export function rotularFormatos(tipos: ReadonlyArray<TipoDeImagem>): string {
-  const nomes = tipos.map((tipo) => ROTULO_POR_TIPO[tipo]);
-  if (nomes.length <= 1) {
-    return nomes[0] ?? "";
-  }
-  return `${nomes.slice(0, -1).join(", ")} ou ${nomes[nomes.length - 1]}`;
-}
-
 /**
  * Recusa de imagem: erro de causa conhecida, então a mensagem sobe até a
  * interface inteira (RN55). Toda recusa nomeia o motivo — nunca "arquivo
  * inválido".
+ *
+ * É a mesma classe que o núcleo lança, exposta com o nome que esta camada
+ * usa — alias, não subclasse. Quem captura `ErroDeImagem` continua
+ * capturando o que `validarArquivo` lança, e o mapeador da RN55 não precisa
+ * conhecer uma classe por entidade.
  */
-export class ErroDeImagem extends Error {
-  constructor(mensagem: string) {
-    super(mensagem);
-    this.name = "ErroDeImagem";
-  }
-}
-
-// ---------------------------------------------------------------------
-// Tipo real pelo conteúdo — nunca pela extensão
-// ---------------------------------------------------------------------
-
-function comecaCom(conteudo: Uint8Array, assinatura: readonly number[], deslocamento = 0): boolean {
-  if (conteudo.length < deslocamento + assinatura.length) return false;
-  return assinatura.every((byte, i) => conteudo[deslocamento + i] === byte);
-}
-
-const ASSINATURA_PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const ASSINATURA_JPEG = [0xff, 0xd8, 0xff];
-const ASSINATURA_RIFF = [0x52, 0x49, 0x46, 0x46]; // "RIFF"
-const ASSINATURA_WEBP = [0x57, 0x45, 0x42, 0x50]; // "WEBP", no deslocamento 8
-
-/**
- * Decide se o conteúdo é SVG. Diferente dos três formatos binários, SVG é
- * texto: não há número mágico, então a prova é estrutural — o documento
- * precisa abrir uma tag `<svg` depois de, no máximo, declaração XML,
- * doctype, comentários e espaço. Isso recusa "HTML com um `<svg>` no
- * meio", que é o vetor clássico de renomear .html para .svg.
- */
-function pareceSvg(conteudo: Uint8Array): boolean {
-  // BOM UTF-8, se houver, não atrapalha a leitura.
-  const semBom =
-    comecaCom(conteudo, [0xef, 0xbb, 0xbf]) ? conteudo.subarray(3) : conteudo;
-  // Só o começo importa e o resto pode ser grande: 4 KB bastam para passar
-  // por declaração, doctype e comentários de qualquer SVG real.
-  const inicio = new TextDecoder("utf-8", { fatal: false }).decode(semBom.subarray(0, 4096));
-  let resto = inicio.trimStart();
-  // Consome, em ordem livre, o prólogo permitido antes da raiz.
-  for (;;) {
-    if (resto.startsWith("<?xml")) {
-      const fim = resto.indexOf("?>");
-      if (fim === -1) return false;
-      resto = resto.slice(fim + 2).trimStart();
-      continue;
-    }
-    if (resto.startsWith("<!--")) {
-      const fim = resto.indexOf("-->");
-      if (fim === -1) return false;
-      resto = resto.slice(fim + 3).trimStart();
-      continue;
-    }
-    if (/^<!DOCTYPE/i.test(resto)) {
-      const fim = resto.indexOf(">");
-      if (fim === -1) return false;
-      resto = resto.slice(fim + 1).trimStart();
-      continue;
-    }
-    break;
-  }
-  // A raiz precisa ser <svg — com ou sem prefixo de namespace (<svg:svg>).
-  return /^<(?:[A-Za-z_][\w.-]*:)?svg[\s/>]/i.test(resto);
-}
+export { ErroDeEnvioDeArquivo as ErroDeImagem } from "@/dominio/arquivos/arquivo-enviado";
 
 /**
  * Tipo real do arquivo, apurado pelo conteúdo. Devolve `null` quando não é
- * nenhum dos quatro formatos conhecidos — a extensão do nome enviado não
- * participa da decisão em momento algum.
+ * nenhum dos quatro formatos de imagem conhecidos — a extensão do nome
+ * enviado não participa da decisão em momento algum.
+ *
+ * **O universo é o das imagens, e só.** Um PDF continua devolvendo `null`
+ * aqui, como `marca.test.ts` afirma desde a F15: a generalização da F19
+ * ensinou o núcleo a reconhecer PDF, mas quem decide o universo é o
+ * chamador, e o desta camada não mudou.
  *
  * Reconhece SVG mesmo em perfil que não o aceita, de propósito: assim a
  * recusa pode dizer "SVG não é aceito aqui, e por quê", em vez do genérico
  * "não é PNG, JPG ou WEBP".
  */
 export function detectarTipoReal(conteudo: Uint8Array): TipoDeImagem | null {
-  if (comecaCom(conteudo, ASSINATURA_PNG)) return "image/png";
-  if (comecaCom(conteudo, ASSINATURA_JPEG)) return "image/jpeg";
-  if (comecaCom(conteudo, ASSINATURA_RIFF) && comecaCom(conteudo, ASSINATURA_WEBP, 8)) {
-    return "image/webp";
-  }
-  if (pareceSvg(conteudo)) return "image/svg+xml";
-  return null;
+  return detectarTipoRealEntre(conteudo, TIPOS_CONHECIDOS);
 }
 
 // ---------------------------------------------------------------------
@@ -233,9 +171,10 @@ function referenciaLocalPermitida(valor: string): boolean {
  *
  * Só é chamada por perfil que aceita SVG. Hoje é um só, a marca do aliado
  * — a imagem do card ficou de fora justamente para não reabrir esta
- * superfície (RN60). A mensagem de recusa fala em "marca" porque é a única
- * imagem que chega até aqui; quando um segundo perfil aceitar vetor, ela
- * passa a compor pelo `sujeito` do perfil.
+ * superfície (RN60), e a minuta do contrato (RN62) é PDF, que não passa
+ * por aqui. A mensagem de recusa fala em "marca" porque é a única imagem
+ * que chega até aqui; quando um segundo perfil aceitar vetor, ela passa a
+ * compor pelo `sujeito` do perfil.
  *
  * **A higienização não é a única barreira, de propósito.** A rota que serve
  * o arquivo devolve `Content-Security-Policy: default-src 'none'` e
@@ -275,8 +214,9 @@ export function higienizarSvg(svgOriginal: string): string {
   );
 
   // 5. Demais atributos que buscam recurso de fora.
-  svg = svg.replace(/\s(?:xlink:)?(?:src|from|to|values|base|action|formaction)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, (inteiro) =>
-    /https?:|\/\/|javascript:|data:(?!image\/)/i.test(inteiro) ? "" : inteiro,
+  svg = svg.replace(
+    /\s(?:xlink:)?(?:src|from|to|values|base|action|formaction)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
+    (inteiro) => (/https?:|\/\/|javascript:|data:(?!image\/)/i.test(inteiro) ? "" : inteiro),
   );
 
   // 6. CSS que importa ou baixa: @import e url() apontando para fora.
@@ -284,7 +224,10 @@ export function higienizarSvg(svgOriginal: string): string {
   svg = svg.replace(/url\(\s*(['"]?)(?!#|data:image\/)[^)]*\1\s*\)/gi, "none");
 
   // 7. Rede de segurança: esquema executável em qualquer atributo restante.
-  svg = svg.replace(/\s[\w:-]+\s*=\s*("[^"]*javascript:[^"]*"|'[^']*javascript:[^']*'|[^\s>]*javascript:[^\s>]*)/gi, "");
+  svg = svg.replace(
+    /\s[\w:-]+\s*=\s*("[^"]*javascript:[^"]*"|'[^']*javascript:[^']*'|[^\s>]*javascript:[^\s>]*)/gi,
+    "",
+  );
 
   // 8. `<style>` e `<a>` não são removidos: o primeiro já perdeu @import e
   //    url() externo, o segundo já perdeu href não-local, e ambos aparecem
@@ -294,10 +237,11 @@ export function higienizarSvg(svgOriginal: string): string {
   // condição pega o caso em que um `<script>` sem fechamento levou o resto
   // do arquivo embora: aí o certo é recusar com motivo, não gravar um
   // desenho truncado que a tela renderizaria pela metade.
-  const fechaDireito = /<\/(?:[A-Za-z_][\w.-]*:)?svg\s*>\s*$/i.test(svg.trimEnd()) ||
+  const fechaDireito =
+    /<\/(?:[A-Za-z_][\w.-]*:)?svg\s*>\s*$/i.test(svg.trimEnd()) ||
     /^[\s\S]*<(?:[A-Za-z_][\w.-]*:)?svg\b[^>]*\/\s*>\s*$/i.test(svg.trim());
   if (!pareceSvg(new TextEncoder().encode(svg)) || !fechaDireito) {
-    throw new ErroDeImagem(
+    throw new ErroDeEnvioDeArquivo(
       "O SVG enviado não pôde ser higienizado com segurança — o que restou depois de remover script, manipuladores de evento e referências externas não é mais um SVG válido. Exporte a marca novamente pela ferramenta de design, ou envie em PNG.",
     );
   }
@@ -308,82 +252,50 @@ export function higienizarSvg(svgOriginal: string): string {
 // Validação completa do envio
 // ---------------------------------------------------------------------
 
-export interface ImagemValidada {
-  conteudo: Uint8Array;
-  tipoMime: TipoDeImagem;
-  bytes: number;
-}
+export type ImagemValidada = ArquivoValidado & { tipoMime: TipoDeImagem };
 
-function formatarKb(bytes: number): string {
-  return `${Math.round((bytes / 1024) * 10) / 10} KB`.replace(".", ",");
+/**
+ * Traduz a calibragem de imagem para a do núcleo. É aqui que mora tudo o
+ * que é dito "em linguagem de imagem": o fecho da recusa de formato e a
+ * dica de redução, que num PDF seriam outras.
+ */
+function comoPerfilDeArquivo(perfil: PerfilDeImagem): PerfilDeArquivo {
+  return {
+    tamanhoMaximoEmBytes: perfil.tamanhoMaximoEmBytes,
+    tiposAceitos: perfil.tiposAceitos,
+    // Universo das imagens: PDF não é reconhecido por esta camada.
+    universoDeDeteccao: TIPOS_CONHECIDOS,
+    sujeito: perfil.sujeito,
+    complementoDeSelecao: perfil.complementoDeSelecao,
+    fechoDeFormatoRecusado: "Envie a imagem em um deles.",
+    dicaDeReducao: `Reduza a imagem antes de enviar — a maior dimensão que a plataforma usa é ${perfil.maiorDimensaoDeUso} px.`,
+    higienizar: perfil.tiposAceitos.includes("image/svg+xml")
+      ? (conteudo: Uint8Array, tipo: TipoDeArquivo) => {
+          if (tipo !== "image/svg+xml") return conteudo;
+          const original = new TextDecoder("utf-8", { fatal: false }).decode(conteudo);
+          return new TextEncoder().encode(higienizarSvg(original));
+        }
+      : undefined,
+  };
 }
 
 /**
- * Régua completa do envio, na ordem em que as recusas fazem sentido para
- * quem enviou. Devolve o conteúdo **já higienizado** quando é SVG — é ele
- * que se grava, nunca o original.
+ * Régua completa do envio de imagem, na ordem em que as recusas fazem
+ * sentido para quem enviou. Devolve o conteúdo **já higienizado** quando é
+ * SVG — é ele que se grava, nunca o original.
  *
  * Roda SEMPRE no servidor. O redimensionamento por canvas que a tela faz
  * antes de enviar é conveniência de cliente: encolhe o arquivo comum para
- * caber, e nada mais. Tamanho, tipo real e higienização são decididos
- * aqui, sobre os bytes que efetivamente chegaram.
+ * caber, e nada mais. Tamanho, tipo real e higienização são decididos no
+ * núcleo, sobre os bytes que efetivamente chegaram.
  */
 export function validarImagem(
   conteudo: Uint8Array,
   nomeArquivo: string,
   perfil: PerfilDeImagem,
 ): ImagemValidada {
-  if (conteudo.length === 0) {
-    throw new ErroDeImagem(
-      `O arquivo enviado está vazio. Selecione ${perfil.complementoDeSelecao} e envie novamente.`,
-    );
-  }
-
-  const formatos = rotularFormatos(perfil.tiposAceitos);
-  const tipoReal = detectarTipoReal(conteudo);
-  if (tipoReal === null) {
-    throw new ErroDeImagem(
-      `O conteúdo de "${nomeArquivo}" não é ${formatos}. A plataforma confere o tipo real do arquivo, não a extensão do nome — renomear não muda o que ele é.`,
-    );
-  }
-
-  /**
-   * Formato reconhecido, mas fora deste perfil. Recusa própria, porque a
-   * genérica mentiria: dizer "não é PNG, JPG ou WEBP" sobre um SVG válido
-   * manda a pessoa conferir o arquivo em vez de trocar de formato.
-   */
-  if (!perfil.tiposAceitos.includes(tipoReal)) {
-    throw new ErroDeImagem(
-      `${perfil.sujeito} não aceita ${ROTULO_POR_TIPO[tipoReal]} — os formatos aceitos aqui são ${formatos}. ` +
-        `Envie a imagem em um deles.`,
-    );
-  }
-
-  const extensaoInformada = nomeArquivo.includes(".")
-    ? nomeArquivo.slice(nomeArquivo.lastIndexOf(".")).toLowerCase()
-    : "";
-  const extensaoDoTipo = EXTENSAO_POR_TIPO[tipoReal];
-  if (extensaoInformada !== "" && !EXTENSOES_COERENTES[tipoReal].includes(extensaoInformada)) {
-    // Divergência não é fatal — o que vale é o conteúdo —, mas avisar é
-    // honesto: quem envia "logo.png" que na verdade é WEBP precisa saber.
-    throw new ErroDeImagem(
-      `O arquivo "${nomeArquivo}" tem extensão ${extensaoInformada}, mas o conteúdo é ${tipoReal} (o correto seria ${extensaoDoTipo}). Renomeie o arquivo ou exporte-o no formato que a extensão promete.`,
-    );
-  }
-
-  let conteudoFinal = conteudo;
-  if (tipoReal === "image/svg+xml") {
-    const original = new TextDecoder("utf-8", { fatal: false }).decode(conteudo);
-    conteudoFinal = new TextEncoder().encode(higienizarSvg(original));
-  }
-
-  // O teto vale sobre o que será GRAVADO: para SVG, depois de higienizar
-  // (que só encolhe); para os demais, o próprio arquivo.
-  if (conteudoFinal.length > perfil.tamanhoMaximoEmBytes) {
-    throw new ErroDeImagem(
-      `${perfil.sujeito} tem ${formatarKb(conteudoFinal.length)} e o limite é ${formatarKb(perfil.tamanhoMaximoEmBytes)}. Reduza a imagem antes de enviar — a maior dimensão que a plataforma usa é ${perfil.maiorDimensaoDeUso} px.`,
-    );
-  }
-
-  return { conteudo: conteudoFinal, tipoMime: tipoReal, bytes: conteudoFinal.length };
+  const validado = validarArquivo(conteudo, nomeArquivo, comoPerfilDeArquivo(perfil));
+  // O universo de detecção é o das imagens, então o tipo devolvido é sempre
+  // um dos quatro — o estreitamento aqui é consequência, não suposição.
+  return { ...validado, tipoMime: validado.tipoMime as TipoDeImagem };
 }

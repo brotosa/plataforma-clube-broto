@@ -71,15 +71,77 @@ function secao(html: string, id: string): string {
   return html.slice(inicio, fim === -1 ? undefined : fim);
 }
 
-describe("RN58 — as doze seções do guia, com suas âncoras", () => {
+/**
+ * As doze seções do documento entregue pelo Design na Onda 9.
+ *
+ * A fidelidade frase por frase é exigida **destas**, e só destas: elas têm
+ * contraparte em `docs/referencias/Guia_da_Plataforma_v1.html`, e é contra
+ * ela que se comparam.
+ */
+const SECOES_DA_REFERENCIA = [
+  "oquee",
+  "vocab",
+  "princ",
+  "j1",
+  "j2",
+  "j3",
+  "j4",
+  "j5",
+  "j6",
+  "papeis",
+  "faltam",
+  "glossario",
+] as const;
+
+/**
+ * Seções nascidas DEPOIS do documento de referência, com a onda que as
+ * pediu.
+ *
+ * A RN58 diz que o texto do guia é imutável e vem do documento entregue —
+ * e continua valendo para as doze acima. Mas o guia é do produto, e o
+ * produto ganhou um módulo: a ficha da Onda 12 §5 pede a seção 4.7. Ela
+ * não tem contraparte na referência, que é da Onda 9, então o texto foi
+ * redigido na fase, na voz do guia.
+ *
+ * O que a RN58 exige e continua garantido: **fonte única**. A 4.7 vive em
+ * `secoes.html` como todas as outras, e a rota e o documento autônomo
+ * montam dela — não há segunda cópia. O que muda é só a origem editorial,
+ * e está declarada aqui em vez de silenciosamente tolerada.
+ *
+ * Seção nova de onda futura entra nesta lista, com o mesmo raciocínio
+ * escrito. Se algum dia o Design entregar um guia v2 que já a contenha,
+ * ela migra para `SECOES_DA_REFERENCIA` e volta a ser cobrada frase por
+ * frase.
+ */
+const SECOES_NASCIDAS_DEPOIS: ReadonlyArray<{ id: string; onda: string }> = [
+  { id: "j7", onda: "Onda 12 · Patrocinadores (ficha §5)" },
+];
+
+describe("RN58 — as seções do guia, com suas âncoras", () => {
   const { secoes } = carregarGuia();
 
-  it("o sumário e o conteúdo declaram exatamente as mesmas doze seções", () => {
+  it("o sumário e o conteúdo declaram exatamente as mesmas seções, na mesma ordem", () => {
     const noConteudo = [...secoes.matchAll(/<section class="gd-sec" id="([a-z0-9]+)"/g)].map(
       (achado) => achado[1],
     );
     expect(noConteudo).toEqual(INDICE_DO_GUIA.map((entrada) => entrada.id));
-    expect(noConteudo).toHaveLength(12);
+  });
+
+  it("toda seção ou vem da referência, ou está declarada como nascida depois", () => {
+    const conhecidas = new Set<string>([
+      ...SECOES_DA_REFERENCIA,
+      ...SECOES_NASCIDAS_DEPOIS.map((secao) => secao.id),
+    ]);
+    const semOrigem = INDICE_DO_GUIA.filter((entrada) => !conhecidas.has(entrada.id));
+    expect(
+      semOrigem.map((entrada) => entrada.id),
+      "seção sem origem declarada — acrescente à referência ou a SECOES_NASCIDAS_DEPOIS",
+    ).toEqual([]);
+    // E as doze da referência continuam todas lá, na ordem original.
+    const doDocumento = INDICE_DO_GUIA.map((entrada) => entrada.id).filter((id) =>
+      (SECOES_DA_REFERENCIA as ReadonlyArray<string>).includes(id),
+    );
+    expect(doDocumento).toEqual([...SECOES_DA_REFERENCIA]);
   });
 
   it("as âncoras do protótipo continuam valendo — /ajuda#j4 é endereço publicado", () => {
@@ -164,12 +226,26 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
   const referencia = templateDaReferencia();
   const { capa, secoes } = carregarGuia();
 
-  it.each(INDICE_DO_GUIA.map((entrada) => [entrada.id, entrada.rotulo] as const))(
-    "§%s (%s) transcrita sem uma palavra alterada",
+  it.each(
+    INDICE_DO_GUIA.filter((entrada) =>
+      (SECOES_DA_REFERENCIA as ReadonlyArray<string>).includes(entrada.id),
+    ).map((entrada) => [entrada.id, entrada.rotulo] as const),
+  )("§%s (%s) transcrita sem uma palavra alterada", (id) => {
+    const naReferencia = texto(secao(referencia, id));
+    expect(naReferencia.length, `seção ${id} encontrada na referência`).toBeGreaterThan(100);
+    expect(texto(secao(secoes, id))).toBe(naReferencia);
+  });
+
+  /**
+   * A contrapartida: seção nascida depois do documento **não** pode ter
+   * contraparte na referência. Se tiver, alguém a transcreveu por outro
+   * caminho e a lista `SECOES_NASCIDAS_DEPOIS` está mentindo.
+   */
+  it.each(SECOES_NASCIDAS_DEPOIS.map((secaoNova) => [secaoNova.id, secaoNova.onda] as const))(
+    "§%s nasceu na %s — existe na fonte e não na referência",
     (id) => {
-      const naReferencia = texto(secao(referencia, id));
-      expect(naReferencia.length, `seção ${id} encontrada na referência`).toBeGreaterThan(100);
-      expect(texto(secao(secoes, id))).toBe(naReferencia);
+      expect(texto(secao(referencia, id))).toBe("");
+      expect(texto(secao(secoes, id)).length, `seção ${id} na fonte`).toBeGreaterThan(100);
     },
   );
 
@@ -181,7 +257,9 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
 
   it("os rótulos do sumário são os do documento", () => {
     const naReferencia = referencia.slice(referencia.indexOf("SECOES = ["));
-    for (const entrada of INDICE_DO_GUIA) {
+    for (const entrada of INDICE_DO_GUIA.filter((candidata) =>
+      (SECOES_DA_REFERENCIA as ReadonlyArray<string>).includes(candidata.id),
+    )) {
       // No documento a lista vive no script do componente, como trio
       // [grupo, id, rótulo].
       expect(naReferencia, `sumário de ${entrada.id}`).toContain(
@@ -238,7 +316,23 @@ describe("RN58 — fonte única: a rota e o documento autônomo montam do mesmo 
 
 describe("RN58 — a camada de leitura não vaza para o resto da plataforma", () => {
   const css = ler("design/dseed-admin.css");
-  const bloco = css.slice(css.indexOf("Extensão (Guia da Plataforma"));
+  /**
+   * O bloco do guia vai do marcador dele até o **próximo** bloco de
+   * extensão — e não até o fim do arquivo.
+   *
+   * Até a Onda 11 o guia era o último bloco do `dseed-admin.css`, e cortar
+   * no fim dava no mesmo. A Onda 12 acrescentou `Extensão (Onda 12 ·
+   * Patrocinadores)` depois dele, e o corte antigo passou a reprovar
+   * `.pt-drop` por "seletor do guia sem escopo `.gd`" — o que é falso: ele
+   * não é do guia. A cerca continua exigindo o mesmo do guia; só passou a
+   * saber onde ele termina.
+   */
+  const inicioDoBloco = css.indexOf("Extensão (Guia da Plataforma");
+  const proximaExtensao = css.indexOf("/* ---- Extensão (", inicioDoBloco + 1);
+  const bloco = css.slice(
+    inicioDoBloco,
+    proximaExtensao === -1 ? undefined : proximaExtensao,
+  );
 
   it("o bloco do guia existe e vem depois do resto", () => {
     expect(bloco.length).toBeGreaterThan(1000);
