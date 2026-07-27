@@ -39,7 +39,11 @@ encerrar() {
   local saida=$?
   if [ "$saida" -ne 0 ]; then
     echo "--- log do contêiner (últimas 50 linhas) ---" >&2
-    docker logs --tail 50 "$NOME_CONTEINER" 2>&1 >&2 || true
+    # `>&2 2>&1` nesta ordem: primeiro a saída vai para o erro, depois o erro
+    # segue a saída já redirecionada. Invertido (`2>&1 >&2`) os dois trocam de
+    # lugar em vez de convergirem — e o log do Next, que sai pelo erro, iria
+    # parar na saída padrão.
+    docker logs --tail 50 "$NOME_CONTEINER" >&2 2>&1 || true
   fi
   docker rm -f "$NOME_CONTEINER" >/dev/null 2>&1 || true
   return $saida
