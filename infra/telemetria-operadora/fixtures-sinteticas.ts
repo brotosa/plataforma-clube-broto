@@ -43,11 +43,22 @@ export interface LinhaUsuarioSintetica {
   preco: string;
 }
 
+/**
+ * Os três valores observados na coluna `Tipo de Oferta` do extrato — é
+ * ela que separa resgate de compra dentro do mesmo relatório
+ * (`dominio/telemetria-operadora/tipo-de-evento.ts`).
+ */
+export type TipoDeOfertaNaFonte =
+  | "Recompensa gratuita"
+  | "Checkout no clube"
+  | "Checkout externo";
+
 export interface LinhaResgateSintetica {
   assinante: AssinanteSintetico;
   data: string;
   produto: string;
-  tipoOferta: string;
+  /** Aceita valor fora dos três, para exercitar o não classificado. */
+  tipoOferta: TipoDeOfertaNaFonte | (string & {});
   seller: string;
 }
 

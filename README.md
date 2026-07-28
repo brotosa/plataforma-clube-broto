@@ -1437,13 +1437,41 @@ nominal do patrocinador, com a data do retrato ao lado do número; **funil**
 acende pelo estado do usuário que a importação preenche; ambos voltam ao
 traço com motivo sem apuração, e os dois estados de cada um são testados.
 
-**`Compras` é a exceção, e por regra — não por dado ausente.** O contador
-existe, vem do catálogo e é *por oferta*; atribuí-lo a um patrocinador é
-exatamente o que a RN68 proíbe. O que destravaria o card é um extrato
-**nominal** de compras, que a operadora não fornece. Por isso ele passou de
-`aguarda chave` a `aguarda fonte`, com texto próprio: repetir o motivo antigo
-("falta o CPF") passaria a mentir agora que o CPF chega. O teste prova que o
-card não pega emprestado o número do catálogo.
+**`Compras` acende pelo mesmo extrato**, e o caminho até aqui vale registro.
+A fase nasceu tratando o card como sem fonte nominal — o raciocínio estava
+certo sobre o que a ficha documentava, e a ficha é que estava incompleta: a
+§3 enumera "tipo de oferta" como campo do evento e não diz quais são os
+valores. São **três**, e é a coluna `Tipo de Oferta` do extrato que separa
+compra de resgate:
+
+| Valor na fonte | Classe | Por quê |
+|---|---|---|
+| `Recompensa gratuita` | resgate | preço zero, sem checkout |
+| `Checkout no clube` | compra | passa por checkout, dentro da vitrine |
+| `Checkout externo` | compra | passa por checkout, no site do aliado |
+
+Com isso, compra e resgate vivem os dois no extrato, os dois têm CPF, e os
+dois chegam ao patrocinador pela **mesma consulta**. A RN68 nunca alcançou o
+evento nominal: ela prende o contador de **catálogo**, que é por oferta e não
+se atribui a patrocinador. Confundir as duas foi o erro, e a cerca disso é um
+teste que prova que o card não pega emprestado o contador de catálogo mesmo
+quando ele existe.
+
+O de-para vive em `dominio/telemetria-operadora/tipo-de-evento.ts`, declarado
+e marcado **`[A CONFIRMAR — Minutrade]`** — é o item 4 da requisição. Duas
+consequências desenhadas de propósito: a classificação acontece na **leitura**
+(o `tipoOferta` é gravado como veio, então corrigir o de-para é editar um
+arquivo, sem reimportar nada), e valor desconhecido **não vira compra nem
+resgate** — é contado à parte e declarado na tela, porque encaixá-lo no
+palpite mais provável inventaria dado de negócio.
+
+Os dois cards acendem **juntos**, por um gate só: as três classes vêm da
+mesma coluna do mesmo relatório, então ter evento é ter as duas contagens.
+Um zero em `Compras`, aí, é um zero **medido** — e não ausência de apuração,
+que é justamente a distinção que a RN53 existe para preservar. O motivo da
+espera é `aguarda chave` nos dois, com texto distinto no de compras: quem
+olhar a lista de Ofertas vê um contador de `Compras` que é outro número, e
+precisa saber por quê.
 
 No painel, **nenhuma célula nova**: as duas de telemetria que já existiam —
 `Resg. Benefícios` e `Resg. Cupons` — passam a acender. O panorama do hero
@@ -1492,7 +1520,8 @@ primeiras de N") — lista truncada em silêncio se lê como "é só isso".
   enumera; a única coluna nomeada com certeza é a nativa `Patrocinador`.
 - **`[A CONFIRMAR — Minutrade]`: a regra de contagem de cada relatório**
   (item 4 da requisição). Enquanto não vier, a divergência entre catálogo e
-  extrato é **exibida como divergência**, nunca reconciliada.
+  extrato é **exibida como divergência**, nunca reconciliada — e o de-para de
+  `Tipo de Oferta` fica declarado em um arquivo só, corrigível sem recarga.
 - **Item 2 da requisição — id de evento no extrato.** Sem ele, a chave de
   deduplicação é o SHA-256 de (assinante, data, produto, seller), e o limite
   está declarado no schema e na migration: **dois resgates genuínos do mesmo

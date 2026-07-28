@@ -1,3 +1,4 @@
+import { classificarEvento } from "@/dominio/telemetria-operadora/tipo-de-evento";
 import { prisma } from "@/infra/prisma/cliente";
 
 /**
@@ -61,8 +62,8 @@ export async function apurarCatalogo(parametros: {
   return { resgates, compras, ofertas: contadores.length, dataDoRetrato };
 }
 
-/** O extrato nominal de um patrocinador — a outra contagem, jamais somada. */
-export interface ApuracaoNominal {
+/** Uma das duas contagens do extrato nominal de um patrocinador. */
+export interface ContagemNominal {
   eventos: number;
   assinantesComEvento: number;
   /** Data do evento mais recente contado. */
@@ -70,33 +71,75 @@ export interface ApuracaoNominal {
 }
 
 /**
- * Resgates nominais dos assinantes com vínculo VIGENTE no patrocinador.
+ * O extrato nominal — a contagem que tem CPF, e por isso chega ao
+ * patrocinador. Jamais somada ao contador de catálogo (RN68).
+ */
+export interface ApuracaoNominal {
+  resgates: ContagemNominal;
+  compras: ContagemNominal;
+  /**
+   * Eventos cujo `Tipo de Oferta` a fonte não trouxe ou que o de-para não
+   * reconhece. Declarado, nunca distribuído entre os dois (RN53) — e é
+   * este número que denuncia um valor novo da operadora.
+   */
+  naoClassificados: number;
+}
+
+/**
+ * Resgates E compras dos assinantes com vínculo VIGENTE no patrocinador,
+ * separados pelo de-para da coluna `Tipo de Oferta`.
  *
- * `null` quando não há evento algum para essa base — o card volta ao
- * traço com motivo, que é o comportamento que a RN65 contrata.
+ * **Uma consulta só para os dois cards, e um gate só.** `null` quando a
+ * base do patrocinador não tem evento nominal algum — aí os dois cards
+ * voltam ao traço com motivo. Havendo qualquer evento, os DOIS acendem:
+ * as três classes vêm da mesma coluna do mesmo relatório, então ter
+ * evento é ter as duas contagens. Um zero em `compras`, nesse caso, é um
+ * zero **medido** ("ninguém comprou") e não ausência de apuração — que é
+ * exatamente a distinção que a RN53 existe para preservar.
  */
 export async function apurarExtratoNominal(
   patrocinadorId: string,
 ): Promise<ApuracaoNominal | null> {
   const eventos = await prisma.eventoDeResgateTelemetria.findMany({
     where: { assinante: { vinculos: { some: { patrocinadorId, fim: null } } } },
-    select: { assinanteId: true, dataEvento: true },
+    select: { assinanteId: true, dataEvento: true, tipoOferta: true },
   });
   if (eventos.length === 0) {
     return null;
   }
-  let dataDoRetrato: Date | null = null;
-  const assinantes = new Set<string>();
+
+  const acumular = () => ({
+    eventos: 0,
+    assinantes: new Set<string>(),
+    data: null as Date | null,
+  });
+  const porClasse = { RESGATE: acumular(), COMPRA: acumular() };
+  let naoClassificados = 0;
+
   for (const evento of eventos) {
-    assinantes.add(evento.assinanteId);
-    if (!dataDoRetrato || evento.dataEvento > dataDoRetrato) {
-      dataDoRetrato = evento.dataEvento;
+    const classe = classificarEvento(evento.tipoOferta);
+    if (classe === "NAO_CLASSIFICADO") {
+      naoClassificados += 1;
+      continue;
+    }
+    const alvo = porClasse[classe];
+    alvo.eventos += 1;
+    alvo.assinantes.add(evento.assinanteId);
+    if (!alvo.data || evento.dataEvento > alvo.data) {
+      alvo.data = evento.dataEvento;
     }
   }
+
+  const fechar = (parcial: ReturnType<typeof acumular>): ContagemNominal => ({
+    eventos: parcial.eventos,
+    assinantesComEvento: parcial.assinantes.size,
+    dataDoRetrato: parcial.data,
+  });
+
   return {
-    eventos: eventos.length,
-    assinantesComEvento: assinantes.size,
-    dataDoRetrato,
+    resgates: fechar(porClasse.RESGATE),
+    compras: fechar(porClasse.COMPRA),
+    naoClassificados,
   };
 }
 

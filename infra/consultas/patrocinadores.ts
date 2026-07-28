@@ -263,24 +263,46 @@ export const MOTIVO_AGUARDA_FONTE =
   "aguarda fonte — relatório ainda não fornecido; requisição enviada à operadora em 27/07";
 
 /**
- * F20 — o motivo de `Compras`, que **mudou de natureza** e por isso ganhou
- * texto próprio.
+ * F20 — o motivo de `Compras`, distinto no texto e **igual no selo**.
  *
- * Até a F19 o card esperava a chave: sem CPF, nada se atribuía a ninguém.
- * Com a chegada do CPF a espera continua, mas por outra razão — e repetir
- * o texto antigo passaria a mentir. O contador de compras existe, vem do
- * catálogo e é **por oferta**; atribuí-lo a um patrocinador é exatamente o
- * que a RN68 proíbe, porque as duas contagens medem coisas diferentes. O
- * que destravaria este card é um extrato NOMINAL de compras, que a
- * operadora não fornece — logo, `aguarda fonte`, não `aguarda chave`.
+ * A espera é a mesma dos resgates: falta importar o extrato nominal. O
+ * texto muda porque o que se vai ver quando ele chegar é outra coisa, e
+ * porque o card tem uma armadilha própria a desfazer — o contador de
+ * `Compras` da lista de Ofertas existe, mas é **por oferta** e não se
+ * atribui a patrocinador (RN68). Quem olhar os dois lugares precisa
+ * saber que não são o mesmo número, e por quê.
+ *
+ * (Uma versão anterior desta fase gravou aqui `aguarda fonte`, por ler a
+ * RN68 como se ela alcançasse também o evento nominal. Não alcança: o
+ * evento tem CPF, e é por isso que ele chega ao patrocinador.)
  */
-export const MOTIVO_COMPRAS_SEM_ATRIBUICAO =
-  "aguarda fonte — o contador de compras existe no catálogo, mas é por oferta e não por patrocinador (RN68); atribuí-lo exigiria o extrato nominal de compras, ainda não fornecido pela operadora";
+export const MOTIVO_AGUARDA_CHAVE_COMPRAS =
+  "aguarda chave — as compras vêm do extrato nominal, pela coluna Tipo de Oferta (RN69), e ele ainda não foi importado; envie-o na tela de Telemetria da operadora. O contador de Compras da lista de Ofertas é outra contagem: vem do catálogo, é por oferta e não se atribui a patrocinador (RN68)."
 
 const FORMATO_DATA_RETRATO = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeZone: "UTC",
 });
+
+/**
+ * Linha do volume que a fonte não classificou, quando existe.
+ *
+ * Ausência é informação (RN53): evento com `Tipo de Oferta` desconhecido
+ * não é distribuído entre resgate e compra por palpite — é declarado. E
+ * este número é o que denuncia um valor novo da operadora antes de
+ * alguém notar pela conta que não fecha.
+ */
+function linhaDeNaoClassificados(
+  quantidade: number,
+): Array<{ rotulo: string; valor: string }> {
+  if (quantidade === 0) return [];
+  return [
+    {
+      rotulo: "Eventos com tipo não reconhecido (fora da conta)",
+      valor: String(quantidade),
+    },
+  ];
+}
 
 /** "12 (retrato de 20/07/2026)" — o número nunca viaja sem o quando. */
 function comDataDoRetrato(valor: string, data: Date | null): string {
@@ -364,23 +386,49 @@ export async function cardsDeConsumo(patrocinadorId: string): Promise<CardDeCons
         ? [
             {
               rotulo: "Resgates no extrato nominal",
-              valor: comDataDoRetrato(String(extrato.eventos), extrato.dataDoRetrato),
+              valor: comDataDoRetrato(
+                String(extrato.resgates.eventos),
+                extrato.resgates.dataDoRetrato,
+              ),
             },
             {
               rotulo: "Assinantes com ao menos um resgate",
-              valor: String(extrato.assinantesComEvento),
+              valor: String(extrato.resgates.assinantesComEvento),
             },
+            ...linhaDeNaoClassificados(extrato.naoClassificados),
           ]
         : [],
     },
     {
-      // Único card que a F20 NÃO acende, e por razão de regra, não de
-      // dado ausente: ver `MOTIVO_COMPRAS_SEM_ATRIBUICAO`.
+      // **Acende pelo MESMO extrato do card acima.** Compra e resgate
+      // vivem os dois no extrato nominal, separados pela coluna `Tipo de
+      // Oferta` — e os dois têm CPF, que é o que os leva ao patrocinador.
+      //
+      // A RN68 não se aplica aqui: ela prende o contador de CATÁLOGO, que
+      // é por oferta e não se atribui a patrocinador. Tratar o evento
+      // nominal como se fosse aquele contador foi um erro de leitura, já
+      // corrigido — e o motivo abaixo é `aguarda chave`, como o dos
+      // resgates, porque a espera é a mesma: falta importar o extrato.
       chave: "compras",
       titulo: "Compras",
-      selo: "AGUARDA_FONTE",
-      motivo: MOTIVO_COMPRAS_SEM_ATRIBUICAO,
-      linhas: [],
+      selo: extrato ? "VIVO" : "AGUARDA_CHAVE",
+      motivo: extrato ? null : MOTIVO_AGUARDA_CHAVE_COMPRAS,
+      linhas: extrato
+        ? [
+            {
+              rotulo: "Compras no extrato nominal",
+              valor: comDataDoRetrato(
+                String(extrato.compras.eventos),
+                extrato.compras.dataDoRetrato,
+              ),
+            },
+            {
+              rotulo: "Assinantes com ao menos uma compra",
+              valor: String(extrato.compras.assinantesComEvento),
+            },
+            ...linhaDeNaoClassificados(extrato.naoClassificados),
+          ]
+        : [],
     },
     {
       chave: "funil",

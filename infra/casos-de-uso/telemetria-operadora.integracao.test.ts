@@ -13,6 +13,7 @@ import {
   gerarCsvSellersSintetico,
   gerarCsvUsuariosSintetico,
 } from "@/infra/telemetria-operadora/fixtures-sinteticas";
+import { apurarExtratoNominal } from "@/infra/consultas/telemetria-operadora";
 import { importarRelatorioDaOperadora } from "./telemetria-operadora";
 
 /**
@@ -702,6 +703,63 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
       expect(eventos).toHaveLength(2);
       // `ofertaId` nulo — a operadora ainda não manda o id (item 2).
       expect(eventos.every((evento) => evento.ofertaId === null)).toBe(true);
+    });
+
+    it("o `Tipo de Oferta` entra COMO VEIO, e a classificação é na leitura", async () => {
+      // A importação não interpreta a coluna: grava o texto da fonte. É
+      // isso que faz o de-para (item 4 da requisição) ser corrigível por
+      // edição de código, sem reimportar nada.
+      const [sintetico] = gerarAssinantesSinteticos(1, 25);
+      const assinante = await criarAssinanteSintetico(sintetico!.cpf, "tipos");
+
+      const base = {
+        assinante: sintetico!,
+        data: "2026-07-15",
+        seller: "Aliada da telemetria",
+      };
+      await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} resgates-tipos.csv`,
+        conteudo: Buffer.from(
+          gerarCsvResgatesSintetico([
+            { ...base, produto: "Brinde", tipoOferta: "Recompensa gratuita" },
+            { ...base, produto: "Curso pago", tipoOferta: "Checkout no clube" },
+            { ...base, produto: "Insumo", tipoOferta: "Checkout externo" },
+            { ...base, produto: "Novidade", tipoOferta: "Checkout parcelado" },
+          ]),
+          "utf8",
+        ),
+      });
+
+      const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+        where: { assinanteId: assinante.id },
+        select: { tipoOferta: true },
+      });
+      expect(eventos).toHaveLength(4);
+      // Os quatro textos preservados, inclusive o que o de-para não conhece.
+      expect(eventos.map((evento) => evento.tipoOferta).sort()).toEqual([
+        "Checkout externo",
+        "Checkout no clube",
+        "Checkout parcelado",
+        "Recompensa gratuita",
+      ]);
+
+      // E a leitura separa: dois checkouts conhecidos viram compra, a
+      // recompensa vira resgate, e o valor novo fica fora da conta.
+      const patrocinador = await prisma.patrocinador.create({
+        data: { razaoSocial: `${MARCA} Yamer Agro`, cnpj: "11222333000181" },
+        select: { id: true },
+      });
+      await prisma.vinculoPatrocinio.create({
+        data: {
+          patrocinadorId: patrocinador.id,
+          assinanteId: assinante.id,
+          inicio: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      });
+      const apuracao = await apurarExtratoNominal(patrocinador.id);
+      expect(apuracao?.compras.eventos).toBe(2);
+      expect(apuracao?.resgates.eventos).toBe(1);
+      expect(apuracao?.naoClassificados).toBe(1);
     });
   });
 

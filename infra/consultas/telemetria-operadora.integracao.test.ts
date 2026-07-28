@@ -184,6 +184,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
             assinanteId,
             dataEvento: new Date("2026-07-10T00:00:00.000Z"),
             produto: "Curso A",
+            tipoOferta: "Recompensa gratuita",
             chaveNatural: `${MARCA}-a`,
             importacaoId,
           },
@@ -191,6 +192,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
             assinanteId,
             dataEvento: new Date("2026-07-18T00:00:00.000Z"),
             produto: "Curso B",
+            tipoOferta: "Recompensa gratuita",
             chaveNatural: `${MARCA}-b`,
             importacaoId,
           },
@@ -217,6 +219,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
           assinanteId,
           dataEvento: new Date("2026-07-10T00:00:00.000Z"),
           produto: "Curso A",
+          tipoOferta: "Recompensa gratuita",
           chaveNatural: `${MARCA}-encerrado`,
           importacaoId,
         },
@@ -252,10 +255,119 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
   });
 
   describe("T33 — card Compras", () => {
-    it("permanece em espera, e o motivo explica que a razão MUDOU", async () => {
-      // O contador de compras existe no catálogo e é por oferta; atribuí-lo
-      // a um patrocinador é o que a RN68 proíbe. Não é falta de chave —
-      // é falta de fonte nominal de compras.
+    it("SEM apuração: aguarda chave, com motivo próprio que distingue do catálogo", async () => {
+      const cards = await cardsDeConsumo(patrocinadorId);
+      const compras = cards.find((card) => card.chave === "compras")!;
+      expect(compras.selo).toBe("AGUARDA_CHAVE");
+      expect(compras.linhas).toHaveLength(0);
+      // O texto avisa que o contador da lista de Ofertas é OUTRO número.
+      expect(compras.motivo).toContain("RN68");
+      expect(compras.motivo).toContain("Tipo de Oferta");
+    });
+
+    it("COM apuração: vivo, contando só os dois checkouts", async () => {
+      await prisma.eventoDeResgateTelemetria.createMany({
+        data: [
+          {
+            assinanteId,
+            dataEvento: new Date("2026-07-10T00:00:00.000Z"),
+            produto: "Curso pago",
+            tipoOferta: "Checkout no clube",
+            chaveNatural: `${MARCA}-c1`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            dataEvento: new Date("2026-07-16T00:00:00.000Z"),
+            produto: "Insumo",
+            tipoOferta: "Checkout externo",
+            chaveNatural: `${MARCA}-c2`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            dataEvento: new Date("2026-07-18T00:00:00.000Z"),
+            produto: "Brinde",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-c3`,
+            importacaoId,
+          },
+        ],
+      });
+
+      const cards = await cardsDeConsumo(patrocinadorId);
+      const compras = cards.find((card) => card.chave === "compras")!;
+      expect(compras.selo).toBe("VIVO");
+      expect(compras.motivo).toBeNull();
+      // Dois checkouts, e a recompensa NÃO entra aqui.
+      expect(compras.linhas[0]!.valor).toContain("2");
+      expect(compras.linhas[0]!.valor).toContain("16/07/2026");
+      expect(compras.linhas[1]!.valor).toBe("1");
+
+      // E o card de resgates conta só a recompensa — nem soma, nem repete.
+      const resgates = cards.find((card) => card.chave === "resgates")!;
+      expect(resgates.selo).toBe("VIVO");
+      expect(resgates.linhas[0]!.valor).toContain("1");
+      expect(resgates.linhas[0]!.valor).toContain("18/07/2026");
+    });
+
+    it("um zero MEDIDO é diferente de ausência de apuração (RN53)", async () => {
+      // O extrato foi importado e esta base só tem resgate: "0 compras" é
+      // um fato apurado, não uma espera. Os dois cards acendem juntos,
+      // porque as três classes vêm da mesma coluna do mesmo relatório.
+      await prisma.eventoDeResgateTelemetria.create({
+        data: {
+          assinanteId,
+          dataEvento: new Date("2026-07-10T00:00:00.000Z"),
+          produto: "Brinde",
+          tipoOferta: "Recompensa gratuita",
+          chaveNatural: `${MARCA}-zero`,
+          importacaoId,
+        },
+      });
+
+      const compras = (await cardsDeConsumo(patrocinadorId)).find(
+        (card) => card.chave === "compras",
+      )!;
+      expect(compras.selo).toBe("VIVO");
+      expect(compras.linhas[0]!.valor).toContain("0");
+    });
+
+    it("tipo desconhecido não vira compra nem resgate — é declarado à parte", async () => {
+      await prisma.eventoDeResgateTelemetria.createMany({
+        data: [
+          {
+            assinanteId,
+            dataEvento: new Date("2026-07-10T00:00:00.000Z"),
+            produto: "Curso",
+            tipoOferta: "Checkout no clube",
+            chaveNatural: `${MARCA}-conhecido`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            dataEvento: new Date("2026-07-11T00:00:00.000Z"),
+            produto: "Novidade",
+            tipoOferta: "Checkout parcelado",
+            chaveNatural: `${MARCA}-novo`,
+            importacaoId,
+          },
+        ],
+      });
+
+      const cards = await cardsDeConsumo(patrocinadorId);
+      const compras = cards.find((card) => card.chave === "compras")!;
+      expect(compras.linhas[0]!.valor).toContain("1");
+      // O volume fora da conta é DECLARADO, nos dois cards.
+      const rotulos = compras.linhas.map((linha) => linha.rotulo);
+      expect(rotulos).toContain("Eventos com tipo não reconhecido (fora da conta)");
+      const resgates = cards.find((card) => card.chave === "resgates")!;
+      expect(resgates.linhas.map((l) => l.rotulo)).toContain(
+        "Eventos com tipo não reconhecido (fora da conta)",
+      );
+    });
+
+    it("o card NÃO pega emprestado o contador de catálogo (RN68)", async () => {
       await prisma.contadorDeOfertaTelemetria.create({
         data: {
           ofertaId: ofertaRecompensaId,
@@ -266,13 +378,12 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
         },
       });
 
-      const cards = await cardsDeConsumo(patrocinadorId);
-      const compras = cards.find((card) => card.chave === "compras")!;
-      expect(compras.selo).toBe("AGUARDA_FONTE");
-      expect(compras.linhas).toHaveLength(0);
-      expect(compras.motivo).toContain("RN68");
-      // E, sobretudo: o card NÃO pega emprestado o número do catálogo.
-      expect(JSON.stringify(compras)).not.toContain("25");
+      const compras = (await cardsDeConsumo(patrocinadorId)).find(
+        (card) => card.chave === "compras",
+      )!;
+      // Sem evento nominal, o card espera — mesmo com 25 no catálogo.
+      expect(compras.selo).toBe("AGUARDA_CHAVE");
+      expect(JSON.stringify(compras.linhas)).not.toContain("25");
     });
   });
 
@@ -323,6 +434,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
           assinanteId,
           dataEvento: new Date("2026-07-12T00:00:00.000Z"),
           produto: "Curso",
+          tipoOferta: "Recompensa gratuita",
           chaveNatural: `${MARCA}-r1`,
           importacaoId,
         },
@@ -349,6 +461,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
           assinanteId,
           dataEvento: new Date("2026-07-12T00:00:00.000Z"),
           produto: "Curso",
+          tipoOferta: "Recompensa gratuita",
           chaveNatural: `${MARCA}-r1-lgpd`,
           importacaoId,
         },
@@ -446,6 +559,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
           assinanteId,
           dataEvento: new Date("2026-07-12T00:00:00.000Z"),
           produto: "Curso",
+          tipoOferta: "Recompensa gratuita",
           ofertaId: ofertaCupomId,
           chaveNatural: `${MARCA}-nao-somar`,
           importacaoId,
