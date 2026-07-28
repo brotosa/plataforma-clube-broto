@@ -14,6 +14,9 @@ import {
   gerarCsvUsuariosSintetico,
 } from "@/infra/telemetria-operadora/fixtures-sinteticas";
 import { apurarExtratoNominal } from "@/infra/consultas/telemetria-operadora";
+import { higienizarCelula } from "@/dominio/telemetria-operadora/higienes";
+import { normalizarNomeDeColuna } from "@/dominio/telemetria-operadora/layouts";
+import { lerArquivoTabular } from "@/infra/planilhas/leitor-tabular";
 import { importarRelatorioDaOperadora } from "./telemetria-operadora";
 
 /**
@@ -344,6 +347,207 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
           conteudo: Buffer.from("coluna a,coluna b\n1,2\n", "utf8"),
         }),
       ).rejects.toBeInstanceOf(ErroDeArquivo);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Retratos sucessivos — as duas fotografias REAIS do catálogo (F22)
+  // -------------------------------------------------------------------
+
+  /**
+   * O caso que a fixture sintética não cobre (nota do red team da F20).
+   *
+   * A idempotência já estava provada nos dois sentidos com CSV montado à
+   * mão: mesmo conteúdo não duplica, conteúdo diferente atualiza. O que
+   * faltava era o arquivo real, com o que ele tem de próprio e que
+   * ninguém pensaria em sintetizar — 192 linhas, a coluna de índice sem
+   * nome **reordenada** entre as duas exportações (o que muda o hash sem
+   * mudar um único dado de negócio) e apenas quatro ofertas com movimento
+   * verdadeiro.
+   *
+   * O que este bloco NÃO faz: fixar 192, 4, ou qualquer número lido hoje.
+   * As expectativas saem dos próprios arquivos, pelo mesmo leitor que a
+   * importação usa. Trocar as fotografias por duas mais recentes não
+   * quebra o teste — é exatamente o que se espera dele.
+   */
+  describe("retratos sucessivos — as duas fotografias reais do catálogo", () => {
+    const OFERTAS_V3 = "Lista_de_Ofertas_3.xlsx";
+    const OFERTAS_V4 = "Lista_de_Ofertas_4.xlsx";
+    const SELLERS_V1 = "Lista_de_Sellers_1.xlsx";
+    const SELLERS_V2 = "Lista_de_Sellers_2.xlsx";
+
+    const planilha = (nome: string) => readFileSync(join(RAIZ, "dados", nome));
+
+    /** O que o arquivo AFIRMA por oferta, lido como a importação lê. */
+    async function retratoDoArquivo(
+      nome: string,
+    ): Promise<Map<string, { resgates: number; compras: number }>> {
+      const lido = await lerArquivoTabular(nome, planilha(nome));
+      const celula = (valores: Record<string, string>, coluna: string): string => {
+        for (const [nomeDaColuna, valor] of Object.entries(valores)) {
+          if (normalizarNomeDeColuna(nomeDaColuna) === coluna) {
+            return higienizarCelula(valor);
+          }
+        }
+        return "";
+      };
+      return new Map(
+        lido.linhas.map((linha) => [
+          celula(linha.valores, "id da oferta"),
+          {
+            resgates: Number(celula(linha.valores, "resgates")) || 0,
+            compras: Number(celula(linha.valores, "compras")) || 0,
+          },
+        ]),
+      );
+    }
+
+    /**
+     * Põe no cadastro as ofertas que o teste precisa medir.
+     *
+     * O banco do CI tem seed de taxonomias e nada de catálogo real: sem
+     * isto, toda linha das duas planilhas viraria
+     * `ITEM_DESCONHECIDO_NA_PLATAFORMA`, nenhum contador seria escrito e
+     * o teste passaria medindo o vazio. Os identificadores são os REAIS
+     * do arquivo — é o mesmo vínculo que a carga inicial estabelece em
+     * produção, e é ele que o teste exercita.
+     */
+    async function garantirOfertasDoCatalogo(idsExternos: readonly string[]): Promise<string[]> {
+      const tipoBeneficio = await prisma.tipoBeneficio.findFirstOrThrow();
+      const mecanica = await prisma.mecanica.findFirstOrThrow();
+      const ids: string[] = [];
+      for (const idExterno of idsExternos) {
+        const existente = await prisma.oferta.findFirst({
+          where: { idExternoMinutrade: idExterno },
+          select: { id: true },
+        });
+        if (existente) {
+          ids.push(existente.id);
+          continue;
+        }
+        const criada = await prisma.oferta.create({
+          data: {
+            solucaoId,
+            titulo: `${MARCA} Oferta do catálogo ${idExterno.slice(0, 8)}`,
+            natureza: "RECOMPENSA",
+            tipoBeneficioId: tipoBeneficio.id,
+            mecanicaId: mecanica.id,
+            vigenciaInicio: new Date("2026-01-01T00:00:00.000Z"),
+            status: "PUBLICADA",
+            idExternoMinutrade: idExterno,
+          },
+          select: { id: true },
+        });
+        ids.push(criada.id);
+      }
+      return ids;
+    }
+
+    it("v3 → v4: o contador por oferta atualiza sem duplicar, e a procedência aponta o retrato novo", async () => {
+      const retratoV3 = await retratoDoArquivo(OFERTAS_V3);
+      const retratoV4 = await retratoDoArquivo(OFERTAS_V4);
+
+      const comMovimento = [...retratoV4].filter(([idExterno, agora]) => {
+        const antes = retratoV3.get(idExterno);
+        return (
+          antes !== undefined &&
+          (antes.resgates !== agora.resgates || antes.compras !== agora.compras)
+        );
+      });
+      // Sem diferença entre as fotografias não há o que provar: se um dia
+      // alguém substituir os arquivos por dois retratos iguais, é aqui que
+      // o teste avisa, em vez de passar sem medir nada.
+      expect(
+        comMovimento.length,
+        "as duas fotografias precisam diferir em ao menos uma oferta",
+      ).toBeGreaterThan(0);
+
+      const idsExternos = comMovimento.map(([idExterno]) => idExterno);
+      const ofertaIds = await garantirOfertasDoCatalogo(idsExternos);
+      const idExternoPorOferta = new Map(
+        ofertaIds.map((ofertaId, indice) => [ofertaId, idsExternos[indice]!]),
+      );
+
+      const v3 = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} ${OFERTAS_V3}`,
+        conteudo: planilha(OFERTAS_V3),
+      });
+      const depoisDaV3 = await prisma.contadorDeOfertaTelemetria.findMany({
+        where: { ofertaId: { in: ofertaIds } },
+        select: { ofertaId: true, resgates: true, compras: true, importacaoId: true },
+      });
+
+      // Cada oferta medida tem UM contador, com o que a v3 afirma.
+      expect(depoisDaV3).toHaveLength(ofertaIds.length);
+      for (const contador of depoisDaV3) {
+        const noArquivo = retratoV3.get(idExternoPorOferta.get(contador.ofertaId)!);
+        expect(contador.resgates).toBe(noArquivo?.resgates);
+        expect(contador.compras).toBe(noArquivo?.compras);
+        expect(contador.importacaoId).toBe(v3.importacaoId);
+      }
+
+      const v4 = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} ${OFERTAS_V4}`,
+        conteudo: planilha(OFERTAS_V4),
+      });
+
+      // Conteúdo diferente, importação nova (RN67) — e o mesmo universo
+      // de linhas, porque as duas fotografias trazem o mesmo catálogo.
+      expect(v4.jaImportado).toBe(false);
+      expect(v4.importacaoId).not.toBe(v3.importacaoId);
+      expect(v4.lidas).toBe(v3.lidas);
+
+      const depoisDaV4 = await prisma.contadorDeOfertaTelemetria.findMany({
+        where: { ofertaId: { in: ofertaIds } },
+        select: { ofertaId: true, resgates: true, compras: true, importacaoId: true },
+      });
+
+      // SEM DUPLICAR: o mesmo número de linhas, para as mesmas ofertas.
+      expect(depoisDaV4).toHaveLength(ofertaIds.length);
+      expect([...depoisDaV4].map((c) => c.ofertaId).sort()).toEqual(
+        [...depoisDaV3].map((c) => c.ofertaId).sort(),
+      );
+
+      // ATUALIZA, e a procedência é a da importação nova.
+      const antesPorOferta = new Map(depoisDaV3.map((c) => [c.ofertaId, c]));
+      let mudaramDeFato = 0;
+      for (const contador of depoisDaV4) {
+        const noArquivo = retratoV4.get(idExternoPorOferta.get(contador.ofertaId)!);
+        expect(contador.resgates).toBe(noArquivo?.resgates);
+        expect(contador.compras).toBe(noArquivo?.compras);
+        expect(contador.importacaoId).toBe(v4.importacaoId);
+        const antes = antesPorOferta.get(contador.ofertaId)!;
+        if (antes.resgates !== contador.resgates || antes.compras !== contador.compras) {
+          mudaramDeFato += 1;
+        }
+      }
+      expect(mudaramDeFato, "o retrato novo precisa ter movido algum contador").toBe(
+        comMovimento.length,
+      );
+    });
+
+    it("v1 → v2 de sellers: reordenar linhas muda o hash e não muda o resultado", async () => {
+      // As duas fotografias de sellers trazem os mesmos 46 aliados com os
+      // mesmos números; o que difere é a ordem, refletida na coluna de
+      // índice sem nome — que o leitor descarta antes de qualquer parser.
+      // O hash é do CONTEÚDO DO ARQUIVO (RN67), então a segunda é uma
+      // importação nova de verdade; o que ela não pode é mudar a leitura.
+      const v1 = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} ${SELLERS_V1}`,
+        conteudo: planilha(SELLERS_V1),
+      });
+      const v2 = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} ${SELLERS_V2}`,
+        conteudo: planilha(SELLERS_V2),
+      });
+
+      expect(v2.jaImportado).toBe(false);
+      expect(v2.importacaoId).not.toBe(v1.importacaoId);
+      expect(v2.tipoLayout).toBe("SELLERS");
+      expect(v2.lidas).toBe(v1.lidas);
+      expect(v2.aplicadas).toBe(v1.aplicadas);
+      expect(v2.recusadas).toBe(v1.recusadas);
+      expect(v2.divergencias).toBe(v1.divergencias);
     });
   });
 
