@@ -1691,6 +1691,106 @@ depois que ela chegou à main em 1.2.0 — daí o degrau. O carimbo da migration
 (`20260728130000`) é **posterior** ao da F20 (`20260728120000`), como manda o
 protocolo de convivência das duas fases.
 
+## Acabamento da versão 1 (Onda 14 — F22)
+
+Rodada que fecha pontas declaradas ao longo das Ondas 8 a 13, antes da entrada
+em produção. **Sem migration, sem regra de negócio nova e sem tela nova** — e
+por isso sem RN: a numeração para na RN71 de propósito. O que muda de
+comportamento cabe em três linhas: um atalho de teclado, uma regra de
+impressão e o espaçamento de três formulários.
+
+### O guia recebe o que nasceu depois dele
+
+O texto foi transcrito na Onda 9 e três ondas de interface nunca chegaram nele.
+Entram quatro **complementos**, cada um em bloco próprio ao final da seção, com
+a origem visível na tela:
+
+| Seção | Complemento | De onde veio |
+|---|---|---|
+| 4.1 · Trazer um aliado novo | envio da marca do aliado: formatos, 200 KB, onde aparece, troca auditada | Onda 8 (RN54) |
+| 4.2 · Publicar e manter ofertas | imagem do card da solução: 400 KB, sem SVG, onde aparece | Onda 10 (RN60) |
+| 4.4 · Rodar uma campanha | imagem da peça: 1 MB, por que SVG não entra, e que o kit sai com as peças dentro | Onda 13 (RN71) |
+| 4.5 · Acompanhar a rede | mover card no funil por arrasto **e** por teclado, com igual dignidade | Onda 8 (RN57) |
+
+**Nenhuma frase transcrita foi tocada**, e é a cerca quem garante. Ela verificava
+por **igualdade estrita** — `toBe` sobre o texto normalizado da seção inteira —, o
+que reprovaria qualquer bloco novo. A extensão segue o rito da F19 (declarar em
+vez de tolerar): a igualdade continua sendo igualdade, e passa a incidir sobre a
+seção **sem** o bloco declarado em `COMPLEMENTOS`. O que a cerca ganhou:
+
+1. bloco de complemento **só** em seção declarada, e só em seção que vem da referência;
+2. toda seção declarada tem o bloco, com a origem que bate;
+3. a origem aparece **visível**, não só no atributo;
+4. o bloco é o **último** conteúdo da seção — verificado pelo balanço das `<div>`;
+5. **nenhuma frase** do complemento existe na referência, para ninguém apagar
+   texto transcrito e recolocá-lo como acréscimo.
+
+As cinco foram verificadas quebrando o fonte de propósito, uma a uma. Duas
+delas nasceram fracas e foram endurecidas nesse exame: a (4) comparava
+`transcrito + bloco` com a seção, o que é verdade por construção; a (5)
+comparava o bloco inteiro, que só pegaria uma cópia integral.
+
+### Atalho "pular para o conteúdo"
+
+O `.skip` estava pronto no protótipo v10.1 desde a entrega do Design e nunca
+havia sido incorporado. Com onze itens de menu, quem navega por teclado
+atravessava a lateral inteira a cada tela. Ele é o primeiro focável do shell,
+fica fora da tela por **deslocamento** (nunca `display:none`, que o tiraria da
+ordem de foco) e o `<main id="conteudo" tabIndex={-1}>` é o que faz o atalho
+entregar o **foco**, e não só a rolagem.
+
+> **Achado.** O miolo do guia já emitia `<a class="skip">`, herdado do documento
+> original, e o seletor **nunca teve regra em lugar nenhum** — o link vinha
+> aparecendo como texto solto no topo de `/ajuda` e do documento autônomo que
+> circula. A regra global conserta os dois de uma vez.
+
+### Impressão do R1
+
+Pendência declarada na F19. A barra de volta agora usa `.vt-barra`, com o mesmo
+`@media print{display:none}` que a `.gd-volta` do guia já tinha — e não junto
+dela, porque a cerca da RN58 prende o bloco do guia a seletores `.gd`.
+
+> O restante do shell (lateral e cabeçalho) continua saindo no papel. Está fora
+> do escopo desta rodada, que a ficha limitou à barra do R1, mas fica
+> registrado: quem imprimir o relatório leva a navegação junto.
+
+### Espaçamento dos formulários em grade
+
+Três formulários — patrocinador, contrato e a etiqueta de patrocinador da
+modelagem de campanha — montavam a grade com `gap:"0 16px"` em estilo inline. O
+atalho de duas medidas é `row-gap column-gap`: **a linha ficava em zero**, e o
+rótulo de cada campo colava no campo de cima. O erro foi escrito na F19 e
+copiado na F20 e na F21.
+
+O conserto é **por classe** (`.form-grid`, régua de 14px do `.pm-grid`) e não por
+ajuste dos três inlines, e o motivo é o próprio defeito: toda cerca do
+repositório lê CSS e lê classe, e **nenhuma lê atributo `style`** — consertar os
+inlines devolveria o mesmo ponto cego ao quarto formulário.
+`infra/arquitetura/geometria-por-classe.test.ts` passa a acusar `gap` inline com
+um eixo em zero. A classe **não** usa `!important`, de propósito: no colapso a
+760px quem tem de vencer é o `.g-resp{display:flex!important}`, e vence.
+
+Aferição visual em `docs/afericoes/`.
+
+### Telemetria — retratos sucessivos reais
+
+A idempotência já estava provada nos dois sentidos, mas só com CSV montado à
+mão. `dados/Lista_de_Ofertas_4.xlsx` e `dados/Lista_de_Sellers_2.xlsx` trazem o
+caso real: **192 linhas, a coluna de índice sem nome reordenada** entre as
+exportações — o que muda o hash sem mudar um dado de negócio — e apenas quatro
+ofertas com movimento verdadeiro (`Compras` 0 → 1).
+
+O teste importa a v3, depois a v4, e cobra três coisas: mesmo número de
+contadores para as mesmas ofertas, cada valor igual ao que o **arquivo novo**
+afirma, e toda procedência apontando a importação nova. As expectativas saem dos
+próprios arquivos, pelo mesmo leitor da importação — nenhum número fixo —, e o
+teste avisa se um dia as duas fotografias forem iguais. **Nenhuma mudança de
+código de produção foi necessária: não havia defeito a corrigir.**
+
+### Versão
+
+**1.4.0.**
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
