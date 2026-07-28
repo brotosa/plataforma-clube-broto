@@ -12,6 +12,11 @@ FROM node:${NODE_VERSAO}-bookworm-slim AS ops
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+# Sem isto, o seed (prisma/seed.ts) cria os usuários de desenvolvimento por
+# padrão — o gate é `NODE_ENV !== "production"`. Faltou na primeira versão
+# desta imagem e gravou 7 usuários com senha documentada publicamente numa
+# base de produção; removidos manualmente depois. Não repetir.
+ENV NODE_ENV=production
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
