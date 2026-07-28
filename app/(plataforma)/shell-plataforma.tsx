@@ -197,6 +197,12 @@ export function ShellPlataforma({
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--off)" }}>
+      {/* Onda 14 — primeiro elemento focável do shell, antes da lateral.
+          Âncora nativa, e não `<Link>`: o destino é um id da própria
+          página, então não há rota a trocar nem payload a buscar. */}
+      <a className="skip" href="#conteudo">
+        Pular para o conteúdo
+      </a>
       {/* fix AAA (F5): há mais de um landmark `complementary` nas telas com
           painel lateral (régua da T3, pré-visualização da T5) — sem nome
           acessível eles ficam indistinguíveis (axe: landmark-unique). */}
@@ -457,7 +463,12 @@ export function ShellPlataforma({
           </a>
         </header>
 
-        <main style={{ flex: 1, overflow: "auto" }}>{children}</main>
+        {/* `tabIndex={-1}` é o que faz o atalho entregar o FOCO, e não só
+            a rolagem: sem ele o navegador move a viewport e o próximo Tab
+            recomeça do topo do documento, na lateral que se quis pular. */}
+        <main id="conteudo" tabIndex={-1} style={{ flex: 1, overflow: "auto" }}>
+          {children}
+        </main>
       </div>
     </div>
   );

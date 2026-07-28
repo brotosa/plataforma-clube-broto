@@ -50,10 +50,7 @@ export function FormularioDoContrato({
       <MensagemDeSucesso mensagem={estado.sucesso} />
       <form action={acao}>
         <input type="hidden" name="patrocinadorId" value={patrocinadorId} />
-        <div
-          className="g-resp"
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}
-        >
+        <div className="g-resp form-grid">
           <div className="field">
             <label htmlFor="ct-assinatura">Data de assinatura</label>
             <input

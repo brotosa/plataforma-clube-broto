@@ -118,6 +118,87 @@ const SECOES_NASCIDAS_DEPOIS: ReadonlyArray<{ id: string; onda: string }> = [
   { id: "j8", onda: "Onda 12 · Telemetria da operadora (F20, ficha §5)" },
 ];
 
+/**
+ * Complementos: funcionalidade nascida DEPOIS do documento, dentro de uma
+ * seção que veio DELE.
+ *
+ * A `SECOES_NASCIDAS_DEPOIS` resolveu o caso fácil — módulo novo, seção
+ * nova, nada da referência para preservar. A Onda 14 traz o caso difícil:
+ * a marca do aliado (Onda 8), a imagem do card (Onda 10), o arrasto no
+ * funil (Onda 8) e a imagem da peça (Onda 13) são coisas que se fazem
+ * dentro de jornadas que o guia já ensina. Escrever sobre elas em seção
+ * própria seria pior para quem lê: quem vai cadastrar um aliado abre a
+ * 4.1, não uma décima quinta seção.
+ *
+ * A regra, então: **as frases da referência permanecem todas, intactas e
+ * na ordem, e o complemento entra em bloco próprio ao final da seção, com
+ * a origem visível na tela.** Não é tolerância à edição — é o oposto: a
+ * transcrição continua cobrada por `.toBe`, palavra por palavra, sobre a
+ * seção **sem** o bloco declarado. Editar uma vírgula da referência
+ * continua reprovando, e agora acrescentar um bloco sem declará-lo aqui
+ * também reprova.
+ *
+ * Cinco invariantes prendem o mecanismo, todas verificadas abaixo:
+ *
+ *  1. bloco de complemento só existe em seção declarada nesta lista;
+ *  2. toda seção declarada aqui tem, de fato, o bloco;
+ *  3. o bloco é o **último** conteúdo da seção — o que vem antes dele é a
+ *     transcrição inteira, e é o que se compara com a referência;
+ *  4. a origem declarada aqui aparece **visível** no bloco;
+ *  5. o texto do complemento **não** existe na referência. Se existir,
+ *     alguém apagou frase transcrita e a recolocou como complemento, que
+ *     é exatamente a regressão que a RN58 proíbe.
+ *
+ * Complemento novo em onda futura entra nesta lista. Se um dia o Design
+ * entregar um guia v2 que já o contenha, ele sai daqui e volta a ser
+ * cobrado como transcrição pura.
+ */
+const COMPLEMENTOS: ReadonlyArray<{ secao: string; origem: string }> = [
+  { secao: "j1", origem: "Complemento — Onda 8" }, // marca do aliado (RN54)
+  { secao: "j2", origem: "Complemento — Onda 10" }, // imagem do card (RN60)
+  { secao: "j4", origem: "Complemento — Onda 13" }, // imagem da peça (RN71)
+  { secao: "j5", origem: "Complemento — Onda 8" }, // arrasto no funil (RN57)
+];
+
+/** O bloco de complemento, reconhecido pela classe e pela origem declarada. */
+const MARCA_DO_COMPLEMENTO = /<div class="[^"]*\bgd-compl\b[^"]*" data-origem="([^"]+)">/g;
+
+/**
+ * Separa a transcrição do que foi acrescentado depois.
+ *
+ * O corte é no **primeiro** marcador: tudo o que vem antes é transcrição e
+ * vai à comparação estrita; tudo o que vem dele em diante é complemento.
+ * Bloco no meio da seção deixaria de fora texto da referência e reprovaria
+ * a fidelidade — de propósito, porque a ficha pede o bloco ao final.
+ */
+function fimDoBloco(html: string): number {
+  let profundidade = 0;
+  for (const marca of html.matchAll(/<div\b[^>]*>|<\/div>/g)) {
+    profundidade += marca[0] === "</div>" ? -1 : 1;
+    if (profundidade === 0) {
+      return (marca.index ?? 0) + marca[0].length;
+    }
+  }
+  return -1;
+}
+
+function separarComplementos(html: string): {
+  transcrito: string;
+  complementos: ReadonlyArray<{ origem: string; html: string }>;
+} {
+  const achados = [...html.matchAll(MARCA_DO_COMPLEMENTO)];
+  if (achados.length === 0) {
+    return { transcrito: html, complementos: [] };
+  }
+  return {
+    transcrito: html.slice(0, achados[0]?.index),
+    complementos: achados.map((achado, ordem) => ({
+      origem: achado[1] ?? "",
+      html: html.slice(achado.index, achados[ordem + 1]?.index),
+    })),
+  };
+}
+
 describe("RN58 — as seções do guia, com suas âncoras", () => {
   const { secoes } = carregarGuia();
 
@@ -234,7 +315,10 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
   )("§%s (%s) transcrita sem uma palavra alterada", (id) => {
     const naReferencia = texto(secao(referencia, id));
     expect(naReferencia.length, `seção ${id} encontrada na referência`).toBeGreaterThan(100);
-    expect(texto(secao(secoes, id))).toBe(naReferencia);
+    // Sobre a seção SEM o bloco de complemento declarado — a comparação
+    // continua sendo de igualdade, não de contenção.
+    const { transcrito } = separarComplementos(secao(secoes, id));
+    expect(texto(transcrito)).toBe(naReferencia);
   });
 
   /**
@@ -249,6 +333,103 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
       expect(texto(secao(secoes, id)).length, `seção ${id} na fonte`).toBeGreaterThan(100);
     },
   );
+
+  /**
+   * As cinco invariantes do mecanismo de complemento. Cada uma fecha um
+   * jeito diferente de o bloco virar porta dos fundos para reescrever o
+   * texto do Design.
+   */
+  describe("complementos — bloco declarado, ao final, e nunca no lugar da transcrição", () => {
+    it("todo bloco de complemento no fonte está declarado, e só em seção da referência", () => {
+      const declaradas = COMPLEMENTOS.map((complemento) => complemento.secao);
+      const noFonte = INDICE_DO_GUIA.map((entrada) => entrada.id).filter(
+        (id) => separarComplementos(secao(secoes, id)).complementos.length > 0,
+      );
+      expect(
+        noFonte,
+        "bloco .gd-compl em seção não declarada — acrescente a COMPLEMENTOS ou remova o bloco",
+      ).toEqual(declaradas);
+      // Seção nascida depois não precisa de complemento: ela é editável por
+      // inteiro, então o bloco ali seria decoração sem função.
+      for (const { secao: id } of COMPLEMENTOS) {
+        expect(
+          (SECOES_DA_REFERENCIA as ReadonlyArray<string>).includes(id),
+          `§${id} não vem da referência — complemento não se aplica`,
+        ).toBe(true);
+      }
+    });
+
+    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao, complemento.origem] as const))(
+      "§%s traz um único bloco, ao final, com a origem «%s» visível",
+      (id, origem) => {
+        const conteudo = secao(secoes, id);
+        const { transcrito, complementos } = separarComplementos(conteudo);
+        expect(complementos, `blocos de complemento em §${id}`).toHaveLength(1);
+        const bloco = complementos[0];
+        expect(bloco?.origem, `data-origem de §${id}`).toBe(origem);
+        // Visível na tela, não só no atributo.
+        expect(texto(bloco?.html ?? ""), `origem impressa em §${id}`).toContain(origem);
+        expect(texto(bloco?.html ?? "").length, `texto do complemento de §${id}`).toBeGreaterThan(
+          120,
+        );
+        /*
+         * Ao final, de verdade.
+         *
+         * A primeira versão desta asserção comparava `transcrito + bloco`
+         * com a seção inteira — e passava sempre, porque o corte fatia
+         * justamente até o fim da seção: bloco no meio devolvia o resto
+         * do texto dentro do "bloco" e a soma continuava batendo. A
+         * fidelidade acima reprovava (a transcrição vinha truncada), mas
+         * este teste dizia "ao final" sem verificar nada.
+         *
+         * Agora fecha pelo balanço das `<div>`: depois do `</div>` que
+         * fecha o próprio bloco não pode sobrar nada além de espaço.
+         */
+        expect(transcrito, `transcrição de §${id}`).not.toBe("");
+        const fim = fimDoBloco(bloco?.html ?? "");
+        expect(fim, `bloco de §${id} não fecha`).toBeGreaterThan(0);
+        expect(
+          (bloco?.html ?? "").slice(fim).trim(),
+          `texto DEPOIS do complemento em §${id} — o bloco não é o último`,
+        ).toBe("");
+      },
+    );
+
+    /*
+     * Frase a frase, e não o bloco inteiro.
+     *
+     * Comparar o bloco todo com a referência só pegaria uma cópia
+     * integral — inútil contra o caso que importa, que é apagar UMA frase
+     * da transcrição e recolocá-la aqui embaixo. Cada frase do
+     * complemento é procurada na referência, e nenhuma pode estar lá.
+     */
+    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao] as const))(
+      "nenhuma frase do complemento de §%s existe na referência",
+      (id) => {
+        const [bloco] = separarComplementos(secao(secoes, id)).complementos;
+        const naReferencia = texto(referencia);
+        /*
+         * O corte por elemento vem ANTES do corte por pontuação, e é o
+         * que faz a verificação valer: `texto()` colapsa as tags em
+         * espaço, então um `<p>` recolocado logo depois do rótulo — que
+         * não termina em ponto — se emendaria a ele e viraria uma frase
+         * que, aí sim, não existe na referência. Foi assim que a primeira
+         * versão deixou passar exatamente a mudança que devia pegar.
+         */
+        const frases = (bloco?.html ?? "")
+          .split(/<\/(?:p|li|span|dd|dt|h[1-6])>/)
+          .flatMap((pedaco) => texto(pedaco).split(/(?<=[.:;!?])\s+/))
+          .map((frase) => frase.trim())
+          .filter((frase) => frase.length > 40);
+        expect(frases.length, `frases medíveis no complemento de §${id}`).toBeGreaterThan(2);
+        for (const frase of frases) {
+          expect(naReferencia, `frase do complemento de §${id} achada na referência`).not.toContain(
+            frase,
+          );
+        }
+      },
+    );
+  });
 
   it("a capa também é transcrição", () => {
     const inicio = referencia.indexOf('<header class="gd-capa">');

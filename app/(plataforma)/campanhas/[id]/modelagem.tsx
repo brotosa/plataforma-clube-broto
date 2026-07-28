@@ -298,10 +298,7 @@ export function ModelagemCampanha({
                   acontecer fora da plataforma — o que se registra aqui é quem aprovou, quando e a
                   evidência. Sem registro, o kit é gerado assim mesmo, carimbado com a pendência.
                 </p>
-                <div
-                  className="g-resp"
-                  style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}
-                >
+                <div className="g-resp form-grid">
                   <div className="field">
                     <label htmlFor="cp-patrocinador">Patrocinador</label>
                     <select

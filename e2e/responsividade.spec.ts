@@ -660,3 +660,65 @@ test.describe("Onda 10 — Imagem do card a 380px", () => {
     await semRolagemHorizontal(page);
   });
 });
+
+test.describe("responsividade a 380px — Onda 14", () => {
+  test("o atalho de teclado cabe na tela quando recebe foco", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    const atalho = page.getByRole("link", { name: "Pular para o conteúdo" });
+    await page.evaluate(() => document.body.focus());
+    await page.keyboard.press("Tab");
+    await expect(atalho).toBeFocused();
+
+    // A caixa do atalho é larga; a 380px é onde ela poderia vazar.
+    const caixa = await atalho.boundingBox();
+    expect(caixa?.x ?? -1, "borda esquerda do atalho").toBeGreaterThanOrEqual(0);
+    expect(
+      (caixa?.x ?? 0) + (caixa?.width ?? 0),
+      "borda direita do atalho",
+    ).toBeLessThanOrEqual(380);
+
+    await semRolagemHorizontal(page);
+    await page.keyboard.press("Enter");
+    await expect(page.locator("main#conteudo")).toBeFocused();
+  });
+
+  test("os complementos do guia cabem a 380px e passam em AAA", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    for (const secao of ["j1", "j2", "j4", "j5"]) {
+      await page.goto(`/ajuda#${secao}`);
+      const bloco = page.locator(`#${secao} .gd-compl`);
+      await expect(bloco).toBeVisible();
+      // O bloco tem ícone à esquerda e prosa à direita: a 380px é onde a
+      // caixa do `.gd-bloco` poderia estourar a coluna do documento.
+      const estouro = await bloco.evaluate((no) => {
+        const doc = no.closest(".gd-doc");
+        if (!doc) return Number.NaN;
+        return Math.round(no.getBoundingClientRect().right - doc.getBoundingClientRect().right);
+      });
+      expect(estouro, `estouro do complemento de §${secao}`).toBeLessThanOrEqual(0);
+      await semRolagemHorizontal(page);
+    }
+
+    await semViolacoesAxe(page);
+  });
+
+  test("o formulário do patrocinador vira pilha — o .g-resp continua vencendo", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/patrocinadores");
+    await page.getByRole("button", { name: "Novo patrocinador" }).click();
+
+    const grade = page.locator("form .form-grid").first();
+    await expect(grade).toBeVisible();
+    // `.form-grid` não traz `!important` justamente para perder aqui: a
+    // grade de duas colunas viraria ilegível a 380px.
+    await expect(grade).toHaveCSS("display", "flex");
+    await expect(grade).toHaveCSS("flex-direction", "column");
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+});

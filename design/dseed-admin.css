@@ -990,3 +990,48 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pt-drop{border:1px dashed var(--borda);background:var(--off)}
 .pt-drop a{display:block;text-decoration:none;color:var(--azul-texto-aaa)}
 .pt-drop a:hover{text-decoration:underline}
+
+/* ---- Extensão (Onda 14 · Acabamento) ----
+
+   `.skip` — atalho "pular para o conteúdo", EXTRAÍDO do protótipo
+   v10.1 tal como o Design o escreveu; só a formatação mudou, de uma linha
+   para três. Fora da tela por deslocamento (`left:-9999px`) e não por
+   `display:none` nem `visibility:hidden`, que o tirariam da ordem de foco
+   e o tornariam inalcançável — que é justamente o que ele existe para
+   resolver. Com onze itens de menu, quem navega por teclado atravessava a
+   lateral inteira a cada tela.
+
+   O seletor já era emitido pelo miolo do guia (`montarGuiaHtml`, herdado
+   do documento original) e NUNCA teve regra: até aqui, o link aparecia
+   como texto solto no topo da ajuda e do documento autônomo. A regra
+   chega agora, e conserta os dois de uma vez. */
+.skip{position:absolute;left:-9999px;top:10px;z-index:200;background:var(--branco);
+  color:var(--azul-texto-aaa);font:var(--font-body-label-bold);padding:10px 16px;
+  border-radius:var(--r-sm);border:2px solid var(--azul);box-shadow:var(--shadow-lg)}
+.skip:focus{left:10px}
+
+/* `.vt-barra` — barra da volta das telas de documento do produto, irmã
+   da `.gd-volta` do guia: é navegação, não documento, então some no
+   papel. O R1 nasceu na F19 sem classe nenhuma (o prompt daquela onda
+   admitia um único seletor novo, o `.pt-drop`), e a consequência —
+   declarada no comentário da própria tela — era a barra sair impressa.
+   Fica aqui, e não junto da `.gd-volta`, porque a cerca da RN58 prende
+   o bloco do guia a seletores `.gd`. */
+.vt-barra{margin-bottom:18px}
+@media print{.vt-barra{display:none}}
+
+/* `.form-grid` — grade de formulário de duas colunas. Vivia em estilo
+   inline em três telas (F19, F20 e F21), com `gap:"0 16px"`: coluna de
+   16px e LINHA ZERO, o rótulo de cada campo colando no campo de cima. A
+   régua de 14px é a do `.pm-grid`, que é a medida do produto.
+
+   Sem `!important`, de propósito: no colapso a 760px quem tem de vencer
+   é o `.g-resp{display:flex!important}`, e ele vence — a grade vira
+   pilha, que é o comportamento certo no mobile. Campo que ocupa a linha
+   inteira usa `.form-grid-inteiro`.
+
+   A cerca está em `infra/arquitetura/geometria-por-classe.test.ts`: o
+   defeito atravessou três fases porque nenhuma cerca lê atributo
+   `style`, e é isso que ela passa a cobrir. */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}
+.form-grid-inteiro{grid-column:1 / -1}

@@ -78,16 +78,18 @@ export default async function PaginaDoRelatorio({
   );
 
   /*
-   * Sem classe nova: o prompt §5 admite um único seletor novo nesta onda
-   * (`.pt-drop`), então o documento se compõe com o que já existe —
-   * `tela`, `tbl`, `cap`, `num`, `aviso-inline` — e com estilo de escopo
-   * local. A consequência assumida é que a barra de volta também sai na
-   * impressão: escondê-la pediria uma regra `@media print` nova, e a
-   * instrução de CSS é literal.
+   * O documento se compõe com o que já existe — `tela`, `tbl`, `cap`,
+   * `num`, `aviso-inline` — e com estilo de escopo local: na F19 o prompt
+   * admitia um único seletor novo (`.pt-drop`).
+   *
+   * A consequência assumida na época era a barra de volta sair no papel.
+   * A Onda 14 fecha essa pendência: a barra passa a usar `.vt-barra`, que
+   * some em `@media print` como a `.gd-volta` do guia já fazia. O
+   * `marginBottom` inline saiu junto — ele agora vive na classe.
    */
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 900 }}>
-      <div style={{ marginBottom: 18 }}>
+      <div className="vt-barra">
         <Link href={`/patrocinadores/${id}`} className="btn btn-ghost">
           ← Voltar à ficha do patrocinador
         </Link>

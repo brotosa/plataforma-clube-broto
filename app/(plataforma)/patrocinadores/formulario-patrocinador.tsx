@@ -35,11 +35,8 @@ function Campos({
   responsaveis: ReadonlyArray<{ id: string; nome: string }>;
 }) {
   return (
-    <div
-      className="g-resp"
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}
-    >
-      <div className="field" style={{ gridColumn: "1 / -1" }}>
+    <div className="g-resp form-grid">
+      <div className="field form-grid-inteiro">
         <label htmlFor="pt-razao">Razão social</label>
         <input
           id="pt-razao"
@@ -117,7 +114,7 @@ function Campos({
           ))}
         </select>
       </div>
-      <div className="field" style={{ gridColumn: "1 / -1" }}>
+      <div className="field form-grid-inteiro">
         <label htmlFor="pt-obs">Observações</label>
         <textarea
           id="pt-obs"
