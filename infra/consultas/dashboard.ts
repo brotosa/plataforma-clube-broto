@@ -1,5 +1,6 @@
-import type { EstagioEmpresa, Prisma } from "@prisma/client";
+import type { EstagioEmpresa, NivelAtribuicao, Prisma } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
+import { apurarCatalogo, type ApuracaoDeCatalogo } from "@/infra/consultas/telemetria-operadora";
 import {
   type BlocoDashboard,
   CATALOGO_ACAO_HOJE,
@@ -216,6 +217,58 @@ export interface BlocoApurado {
 
 const FORMATO_PANORAMA = new Intl.NumberFormat("pt-BR");
 
+const FORMATO_RETRATO = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeZone: "UTC",
+});
+
+/**
+ * F20 — as duas células de telemetria do panorama, montadas por uma
+ * função só porque a regra delas é a mesma.
+ *
+ * **A ordem de preferência é deliberada e existe para não haver
+ * regressão.** O número NOMINAL vem primeiro: onde a célula já mostrava
+ * um valor antes da F20, ela continua mostrando exatamente o mesmo, pela
+ * mesma conta. O contador de catálogo entra só onde havia traço — que é
+ * o que a fase se propôs a acender.
+ *
+ * **As duas contagens jamais se somam (RN68).** É uma OU outra, e a nota
+ * sempre diz qual, com a data do retrato quando a origem é o catálogo.
+ * Somá-las produziria um número que não mede nada: elas divergem hoje
+ * (227 × 38) e a operadora ainda não documentou a regra de contagem de
+ * cada uma.
+ */
+function celulaDeTelemetria(
+  definicao: DefinicaoPanorama,
+  nominal: number | null,
+  notaDoNominal: string,
+  catalogo: ApuracaoDeCatalogo | null,
+  extras: { nivelAtribuicao?: NivelAtribuicao } = {},
+): CelulaPanorama {
+  if (nominal !== null) {
+    return {
+      ...definicao,
+      resultado: disponivel(nominal, extras),
+      nota: `${notaDoNominal} · origem: extrato`,
+    };
+  }
+  if (catalogo !== null) {
+    const retrato = catalogo.dataDoRetrato
+      ? `retrato de ${FORMATO_RETRATO.format(catalogo.dataDoRetrato)}`
+      : "o arquivo não declarou a data do retrato";
+    return {
+      ...definicao,
+      resultado: disponivel(catalogo.resgates),
+      nota: `origem: catálogo da operadora · ${retrato} · ${FORMATO_PANORAMA.format(catalogo.ofertas)} oferta(s)`,
+    };
+  }
+  return {
+    ...definicao,
+    resultado: indisponivel("AGUARDA_TELEMETRIA_ASSINANTE"),
+    nota: `${notaDoNominal} · nenhum relatório da operadora importado ainda`,
+  };
+}
+
 /**
  * Panorama do hero (Onda 7 §6) — as oito células, montadas a partir do que
  * as consultas dos blocos JÁ trouxeram.
@@ -246,6 +299,17 @@ function montarPanorama(
     cestasComPendenciaRn41: number;
     resgatesEmCampanhaAtiva: number | null;
     resgatesDeCupom: number | null;
+    /**
+     * F20 — o que o CATÁLOGO da operadora apurou, por natureza de oferta
+     * (RN68). Nulo enquanto nenhum arquivo tiver sido importado: é
+     * ausência de apuração, não zero resgates.
+     *
+     * **Nunca somado** ao número nominal acima: as duas contagens medem
+     * coisas diferentes e divergem hoje (227 × 38). A célula mostra uma
+     * OU outra, sempre com a origem nomeada na nota.
+     */
+    catalogoBeneficios: ApuracaoDeCatalogo | null;
+    catalogoCupons: ApuracaoDeCatalogo | null;
   },
 ): CelulaPanorama[] {
   const definicao = (chave: ChavePanorama) =>
@@ -330,22 +394,30 @@ function montarPanorama(
           : disponivel(baseDeAssinantes),
       nota: "base patrocinada · natureza ilustrativa até a carga real",
     },
-    {
-      ...definicao("PAN_RESGATES_BENEFICIOS"),
-      resultado:
-        extras.resgatesEmCampanhaAtiva === null
-          ? indisponivel("SEM_BASE_DE_CALCULO")
-          : disponivel(extras.resgatesEmCampanhaAtiva, { nivelAtribuicao: "POR_OFERTA" }),
-      nota: "na campanha ativa · total da base aguarda telemetria por assinante",
-    },
-    {
-      ...definicao("PAN_RESGATES_CUPONS"),
-      resultado:
-        extras.resgatesDeCupom === null || extras.resgatesDeCupom === 0
-          ? indisponivel("SEM_BASE_DE_CALCULO")
-          : disponivel(extras.resgatesDeCupom),
-      nota: "aguarda telemetria · regra de comissão do cupom em confirmação",
-    },
+    // F20 (complemento da RN65) — as duas células de telemetria do
+    // panorama deixam de ter estado escrito no código e passam a sair da
+    // EXISTÊNCIA da apuração, como os selos da T33.
+    //
+    // O panorama continua com OITO células: a F20 acende as que já
+    // existem, e não acrescenta uma nona. O `.dash-stats` está fixado em
+    // `repeat(4, minmax(0,1fr))` justamente para as oito fecharem 4×2 sem
+    // sobra — com `auto-fit` o desktop resolvia 3+3+2 e a lacuna aparecia
+    // como célula fantasma, porque o fundo do grid é a cor das divisórias
+    // (defeito corrigido na Onda 7, registrado no `dseed-admin.css`).
+    // Célula nova no hero é troca, e é decisão de Design.
+    celulaDeTelemetria(
+      definicao("PAN_RESGATES_BENEFICIOS"),
+      extras.resgatesEmCampanhaAtiva,
+      "na campanha ativa",
+      extras.catalogoBeneficios,
+      { nivelAtribuicao: "POR_OFERTA" },
+    ),
+    celulaDeTelemetria(
+      definicao("PAN_RESGATES_CUPONS"),
+      extras.resgatesDeCupom === 0 ? null : extras.resgatesDeCupom,
+      "regra de comissão do cupom em confirmação",
+      extras.catalogoCupons,
+    ),
   ];
 
   return celulas;
@@ -451,8 +523,17 @@ export async function montarPainel(
  * cupom na janela. Nenhuma delas reinterpreta métrica de ficha.
  */
 async function dadosDoHero(janela: JanelaDashboard) {
-  const [cobertura, campanhas, cestas, vitrine, ofertasTotal, resgatesDeCupom] =
-    await Promise.all([
+  const [
+    cobertura,
+    campanhas,
+    cestas,
+    vitrine,
+    ofertasTotal,
+    resgatesDeCupom,
+    catalogoRecompensa,
+    catalogoBeneficio,
+    catalogoCupons,
+  ] = await Promise.all([
       apurarCobertura(),
       listarCampanhas(),
       listarCestas(),
@@ -468,6 +549,13 @@ async function dadosDoHero(janela: JanelaDashboard) {
           dataEvento: { gte: janela.inicio, lte: janela.fim },
         },
       }),
+      // F20 — a apuração do catálogo, pela consulta única da telemetria
+      // da operadora (RN68). "Benefícios" reúne RECOMPENSA e BENEFICIO,
+      // que é o que a célula sempre nomeou; cupons ficam à parte porque
+      // a comissão deles segue [A CONFIRMAR].
+      apurarCatalogo({ natureza: "RECOMPENSA" }),
+      apurarCatalogo({ natureza: "BENEFICIO" }),
+      apurarCatalogo({ natureza: "CUPOM_DESCONTO" }),
     ]);
 
   const portfolio = montarPortfolio(cobertura.fatos);
@@ -492,6 +580,32 @@ async function dadosDoHero(janela: JanelaDashboard) {
         ? null
         : ativas.reduce((total, campanha) => total + campanha.resgatesNaVigencia, 0),
     resgatesDeCupom,
+    catalogoBeneficios: somarApuracoes(catalogoRecompensa, catalogoBeneficio),
+    catalogoCupons,
+  };
+}
+
+/**
+ * Reúne as apurações de RECOMPENSA e BENEFICIO na célula "Resg.
+ * Benefícios", que sempre nomeou as duas naturezas.
+ *
+ * Isto NÃO é a soma que a RN68 proíbe: aquela é somar catálogo com
+ * extrato — duas contagens de coisas diferentes. Aqui são duas fatias da
+ * MESMA contagem, do mesmo arquivo e do mesmo retrato. Nulo em ambas
+ * continua nulo: ausência de apuração não vira zero.
+ */
+function somarApuracoes(
+  a: ApuracaoDeCatalogo | null,
+  b: ApuracaoDeCatalogo | null,
+): ApuracaoDeCatalogo | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  const datas = [a.dataDoRetrato, b.dataDoRetrato].filter((data): data is Date => data !== null);
+  return {
+    resgates: a.resgates + b.resgates,
+    compras: a.compras + b.compras,
+    ofertas: a.ofertas + b.ofertas,
+    dataDoRetrato: datas.length === 0 ? null : new Date(Math.max(...datas.map((d) => d.getTime()))),
   };
 }
 
