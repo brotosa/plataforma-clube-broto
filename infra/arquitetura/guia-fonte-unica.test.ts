@@ -153,7 +153,12 @@ const SECOES_NASCIDAS_DEPOIS: ReadonlyArray<{ id: string; onda: string }> = [
  * entregar um guia v2 que já o contenha, ele sai daqui e volta a ser
  * cobrado como transcrição pura.
  */
-const COMPLEMENTOS: ReadonlyArray<{ secao: string; origem: string }> = [];
+const COMPLEMENTOS: ReadonlyArray<{ secao: string; origem: string }> = [
+  { secao: "j1", origem: "Complemento — Onda 8" }, // marca do aliado (RN54)
+  { secao: "j2", origem: "Complemento — Onda 10" }, // imagem do card (RN60)
+  { secao: "j4", origem: "Complemento — Onda 13" }, // imagem da peça (RN71)
+  { secao: "j5", origem: "Complemento — Onda 8" }, // arrasto no funil (RN57)
+];
 
 /** O bloco de complemento, reconhecido pela classe e pela origem declarada. */
 const MARCA_DO_COMPLEMENTO = /<div class="[^"]*\bgd-compl\b[^"]*" data-origem="([^"]+)">/g;
@@ -166,6 +171,17 @@ const MARCA_DO_COMPLEMENTO = /<div class="[^"]*\bgd-compl\b[^"]*" data-origem="(
  * Bloco no meio da seção deixaria de fora texto da referência e reprovaria
  * a fidelidade — de propósito, porque a ficha pede o bloco ao final.
  */
+function fimDoBloco(html: string): number {
+  let profundidade = 0;
+  for (const marca of html.matchAll(/<div\b[^>]*>|<\/div>/g)) {
+    profundidade += marca[0] === "</div>" ? -1 : 1;
+    if (profundidade === 0) {
+      return (marca.index ?? 0) + marca[0].length;
+    }
+  }
+  return -1;
+}
+
 function separarComplementos(html: string): {
   transcrito: string;
   complementos: ReadonlyArray<{ origem: string; html: string }>;
@@ -356,24 +372,61 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
         expect(texto(bloco?.html ?? "").length, `texto do complemento de §${id}`).toBeGreaterThan(
           120,
         );
-        // Ao final: o que sobra depois de remover o bloco é a transcrição
-        // inteira, e o bloco vai até o fim da seção.
-        expect(`${transcrito}${bloco?.html ?? ""}`).toBe(conteudo);
+        /*
+         * Ao final, de verdade.
+         *
+         * A primeira versão desta asserção comparava `transcrito + bloco`
+         * com a seção inteira — e passava sempre, porque o corte fatia
+         * justamente até o fim da seção: bloco no meio devolvia o resto
+         * do texto dentro do "bloco" e a soma continuava batendo. A
+         * fidelidade acima reprovava (a transcrição vinha truncada), mas
+         * este teste dizia "ao final" sem verificar nada.
+         *
+         * Agora fecha pelo balanço das `<div>`: depois do `</div>` que
+         * fecha o próprio bloco não pode sobrar nada além de espaço.
+         */
+        expect(transcrito, `transcrição de §${id}`).not.toBe("");
+        const fim = fimDoBloco(bloco?.html ?? "");
+        expect(fim, `bloco de §${id} não fecha`).toBeGreaterThan(0);
+        expect(
+          (bloco?.html ?? "").slice(fim).trim(),
+          `texto DEPOIS do complemento em §${id} — o bloco não é o último`,
+        ).toBe("");
       },
     );
 
+    /*
+     * Frase a frase, e não o bloco inteiro.
+     *
+     * Comparar o bloco todo com a referência só pegaria uma cópia
+     * integral — inútil contra o caso que importa, que é apagar UMA frase
+     * da transcrição e recolocá-la aqui embaixo. Cada frase do
+     * complemento é procurada na referência, e nenhuma pode estar lá.
+     */
     it.each(COMPLEMENTOS.map((complemento) => [complemento.secao] as const))(
-      "o complemento de §%s não existe na referência — não é frase transcrita reposicionada",
+      "nenhuma frase do complemento de §%s existe na referência",
       (id) => {
         const [bloco] = separarComplementos(secao(secoes, id)).complementos;
-        const naTela = texto(bloco?.html ?? "").replace(
-          texto(`<span>${COMPLEMENTOS.find((c) => c.secao === id)?.origem ?? ""}</span>`),
-          "",
-        );
-        expect(naTela.length, `complemento de §${id}`).toBeGreaterThan(100);
-        expect(texto(referencia), `complemento de §${id} achado na referência`).not.toContain(
-          naTela.trim(),
-        );
+        const naReferencia = texto(referencia);
+        /*
+         * O corte por elemento vem ANTES do corte por pontuação, e é o
+         * que faz a verificação valer: `texto()` colapsa as tags em
+         * espaço, então um `<p>` recolocado logo depois do rótulo — que
+         * não termina em ponto — se emendaria a ele e viraria uma frase
+         * que, aí sim, não existe na referência. Foi assim que a primeira
+         * versão deixou passar exatamente a mudança que devia pegar.
+         */
+        const frases = (bloco?.html ?? "")
+          .split(/<\/(?:p|li|span|dd|dt|h[1-6])>/)
+          .flatMap((pedaco) => texto(pedaco).split(/(?<=[.:;!?])\s+/))
+          .map((frase) => frase.trim())
+          .filter((frase) => frase.length > 40);
+        expect(frases.length, `frases medíveis no complemento de §${id}`).toBeGreaterThan(2);
+        for (const frase of frases) {
+          expect(naReferencia, `frase do complemento de §${id} achada na referência`).not.toContain(
+            frase,
+          );
+        }
       },
     );
   });
