@@ -34,6 +34,11 @@ describe("RN59 — a ajuda abre na seção do módulo de origem (ficha §1.3)", 
     ["/ofertas", "j2"],
     ["/ofertas/cof55/editar", "j2"],
     ["/ofertas/telemetria", "j2"],
+    // F20 — a T34 mora sob /ofertas e tem seção própria (4.8). É a ORDEM
+    // no mapa que garante isto: a entrada específica vem antes da
+    // genérica, e a primeira que casa vence. Invertê-las faria a ajuda
+    // abrir em 4.2 — errado, e sem nada na tela denunciando.
+    ["/ofertas/telemetria-operadora", "j8"],
     // Assinantes → 4.3
     ["/assinantes", "j3"],
     ["/assinantes/segmentos", "j3"],

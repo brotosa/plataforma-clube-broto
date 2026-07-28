@@ -53,6 +53,11 @@ export const MAPA_AJUDA: ReadonlyArray<ModuloDeAjuda> = [
   { padrao: "/aliados", rotulo: "Aliados & Soluções", secao: "j1" },
   // Cadastro de solução · Ofertas → 4.2 Publicar e manter ofertas
   { padrao: "/aliados/:id/solucoes", rotulo: "Aliados & Soluções", secao: "j2" },
+  // F20 — a telemetria da operadora tem seção própria (4.8) e mora sob
+  // /ofertas. Precisa vir ANTES da entrada de /ofertas: a resolução é por
+  // prefixo, e a primeira que casar vence — depois dela, a rota cairia
+  // em 4.2 e a ajuda abriria na seção errada.
+  { padrao: "/ofertas/telemetria-operadora", rotulo: "Ofertas", secao: "j8" },
   { padrao: "/ofertas", rotulo: "Ofertas", secao: "j2" },
   // Assinantes (carteira, perfil, importações, segmentos) → 4.3 Base de assinantes
   { padrao: "/assinantes", rotulo: "Assinantes", secao: "j3" },

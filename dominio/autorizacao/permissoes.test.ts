@@ -183,6 +183,23 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     ],
   },
   {
+    // F20 (ficha §8) — a permissão já existia desde a F4, com os mesmos
+    // dois papéis; a célula do ADMINISTRADOR_PLATAFORMA é que nunca havia
+    // sido explicitada. Ele NÃO importa: o papel dele é parametrizar a
+    // plataforma (RN23), não operar carga de dado da operadora. Leitura do
+    // histórico e das divergências continua sendo de todos os papéis, e
+    // por isso não há permissão de leitura a declarar aqui.
+    acao: "IMPORTAR_TELEMETRIA",
+    permitidos: ["GESTOR", "ANALISTA"],
+    negados: [
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMINISTRADOR_PLATAFORMA",
+    ],
+  },
+  {
     acao: "GERIR_SEGMENTOS",
     permitidos: ["GESTOR", "ANALISTA"],
     negados: [

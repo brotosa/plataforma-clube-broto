@@ -81,6 +81,12 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   CONFIGURAR_REGRAS_APROVACAO: ["GESTOR"],
   PUBLICAR_PAUSAR_ENCERRAR_OFERTA: ["GESTOR", "ANALISTA"],
   GERAR_EXPORTACAO: ["GESTOR"],
+  // Nasceu na F4 (telemetria batch da Minutrade) e a F20 a reusa para a
+  // esteira dos quatro relatórios da operadora — é a mesma ação de
+  // negócio, com os mesmos dois papéis (ficha da Onda 12 §8). O
+  // ADMINISTRADOR_PLATAFORMA fica de fora de propósito: o papel dele é
+  // parametrizar (RN23), não operar carga. Ler o histórico e as
+  // divergências é de todos os papéis, e por isso não há ação de leitura.
   IMPORTAR_TELEMETRIA: ["GESTOR", "ANALISTA"],
   // Onda 2 — matriz da ficha §2, célula a célula.
   VISUALIZAR_FUNIL: [

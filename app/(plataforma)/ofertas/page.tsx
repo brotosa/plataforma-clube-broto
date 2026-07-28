@@ -4,6 +4,7 @@ import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { kpiVitrineViva, resumoTelemetriaPorOferta } from "@/infra/consultas/telemetria";
+import { contadoresPorOferta } from "@/infra/consultas/telemetria-operadora";
 import { lerRegua } from "@/infra/configuracao/servico-configuracao";
 import { estaAVencer } from "@/dominio/ofertas/regras";
 
@@ -63,7 +64,13 @@ export default async function PaginaOfertas() {
     ]);
   const hoje = new Date();
 
-  const telemetria = await resumoTelemetriaPorOferta(ofertas.map((oferta) => oferta.id));
+  const [telemetria, contadoresDeCatalogo] = await Promise.all([
+    resumoTelemetriaPorOferta(ofertas.map((oferta) => oferta.id)),
+    // F20 (RN68) — a OUTRA contagem, pela consulta única da telemetria da
+    // operadora. Fica em coluna própria, com a data do retrato no título:
+    // as duas nunca se somam nem se apresentam como o mesmo número.
+    contadoresPorOferta(ofertas.map((oferta) => oferta.id)),
+  ]);
   const percentualVivo =
     vitrine.totalPublicadas > 0
       ? Math.round((vitrine.publicadasComResgate / vitrine.totalPublicadas) * 100)
@@ -84,6 +91,13 @@ export default async function PaginaOfertas() {
             Publicar catálogo
           </Link>
         ) : null}
+        <Link
+          href="/ofertas/telemetria-operadora"
+          className="btn btn-ghost"
+          style={{ textDecoration: "none" }}
+        >
+          Telemetria da operadora
+        </Link>
         {podeImportar ? (
           <Link href="/ofertas/telemetria" className="btn btn-ghost" style={{ textDecoration: "none" }}>
             Importar telemetria
@@ -160,14 +174,29 @@ export default async function PaginaOfertas() {
                 <th>Natureza</th>
                 <th>Status</th>
                 <th style={{ textAlign: "right" }}>Emitidos</th>
-                <th style={{ textAlign: "right" }}>Resgatados</th>
-                <th style={{ textAlign: "right" }}>Compras</th>
+                {/*
+                  F20 (RN68) — a origem de cada contagem passa a ficar NO
+                  cabeçalho. O extrato (evento nominal, telemetria da F4) e
+                  o catálogo (contador acumulado da operadora) medem coisas
+                  diferentes e divergem hoje; sem o rótulo, duas colunas de
+                  "resgates" com números distintos pareceriam defeito.
+                */}
+                <th style={{ textAlign: "right" }}>Resgatados (extrato)</th>
+                <th style={{ textAlign: "right" }}>Compras (extrato)</th>
+                <th style={{ textAlign: "right" }}>Resgates (catálogo)</th>
+                <th style={{ textAlign: "right" }}>Compras (catálogo)</th>
                 <th>Vigência</th>
               </tr>
             </thead>
             <tbody>
               {ofertas.map((oferta) => {
                 const resumo = telemetria.get(oferta.id);
+                const catalogo = contadoresDeCatalogo.get(oferta.id);
+                const retrato = catalogo
+                  ? catalogo.dataArquivo
+                    ? `Contador acumulado do catálogo da operadora · retrato de ${new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(catalogo.dataArquivo)}. Nunca somado ao extrato (RN68).`
+                    : "Contador acumulado do catálogo da operadora · o arquivo não declarou a data do retrato. Nunca somado ao extrato (RN68)."
+                  : "Sem contador do catálogo: nenhum relatório da operadora importado para esta oferta.";
                 const foraDaPlataforma = oferta.mecanica.slug === "CHECKOUT_EXTERNO";
                 const numero = (valor: number | undefined) =>
                   valor && valor > 0 ? valor.toLocaleString("pt-BR") : "—";
@@ -208,7 +237,7 @@ export default async function PaginaOfertas() {
                       {numero(resumo?.emitidos)}
                     </td>
                     <td
-                      data-label="Resgatados"
+                      data-label="Resgatados (extrato)"
                       className="num"
                       style={{ textAlign: "right" }}
                       title={
@@ -224,8 +253,24 @@ export default async function PaginaOfertas() {
                         </span>
                       ) : null}
                     </td>
-                    <td data-label="Compras" className="num" style={{ textAlign: "right" }}>
+                    <td data-label="Compras (extrato)" className="num" style={{ textAlign: "right" }}>
                       {numero(resumo?.comprasConfirmadas)}
+                    </td>
+                    <td
+                      data-label="Resgates (catálogo)"
+                      className="num"
+                      style={{ textAlign: "right" }}
+                      title={retrato}
+                    >
+                      {catalogo ? catalogo.resgates.toLocaleString("pt-BR") : "—"}
+                    </td>
+                    <td
+                      data-label="Compras (catálogo)"
+                      className="num"
+                      style={{ textAlign: "right" }}
+                      title={retrato}
+                    >
+                      {catalogo ? catalogo.compras.toLocaleString("pt-BR") : "—"}
                     </td>
                     <td data-label="Vigência" className="num cap">
                       {formatarData(oferta.vigenciaInicio)} –{" "}
