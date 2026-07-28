@@ -30,7 +30,8 @@ import {
 } from "@/infra/kits/adapter";
 import { EXTENSAO_POR_TIPO, type TipoMarca } from "@/dominio/marca/marca";
 import { validarEvidencia } from "@/dominio/campanhas/evidencia";
-import { criarArmazenadorLocal, hashDeSnapshot } from "@/infra/exportacoes/armazenador";
+import { criarArmazenadorPrisma, hashDeSnapshot } from "@/infra/exportacoes/armazenador";
+import { validarImagemDePeca } from "@/dominio/campanhas/imagem-peca";
 import { logger } from "@/infra/log/logger";
 import {
   montarSnapshotDoPublico,
@@ -48,20 +49,22 @@ import { type Ator, ErroDeValidacao } from "./contexto";
  * são herdadas, com finalidade autopreenchida pelo nome da campanha.
  */
 
-/** Arquivo pendente de gravação no armazenamento após o commit. */
-export interface GravacaoPendente {
-  chave: string;
-  conteudo: Buffer;
-}
-
-const armazenador = criarArmazenadorLocal();
-
-/** Grava no armazenamento os arquivos gerados dentro de uma transação. */
-export async function gravarPendentesDoKit(pendentes: ReadonlyArray<GravacaoPendente>) {
-  for (const pendente of pendentes) {
-    await armazenador.salvar(pendente.chave, pendente.conteudo);
-  }
-}
+/**
+ * RN71 — o armazenamento dos arquivos derivados.
+ *
+ * **A ordem é conteúdo primeiro, referência depois**, e a fila de
+ * `GravacaoPendente` que existia aqui até a F20 fazia o contrário: gravava
+ * a linha na transação e o arquivo só depois do commit, o que produzia
+ * exatamente o estado que a Onda 13 veio consertar — registro apontando
+ * para conteúdo que não existe. Invertida a ordem, a fila perdeu a razão
+ * de ser e saiu.
+ *
+ * Gravar fora da transação é decisão, não descuido: escrita de dezenas de
+ * megabytes dentro de transação interativa fixa a sessão no RDS Proxy e
+ * estoura o tempo limite do `$transaction`. Falha entre a gravação e o
+ * commit deixa conteúdo sem referência — lixo coletável, inofensivo.
+ */
+const armazenador = criarArmazenadorPrisma();
 
 /** Estado auditável da campanha — o que entra em valor anterior/novo. */
 function estadoAuditavel(campanha: {
@@ -546,14 +549,24 @@ export async function salvarPeca(
     where: { slug: parametros.formatoSlug },
   });
 
-  let pendente: GravacaoPendente | null = null;
   let imagemChave: string | null = null;
   if (parametros.imagem) {
+    // RN71 — a imagem da peça passa pela régua de arquivo enviado: tipo
+    // REAL pelo conteúdo, coerência da extensão e teto de 1 MB. Até a F20
+    // este era o único caminho de arquivo da plataforma sem validação
+    // nenhuma, por ser anterior ao núcleo que a F15 escreveu.
+    const validada = validarImagemDePeca(
+      parametros.imagem.conteudo,
+      parametros.imagem.nomeArquivo,
+    );
     const extensao = parametros.imagem.nomeArquivo.includes(".")
       ? parametros.imagem.nomeArquivo.slice(parametros.imagem.nomeArquivo.lastIndexOf("."))
       : "";
     imagemChave = `pecas/${campanhaId}/${hashDeSnapshot(parametros.imagem.conteudo).slice(0, 16)}${extensao}`;
-    pendente = { chave: imagemChave, conteudo: parametros.imagem.conteudo };
+    // Conteúdo primeiro, referência depois (RN71): se a transação abaixo
+    // falhar, sobra binário sem registro — lixo coletável. Na ordem
+    // inversa sobraria peça sem imagem, que é o defeito da fase.
+    await armazenador.salvar(imagemChave, Buffer.from(validada.conteudo));
   }
 
   const peca = await prisma.$transaction(async (tx) => {
@@ -592,9 +605,6 @@ export async function salvarPeca(
     return salva;
   });
 
-  if (pendente) {
-    await armazenador.salvar(pendente.chave, pendente.conteudo);
-  }
   return peca;
 }
 
@@ -885,9 +895,13 @@ function conteudoParaDiff(manifesto: ManifestoKit): ConteudoKit {
 }
 
 /**
- * Gera uma versão do kit dentro da transação em curso e devolve os
- * arquivos a gravar depois do commit. Usada na ativação (v1) e no ajuste
- * pós-ativação (v2+, RN45).
+ * Gera uma versão do kit dentro da transação em curso. Usada na ativação
+ * (v1) e no ajuste pós-ativação (v2+, RN45).
+ *
+ * O zip vai ao armazenamento **antes** da linha que o referencia (RN71) e
+ * fora da transação: o `tx` continua sendo o dono do registro, do
+ * manifesto e da auditoria, que são pequenos e transacionais; o binário
+ * não entra na transação por decisão declarada na fase.
  */
 async function gerarKitDentroDaTransacao(
   tx: Prisma.TransactionClient,
@@ -895,7 +909,7 @@ async function gerarKitDentroDaTransacao(
   campanha: CampanhaCompleta,
   snapshot: { contagem: number; hash: string; exportacaoId: string; finalidade: string },
   momento: Date,
-): Promise<GravacaoPendente[]> {
+): Promise<void> {
   const { manifesto, pecas, marcas, imagensDeSolucao } = await montarConteudoDoKit(
     campanha,
     snapshot,
@@ -930,6 +944,10 @@ async function gerarKitDentroDaTransacao(
   });
 
   const chave = `kits/${campanha.id}/v${versao}-${pacote.nomeArquivo}`;
+  // Conteúdo primeiro, referência depois (RN71). Falha aqui aborta a
+  // transação e não deixa kit nenhum registrado; falha depois daqui deixa
+  // um zip sem linha, que é lixo coletável e não quebra tela alguma.
+  await armazenador.salvar(chave, pacote.conteudo);
   const kit = await tx.kitCampanha.create({
     data: {
       campanhaId: campanha.id,
@@ -955,8 +973,6 @@ async function gerarKitDentroDaTransacao(
       diff: kit.diffTexto,
     },
   });
-
-  return [{ chave, conteudo: pacote.conteudo }];
 }
 
 /**
@@ -971,7 +987,7 @@ export async function ativarCampanhaDentroDaTransacao(
   campanhaId: string,
   snapshotDoPublico: Awaited<ReturnType<typeof montarSnapshotDoPublico>>,
   momento: Date,
-): Promise<GravacaoPendente[]> {
+): Promise<void> {
   const campanha = await tx.campanha.findUniqueOrThrow({
     where: { id: campanhaId },
     include: INCLUSAO_COMPLETA,
@@ -990,20 +1006,16 @@ export async function ativarCampanhaDentroDaTransacao(
   }
 
   const finalidade = `Campanha: ${campanha.nome}`;
+  // A exportação grava o CSV antes de a linha passar a apontar para ele
+  // (RN71) — ver a nota de ordem em `registrarExportacaoDentroDaTransacao`.
   const exportacao = await registrarExportacaoDentroDaTransacao(tx, autorId, {
     finalidade,
     contagem: snapshotDoPublico.contagem,
     regras: snapshotDoPublico.regras,
     hash: snapshotDoPublico.hash,
     segmentoId: campanha.segmentoId,
+    conteudo: snapshotDoPublico.conteudo,
   });
-
-  const pendentes: GravacaoPendente[] = [
-    { chave: exportacao.arquivoChave, conteudo: snapshotDoPublico.conteudo },
-  ];
-  // O CSV precisa estar legível para o empacotador do kit: grava antes de
-  // montar o pacote — a linha auditável da exportação já existe acima.
-  await armazenador.salvar(exportacao.arquivoChave, snapshotDoPublico.conteudo);
 
   const ativada = await tx.campanha.update({
     where: { id: campanhaId },
@@ -1022,7 +1034,7 @@ export async function ativarCampanhaDentroDaTransacao(
     novo: estadoAuditavel(ativada),
   });
 
-  const doKit = await gerarKitDentroDaTransacao(
+  await gerarKitDentroDaTransacao(
     tx,
     autorId,
     ativada,
@@ -1034,7 +1046,6 @@ export async function ativarCampanhaDentroDaTransacao(
     },
     momento,
   );
-  return [...pendentes, ...doKit];
 }
 
 /**
@@ -1099,10 +1110,9 @@ export async function ativarCampanha(ator: Ator, campanhaId: string) {
   }
 
   const momento = new Date();
-  const pendentes = await prisma.$transaction((tx) =>
+  await prisma.$transaction((tx) =>
     ativarCampanhaDentroDaTransacao(tx, ator.id, campanhaId, snapshot, momento),
   );
-  await gravarPendentesDoKit(pendentes);
   logger.info({ campanhaId, contagem: snapshot.contagem }, "campanha ativada com kit v1");
   return { resultado: "ATIVA" as const, campanha: await lerCampanha(campanhaId) };
 }
@@ -1112,7 +1122,7 @@ export async function ativarCampanhaAprovada(
   tx: Prisma.TransactionClient,
   autorId: string,
   campanhaId: string,
-): Promise<GravacaoPendente[]> {
+): Promise<void> {
   const campanha = await tx.campanha.findUniqueOrThrow({
     where: { id: campanhaId },
     include: { segmento: true },
@@ -1141,12 +1151,12 @@ export async function gerarNovaVersaoDoKit(ator: Ator, campanhaId: string) {
   }
 
   const momento = new Date();
-  const pendentes = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const atual = await tx.campanha.findUniqueOrThrow({
       where: { id: campanhaId },
       include: INCLUSAO_COMPLETA,
     });
-    return gerarKitDentroDaTransacao(
+    await gerarKitDentroDaTransacao(
       tx,
       ator.id,
       atual,
@@ -1159,7 +1169,6 @@ export async function gerarNovaVersaoDoKit(ator: Ator, campanhaId: string) {
       momento,
     );
   });
-  await gravarPendentesDoKit(pendentes);
   return lerCampanha(campanhaId);
 }
 

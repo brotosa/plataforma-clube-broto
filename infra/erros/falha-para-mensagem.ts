@@ -1,5 +1,6 @@
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
 import { ErroDeEnvioDeArquivo } from "@/dominio/arquivos/arquivo-enviado";
+import { ErroDeArquivoAusente } from "@/dominio/arquivos/artefato-derivado";
 import { ErroDeArquivo, ErroDeConfiguracao } from "@/dominio/erros/falhas";
 import { ErroDeLayoutTelemetria } from "@/dominio/integracao/telemetria";
 import { ErroDeSegmentoInvalido } from "@/dominio/segmentacao/compilador";
@@ -41,6 +42,11 @@ const FALHAS_CONHECIDAS = [
   // Listá-la pelo nome do núcleo evita que a entrada pareça específica da
   // marca quando já não é há duas fases.
   ErroDeEnvioDeArquivo,
+  // Chave que existe no registro e não tem conteúdo no armazenamento
+  // (RN71). Precisa subir com a própria mensagem justamente porque o
+  // genérico é o que a base de demonstração exibe hoje: "não foi possível
+  // ativar" não diz que a peça precisa ser reenviada.
+  ErroDeArquivoAusente,
   ErroDeSegmentoInvalido,
   ErroDeTemplate,
   ErroDeProvedor,

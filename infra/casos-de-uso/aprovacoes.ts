@@ -7,11 +7,7 @@ import { validarDecisao } from "@/dominio/aprovacao/motor";
 import { estadoAuditavel, promoverDentroDaTransacao } from "./empresas";
 import { publicarDentroDaTransacao } from "./ofertas";
 import { aplicarParametroSensivelDentroDaTransacao } from "./parametrizador";
-import {
-  ativarCampanhaAprovada,
-  gravarPendentesDoKit,
-  type GravacaoPendente,
-} from "./campanhas";
+import { ativarCampanhaAprovada } from "./campanhas";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -48,10 +44,6 @@ export async function decidirSolicitacao(
     throw new ErroDeValidacao(erros);
   }
 
-  // Arquivos que só podem ser gravados depois do commit (kit da Onda 4):
-  // a linha auditável existe antes do arquivo, nunca o inverso.
-  const pendentes: GravacaoPendente[] = [];
-
   const decidida = await prisma.$transaction(async (tx) => {
     const decidida = await tx.aprovacaoSolicitacao.update({
       where: { id: solicitacaoId },
@@ -71,14 +63,12 @@ export async function decidirSolicitacao(
     });
 
     if (decisao === "APROVADA") {
-      pendentes.push(
-        ...(await aplicarEfeito(
-          tx,
-          ator.id,
-          solicitacao.tipoEntidade,
-          solicitacao.entidadeId,
-          solicitacao.payload,
-        )),
+      await aplicarEfeito(
+        tx,
+        ator.id,
+        solicitacao.tipoEntidade,
+        solicitacao.entidadeId,
+        solicitacao.payload,
       );
     } else if (solicitacao.tipoEntidade === "PROMOCAO_ALIADA_ATIVA") {
       // Onda 2 (pipeline da ficha §3.1): a devolução tira a empresa de
@@ -103,15 +93,19 @@ export async function decidirSolicitacao(
     return decidida;
   });
 
-  await gravarPendentesDoKit(pendentes);
   return decidida;
 }
 
 /**
  * Efeito de cada tipo de entidade quando a solicitação é aprovada.
- * Devolve os arquivos a gravar após o commit (só a Onda 4 tem);
- * o `switch` é exaustivo por tipo — entidade nova sem efeito próprio
+ *
+ * O `switch` é exaustivo por tipo — entidade nova sem efeito próprio
  * quebra a compilação em vez de cair silenciosamente em outro efeito.
+ *
+ * Até a F20 esta função devolvia os arquivos a gravar depois do commit
+ * (só a Onda 4 tinha). A RN71 inverteu a ordem — conteúdo antes da
+ * referência —, então não há mais nada a devolver: quem gera o kit já
+ * gravou o pacote quando esta função retorna.
  */
 async function aplicarEfeito(
   tx: Parameters<typeof promoverDentroDaTransacao>[0],
@@ -119,20 +113,20 @@ async function aplicarEfeito(
   tipo: TipoEntidadeAprovacao,
   entidadeId: string,
   payload: unknown,
-): Promise<GravacaoPendente[]> {
+): Promise<void> {
   switch (tipo) {
     case "PROMOCAO_ALIADA_ATIVA":
       await promoverDentroDaTransacao(tx, autorId, entidadeId);
-      return [];
+      return;
     case "PUBLICACAO_OFERTA":
       await publicarDentroDaTransacao(tx, autorId, entidadeId);
-      return [];
+      return;
     // RN27 (Onda 3) — a escrita de parâmetro sensível só toca a
     // configuração agora; até aqui o valor vigente seguiu valendo, e o
     // proposto esperou no payload da solicitação.
     case "PARAMETRO_SENSIVEL":
       await aplicarParametroSensivelDentroDaTransacao(tx, autorId, payload);
-      return [];
+      return;
     case "ATIVACAO_CAMPANHA":
       return ativarCampanhaAprovada(tx, autorId, entidadeId);
   }

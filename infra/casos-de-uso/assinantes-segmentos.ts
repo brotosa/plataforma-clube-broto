@@ -10,12 +10,15 @@ import {
 import { formatarCpf } from "@/dominio/assinantes/cpf";
 import { decifrarCpf } from "@/infra/assinantes/protecao-cpf";
 import {
-  criarArmazenadorLocal,
+  criarArmazenadorPrisma,
   hashDeSnapshot,
 } from "@/infra/exportacoes/armazenador";
 import { slugsEnriquecimentoAtivos } from "@/infra/consultas/assinantes";
 import { logger } from "@/infra/log/logger";
 import { type Ator, ErroDeValidacao } from "./contexto";
+
+/** RN71 — o armazenamento dos snapshots, agora persistente. */
+const armazenador = criarArmazenadorPrisma();
 
 /**
  * Segmentos (RN33) e exportação de listas (RN34).
@@ -24,7 +27,7 @@ import { type Ator, ErroDeValidacao } from "./contexto";
  *   lista; a contagem é recalculada a cada consulta (T21).
  * - Exportar materializa snapshot auditável: autor, data, contagem,
  *   FINALIDADE obrigatória, a regra usada e o hash do arquivo; o CSV
- *   vai ao armazenamento de objetos.
+ *   vai ao armazenamento da plataforma (RN71).
  * - Acesso pleno (RN30): a decisão é da API — aqui — e SEMPRE gera
  *   evento de auditoria com o contexto da consulta.
  */
@@ -218,9 +221,25 @@ export async function montarSnapshotDoPublico(regrasBrutas: unknown) {
 }
 
 /**
- * Grava a linha auditável da exportação (RN34) dentro de uma transação
- * em curso. O arquivo é gravado pelo chamador DEPOIS do commit — a linha
- * auditável existe antes do arquivo, nunca o inverso.
+ * Grava a linha auditável da exportação (RN34) e o snapshot que ela
+ * referencia, dentro de uma transação em curso.
+ *
+ * **A ordem é conteúdo primeiro, referência depois (RN71)**, e ela é
+ * obtida em três tempos porque a chave depende do id da linha
+ * (`listas-contato/{data}-{id}.csv`, formato que a F11 fixou e esta fase
+ * não muda): cria-se a linha com `arquivoChave: "pendente"`, grava-se o
+ * CSV sob a chave definitiva e só então a linha passa a apontar para ela.
+ *
+ * O que se ganha é que **nenhuma linha aponta para uma chave sem
+ * conteúdo**: se falhar no meio, ou a linha ainda diz "pendente" — que é
+ * visivelmente incompleta —, ou sobra um CSV sem dono, que é lixo
+ * coletável. A ordem inversa produziria a exportação que não abre, que é
+ * o defeito desta fase.
+ *
+ * Até a F20 esta função só gravava a linha, e o arquivo ia para o disco
+ * depois do commit, por conta do chamador. O conteúdo passou a entrar
+ * aqui justamente para que a ordem não dependa de cada chamador lembrar
+ * dela.
  */
 export async function registrarExportacaoDentroDaTransacao(
   tx: Prisma.TransactionClient,
@@ -231,6 +250,8 @@ export async function registrarExportacaoDentroDaTransacao(
     regras: unknown;
     hash: string;
     segmentoId?: string | null;
+    /** O CSV materializado — gravado antes de a linha apontar para ele. */
+    conteudo: Buffer;
   },
 ) {
   const criada = await tx.exportacaoLista.create({
@@ -245,6 +266,9 @@ export async function registrarExportacaoDentroDaTransacao(
     },
   });
   const chave = `listas-contato/${criada.criadoEm.toISOString().slice(0, 10)}-${criada.id}.csv`;
+  // Conteúdo antes da referência (RN71): a linha só passa a apontar para
+  // a chave depois que existe conteúdo sob ela.
+  await armazenador.salvar(chave, dados.conteudo);
   const atualizada = await tx.exportacaoLista.update({
     where: { id: criada.id },
     data: { arquivoChave: chave },
@@ -291,6 +315,12 @@ export async function exportarLista(
   const snapshot = await montarSnapshotDoPublico(parametros.regras);
   const { conteudo, hash, contagem, regras } = snapshot;
 
+  // A gravação do CSV acontece dentro de `registrarExportacao…`, antes de
+  // a linha apontar para a chave (RN71). Até a F20 ela vinha depois do
+  // commit, por conta deste chamador, e o raciocínio era o oposto: "a
+  // linha auditável existe antes do arquivo, nunca o inverso". A Onda 13
+  // inverteu a preferência — arquivo órfão é lixo coletável, registro sem
+  // arquivo é a exportação que não abre.
   const exportacao = await prisma.$transaction((tx) =>
     registrarExportacaoDentroDaTransacao(tx, ator.id, {
       finalidade,
@@ -298,13 +328,10 @@ export async function exportarLista(
       regras,
       hash,
       segmentoId: parametros.segmentoId ?? null,
+      conteudo,
     }),
   );
 
-  // Snapshot gravado após a transação: a linha auditável existe antes do
-  // arquivo; em falha de armazenamento o registro aponta hash sem objeto
-  // e a operação pode ser refeita — nunca o inverso (arquivo órfão).
-  await criarArmazenadorLocal().salvar(exportacao.arquivoChave, conteudo);
   logger.info(
     { exportacaoId: exportacao.id, contagem },
     "exportação de lista materializada",
@@ -318,6 +345,6 @@ export async function lerSnapshotExportacao(ator: Ator, exportacaoId: string) {
   const exportacao = await prisma.exportacaoLista.findUniqueOrThrow({
     where: { id: exportacaoId },
   });
-  const conteudo = await criarArmazenadorLocal().ler(exportacao.arquivoChave);
+  const conteudo = await armazenador.ler(exportacao.arquivoChave);
   return { exportacao, conteudo };
 }
