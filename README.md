@@ -1326,6 +1326,222 @@ nunca fosse feita.
 - **O R1 imprime a barra de volta.** Escondê-la pediria uma regra
   `@media print` nova, e a instrução de CSS da onda admite um seletor só.
 
+## Telemetria da operadora (Onda 12 — F20)
+
+Fecha a versão 1 e a Onda 12. A F19 deu casa ao dado próprio da plataforma;
+esta constrói a esteira que ingere os **quatro relatórios que a operadora
+entrega** e que, até aqui, ninguém lia.
+
+### RN67 — a identidade é o conteúdo, não o nome
+
+Os relatórios são **acumulados, não incrementais**: cada geração traz tudo
+desde o começo. Reimportar o mesmo arquivo, portanto, não pode duplicar nada
+nem mexer em contagem — e é isso que o `UNIQUE(hash_conteudo, tipo_layout)`
+garante.
+
+O nome não serve de chave: a operadora sufixa cada geração
+(`Lista_de_Ofertas_3.xlsx`), então o mesmo relatório volta como `_4`, `_5`, e
+um arquivo idêntico chega com nome diferente. **O layout também é decidido
+pelo cabeçalho**, pela mesma razão — e o teste renomeia o arquivo de ofertas
+para "Sellers" só para provar que o nome não participa.
+
+Reenviar um arquivo já ingerido devolve a frase que diz isso, em vez de um
+silêncio que pareceria falha. Toda importação grava procedência (arquivo,
+data de geração declarada, hash, autor) e é auditada.
+
+### As quatro higienes, e o que foi observado de verdade
+
+As quatro do prompt §3 estão implementadas e testadas uma a uma. Duas delas
+têm **amostra real** por trás, em `dados/`:
+
+| Higiene | Observada em arquivo real? |
+|---|---|
+| Coluna de índice sem nome na primeira posição | **sim** — nos dois catálogos |
+| Emoji no status do seller (`🟢 Seller com oferta ativa`) | **sim** — `Lista_de_Sellers_1.xlsx` |
+| Apóstrofo à esquerda em telefone | **não** — nenhum catálogo tem coluna de telefone |
+| `'-` significando vazio | **não** — idem |
+
+As duas últimas foram implementadas e testadas sobre fixture sintética. Elas
+vêm do prompt, que as observou nos arquivos **nominais** — e esses não entram
+no repositório. A primeira importação real é quem confirma.
+
+Cabeçalhos reais transcritos, para conferência sem abrir o arquivo:
+
+- **Sellers**: `Id do Seller` · `Seller` · `Data de Entrada do Seller` ·
+  `Ofertas Ativas` · `Ofertas Inativas` · `Seller com ofertas ativas?`
+- **Ofertas**: `Id do Seller` · `Seller` · `Id da Oferta` ·
+  `Status da Oferta` · `Produto` · `CheckOut` · `Preço do Produto` ·
+  `Desconto` · `Preço Final do Produto` · `Data da Oferta` · `Resgates` ·
+  `Compras`
+
+### RN69 — junção só por CPF, e as três causas separadas
+
+Todo vínculo entre linha da operadora e assinante passa pelo **CPF-HMAC** da
+Onda 5. O CPF em claro morre na linha em que vira hash: não é gravado, não
+vai a log, não entra em mensagem de erro e não aparece no resultado da
+importação — há teste varrendo o resultado, o registro e a trilha atrás dele.
+
+A coluna é detectada pelo cabeçalho (`CPF`, `CPF do Cliente`, `CPF Titular` e
+variações prováveis), aceita com ou sem máscara, e o dígito verificador é
+conferido antes de qualquer uso. **Não há junção por e-mail, nome ou
+telefone**, e o módulo não expõe gancho para isso de propósito: o lugar onde
+alguém acrescentaria o atalho é ali, e não encontrar por onde é o atrito que
+a regra quer.
+
+As três causas de recusa são contadas **em separado**, porque respondem
+perguntas diferentes e têm destinatários diferentes: *sem coluna de CPF* é
+layout incompleto (assunto da operadora), *CPF inválido* é dado sujo na
+origem, e *CPF sem assinante correspondente* é desalinhamento entre as bases.
+
+**Duas fixtures sintéticas, não uma.** Com a coluna, a junção acontece —
+vínculo criado sem duplicar, perfil e assinatura atualizados, evento gravado
+e deduplicado. Sem a coluna, toda linha é recusada com a causa certa, nada é
+gravado e nada é lançado: arquivo histórico precisa **falhar bem**, e isso é
+comportamento especificado, não acidente.
+
+### RN70 — relata, e nunca corrige
+
+A plataforma é a origem do cadastro; a operadora é o espelho do que está
+publicado. Quando divergem, a importação registra e exibe — e não altera
+aliado, solução ou oferta em hipótese alguma.
+
+A cerca de `infra/arquitetura/reconciliacao-nao-corrige.test.ts` quebra o
+build se alguém desfizer isso, e foi **verificada mordendo**: com um
+`tx.oferta.update` injetado no caminho de catálogo, ela falha nomeando
+arquivo, mutação e posição. Ela prende quatro coisas: nenhuma mutação Prisma
+sobre os três modelos de cadastro, nenhuma fuga por SQL cru, o módulo de
+reconciliação sem sequer importar Prisma (garantia estrutural, não textual),
+e os contadores em tabela própria — enquanto isso for verdade, a proibição é
+**total** e a exceção que o prompt §5 previu não precisa existir.
+
+### RN68 — duas contagens, jamais somadas
+
+O contador de catálogo (por oferta) e o extrato nominal (por pessoa) medem
+coisas diferentes e divergem hoje. Cada um aparece com a origem escrita: a
+lista de Ofertas ganhou `Resgates (catálogo)` e `Compras (catálogo)` ao lado
+das colunas existentes, que passaram a dizer `(extrato)` — sem o rótulo, duas
+contagens com números diferentes se leriam como defeito. Não existe função
+que devolva a soma das duas: a regra é garantida pela forma, não pela
+disciplina de quem escreve a próxima tela.
+
+### O complemento da RN65 — o selo sai do dado
+
+A F19 gravou `selo: "AGUARDA_CHAVE"` literal para resgates, compras e funil,
+porque não havia dado. Sem esta fase, a promessa "acende sem mudança de
+layout" seria falsa e a chegada do dado exigiria uma fase só para trocar
+constantes.
+
+`infra/consultas/telemetria-operadora.ts` é a fonte única da apuração — T33,
+R1, T26 e T34 leem dela, no padrão da RN51. **Resgates** acende pelo extrato
+nominal do patrocinador, com a data do retrato ao lado do número; **funil**
+acende pelo estado do usuário que a importação preenche; ambos voltam ao
+traço com motivo sem apuração, e os dois estados de cada um são testados.
+
+**`Compras` acende pelo mesmo extrato**, e o caminho até aqui vale registro.
+A fase nasceu tratando o card como sem fonte nominal — o raciocínio estava
+certo sobre o que a ficha documentava, e a ficha é que estava incompleta: a
+§3 enumera "tipo de oferta" como campo do evento e não diz quais são os
+valores. São **três**, e é a coluna `Tipo de Oferta` do extrato que separa
+compra de resgate:
+
+| Valor na fonte | Classe | Por quê |
+|---|---|---|
+| `Recompensa gratuita` | resgate | preço zero, sem checkout |
+| `Checkout no clube` | compra | passa por checkout, dentro da vitrine |
+| `Checkout externo` | compra | passa por checkout, no site do aliado |
+
+Com isso, compra e resgate vivem os dois no extrato, os dois têm CPF, e os
+dois chegam ao patrocinador pela **mesma consulta**. A RN68 nunca alcançou o
+evento nominal: ela prende o contador de **catálogo**, que é por oferta e não
+se atribui a patrocinador. Confundir as duas foi o erro, e a cerca disso é um
+teste que prova que o card não pega emprestado o contador de catálogo mesmo
+quando ele existe.
+
+O de-para vive em `dominio/telemetria-operadora/tipo-de-evento.ts`, declarado
+e marcado **`[A CONFIRMAR — Minutrade]`** — é o item 4 da requisição. Duas
+consequências desenhadas de propósito: a classificação acontece na **leitura**
+(o `tipoOferta` é gravado como veio, então corrigir o de-para é editar um
+arquivo, sem reimportar nada), e valor desconhecido **não vira compra nem
+resgate** — é contado à parte e declarado na tela, porque encaixá-lo no
+palpite mais provável inventaria dado de negócio.
+
+Os dois cards acendem **juntos**, por um gate só: as três classes vêm da
+mesma coluna do mesmo relatório, então ter evento é ter as duas contagens.
+Um zero em `Compras`, aí, é um zero **medido** — e não ausência de apuração,
+que é justamente a distinção que a RN53 existe para preservar. O motivo da
+espera é `aguarda chave` nos dois, com texto distinto no de compras: quem
+olhar a lista de Ofertas vê um contador de `Compras` que é outro número, e
+precisa saber por quê.
+
+No painel, **nenhuma célula nova**: as duas de telemetria que já existiam —
+`Resg. Benefícios` e `Resg. Cupons` — passam a acender. O panorama do hero
+fecha em oito por desenho, e o `.dash-stats` está fixado em quatro colunas
+para as oito fecharem 4×2 sem a célula fantasma que a Onda 7 corrigiu.
+A ordem de precedência preserva o passado: o número **nominal** vem primeiro,
+então onde a célula já mostrava valor ela mostra o mesmo, pela mesma conta; o
+catálogo entra só onde havia traço. Um teste prova que 227 do catálogo com um
+evento nominal exibe **227**, jamais 228.
+
+### Dois defeitos de tela achados pelo e2e, e corrigidos
+
+**1. A confirmação do envio não aparecia.** Assinatura idêntica à que a F17
+mediu e o README já registra em *"O payload da ação que às vezes é
+descartado"*: o POST volta 200 e o cliente descarta o payload inteiro. Aqui a
+consequência seria pior que na imagem — o usuário reenviaria achando que
+falhou. Ele não duplicaria nada (a RN67 garante), mas ficaria sem saber o que
+entrou, que é o que a tela existe para dizer. A correção é a mesma da F17: o
+envio ficou em `enviador.tsx`, com **estado próprio** em vez de
+`useActionState`, e a confirmação passou a ser consequência do que aquele
+código recebeu.
+
+**2. A divergência acionável sumia da lista.** Um catálogo com 148 ofertas
+ativas na plataforma produziu 148 linhas de "ausente na operadora" e **uma**
+de "existe lá, desconhecida aqui" — e foi justamente essa que caiu fora do
+corte de 100, porque `criadoEm` empata entre linhas gravadas na mesma
+transação e o desempate ficava ao acaso do banco.
+
+A primeira tentativa de conserto — `orderBy: { tipo: "asc" }` — **estava
+errada**: enum do PostgreSQL ordena pela ordem de *declaração*, não pela
+alfabética, e a declaração começa por `AUSENTE_NA_OPERADORA`. A prioridade
+passou a ser explícita, em duas consultas: o que é acionável primeiro, o
+volume preenchendo o resto. E o corte é declarado na tela ("exibindo as 100
+primeiras de N") — lista truncada em silêncio se lê como "é só isso".
+
+### Pendências desta fase
+
+- **`[A CONFIRMAR — Minutrade]`: a coluna de CPF.** Nome exato, presença de
+  máscara e cobertura **não foram observados em arquivo real** — a ficha §1
+  os declara como premissa de trabalho. O parser é tolerante por causa disso,
+  e a **primeira importação real é o teste de verdade**. O resultado da
+  importação informa qual grafia foi encontrada.
+- **`[A CONFIRMAR — Minutrade]`: os cabeçalhos dos dois layouts nominais.**
+  Pelo mesmo motivo — arquivo nominal não entra no repositório. As
+  assinaturas de `USUARIOS` e `RESGATES` derivam dos campos que a ficha §3
+  enumera; a única coluna nomeada com certeza é a nativa `Patrocinador`.
+- **`[A CONFIRMAR — Minutrade]`: a regra de contagem de cada relatório**
+  (item 4 da requisição). Enquanto não vier, a divergência entre catálogo e
+  extrato é **exibida como divergência**, nunca reconciliada — e o de-para de
+  `Tipo de Oferta` fica declarado em um arquivo só, corrigível sem recarga.
+- **Item 2 da requisição — id de evento no extrato.** Sem ele, a chave de
+  deduplicação é o SHA-256 de (assinante, data, produto, seller), e o limite
+  está declarado no schema e na migration: **dois resgates genuínos do mesmo
+  produto, no mesmo seller, no mesmo dia, pelo mesmo assinante colapsam em
+  um**. Subcontar é o erro menos danoso que superconstar a cada reimportação
+  diária. `RESGATES` já aceita a coluna `Id da Oferta` de propósito, para a
+  detecção não quebrar no dia em que o pedido for atendido.
+- **Acessos e consumo de soluções seguem em `aguarda fonte`** (itens 3 e 5–7
+  da requisição). Não há fonte, e derivar não inventaria dado — inventaria
+  um número.
+- **A conferência visual da T34 contra o v11.2 continua pendente**, como a da
+  F19: o protótipo segue ausente do repositório. A tela não tem protótipo
+  próprio nem por lá — a ficha §5 a declara utilitária e manda reusar o
+  padrão das telas de importação, que foi o que se fez, **sem classe nova**.
+- **A versão vai a 1.2.0**, que é o que a ficha §2 contrata para o fecho da
+  onda. Durante esta fase o `package.json` ainda estava em 1.0.0 — o 1.1.0
+  da F19 chegou à main pelo commit `7756fa3`, já com a F20 em andamento, e
+  entrou aqui pelo rebase. O degrau existe; fica o registro de que ele foi
+  corrigido depois da F19, não durante.
+
 ## Operação da plataforma
 
 Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.

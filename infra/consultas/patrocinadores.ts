@@ -1,6 +1,10 @@
 import type { PerfilAssinatura, StatusPatrocinador } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import {
+  apurarExtratoNominal,
+  apurarFunilDeAtivacao,
+} from "@/infra/consultas/telemetria-operadora";
+import {
   avaliarVigencia,
   derivarSaldo,
   type SaldoDePatrocinio,
@@ -254,9 +258,58 @@ export interface CardDeConsumo {
  * (prompt §6).
  */
 export const MOTIVO_AGUARDA_CHAVE =
-  "aguarda chave — o relatório existe, mas não traz o CPF que liga cada linha ao assinante (RN69); requisição enviada à operadora em 27/07";
+  "aguarda chave — o relatório existe, mas ainda não foi importado com o CPF que liga cada linha ao assinante (RN69); envie o extrato nominal na tela de Telemetria da operadora";
 export const MOTIVO_AGUARDA_FONTE =
   "aguarda fonte — relatório ainda não fornecido; requisição enviada à operadora em 27/07";
+
+/**
+ * F20 — o motivo de `Compras`, distinto no texto e **igual no selo**.
+ *
+ * A espera é a mesma dos resgates: falta importar o extrato nominal. O
+ * texto muda porque o que se vai ver quando ele chegar é outra coisa, e
+ * porque o card tem uma armadilha própria a desfazer — o contador de
+ * `Compras` da lista de Ofertas existe, mas é **por oferta** e não se
+ * atribui a patrocinador (RN68). Quem olhar os dois lugares precisa
+ * saber que não são o mesmo número, e por quê.
+ *
+ * (Uma versão anterior desta fase gravou aqui `aguarda fonte`, por ler a
+ * RN68 como se ela alcançasse também o evento nominal. Não alcança: o
+ * evento tem CPF, e é por isso que ele chega ao patrocinador.)
+ */
+export const MOTIVO_AGUARDA_CHAVE_COMPRAS =
+  "aguarda chave — as compras vêm do extrato nominal, pela coluna Tipo de Oferta (RN69), e ele ainda não foi importado; envie-o na tela de Telemetria da operadora. O contador de Compras da lista de Ofertas é outra contagem: vem do catálogo, é por oferta e não se atribui a patrocinador (RN68)."
+
+const FORMATO_DATA_RETRATO = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeZone: "UTC",
+});
+
+/**
+ * Linha do volume que a fonte não classificou, quando existe.
+ *
+ * Ausência é informação (RN53): evento com `Tipo de Oferta` desconhecido
+ * não é distribuído entre resgate e compra por palpite — é declarado. E
+ * este número é o que denuncia um valor novo da operadora antes de
+ * alguém notar pela conta que não fecha.
+ */
+function linhaDeNaoClassificados(
+  quantidade: number,
+): Array<{ rotulo: string; valor: string }> {
+  if (quantidade === 0) return [];
+  return [
+    {
+      rotulo: "Eventos com tipo não reconhecido (fora da conta)",
+      valor: String(quantidade),
+    },
+  ];
+}
+
+/** "12 (retrato de 20/07/2026)" — o número nunca viaja sem o quando. */
+function comDataDoRetrato(valor: string, data: Date | null): string {
+  return data
+    ? `${valor} (retrato de ${FORMATO_DATA_RETRATO.format(data)})`
+    : `${valor} (o arquivo não declarou a data do retrato)`;
+}
 
 const ROTULO_PERFIL: Readonly<Record<PerfilAssinatura, string>> = {
   PATROCINADA: "Assinatura patrocinada",
@@ -277,7 +330,7 @@ const ROTULO_PERFIL: Readonly<Record<PerfilAssinatura, string>> = {
  * seja uma edição desta lista, e não uma caça pela tela.
  */
 export async function cardsDeConsumo(patrocinadorId: string): Promise<CardDeConsumo[]> {
-  const [porPerfil, vigentes, semPerfil] = await Promise.all([
+  const [porPerfil, vigentes, semPerfil, extrato, funil] = await Promise.all([
     prisma.assinante.groupBy({
       by: ["perfilAssinatura"],
       where: { vinculos: { some: { patrocinadorId, fim: null } } },
@@ -287,6 +340,9 @@ export async function cardsDeConsumo(patrocinadorId: string): Promise<CardDeCons
     prisma.assinante.count({
       where: { vinculos: { some: { patrocinadorId, fim: null } }, perfilAssinatura: null },
     }),
+    // F20 — as duas apurações que fazem os selos deixarem de ser literais.
+    apurarExtratoNominal(patrocinadorId),
+    apurarFunilDeAtivacao(patrocinadorId),
   ]);
 
   const linhasDaBase: Array<{ rotulo: string; valor: string }> = [
@@ -317,26 +373,75 @@ export async function cardsDeConsumo(patrocinadorId: string): Promise<CardDeCons
       motivo: null,
       linhas: linhasDaBase,
     },
+    // F20 (RN65, complemento) — daqui para baixo NENHUM selo é literal:
+    // cada um sai da existência da apuração. É isso que faz o card
+    // acender sozinho quando o dado chega, sem mudança de layout e sem
+    // uma fase só para trocar constantes.
     {
       chave: "resgates",
       titulo: "Resgates de ofertas",
-      selo: "AGUARDA_CHAVE",
-      motivo: MOTIVO_AGUARDA_CHAVE,
-      linhas: [],
+      selo: extrato ? "VIVO" : "AGUARDA_CHAVE",
+      motivo: extrato ? null : MOTIVO_AGUARDA_CHAVE,
+      linhas: extrato
+        ? [
+            {
+              rotulo: "Resgates no extrato nominal",
+              valor: comDataDoRetrato(
+                String(extrato.resgates.eventos),
+                extrato.resgates.dataDoRetrato,
+              ),
+            },
+            {
+              rotulo: "Assinantes com ao menos um resgate",
+              valor: String(extrato.resgates.assinantesComEvento),
+            },
+            ...linhaDeNaoClassificados(extrato.naoClassificados),
+          ]
+        : [],
     },
     {
+      // **Acende pelo MESMO extrato do card acima.** Compra e resgate
+      // vivem os dois no extrato nominal, separados pela coluna `Tipo de
+      // Oferta` — e os dois têm CPF, que é o que os leva ao patrocinador.
+      //
+      // A RN68 não se aplica aqui: ela prende o contador de CATÁLOGO, que
+      // é por oferta e não se atribui a patrocinador. Tratar o evento
+      // nominal como se fosse aquele contador foi um erro de leitura, já
+      // corrigido — e o motivo abaixo é `aguarda chave`, como o dos
+      // resgates, porque a espera é a mesma: falta importar o extrato.
       chave: "compras",
       titulo: "Compras",
-      selo: "AGUARDA_CHAVE",
-      motivo: MOTIVO_AGUARDA_CHAVE,
-      linhas: [],
+      selo: extrato ? "VIVO" : "AGUARDA_CHAVE",
+      motivo: extrato ? null : MOTIVO_AGUARDA_CHAVE_COMPRAS,
+      linhas: extrato
+        ? [
+            {
+              rotulo: "Compras no extrato nominal",
+              valor: comDataDoRetrato(
+                String(extrato.compras.eventos),
+                extrato.compras.dataDoRetrato,
+              ),
+            },
+            {
+              rotulo: "Assinantes com ao menos uma compra",
+              valor: String(extrato.compras.assinantesComEvento),
+            },
+            ...linhaDeNaoClassificados(extrato.naoClassificados),
+          ]
+        : [],
     },
     {
       chave: "funil",
       titulo: "Funil de ativação",
-      selo: "AGUARDA_CHAVE",
-      motivo: MOTIVO_AGUARDA_CHAVE,
-      linhas: [],
+      selo: funil ? "VIVO" : "AGUARDA_CHAVE",
+      motivo: funil ? null : MOTIVO_AGUARDA_CHAVE,
+      linhas: funil
+        ? [
+            { rotulo: "Cadastrados", valor: String(funil.cadastrados) },
+            { rotulo: "Freemium", valor: String(funil.freemium) },
+            { rotulo: "Assinantes", valor: String(funil.assinantes) },
+          ]
+        : [],
     },
     {
       chave: "acessos",

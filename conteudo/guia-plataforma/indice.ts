@@ -8,11 +8,13 @@
  * compartilhado.
  *
  * A décima terceira — **4.7 · Patrocinadores** — nasceu com a Onda 12, que
- * a pediu na ficha §5. O documento de referência é da Onda 9 e não a
- * contém: o texto foi redigido aqui, na voz do guia, e continua com fonte
- * ÚNICA (`secoes.html`), como a RN58 exige. A revisão editorial dele é
- * trabalho de quem cuida do guia, não do código — e é a única entrada
- * nesta lista cujo texto não veio pronto.
+ * a pediu na ficha §5, e a décima quarta — **4.8 · Telemetria da
+ * operadora** — com a F20 da mesma onda. O documento de referência é da
+ * Onda 9 e não contém nenhuma das duas: os textos foram redigidos aqui,
+ * na voz do guia, e continuam com fonte ÚNICA (`secoes.html`), como a
+ * RN58 exige. A revisão editorial deles é trabalho de quem cuida do guia,
+ * não do código — e são as duas únicas entradas nesta lista cujo texto
+ * não veio pronto.
  *
  * Este é o **único** lugar onde o sumário existe: a rota e o documento
  * autônomo montam o índice a partir daqui, e nenhum dos dois guarda uma
@@ -40,6 +42,7 @@ export const INDICE_DO_GUIA: ReadonlyArray<EntradaDoIndice> = [
   { grupo: "Como usar", id: "j5", rotulo: "4.5 · Acompanhar a rede" },
   { grupo: "Como usar", id: "j6", rotulo: "4.6 · Configurar a plataforma" },
   { grupo: "Como usar", id: "j7", rotulo: "4.7 · Patrocinadores" },
+  { grupo: "Como usar", id: "j8", rotulo: "4.8 · Telemetria da operadora" },
   { grupo: "Referência", id: "papeis", rotulo: "5 · Papéis e permissões" },
   { grupo: "Referência", id: "faltam", rotulo: "6 · Por que alguns números não aparecem" },
   { grupo: "Referência", id: "glossario", rotulo: "7 · Glossário" },

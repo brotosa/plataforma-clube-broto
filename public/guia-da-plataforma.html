@@ -1192,6 +1192,7 @@ a:hover{color:var(--azul)}
       <a href="#j5">4.5 · Acompanhar a rede</a>
       <a href="#j6">4.6 · Configurar a plataforma</a>
       <a href="#j7">4.7 · Patrocinadores</a>
+      <a href="#j8">4.8 · Telemetria da operadora</a>
       <div class="g">Referência</div><a href="#papeis">5 · Papéis e permissões</a>
       <a href="#faltam">6 · Por que alguns números não aparecem</a>
       <a href="#glossario">7 · Glossário</a>
@@ -1515,6 +1516,54 @@ a:hover{color:var(--azul)}
   <p>O <strong>Relatório do Patrocinador</strong> sai da ficha, por período e com a finalidade declarada. Ele é agregado: não leva nome, CPF, e-mail nem telefone de assinante. Quando a listagem nominal for necessária, o caminho é a exportação da base de assinantes, que exige permissão própria e fica registrada.</p>
 </section>
 
+<section class="gd-sec" id="j8">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.8</span> Telemetria da operadora</h2>
+  <p class="gd-lead">A operadora entrega quatro relatórios por período. Antes desta tela, nenhum deles era ingerido: os números viviam em planilha e ninguém sabia dizer quando tinham sido apurados.</p>
+
+  <p>Os quatro chegam pela mesma tela, e o tipo de cada um é reconhecido pelo <strong>cabeçalho do arquivo</strong> — não pelo nome, que traz um sufixo mudando a cada geração. Não há o que escolher no envio:</p>
+  <ul>
+    <li><strong>Catálogo de sellers</strong> e <strong>catálogo de ofertas</strong> — não têm dado pessoal. O de ofertas traz os contadores acumulados de resgates e compras, que aparecem na lista de Ofertas e no painel.</li>
+    <li><strong>Base de usuários</strong> e <strong>extrato de resgates</strong> — trazem a base e os eventos, e ligam cada linha a um assinante pelo CPF.</li>
+  </ul>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Reenviar o mesmo arquivo é seguro</span>
+      <p>Os relatórios são <strong>acumulados</strong>, não incrementais: cada um traz tudo desde o começo. Por isso a plataforma reconhece o conteúdo já ingerido e avisa que ele já havia entrado — nada é duplicado e nenhuma contagem muda. Um arquivo mais novo do mesmo tipo <strong>atualiza o retrato</strong>, e é o retrato mais recente que as telas exibem, sempre com a data ao lado do número.</p>
+    </div>
+  </div>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"></path></svg>
+    <div>
+      <span class="gd-rot">Duas contagens de resgate, e elas não se somam</span>
+      <p>O <strong>catálogo</strong> traz um contador acumulado por oferta; o <strong>extrato</strong> conta eventos por pessoa. Medem coisas diferentes e hoje divergem. Cada número aparece com a origem escrita ao lado, e a plataforma nunca os soma nem os apresenta como o mesmo valor — enquanto a operadora não documentar a regra de contagem de cada um, a divergência é exibida como divergência.</p>
+    </div>
+  </div>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Compra e resgate vêm do mesmo relatório</span>
+      <p>No extrato, a coluna <strong>Tipo de Oferta</strong> separa os dois: <em>Recompensa gratuita</em> é resgate; <em>Checkout no clube</em> e <em>Checkout externo</em> são compra — a diferença entre esses dois é onde o pagamento acontece, não se ele existiu. Como o extrato tem CPF, as duas contagens chegam ao patrocinador e aparecem na ficha dele. Um valor que a plataforma ainda não conheça não é encaixado no palpite mais próximo: fica contado à parte, e a tela diz quantos são.</p>
+    </div>
+  </div>
+
+  <p>Quando uma linha não entra, a tela diz <strong>por quê</strong>, e cada causa é contada em separado, porque cada uma tem um destinatário diferente: <em>sem coluna de CPF</em> é assunto da operadora (o arquivo veio incompleto); <em>CPF inválido</em> é dado sujo, e a correção se faz na origem; <em>CPF sem assinante correspondente</em> quer dizer que as duas bases estão desalinhadas. Arquivos antigos, anteriores ao pedido do CPF, são aceitos — todas as linhas são recusadas com a causa certa, e nada é gravado.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">As divergências são relato, não correção</span>
+      <p>A plataforma é a origem do cadastro; a operadora é o espelho do que está publicado. Quando os dois lados diferem — uma oferta ativa aqui e ausente lá, um item que só existe lá, um atributo diferente —, a importação <strong>registra e exibe</strong>, e não altera o cadastro em hipótese alguma. Nem o nome, nem o status. Corrigir é decisão de gente, feita no módulo de origem e registrada na auditoria.</p>
+    </div>
+  </div>
+
+  <p>O dado que vem da operadora é <strong>somente leitura</strong> na plataforma: não há onde editar contador, evento ou divergência. Corrigir por aqui seria trabalho perdido — a próxima importação desfaria a edição em silêncio, e ninguém saberia dizer qual dos dois números estava certo.</p>
+</section>
+
 <section class="gd-sec" id="papeis">
   <div class="gd-sec-grupo">Referência</div>
   <h2><span class="gd-num">5</span> Papéis e permissões</h2>
@@ -1652,6 +1701,7 @@ a:hover{color:var(--azul)}
       <li><a href="#j5">4.5 · Acompanhar a rede</a></li>
       <li><a href="#j6">4.6 · Configurar a plataforma</a></li>
       <li><a href="#j7">4.7 · Patrocinadores</a></li>
+      <li><a href="#j8">4.8 · Telemetria da operadora</a></li>
       <li class="g">Referência</li>
       <li><a href="#papeis">5 · Papéis e permissões</a></li>
       <li><a href="#faltam">6 · Por que alguns números não aparecem</a></li>
@@ -1663,7 +1713,7 @@ a:hover{color:var(--azul)}
 
 <script>
 (function () {
-  var secoes = ["oquee","vocab","princ","j1","j2","j3","j4","j5","j6","j7","papeis","faltam","glossario"];
+  var secoes = ["oquee","vocab","princ","j1","j2","j3","j4","j5","j6","j7","j8","papeis","faltam","glossario"];
   var raiz = document.querySelector('.gd');
   if (!raiz) return;
 

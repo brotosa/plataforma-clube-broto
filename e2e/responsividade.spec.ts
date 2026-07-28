@@ -599,6 +599,55 @@ test.describe("Onda 10 — Imagem do card a 380px", () => {
     await prisma.patrocinador.delete({ where: { id: patrocinador.id } });
   });
 
+  test("T34: a telemetria da operadora cabe e colapsa a 380px", async ({ page }) => {
+    // Onda 12 (F20). O que a 380px costuma quebrar aqui: o histórico tem
+    // cinco colunas, uma delas com a lista de causas, e o campo de
+    // arquivo estica sozinho em iOS/Android.
+    //
+    // A importação é semeada direto no banco: quem exercita o ENVIO é
+    // `telemetria-operadora.spec.ts`; aqui ela existe só para a tabela
+    // ter linha e haver o que medir no colapso.
+    const autor = await prisma.usuario.findFirstOrThrow({ where: { papel: "GESTOR" } });
+    await prisma.importacaoTelemetria.deleteMany({
+      where: { nomeArquivo: { startsWith: "[E2E-380]" } },
+    });
+    await prisma.importacaoTelemetria.create({
+      data: {
+        tipoLayout: "OFERTAS",
+        nomeArquivo: `[E2E-380] Lista_de_Ofertas_${runId()}.csv`,
+        hashConteudo: `hash-380-${runId()}`,
+        autorId: autor.id,
+        lidas: 3,
+        aplicadas: 2,
+        recusadas: 1,
+        recusasPorCausa: { SEM_IDENTIFICADOR: 1 },
+      },
+    });
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/ofertas/telemetria-operadora");
+    await expect(
+      page.getByRole("heading", { name: "Telemetria da operadora", level: 1 }),
+    ).toBeVisible();
+
+    const campo = page.locator("#arquivo-telemetria-operadora");
+    await expect(campo).toBeVisible();
+    const caixa = await campo.evaluate((no) => {
+      const b = no.getBoundingClientRect();
+      return { esquerda: Math.round(b.left), direita: Math.round(b.right) };
+    });
+    expect(caixa.esquerda).toBeGreaterThanOrEqual(0);
+    expect(caixa.direita).toBeLessThanOrEqual(380);
+
+    await semRolagemHorizontal(page);
+    await tabelaColapsadaEmCards(page);
+    await semViolacoesAxe(page);
+
+    await prisma.importacaoTelemetria.deleteMany({
+      where: { nomeArquivo: { startsWith: "[E2E-380]" } },
+    });
+  });
+
   test("cabeçalho: o \"?\" continua alcançável a 380px, na ponta direita", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     const ajuda = page.locator("header").first().getByRole("link", {
