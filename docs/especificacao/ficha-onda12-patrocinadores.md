@@ -1,77 +1,74 @@
 # Ficha de Módulo — Onda 12: Patrocinadores e telemetria da operadora
-**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 27/07/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.4 para validação · 27/07/2026
 
-Onda funcional em duas fases (**F19** e **F20**). Origem: fechar o escopo da versão 1 com a gestão de patrocinadores e com a entrada regrada da telemetria da Minutrade. Continuidade: regras **RN62–RN69**. Contrato visual: protótipo **v11.2** (T32 · T33 · R1), aprovado em 27/07 — congelado.
+Onda funcional em duas fases. **F19 — Patrocinador: mergeada** (RN62–RN66, versão 1.1.0). **F20 — Esteira de telemetria da operadora:** esta atualização a especifica por completo (RN67–RN70). Contrato visual: protótipo **v11.2**.
+
+*v0.4 adota como **premissa de trabalho** que a base da operadora passa a trazer o CPF do titular, torna os selos do Consumo derivados do dado (não escritos no código) e detalha o tratamento da coluna de chave.*
 
 ---
 
-## 1. O problema que esta onda resolve
+## 1. O problema que a F20 resolve
 
-Dois problemas com a mesma raiz: dado que existe e não tem casa.
+A operadora entrega quatro relatórios que ninguém ingere. Dois deles — **sellers** e **ofertas** — são catálogo: não têm dado pessoal e trazem, por oferta, os **contadores acumulados de resgates e compras**. Os outros dois — **usuários** e **resgates nominais** — trazem a base e os eventos, e passam a trazer o **CPF do titular** requisitado em 27/07.
 
-**O patrocinador** — empresa que compra assinaturas do Clube para dar aos próprios clientes PF — é invisível à plataforma. O primeiro contrato real (Yamer) vive em pasta; saldo em planilha; relatório à mão. Enquanto isso, a operadora já entrega quatro relatórios (layouts reais de 27/07) que ninguém ingere: catálogo, contadores por oferta, extrato de resgates e a base de usuários com a tipologia de assinatura completa — inclusive a coluna `Patrocinador`, nativa da fonte.
+**Premissa de trabalho declarada:** a especificação assume o CPF presente na fonte. O nome exato da coluna, a presença ou não de máscara e a cobertura (todas as linhas ou parte) **não foram observados em arquivo real** — são `[A CONFIRMAR]` (§8), e por isso o parser detecta a coluna pelo cabeçalho e tolera as duas formas, em vez de fixar um formato.
 
-**A telemetria chega incompleta e ambígua.** Falta a chave de junção (CPF, requisitado formalmente em 27/07), faltam duas fontes (acessos e consumo de soluções) e há duas contagens divergentes para o mesmo assunto (contador agregado por oferta somando 227 · extrato nominal com 38 eventos). A onda não espera a resposta da operadora para começar: constrói a esteira completa agora, com as regras que tornam a ambiguidade visível em vez de silenciosa, e a junção nominal acende sozinha quando a coluna chegar — **sem mudança de código**.
+A fase constrói a esteira inteira. O caminho de catálogo produz indicador desde a primeira importação. O caminho nominal liga base, vínculo e eventos por CPF-HMAC — e continua sabendo se comportar quando um arquivo vier sem a coluna (arquivos históricos, por exemplo), recusando a linha com a causa nomeada em vez de falhar.
 
-## 2. O que a onda entrega
+## 2. O que a F20 entrega
 
-**F19 — Patrocinador (dado próprio da plataforma).** Entidade, contrato com minuta anexada, vínculo com vigência, perfil de assinatura, campanha etiquetada com registro de aprovação externa, telas T32/T33, relatório R1, seção 4.7 do Guia, ajustes em Assinantes e na importação. Não depende da operadora. Fecha em **1.1.0**.
+- **Importação dos quatro layouts**, idempotente e com procedência (arquivo, data de geração declarada, hash, autor), devolvendo resultado com linhas lidas, aplicadas e recusadas por causa.
+- **Contadores por oferta** (resgates e compras) vindos do catálogo, exibidos na tela de Ofertas e no Dashboard — **por oferta, nunca por patrocinador** (a atribuição a patrocinador depende da junção nominal).
+- **Reconciliação de catálogo** (RN70): compara o que a plataforma publicou com o que a operadora tem no ar e **reporta as divergências**, sem corrigir nada.
+- **Caminho nominal completo**: usuários e resgates ligam por CPF-HMAC, alimentando perfil de assinatura, vínculo de patrocínio e eventos de resgate. Linha sem CPF — ou com CPF inválido — não entra e é contada com a causa nomeada.
+- **Selos do Consumo derivados do dado** (RN65): a F19 os gravou fixos no código; passam a refletir o que existe no banco, e é isso que faz os cards acenderem sem retrabalho.
+- **Tela de telemetria** (T34): envio do arquivo, histórico das importações com seus resultados, e o relatório de divergências.
+- Fecha em **1.2.0**.
 
-**F20 — Esteira de telemetria.** Importação dos quatro layouts reais, idempotente e com procedência; contadores agregados e catálogo entram já (não carregam dado pessoal); a junção nominal é implementada por completo e permanece **inerte por falta de chave**, contando as linhas recusadas com causa nomeada. Acessos e consumo de soluções permanecem em `aguarda fonte`. Card de Patrocinadores no Dashboard. Fecha em **1.2.0**.
+## 3. Modelo (acréscimos da F20)
 
-**Por que duas fases e não uma:** o PR precisa caber num red team humano. F19 é entidade nova com migration; F20 é ingestão com parser. Juntas dariam um PR que ninguém audita de verdade.
+**ImportacaoTelemetria** — tipo de layout (`USUARIOS` · `RESGATES` · `SELLERS` · `OFERTAS`), nome do arquivo, data de geração declarada, **hash do conteúdo**, autor, momento, e resultado (lidas, aplicadas, recusadas) com a contagem por causa.
 
-## 3. Modelo
+**ContadorDeOfertaTelemetria** — oferta, resgates, compras, data do arquivo de origem, importação que o produziu. Guarda o **último retrato por oferta**; série histórica é fora de escopo (§6).
 
-**Patrocinador** — razão social, CNPJ, segmento, contato (nome, e-mail, telefone), responsável comercial interno, status (`ativo` · `encerrado`), observações.
+**DivergenciaDeCatalogo** — importação, tipo (ausente na operadora · ausente na plataforma · atributo divergente), identificador, o que difere. É relato, não correção.
 
-**Contrato** — minuta (arquivo PDF; data, autor; substituição auditada), data de assinatura, vigência início/fim, preço unitário por assinatura/ano, valor total contratado, assinaturas adquiridas. *Ativadas* e *saldo* são derivados, nunca colunas.
+**EventoDeResgateTelemetria** — assinante, data do evento, produto, tipo de oferta, seller, e `ofertaId` **anulável** (a operadora ainda não o envia; o item 2 da requisição o pede). Sem assinante resolvido por CPF, o evento não entra.
 
-**Vínculo de patrocínio** — patrocinador, assinante, **início e fim** (fim nulo = vigente). É o registro que sustenta a derivação e a rotatividade (§4, RN62).
-
-**Assinante (ajuste)** — perfil de assinatura (`Patrocinada` · `Promocional Broto` · `Autoassinatura`), plano/periodicidade/método/preço quando autoassinatura, estado do usuário (`cadastrado` · `freemium` · `assinante`) para o funil.
-
-**Campanha (ajuste)** — patrocinador opcional (etiqueta) + aprovação externa (aprovador, data, evidência anexada).
-
-**Importação de telemetria** — arquivo, tipo de layout, data de geração declarada, hash do conteúdo, resultado (linhas lidas, aplicadas, recusadas por causa).
-
-Campo sem valor = traço com motivo. Nunca zero silencioso, nunca estimativa.
+Os campos de assinante que a F19 criou (perfil, estado do usuário, plano, periodicidade, método, preço) e o **vínculo de patrocínio** passam a ter origem na importação — a coluna `Patrocinador` da fonte alimenta o vínculo, com `Broto` mapeando para `Promocional Broto` (RN63).
 
 ## 4. Regras
 
-**62. RN62 — Patrocinador, contrato e saldo derivado.** Gestor cria, edita e inativa; leitura para todos os papéis; a célula do Administrador da Plataforma é explicitada na matriz (padrão RN46). **Saldo = adquiridas − vínculos vigentes**, sempre derivado, nunca digitado nem persistido; sem adquiridas confirmadas não há saldo (traço com motivo, jamais zero). O vínculo tem início e fim: encerrar um vínculo devolve a vaga ao saldo e **preserva o histórico** — o modelo comporta rotatividade de vaga sem que a plataforma decida se ela é permitida. Minuta anexada com data e autor; substituir não apaga a anterior da trilha (RN49).
+**67. RN67 — Importação por snapshot, com procedência.** Os relatórios são acumulados, não incrementais: a importação é **idempotente** — reimportar o mesmo arquivo não duplica nada nem altera contagem, e é reconhecido pelo hash. Toda importação grava procedência e devolve resultado com linhas lidas, aplicadas e recusadas **por causa nomeada** (padrão RN55). Higienes aplicadas no parser e declaradas: coluna de índice sem nome, emoji no status do seller, apóstrofo à esquerda em telefone, `'-` como vazio. **Dado da operadora é somente leitura na plataforma** — correção se faz na origem, nunca por edição local, sob pena de a próxima importação desfazê-la em silêncio.
 
-**63. RN63 — Perfil de assinatura, com de-para da fonte.** `Patrocinada` ← "Assinatura Patrocinada" (vínculo obrigatório; o valor `Broto` na coluna nativa `Patrocinador` mapeia para `Promocional Broto`) · `Autoassinatura` ← "Assinatura Paga" (plano, periodicidade, método e preço da fonte). `Usuário Cadastrado` e `Usuário Freemium` são **estados do usuário**, não perfis — alimentam o funil de ativação. Semântica final presa ao dicionário requisitado (`[A CONFIRMAR — Minutrade]`); até lá, o funil exibe a estrutura com o motivo escrito.
+**68. RN68 — Duas contagens, uma verdade.** O contador agregado por oferta e os eventos nominais medem coisas diferentes e divergem hoje (227 × 38). **Nunca são somados nem apresentados como o mesmo número**: cada um aparece com a origem nomeada — "catálogo" e "extrato" — e com a data do arquivo. Enquanto a operadora não documentar a regra de contagem de cada um (`[A CONFIRMAR — Minutrade]`), a divergência é exibida como divergência, não reconciliada por conta própria.
 
-**64. RN64 — Campanha de patrocinador.** Sob medida = recorte de público (base do patrocinador) + etiqueta. A aprovação pode ocorrer fora da plataforma: registra-se **quem aprovou, quando e a evidência anexada** — decisão sempre humana, sem workflow novo. Sem registro, a campanha exibe "pendente de registro" e **o kit é gerado assim mesmo, carimbado com a pendência** (premissa de trabalho — §7).
+**69. RN69 — Junção nominal só por CPF.** Todo vínculo entre linha da operadora e assinante se faz exclusivamente por **CPF-HMAC** (RN36). A coluna é detectada pelo cabeçalho e aceita com ou sem máscara; **dígito verificador é conferido** antes de qualquer uso. Linha sem CPF, com CPF inválido ou com CPF que não corresponde a assinante conhecido não entra e é contada com **essas três causas distintas** — que respondem perguntas diferentes: layout incompleto, dado sujo na origem, ou base desalinhada. **Não há junção por e-mail, nome ou telefone** — decisão registrada, não omissão. O CPF vindo da operadora nunca é gravado em claro: entra pelo mesmo caminho de cifra e HMAC da Onda 5.
 
-**65. RN65 — Três motivos de traço no consumo.** Cada card da aba Consumo (T33) e do R1 declara sua origem no selo: **vivo** (dado próprio: base por perfil e ativação) · **aguarda chave** (resgates, compras, funil — a fonte existe, falta o CPF) · **aguarda fonte** (acessos, consumo de soluções — relatório requisitado). Nenhum número aproximado em nenhuma hipótese; os cards acendem **sem mudança de layout** quando cada camada chegar.
+**65-a. Complemento operacional da RN65.** O selo de cada card do Consumo é **derivado da existência do dado**, nunca escrito no código: com apuração, `vivo` e o número, com a data do retrato; sem apuração, `aguarda chave` ou `aguarda fonte` com o motivo. É a condição para a promessa de "acender sem mudança de layout" ser verdadeira.
 
-**66. RN66 — R1 agregado.** O Relatório do Patrocinador não carrega dado pessoal identificável; listagem nominal só pela exportação com finalidade (Onda 5). Toda geração de R1 é auditada com período e finalidade.
+**70. RN70 — Reconciliação relata, não corrige.** A plataforma é a origem do cadastro; a operadora é o espelho do que está publicado. Quando divergirem — oferta ativa aqui e ausente lá, atributo diferente, item presente lá e desconhecido aqui —, a importação **registra a divergência e a exibe**, e **em nenhuma hipótese altera o cadastro**. Corrigir se faz no módulo de origem, por decisão humana, com auditoria — que é o que a RN07 já exige de toda mutação de catálogo.
 
-**67. RN67 — Importação por snapshot, com procedência.** Os relatórios da operadora são acumulados, não incrementais: a importação é **idempotente** — reimportar o mesmo arquivo não duplica nada e não altera contagem. Toda importação grava procedência (arquivo, data de geração declarada, hash do conteúdo) e devolve resultado com linhas lidas, aplicadas e recusadas **por causa nomeada** (padrão RN55). Higienes de layout são aplicadas no parser e declaradas: coluna de índice sem nome, emoji no status do seller, apóstrofo à esquerda em telefone, `'-` como vazio. **Dado da operadora é somente leitura na plataforma** — correção se faz na origem, nunca por edição local, sob pena de a próxima importação desfazê-la em silêncio.
+## 5. Telas
 
-**68. RN68 — Duas contagens, uma verdade.** O contador agregado por oferta (lista de ofertas) e os eventos nominais (extrato de resgates) medem coisas diferentes e divergem hoje (227 × 38). **Nunca são somados, nunca são apresentados como o mesmo número**: cada um aparece com a origem nomeada — "catálogo" e "extrato" — e com a data do arquivo. Enquanto a operadora não documentar a regra de contagem de cada um (`[A CONFIRMAR — Minutrade]`), a divergência é exibida como divergência, não reconciliada por conta própria.
+**T34 — Telemetria da operadora** (nova): envio do arquivo com detecção do layout, histórico de importações com resultado e causas, relatório de divergências da RN70. **Não há protótipo para ela** — é tela utilitária e deve reusar o padrão das telas de importação já existentes (carga inicial e importação de assinantes), sem componente novo. Acabamento pelo Design em onda futura, se necessário.
 
-**69. RN69 — Junção nominal só por CPF.** Todo vínculo entre linha da operadora e assinante da plataforma se faz exclusivamente por **CPF-HMAC** (RN36). Linha sem CPF não entra na base nominal e é contada no resultado da importação com a causa "sem chave de junção". **Não há junção por e-mail, nome ou telefone** — decisão registrada, não omissão. Quando a operadora incluir a coluna, a mesma esteira passa a ligar sem alteração de código.
-
-## 5. Contrato visual
-
-Protótipo **v11.2**, aprovado e congelado: T32 (lista), T33 (detalhe — contrato, base, consumo com os três motivos da RN65, campanhas), R1 (relatório imprimível, agregado), ajustes em Assinantes e importação, seção 4.7 do Guia. Yamer é o caso real, rotulado, com os valores do contrato em `[A CONFIRMAR]` visível.
-
-**CSS — atenção na implementação:** a camada canônica é a **do repositório**. O `dseed-admin.css` da entrega do Design está sem os patches F16/F17 (quatro seletores: `gd-volta`, `kb-arrasto-aviso`, `kb-descarte`, `mapa-caixa`). Partir do repo e **acrescentar apenas** o bloco `Extensão (Onda 12 · Patrocinadores)` — seis linhas, seletor único `.pt-drop`. Não copiar o arquivo da entrega por cima.
+**Ajustes:** a lista de Ofertas ganha as colunas de resgates e compras com a data do retrato e a origem "catálogo"; o Dashboard ganha o card de telemetria (contagem e data da última importação). Guia ganha a seção correspondente pela fonte única.
 
 ## 6. Fora de escopo
 
-Portal externo do patrocinador (relatório é entregue, não acessado); cobrança e processamento de pagamento (operadora); junção por e-mail (RN69 — decisão registrada); telemetria de acessos e consumo de soluções (depende da operadora); reconciliação automática das duas contagens (RN68).
+Série histórica dos contadores (guarda-se o último retrato; manter todos os retratos é decisão de outra onda); correção automática de cadastro (RN70); junção por e-mail (RN69); telemetria de acessos e consumo de soluções, que continuam em `aguarda fonte` até a operadora entregar; reconciliação automática das duas contagens (RN68).
 
-## 7. Pendências
+## 7. Política de amostras — restrição de LGPD
 
-**Premissas de trabalho adotadas** (avançam a implementação; derrubá-las depois é barato):
-- **Rotatividade de vaga** — o modelo a comporta sem decidi-la (RN62): se a minuta proibir substituição, basta nunca encerrar vínculo, e nada no código muda. **A pergunta permanece de negócio**, mas deixou de bloquear a fase.
-- **Kit de campanha sem aprovação registrada** — gera com carimbo de pendência, não bloqueia (RN64). Escolha reversível e menos destrutiva. `[A CONFIRMAR — Superintendência]`.
-- **Valores do contrato Yamer** — são dado, entram pela tela; não bloqueiam código. `[A CONFIRMAR — Marco]`.
+Os arquivos de **catálogo** (sellers e ofertas) não têm dado pessoal e entram no repositório em `dados/`, como já ocorre com as versões anteriores — servem de amostra real ao parser.
 
-**[A CONFIRMAR — Minutrade]:** os sete itens da requisição de 27/07 — CPF retroativo, IDs no extrato, acessos e uso, dicionário de estados, regra de contagem (RN68), periodicidade, canal autenticado.
+Os arquivos de **usuários e resgates nominais** trazem nome, e-mail, telefone e **agora também CPF** de mais de mil titulares — a restrição fica mais dura, não menos. **Não podem ser commitados em nenhuma hipótese**, nem como amostra de teste. O caminho nominal é exercitado por **fixture sintética** com a mesma estrutura e dados fabricados — inclusive CPF válido de teste —, no padrão dos arquivos `*-SINTETICO-homologacao.csv` que a homologação já usa.
 
-**[A CONFIRMAR — Marco]:** adotar o `.skip` (atalho "pular para o conteúdo") que o Design criou e o repositório nunca recebeu — ganho de acessibilidade barato, hoje fora do escopo da F19.
+## 8. Pendências
+
+**[A CONFIRMAR — Minutrade]:** **nome exato da coluna de CPF, presença de máscara e cobertura** (todas as linhas ou parte) — não observados em arquivo real; o parser é escrito tolerante por causa disso, e a primeira importação real é o teste de verdade. Seguem abertos os itens 2 (IDs no extrato), 3 (acessos e uso), 4 (dicionário e regra de contagem da RN68), 5, 6 e 7 da requisição de 27/07.
+
+**[A CONFIRMAR — Marco]:** revisão editorial da §4.7 do Guia (F19); adotar ou não o `.skip` do Design; e, herdadas da F19, a rotatividade de vaga na minuta Yamer e o carimbo do kit sem aprovação registrada.
+
+**Permissões:** `IMPORTAR_TELEMETRIA` — Gestor e Analista. Demais papéis leem o histórico e as divergências.
