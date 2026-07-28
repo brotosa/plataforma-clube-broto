@@ -9,8 +9,7 @@ import {
   TEXTO_DA_CAUSA,
   type CausaDeRecusa,
 } from "@/dominio/telemetria-operadora/causas";
-import { FormularioComEstado } from "../../aliados/formularios";
-import { acaoImportarRelatorio } from "./acoes";
+import { EnviadorDeRelatorio } from "./enviador";
 
 export const metadata: Metadata = {
   title: "Telemetria da operadora",
@@ -33,6 +32,10 @@ export const metadata: Metadata = {
  * nesta tela edita dado da operadora**: contador, evento e divergência
  * são somente leitura, porque a correção se faz na origem, sob pena de a
  * próxima importação a desfazer em silêncio.
+ *
+ * O envio fica em `enviador.tsx`, com estado próprio em vez do
+ * `FormularioComEstado` genérico — não é preferência, é a correção de
+ * defeito da F17 (ver o comentário de lá e o README).
  */
 
 const ROTULO_DO_LAYOUT: Readonly<Record<string, string>> = {
@@ -47,6 +50,63 @@ const ROTULO_DA_DIVERGENCIA: Readonly<Record<string, string>> = {
   AUSENTE_NA_PLATAFORMA: "existe lá, desconhecida aqui",
   ATRIBUTO_DIVERGENTE: "atributo divergente",
 };
+
+/**
+ * Teto da lista. Existe porque um catálogo grande produz centenas de
+ * linhas, e a tela precisa abrir. **O corte é declarado abaixo**, nunca
+ * silencioso: lista truncada sem aviso se lê como "é só isso".
+ */
+const LIMITE_DE_DIVERGENCIAS = 100;
+
+/**
+ * As divergências da lista, com prioridade EXPLÍCITA por tipo.
+ *
+ * **Duas consultas, e não um `orderBy` por tipo — isto é correção de um
+ * defeito real.** Uma importação grava todas as suas divergências na
+ * mesma transação, então `criadoEm` empata entre elas e o desempate fica
+ * ao acaso do banco. Medido na primeira execução do e2e: um catálogo com
+ * 148 ofertas ativas na plataforma produziu 148 linhas de "ausente na
+ * operadora" e **1** de "existe lá, desconhecida aqui" — e foi
+ * exatamente essa que caiu fora do corte de 100.
+ *
+ * A primeira tentativa de conserto foi `orderBy: { tipo: "asc" }`, e ela
+ * estava errada: enum do PostgreSQL ordena pela **ordem de declaração**,
+ * não pela alfabética, e a declaração começa justamente por
+ * `AUSENTE_NA_OPERADORA`. O critério passa a ser declarado aqui, onde se
+ * lê, em vez de depender da ordem em que os valores foram escritos no
+ * schema — que ninguém vai lembrar de conferir ao acrescentar um tipo.
+ *
+ * A prioridade: item que a operadora publica e a plataforma desconhece,
+ * e atributo divergente, vêm primeiro — são os acionáveis. "Ausente na
+ * operadora" costuma ser volume (publicação que ainda não chegou lá) e
+ * preenche o que sobrar.
+ */
+async function divergenciasPriorizadas() {
+  const inclusao = {
+    importacao: { select: { tipoLayout: true, criadoEm: true } },
+  } as const;
+  const ordem = [
+    { importacao: { criadoEm: "desc" } },
+    { identificador: "asc" },
+  ] as const;
+
+  const acionaveis = await prisma.divergenciaDeCatalogo.findMany({
+    where: { tipo: { in: ["AUSENTE_NA_PLATAFORMA", "ATRIBUTO_DIVERGENTE"] } },
+    orderBy: [...ordem],
+    take: LIMITE_DE_DIVERGENCIAS,
+    include: inclusao,
+  });
+  if (acionaveis.length >= LIMITE_DE_DIVERGENCIAS) {
+    return acionaveis;
+  }
+  const volume = await prisma.divergenciaDeCatalogo.findMany({
+    where: { tipo: "AUSENTE_NA_OPERADORA" },
+    orderBy: [...ordem],
+    take: LIMITE_DE_DIVERGENCIAS - acionaveis.length,
+    include: inclusao,
+  });
+  return [...acionaveis, ...volume];
+}
 
 function dataHora(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -67,7 +127,7 @@ export default async function PaginaTelemetriaDaOperadora() {
   const papel = sessao?.user?.papel ?? "LEITURA";
   const podeImportar = podeExecutar(papel, "IMPORTAR_TELEMETRIA");
 
-  const [importacoes, divergencias] = await Promise.all([
+  const [importacoes, divergencias, totalDeDivergencias] = await Promise.all([
     prisma.importacaoTelemetria.findMany({
       orderBy: { criadoEm: "desc" },
       take: 20,
@@ -76,11 +136,8 @@ export default async function PaginaTelemetriaDaOperadora() {
         _count: { select: { divergencias: true, contadores: true, eventos: true } },
       },
     }),
-    prisma.divergenciaDeCatalogo.findMany({
-      orderBy: { criadoEm: "desc" },
-      take: 100,
-      include: { importacao: { select: { tipoLayout: true, criadoEm: true } } },
-    }),
+    divergenciasPriorizadas(),
+    prisma.divergenciaDeCatalogo.count(),
   ]);
 
   return (
@@ -101,30 +158,7 @@ export default async function PaginaTelemetriaDaOperadora() {
 
       {podeImportar ? (
         <div className="card" style={{ padding: "16px 18px", marginBottom: 22, maxWidth: 660 }}>
-          <FormularioComEstado
-            acao={acaoImportarRelatorio}
-            rotuloEnviar="Enviar relatório"
-          >
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label htmlFor="arquivo-telemetria-operadora">
-                Arquivo do relatório (CSV ou XLSX)
-              </label>
-              <input
-                id="arquivo-telemetria-operadora"
-                className="input"
-                type="file"
-                name="arquivo"
-                accept=".csv,.xlsx,text/csv"
-                required
-              />
-              <span className="hint" id="dica-arquivo-telemetria">
-                Aceita os quatro layouts: catálogo de sellers, catálogo de ofertas, base de
-                usuários e extrato de resgates. Os dois primeiros produzem os contadores por
-                oferta; os dois últimos ligam base e eventos ao assinante pelo CPF. Arquivo
-                sem a coluna de CPF é aceito, e cada linha é recusada com a causa nomeada.
-              </span>
-            </div>
-          </FormularioComEstado>
+          <EnviadorDeRelatorio />
         </div>
       ) : (
         <p className="aviso-inline" style={{ marginBottom: 22 }}>
@@ -145,7 +179,7 @@ export default async function PaginaTelemetriaDaOperadora() {
         </p>
       ) : (
         <div style={{ overflowX: "auto", marginBottom: 26 }}>
-          <table className="tbl">
+          <table className="tbl tbl-resp">
             <caption className="sr-oculto">
               Importações de telemetria da operadora, da mais recente para a mais antiga
             </caption>
@@ -164,17 +198,30 @@ export default async function PaginaTelemetriaDaOperadora() {
                 const causas = Object.entries(recusas) as Array<[CausaDeRecusa, number]>;
                 return (
                   <tr key={importacao.id}>
-                    <td>{ROTULO_DO_LAYOUT[importacao.tipoLayout] ?? importacao.tipoLayout}</td>
-                    <td className="mono" style={{ wordBreak: "break-all" }}>
+                    <td data-label="Relatório">
+                      {ROTULO_DO_LAYOUT[importacao.tipoLayout] ?? importacao.tipoLayout}
+                    </td>
+                    <td data-label="Arquivo" className="mono" style={{ wordBreak: "break-all" }}>
                       {importacao.nomeArquivo}
                     </td>
-                    <td>
+                    <td data-label="Enviado">
                       {dataHora(importacao.criadoEm)}
                       <br />
                       <span className="cap">{importacao.autor.nome}</span>
                     </td>
-                    <td>{dataCurta(importacao.dataGeracaoDeclarada)}</td>
-                    <td>
+                    <td data-label="Data do retrato">{dataCurta(importacao.dataGeracaoDeclarada)}</td>
+                    <td data-label="Resultado">
+                      {/*
+                        `minWidth: 0` e quebra por palavra: a 380px o
+                        `.tbl-resp` transforma a célula em linha flex, e o
+                        lado do valor não encolhe por padrão. Sem isto a
+                        lista de causas — texto longo por desenho, porque
+                        nomeia a causa (RN55) — empurra a tabela para fora
+                        da viewport e o axe acusa `scrollable-region-
+                        focusable`: um container que rola e o teclado não
+                        alcança.
+                      */}
+                      <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                       <span className="pill pill-ok">
                         <i aria-hidden="true" />
                         {importacao.aplicadas} aplicada(s)
@@ -203,6 +250,7 @@ export default async function PaginaTelemetriaDaOperadora() {
                           ))}
                         </ul>
                       ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -220,6 +268,14 @@ export default async function PaginaTelemetriaDaOperadora() {
         O que difere é <b>relatado aqui e nunca corrigido automaticamente</b> (RN70) — nem o
         nome, nem o status. A correção se faz no módulo de origem, por decisão humana e com
         auditoria.
+        {totalDeDivergencias > LIMITE_DE_DIVERGENCIAS ? (
+          <>
+            {" "}
+            Exibindo as {LIMITE_DE_DIVERGENCIAS} primeiras de{" "}
+            {totalDeDivergencias.toLocaleString("pt-BR")} — as de item desconhecido na
+            plataforma vêm antes, por serem as acionáveis.
+          </>
+        ) : null}
       </p>
       {divergencias.length === 0 ? (
         <p className="cap">
@@ -228,7 +284,7 @@ export default async function PaginaTelemetriaDaOperadora() {
         </p>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table className="tbl">
+          <table className="tbl tbl-resp">
             <caption className="sr-oculto">
               Divergências entre o cadastro da plataforma e o catálogo da operadora
             </caption>
@@ -243,17 +299,21 @@ export default async function PaginaTelemetriaDaOperadora() {
             <tbody>
               {divergencias.map((divergencia) => (
                 <tr key={divergencia.id}>
-                  <td>
+                  <td data-label="Tipo">
                     <span className="pill pill-pendente">
                       <i aria-hidden="true" />
                       {ROTULO_DA_DIVERGENCIA[divergencia.tipo] ?? divergencia.tipo}
                     </span>
                   </td>
-                  <td className="mono" style={{ wordBreak: "break-all" }}>
+                  <td data-label="Identificador" className="mono" style={{ wordBreak: "break-all" }}>
                     {divergencia.identificador}
                   </td>
-                  <td>{divergencia.descricao}</td>
-                  <td>{dataHora(divergencia.importacao.criadoEm)}</td>
+                  <td data-label="O que difere">
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                      {divergencia.descricao}
+                    </span>
+                  </td>
+                  <td data-label="Apurada em">{dataHora(divergencia.importacao.criadoEm)}</td>
                 </tr>
               ))}
             </tbody>
