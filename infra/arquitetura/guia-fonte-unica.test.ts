@@ -118,6 +118,71 @@ const SECOES_NASCIDAS_DEPOIS: ReadonlyArray<{ id: string; onda: string }> = [
   { id: "j8", onda: "Onda 12 · Telemetria da operadora (F20, ficha §5)" },
 ];
 
+/**
+ * Complementos: funcionalidade nascida DEPOIS do documento, dentro de uma
+ * seção que veio DELE.
+ *
+ * A `SECOES_NASCIDAS_DEPOIS` resolveu o caso fácil — módulo novo, seção
+ * nova, nada da referência para preservar. A Onda 14 traz o caso difícil:
+ * a marca do aliado (Onda 8), a imagem do card (Onda 10), o arrasto no
+ * funil (Onda 8) e a imagem da peça (Onda 13) são coisas que se fazem
+ * dentro de jornadas que o guia já ensina. Escrever sobre elas em seção
+ * própria seria pior para quem lê: quem vai cadastrar um aliado abre a
+ * 4.1, não uma décima quinta seção.
+ *
+ * A regra, então: **as frases da referência permanecem todas, intactas e
+ * na ordem, e o complemento entra em bloco próprio ao final da seção, com
+ * a origem visível na tela.** Não é tolerância à edição — é o oposto: a
+ * transcrição continua cobrada por `.toBe`, palavra por palavra, sobre a
+ * seção **sem** o bloco declarado. Editar uma vírgula da referência
+ * continua reprovando, e agora acrescentar um bloco sem declará-lo aqui
+ * também reprova.
+ *
+ * Cinco invariantes prendem o mecanismo, todas verificadas abaixo:
+ *
+ *  1. bloco de complemento só existe em seção declarada nesta lista;
+ *  2. toda seção declarada aqui tem, de fato, o bloco;
+ *  3. o bloco é o **último** conteúdo da seção — o que vem antes dele é a
+ *     transcrição inteira, e é o que se compara com a referência;
+ *  4. a origem declarada aqui aparece **visível** no bloco;
+ *  5. o texto do complemento **não** existe na referência. Se existir,
+ *     alguém apagou frase transcrita e a recolocou como complemento, que
+ *     é exatamente a regressão que a RN58 proíbe.
+ *
+ * Complemento novo em onda futura entra nesta lista. Se um dia o Design
+ * entregar um guia v2 que já o contenha, ele sai daqui e volta a ser
+ * cobrado como transcrição pura.
+ */
+const COMPLEMENTOS: ReadonlyArray<{ secao: string; origem: string }> = [];
+
+/** O bloco de complemento, reconhecido pela classe e pela origem declarada. */
+const MARCA_DO_COMPLEMENTO = /<div class="[^"]*\bgd-compl\b[^"]*" data-origem="([^"]+)">/g;
+
+/**
+ * Separa a transcrição do que foi acrescentado depois.
+ *
+ * O corte é no **primeiro** marcador: tudo o que vem antes é transcrição e
+ * vai à comparação estrita; tudo o que vem dele em diante é complemento.
+ * Bloco no meio da seção deixaria de fora texto da referência e reprovaria
+ * a fidelidade — de propósito, porque a ficha pede o bloco ao final.
+ */
+function separarComplementos(html: string): {
+  transcrito: string;
+  complementos: ReadonlyArray<{ origem: string; html: string }>;
+} {
+  const achados = [...html.matchAll(MARCA_DO_COMPLEMENTO)];
+  if (achados.length === 0) {
+    return { transcrito: html, complementos: [] };
+  }
+  return {
+    transcrito: html.slice(0, achados[0]?.index),
+    complementos: achados.map((achado, ordem) => ({
+      origem: achado[1] ?? "",
+      html: html.slice(achado.index, achados[ordem + 1]?.index),
+    })),
+  };
+}
+
 describe("RN58 — as seções do guia, com suas âncoras", () => {
   const { secoes } = carregarGuia();
 
@@ -234,7 +299,10 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
   )("§%s (%s) transcrita sem uma palavra alterada", (id) => {
     const naReferencia = texto(secao(referencia, id));
     expect(naReferencia.length, `seção ${id} encontrada na referência`).toBeGreaterThan(100);
-    expect(texto(secao(secoes, id))).toBe(naReferencia);
+    // Sobre a seção SEM o bloco de complemento declarado — a comparação
+    // continua sendo de igualdade, não de contenção.
+    const { transcrito } = separarComplementos(secao(secoes, id));
+    expect(texto(transcrito)).toBe(naReferencia);
   });
 
   /**
@@ -249,6 +317,66 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
       expect(texto(secao(secoes, id)).length, `seção ${id} na fonte`).toBeGreaterThan(100);
     },
   );
+
+  /**
+   * As cinco invariantes do mecanismo de complemento. Cada uma fecha um
+   * jeito diferente de o bloco virar porta dos fundos para reescrever o
+   * texto do Design.
+   */
+  describe("complementos — bloco declarado, ao final, e nunca no lugar da transcrição", () => {
+    it("todo bloco de complemento no fonte está declarado, e só em seção da referência", () => {
+      const declaradas = COMPLEMENTOS.map((complemento) => complemento.secao);
+      const noFonte = INDICE_DO_GUIA.map((entrada) => entrada.id).filter(
+        (id) => separarComplementos(secao(secoes, id)).complementos.length > 0,
+      );
+      expect(
+        noFonte,
+        "bloco .gd-compl em seção não declarada — acrescente a COMPLEMENTOS ou remova o bloco",
+      ).toEqual(declaradas);
+      // Seção nascida depois não precisa de complemento: ela é editável por
+      // inteiro, então o bloco ali seria decoração sem função.
+      for (const { secao: id } of COMPLEMENTOS) {
+        expect(
+          (SECOES_DA_REFERENCIA as ReadonlyArray<string>).includes(id),
+          `§${id} não vem da referência — complemento não se aplica`,
+        ).toBe(true);
+      }
+    });
+
+    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao, complemento.origem] as const))(
+      "§%s traz um único bloco, ao final, com a origem «%s» visível",
+      (id, origem) => {
+        const conteudo = secao(secoes, id);
+        const { transcrito, complementos } = separarComplementos(conteudo);
+        expect(complementos, `blocos de complemento em §${id}`).toHaveLength(1);
+        const bloco = complementos[0];
+        expect(bloco?.origem, `data-origem de §${id}`).toBe(origem);
+        // Visível na tela, não só no atributo.
+        expect(texto(bloco?.html ?? ""), `origem impressa em §${id}`).toContain(origem);
+        expect(texto(bloco?.html ?? "").length, `texto do complemento de §${id}`).toBeGreaterThan(
+          120,
+        );
+        // Ao final: o que sobra depois de remover o bloco é a transcrição
+        // inteira, e o bloco vai até o fim da seção.
+        expect(`${transcrito}${bloco?.html ?? ""}`).toBe(conteudo);
+      },
+    );
+
+    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao] as const))(
+      "o complemento de §%s não existe na referência — não é frase transcrita reposicionada",
+      (id) => {
+        const [bloco] = separarComplementos(secao(secoes, id)).complementos;
+        const naTela = texto(bloco?.html ?? "").replace(
+          texto(`<span>${COMPLEMENTOS.find((c) => c.secao === id)?.origem ?? ""}</span>`),
+          "",
+        );
+        expect(naTela.length, `complemento de §${id}`).toBeGreaterThan(100);
+        expect(texto(referencia), `complemento de §${id} achado na referência`).not.toContain(
+          naTela.trim(),
+        );
+      },
+    );
+  });
 
   it("a capa também é transcrição", () => {
     const inicio = referencia.indexOf('<header class="gd-capa">');
