@@ -4,174 +4,27 @@
  * (ficha §10): o leitor entrega colunas e linhas CRUAS, chaveadas pelo
  * cabeçalho original; quem dá significado é o mapeador de colunas.
  *
- * Tolerâncias documentadas:
- * - CSV: BOM removido; delimitador , ou ; detectado pelo cabeçalho;
- *   aspas duplas com escape ("") e quebras de linha dentro de aspas.
- * - XLSX: primeira aba; células numéricas viram texto (ver observação
- *   sobre zeros à esquerda no caso de uso); datas viram ISO.
+ * **F20 — a mecânica saiu daqui para `infra/planilhas/leitor-tabular.ts`**
+ * e este módulo passou a ser o nome que a T20 usa para ela. Nada mudou de
+ * comportamento: as tolerâncias documentadas (BOM, delimitador detectado,
+ * aspas RFC 4180, primeira aba do XLSX, datas em ISO, coluna sem nome
+ * descartada) são as mesmas linhas de código, e os testes deste arquivo
+ * seguem sem uma alteração — é o que prova a extração.
+ *
+ * A razão de extrair, e não copiar: a telemetria da operadora (RN67)
+ * precisa do mesmo leitor, e um segundo caminho paralelo para a mesma
+ * coisa é o defeito que a disciplina da RN60 existe para impedir.
  */
 
-import { ErroDeArquivo } from "@/dominio/erros/falhas";
-import ExcelJS from "exceljs";
+import {
+  type ArquivoTabularLido,
+  lerArquivoTabular,
+  lerCsvTabular,
+  lerXlsxTabular,
+} from "@/infra/planilhas/leitor-tabular";
 
-export interface ArquivoAssinantesLido {
-  colunas: string[];
-  /** numero = linha no arquivo (cabeçalho é a 1; dados começam na 2). */
-  linhas: Array<{ numero: number; valores: Record<string, string> }>;
-}
+export type ArquivoAssinantesLido = ArquivoTabularLido;
 
-function detectarDelimitador(cabecalho: string): string {
-  const pontoEVirgula = (cabecalho.match(/;/g) ?? []).length;
-  const virgula = (cabecalho.match(/,/g) ?? []).length;
-  return pontoEVirgula > virgula ? ";" : ",";
-}
-
-/** Divide uma linha CSV respeitando aspas duplas (RFC 4180). */
-function dividirCsv(linha: string, delimitador: string): string[] {
-  const campos: string[] = [];
-  let atual = "";
-  let entreAspas = false;
-  for (let i = 0; i < linha.length; i += 1) {
-    const caractere = linha[i];
-    if (entreAspas) {
-      if (caractere === '"') {
-        if (linha[i + 1] === '"') {
-          atual += '"';
-          i += 1;
-        } else {
-          entreAspas = false;
-        }
-      } else {
-        atual += caractere;
-      }
-    } else if (caractere === '"') {
-      entreAspas = true;
-    } else if (caractere === delimitador) {
-      campos.push(atual);
-      atual = "";
-    } else {
-      atual += caractere;
-    }
-  }
-  campos.push(atual);
-  return campos;
-}
-
-/** Junta linhas físicas quando uma quebra acontece dentro de aspas. */
-function linhasLogicas(texto: string): string[] {
-  const resultado: string[] = [];
-  let atual = "";
-  let aspasAbertas = 0;
-  for (const linhaFisica of texto.split(/\r\n|\n|\r/)) {
-    atual = atual ? `${atual}\n${linhaFisica}` : linhaFisica;
-    aspasAbertas = (atual.match(/"/g) ?? []).length;
-    if (aspasAbertas % 2 === 0) {
-      resultado.push(atual);
-      atual = "";
-    }
-  }
-  if (atual) {
-    resultado.push(atual);
-  }
-  return resultado;
-}
-
-export function lerCsvAssinantes(conteudo: Buffer): ArquivoAssinantesLido {
-  const texto = conteudo.toString("utf8").replace(/^﻿/, "");
-  const linhasDoArquivo = linhasLogicas(texto);
-  const cabecalho = linhasDoArquivo[0];
-  if (!cabecalho?.trim()) {
-    return { colunas: [], linhas: [] };
-  }
-  const delimitador = detectarDelimitador(cabecalho);
-  const colunas = dividirCsv(cabecalho, delimitador).map((c) => c.trim());
-
-  const linhas: ArquivoAssinantesLido["linhas"] = [];
-  for (let i = 1; i < linhasDoArquivo.length; i += 1) {
-    const bruta = linhasDoArquivo[i];
-    if (!bruta || !bruta.trim()) {
-      continue;
-    }
-    const valores = dividirCsv(bruta, delimitador);
-    const registro: Record<string, string> = {};
-    colunas.forEach((coluna, indice) => {
-      registro[coluna] = (valores[indice] ?? "").trim();
-    });
-    linhas.push({ numero: i + 1, valores: registro });
-  }
-  return { colunas, linhas };
-}
-
-function celulaComoTexto(valor: ExcelJS.CellValue): string {
-  if (valor === null || valor === undefined) {
-    return "";
-  }
-  if (valor instanceof Date) {
-    return valor.toISOString().slice(0, 10);
-  }
-  if (typeof valor === "object") {
-    if ("result" in valor) {
-      return celulaComoTexto((valor as { result: ExcelJS.CellValue }).result);
-    }
-    if ("richText" in valor) {
-      return (valor as { richText: Array<{ text: string }> }).richText
-        .map((parte) => parte.text)
-        .join("")
-        .trim();
-    }
-    if ("text" in valor) {
-      return String((valor as { text: string }).text).trim();
-    }
-    return "";
-  }
-  return String(valor).trim();
-}
-
-export async function lerXlsxAssinantes(conteudo: Buffer): Promise<ArquivoAssinantesLido> {
-  const pasta = new ExcelJS.Workbook();
-  await pasta.xlsx.load(conteudo as unknown as ArrayBuffer);
-  const aba = pasta.worksheets[0];
-  if (!aba) {
-    return { colunas: [], linhas: [] };
-  }
-  const colunas: string[] = [];
-  const colunaPorIndice = new Map<number, string>();
-  aba.getRow(1).eachCell({ includeEmpty: false }, (celula, indice) => {
-    const nome = celulaComoTexto(celula.value);
-    if (nome) {
-      colunas.push(nome);
-      colunaPorIndice.set(indice, nome);
-    }
-  });
-
-  const linhas: ArquivoAssinantesLido["linhas"] = [];
-  for (let numero = 2; numero <= aba.rowCount; numero += 1) {
-    const registro: Record<string, string> = {};
-    let temValor = false;
-    for (const [indice, coluna] of colunaPorIndice) {
-      const texto = celulaComoTexto(aba.getRow(numero).getCell(indice).value);
-      registro[coluna] = texto;
-      if (texto) {
-        temValor = true;
-      }
-    }
-    if (temValor) {
-      linhas.push({ numero, valores: registro });
-    }
-  }
-  return { colunas, linhas };
-}
-
-/** Escolhe o leitor pela extensão (CSV ou XLSX — T20). */
-export async function lerArquivoAssinantes(
-  nomeArquivo: string,
-  conteudo: Buffer,
-): Promise<ArquivoAssinantesLido> {
-  if (/\.xlsx$/i.test(nomeArquivo)) {
-    return lerXlsxAssinantes(conteudo);
-  }
-  if (/\.csv$/i.test(nomeArquivo)) {
-    return lerCsvAssinantes(conteudo);
-  }
-  throw new ErroDeArquivo("Formato de arquivo não suportado: envie CSV ou XLSX.");
-}
+export const lerCsvAssinantes = lerCsvTabular;
+export const lerXlsxAssinantes = lerXlsxTabular;
+export const lerArquivoAssinantes = lerArquivoTabular;
