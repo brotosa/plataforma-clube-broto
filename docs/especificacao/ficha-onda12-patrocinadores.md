@@ -53,7 +53,7 @@ Os campos de assinante que a F19 criou (perfil, estado do usuário, plano, perio
 
 **T34 — Telemetria da operadora** (nova): envio do arquivo com detecção do layout, histórico de importações com resultado e causas, relatório de divergências da RN70. **Não há protótipo para ela** — é tela utilitária e deve reusar o padrão das telas de importação já existentes (carga inicial e importação de assinantes), sem componente novo. Acabamento pelo Design em onda futura, se necessário.
 
-**Ajustes:** a lista de Ofertas ganha as colunas de resgates e compras com a data do retrato e a origem "catálogo"; o Dashboard ganha o card de telemetria (contagem e data da última importação). Guia ganha a seção correspondente pela fonte única.
+**Ajustes:** a lista de Ofertas ganha as colunas de resgates e compras com a data do retrato e a origem "catálogo"; o Dashboard ganha **dois** cards: o de telemetria (última importação e sua data) e o de **Patrocinadores** (contagem e saldo agregado), este último desenhado no v11.2 e **adiado da F19 para cá**. Guia ganha a seção correspondente pela fonte única.
 
 ## 6. Fora de escopo
 

@@ -61,7 +61,7 @@ Os arquivos de **usuários e resgates reais trazem nome, e-mail, telefone e agor
 
 **T34 — Telemetria da operadora** (nova): envio com detecção de layout, histórico de importações com resultado e causas, relatório de divergências. **Não há protótipo**: reuse o padrão das telas de importação existentes (carga inicial, importação de assinantes) e os componentes do `dseed-admin.css` — **nenhuma classe nova**. Se concluir que uma é indispensável, pare e reporte em vez de inventá-la.
 
-**Ajustes:** lista de Ofertas ganha resgates e compras com a data do retrato e a origem **"catálogo"** explícita na coluna (RN68 — nunca somar com evento nominal); Dashboard ganha card de telemetria (última importação e sua data); Guia ganha a seção pela fonte única, no padrão que a F19 estabeleceu para seção nascida depois da referência.
+**Ajustes:** lista de Ofertas ganha resgates e compras com a data do retrato e a origem **"catálogo"** explícita na coluna (RN68 — nunca somar com evento nominal); Dashboard ganha **dois** cards — o de telemetria (última importação e sua data) e o de **Patrocinadores** (contagem e saldo agregado, pelo serviço de derivação da RN62), este **adiado da F19 para esta fase** e já desenhado no v11.2; Guia ganha a seção pela fonte única, no padrão que a F19 estabeleceu para seção nascida depois da referência.
 
 **Permissões:** `IMPORTAR_TELEMETRIA` para **Gestor e Analista**; leitura do histórico e das divergências para todos os papéis; célula do `ADMINISTRADOR_PLATAFORMA` explicitada na matriz.
 
