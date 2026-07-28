@@ -1756,11 +1756,12 @@ dela, porque a cerca da RN58 prende o bloco do guia a seletores `.gd`.
 
 ### Espaçamento dos formulários em grade
 
-Três formulários — patrocinador, contrato e a etiqueta de patrocinador da
-modelagem de campanha — montavam a grade com `gap:"0 16px"` em estilo inline. O
-atalho de duas medidas é `row-gap column-gap`: **a linha ficava em zero**, e o
-rótulo de cada campo colava no campo de cima. O erro foi escrito na F19 e
-copiado na F20 e na F21.
+Quatro telas, três arquivos: o formulário do patrocinador (que serve a criação
+na T32 **e** a edição na T33, pelo mesmo componente de campos), o de contrato na
+T33 e a etiqueta de patrocinador na modelagem de campanha. Todos montavam a
+grade com `gap:"0 16px"` em estilo inline. O atalho de duas medidas é `row-gap
+column-gap`: **a linha ficava em zero**, e o rótulo de cada campo colava no campo
+de cima. O erro foi escrito na F19 e copiado na F20 e na F21.
 
 O conserto é **por classe** (`.form-grid`, régua de 14px do `.pm-grid`) e não por
 ajuste dos três inlines, e o motivo é o próprio defeito: toda cerca do
