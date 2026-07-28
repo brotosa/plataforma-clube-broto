@@ -73,6 +73,44 @@ imagem de volta para o GHCR é mudança de configuração, não de arquitetura.
 - **VPC em us-east-1**: a conta bateu no limite de 5 VPCs/IGWs nessa
   região antes desta pilha existir — não é algo desta implantação, mas
   vale saber se outra pilha precisar de rede nova por lá.
+- **Domínio em produção**: `admclube.broto.com.br`, Route53 alias para o
+  ALB, certificado ACM validado, listener 80 redirecionando para 443. A
+  URL bruta do ALB (`broto-clube-alb-....elb.amazonaws.com`) continua
+  funcionando em paralelo — não tem certificado próprio para ela, então
+  acessá-la direto por HTTPS dá erro de nome no certificado (esperado,
+  não é bug: o certificado é só para o domínio real).
+
+## Incidente: healthcheck de contêiner derrubando a task em produção
+
+Depois de trocar o `AUTH_URL` para o domínio novo (revisão 3), a task
+começou a falhar repetidamente com `Task failed container health checks`
+— inclusive a revisão anterior (2), que já estava estável havia horas.
+Causa: o `healthCheck` da task definition rodava `node -e "require('http')..."`
+a cada 30s, um processo Node inteiro nascendo *dentro do mesmo cgroup de
+memória* da task (1024 MB) já ocupado pela aplicação — disputa de memória
+que ia derrubando o contêiner em loop, mesmo com a aplicação respondendo
+normalmente por fora.
+
+Correção (revisão 4): removido o `healthCheck` do contêiner — o alvo do
+ALB (`aws_lb_target_group`, que consulta `/api/saude/pronto` de fora,
+sem essa disputa) já é a fonte de prontidão usada para roteamento, então
+nada foi perdido em cobertura. Memória subida de 1024 para 2048 MB como
+margem adicional.
+
+O `update-service` sozinho não resolveu: o serviço acumulou múltiplas
+"deployments" empilhadas (revisões 1–4) e o agendador ficou preso
+tentando reconciliar todas, sem nunca chegar a tentar a revisão 4. A
+saída foi **apagar o service** (`aws ecs delete-service --force`, sem
+tocar em cluster/ALB/target group/banco) **e recriar do zero**
+(`aws ecs create-service`), só com a revisão 4 — resolveu na hora. Isso
+não está refletido em `.tf` porque o `aws_ecs_service` do Terraform já
+descreve o estado final correto; não há nada de especial a modelar sobre
+o incidente em si, só o registro aqui.
+
+**Se isso se repetir**: não insista em `update-service` por muito tempo
+se o `describe-services` mostrar mais de duas `deployments` sem progresso
+— apague e recrie o service direto, é mais rápido e mais previsível do
+que tentar reconciliar o histórico acumulado.
 
 ## Higiene de segurança desta sessão
 
