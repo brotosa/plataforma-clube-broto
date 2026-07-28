@@ -292,16 +292,31 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
 
   describe("catálogo — amostras reais de dados/", () => {
     it("ingere o arquivo real de ofertas, detectando o layout pelo cabeçalho", async () => {
+      const ofertasAntes = await prisma.oferta.count();
+      const empresasAntes = await prisma.empresa.count();
       const resultado = await importarRelatorioDaOperadora(gestor, {
         nomeArquivo: `${MARCA} Lista_de_Ofertas_3.xlsx`,
         conteudo: readFileSync(join(RAIZ, "dados", "Lista_de_Ofertas_3.xlsx")),
       });
       expect(resultado.tipoLayout).toBe("OFERTAS");
       expect(resultado.lidas).toBeGreaterThan(150);
-      // Nenhuma das ofertas reais do arquivo está no cadastro de teste:
-      // todas viram divergência, nenhuma vira correção (RN70).
-      expect(resultado.recusasPorCausa.ITEM_DESCONHECIDO_NA_PLATAFORMA).toBeGreaterThan(0);
-      expect(resultado.divergencias).toBeGreaterThan(0);
+
+      // A invariante, e NÃO o número: toda linha lida foi aplicada ou
+      // recusada, sem sumir no caminho.
+      //
+      // A primeira versão deste teste exigia
+      // `ITEM_DESCONHECIDO_NA_PLATAFORMA > 0`, e isso dependia do estado
+      // do banco: quando a carga inicial já povoou as 192 ofertas deste
+      // mesmo arquivo, todas passam a ser conhecidas e a causa
+      // legitimamente não aparece. O teste quebrava sem nada estar
+      // errado — o defeito era dele.
+      expect(resultado.aplicadas + resultado.recusadas).toBe(resultado.lidas);
+
+      // E o cadastro segue intocado nos dois estados (RN70).
+      const ofertasDepois = await prisma.oferta.count();
+      const empresasDepois = await prisma.empresa.count();
+      expect(ofertasDepois).toBe(ofertasAntes);
+      expect(empresasDepois).toBe(empresasAntes);
     });
 
     it("ingere o arquivo real de sellers, com o emoji do status higienizado", async () => {
