@@ -857,6 +857,12 @@ graça e zero dependência externa. **O S3 e o `ExportAdapter` continuam
 existindo para o que é volumoso — as peças de campanha (Onda 4) —, onde banco
 não serve.**
 
+> **Corrigido pela F21.** A frase acima estava errada em um ponto de fato: o
+> S3 não guardava as peças de campanha porque **nunca foi provisionado**, e
+> elas iam para o disco da máquina. A Onda 13 as trouxe para o banco, com
+> teto e condição objetiva de saída — ver
+> [Armazenamento de arquivos derivados](#armazenamento-de-arquivos-derivados-onda-13--f21).
+
 | Limite | Valor | Por quê |
 |---|---|---|
 | Tamanho | **200 KB** por arquivo | É a premissa que torna guardar binário no banco defensável. |
@@ -1090,8 +1096,13 @@ inválido — porque não é: ele só não serve aqui.
 **Decisão de arquitetura, para não se rediscutir a cada imagem nova:**
 *imagem pequena, pouca e identitária vive no banco da plataforma; imagem
 grande, numerosa e descartável vive em armazenamento de objetos.* Marca e
-card de solução são do primeiro tipo; **peças de campanha** seguem no S3 via
-`ExportAdapter`, sem alteração nesta onda.
+card de solução são do primeiro tipo.
+
+> **Revisto pela F21.** Esta seção dizia que **peças de campanha** seguiam no
+> S3 via `ExportAdapter`. Não seguiam — iam para o disco da máquina, e é o que
+> quebrou a ativação em produção. A pergunta certa não era "grande ou
+> pequena", e sim *quantas e de que tamanho, medido*: os arquivos derivados
+> foram para o banco com teto declarado e condição objetiva de saída.
 
 Onde a imagem aparece: formulário e ficha da solução, pré-visualização do
 card, cards de oferta e o kit de campanha (pasta `imagens-solucao/`, ao lado
@@ -1233,7 +1244,8 @@ A decisão de arquitetura da RN60 continua valendo: *arquivo pequeno, pouco e
 identitário vive no banco da plataforma; arquivo grande, numeroso e
 descartável vive em armazenamento de objetos.* Minuta e evidência são do
 primeiro tipo — uma por contrato, uma por campanha, e cada uma **é** o
-registro. As peças de campanha seguem no S3 via `ExportAdapter`.
+registro. (As peças de campanha foram para o banco na F21, com calibragem
+própria — ver a seção da Onda 13.)
 
 As rotas que servem os dois documentos usam `Content-Disposition:
 attachment`: documento é para baixar, não para renderizar dentro da
@@ -1541,6 +1553,128 @@ primeiras de N") — lista truncada em silêncio se lê como "é só isso".
   da F19 chegou à main pelo commit `7756fa3`, já com a F20 em andamento, e
   entrou aqui pelo rebase. O degrau existe; fica o registro de que ele foi
   corrigido depois da F19, não durante.
+
+## Armazenamento de arquivos derivados (Onda 13 — F21)
+
+Fase **corretiva e bloqueadora de produção**, nascida de falha reproduzida em
+uso: **a ativação de campanha não concluía**.
+
+A porta `ArmazenadorSnapshots` tinha uma implementação só, que gravava em
+`var/exportacoes/` **no disco da máquina**. Disco de produção é efêmero e por
+instância: o arquivo escrito numa instância não existe na seguinte nem depois
+de um deploy. A ativação ia ler a imagem da peça e o `publico.csv` para montar
+o kit, não achava nenhum dos dois, e a exceção virava a mensagem genérica da
+RN55 — que não dizia nada a quem estava na tela. A tela mostrava "1 peça(s)"
+porque a contagem vem do banco: o registro existia, o binário não.
+
+O conteúdo passou a ser guardado no próprio banco, em `arquivos_armazenados`.
+**A porta não mudou** — `salvar(chave, conteudo)` e `ler(chave)` são as mesmas
+assinaturas da F11, e é para isso que ela existe.
+
+| Artefato | Prefixo da chave | Teto | Formatos |
+|---|---|---|---|
+| Imagem da peça de campanha | `pecas/` | **1 MB** | PNG · JPG · WEBP |
+| Snapshot de exportação (RN34) | `listas-contato/` | **25 MB** | CSV |
+| Kit de execução | `kits/` | **50 MB** | ZIP |
+
+SVG fica fora da peça de propósito: **cliente de e-mail não o renderiza**, e a
+peça existe para consumo externo. Aceitá-lo entregaria ao aliado uma arte que
+não aparece no destino.
+
+### A ordem de gravação, e o que acontece em cada falha
+
+**Conteúdo primeiro, referência depois — e fora de transação.** Escrita de
+dezenas de megabytes dentro de transação interativa segura conexão: em função
+serverless atrás de RDS Proxy isso fixa a sessão e esgota o pool, e um kit
+grande ainda tende a estourar o tempo limite padrão do `$transaction`.
+
+A inversão escolhe deliberadamente qual falha ocorre:
+
+| Onde falha | O que sobra | Gravidade |
+|---|---|---|
+| Depois do conteúdo, antes da referência | **conteúdo órfão** | lixo coletável, não afeta leitura nenhuma |
+| Depois da referência, antes do conteúdo | **referência sem conteúdo** | é o defeito que esta fase veio consertar |
+
+Na peça e no kit isso sai direto. Na exportação sai em **três tempos**, porque
+a chave depende do id da linha (`listas-contato/{data}-{id}.csv`): cria-se a
+linha com `arquivoChave: "pendente"`, grava-se o CSV sob a chave definitiva e
+só então a linha passa a apontar para ela. Nenhuma linha chega a apontar para
+chave sem conteúdo.
+
+### Chave órfã falha nomeando a causa (RN55)
+
+Registro que aponta para conteúdo inexistente devolve mensagem que diz **o que
+houve e o que fazer** — "Reenvie a imagem", "Refaça a exportação", "Gere uma
+nova versão do kit" —, nunca erro genérico e nunca exceção crua. A chave em si
+**não entra na mensagem**: ela carrega id interno de campanha e de exportação,
+que a RN55 proíbe na interface; fica no log do servidor.
+
+**A base de demonstração está nesse estado** e permanece: o conserto faz esses
+registros falharem com clareza, **não os recupera**. A peça e o kit da campanha
+"Teste" precisam ser refeitos.
+
+### Teto de artefato gerado orienta; teto de arquivo enviado trava
+
+A distinção é **quem produziu o arquivo**, e ela é deliberada:
+
+- **Imagem da peça** é enviada por gente: acima de 1 MB é **recusada**, com o
+  tamanho, o teto e como reduzir. Quem enviou troca o arquivo e segue.
+- **Kit e snapshot** a plataforma gera: acima do teto são **gravados assim
+  mesmo**. Recusar deixaria a campanha sem poder ativar e sem remédio ao
+  alcance de quem está na tela — ninguém encolhe à mão um kit. O excesso vira
+  **sinal** no log, com o texto que nomeia a condição objetiva.
+
+### Condição objetiva para o adapter de objeto entrar
+
+O S3 continua sendo o destino natural quando o volume justificar, e a porta
+existe para que ele entre **sem tocar domínio nem telas**. Ele ficou fora desta
+fase porque acrescentaria bucket, credencial e dependência da TI a uma fase que
+bloqueava a produção.
+
+**Satisfeita qualquer uma das duas condições, o adapter entra em fase própria:**
+
+1. o **maior kit armazenado passar de 50 MB**; ou
+2. o **total guardado passar de 5 GB**.
+
+A primeira acende sozinha: o excesso já sai no log como aviso da RN71. A
+segunda se confere com uma consulta:
+
+```sql
+-- Total guardado e maior artefato, por tipo. Condição 2 satisfeita quando
+-- a soma passar de 5 GB (5368709120 bytes).
+SELECT tipo_mime,
+       count(*)                        AS arquivos,
+       pg_size_pretty(sum(bytes)::bigint) AS total,
+       pg_size_pretty(max(bytes)::bigint) AS maior
+  FROM arquivos_armazenados
+ GROUP BY ROLLUP (tipo_mime);
+```
+
+**A evidência que sustenta os números:** gravar um artefato de 25 MB no banco
+custa **~6,3 s** (medido em `armazenamento-arquivos.integracao.test.ts`, que
+imprime a duração a cada execução). Guardar binário no banco é decisão
+defensável **enquanto os arquivos forem pequenos** — um único artefato no teto
+já custa segundos, e é exatamente isso que o adapter de objeto vem resolver.
+
+### A cerca
+
+`infra/arquitetura/armazenamento-sem-disco.test.ts` **quebra o build** se
+alguém voltar ao disco: nenhum arquivo de `app/`, `infra/` ou `dominio/`
+importa escrita de `node:fs` (nem por namespace), a porta tem **uma**
+implementação e `var/exportacoes/` não é destino de ninguém. `scripts/` fica
+de fora de propósito — o gerador do guia autônomo escreve em disco por
+definição.
+
+A regra existe porque este defeito é fácil de reintroduzir de boa-fé: gravar um
+temporário "só para montar o zip" funciona na máquina de quem escreveu, passa
+no CI, e **só falha em produção**.
+
+### Versão
+
+**1.3.0.** A F21 foi desenvolvida em paralelo com a F20 e rebaseada sobre ela
+depois que ela chegou à main em 1.2.0 — daí o degrau. O carimbo da migration
+(`20260728130000`) é **posterior** ao da F20 (`20260728120000`), como manda o
+protocolo de convivência das duas fases.
 
 ## Operação da plataforma
 
