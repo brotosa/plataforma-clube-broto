@@ -95,6 +95,9 @@ model Usuario {
   evidenciasDeAprovacao    EvidenciaAprovacaoCampanha[]
   relatoriosDePatrocinador RelatorioPatrocinador[]
 
+  // Onda 12 (F20)
+  importacoesDeTelemetria ImportacaoTelemetria[]
+
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
   /// cada troca de papel, para provar que não é o último.
   @@index([papel, ativo])
@@ -778,11 +781,16 @@ model Oferta {
   criadoEm             DateTime             @default(now()) @map("criado_em")
   atualizadoEm         DateTime             @updatedAt @map("atualizado_em")
 
-  solucao            Solucao                      @relation(fields: [solucaoId], references: [id])
-  tipoBeneficio      TipoBeneficio                @relation(fields: [tipoBeneficioId], references: [id])
-  mecanica           Mecanica                     @relation(fields: [mecanicaId], references: [id])
-  telemetriaEventos  TelemetriaEvento[]
-  acumuladosIniciais TelemetriaAcumuladoInicial[]
+  solucao                 Solucao                      @relation(fields: [solucaoId], references: [id])
+  tipoBeneficio           TipoBeneficio                @relation(fields: [tipoBeneficioId], references: [id])
+  mecanica                Mecanica                     @relation(fields: [mecanicaId], references: [id])
+  telemetriaEventos       TelemetriaEvento[]
+  acumuladosIniciais      TelemetriaAcumuladoInicial[]
+  /// Onda 12 (F20) — último retrato do contador de catálogo (RN68).
+  contadorTelemetria      ContadorDeOfertaTelemetria?
+  /// Onda 12 (F20) — eventos do extrato nominal, quando a operadora
+  /// passar a enviar o id da oferta (item 2 da requisição).
+  eventosResgateOperadora EventoDeResgateTelemetria[]
 
   destinacaoCampanha Campanha?          @relation("ofertasDestinadas", fields: [destinacaoCampanhaId], references: [id])
   destinacaoCesta    Cesta?             @relation("ofertasDestinadas", fields: [destinacaoCestaId], references: [id])
@@ -1225,9 +1233,11 @@ model Assinante {
   criadoEm         DateTime                @default(now()) @map("criado_em")
   atualizadoEm     DateTime                @updatedAt @map("atualizado_em")
 
-  assinatura Assinatura?
-  atributos  AtributoEnriquecimento[]
-  vinculos   VinculoPatrocinio[]
+  assinatura              Assinatura?
+  atributos               AtributoEnriquecimento[]
+  vinculos                VinculoPatrocinio[]
+  /// Onda 12 (F20) — eventos do extrato nominal da operadora (RN69).
+  eventosResgateOperadora EventoDeResgateTelemetria[]
 
   // Índices do catálogo de segmentação — contagem viva em milissegundos
   // no volume de projeto (ficha §7).
@@ -2191,4 +2201,176 @@ enum EstadoUsuarioAssinante {
   CADASTRADO
   FREEMIUM
   ASSINANTE
+}
+
+// ---------------------------------------------------------------------
+// Onda 12 (F20) — Telemetria da operadora (RN67–RN70)
+// ---------------------------------------------------------------------
+
+/// Os quatro relatórios que a operadora entrega (ficha §1).
+///
+/// `SELLERS` e `OFERTAS` são **catálogo**: não têm dado pessoal, entram no
+/// repositório como amostra real e trazem os contadores acumulados por
+/// oferta. `USUARIOS` e `RESGATES` são **nominais**: trazem a base e os
+/// eventos, e nunca entram no repositório (RN69, ficha §7).
+///
+/// O layout é detectado pelo CABEÇALHO, nunca pelo nome do arquivo — o
+/// nome traz sufixo aleatório da operadora ("Lista_de_Ofertas_3.xlsx").
+enum TipoLayoutTelemetria {
+  USUARIOS
+  RESGATES
+  SELLERS
+  OFERTAS
+}
+
+/// RN67 — uma importação, com procedência e resultado.
+///
+/// **A identidade é o hash do conteúdo**, não o nome do arquivo: a
+/// operadora sufixa o nome a cada geração, então dois arquivos idênticos
+/// chegam com nomes diferentes e o mesmo arquivo pode voltar com outro
+/// nome. `@@unique([hashConteudo, tipoLayout])` é o que sustenta a
+/// idempotência — reimportar não duplica nada nem altera contagem, e o
+/// resultado informa que já havia sido importado.
+///
+/// O par inclui o tipo de propósito: o mesmo conteúdo interpretado sob
+/// dois layouts seria duas leituras distintas. Na prática não acontece
+/// (o cabeçalho decide), mas a chave não depende disso para ser correta.
+model ImportacaoTelemetria {
+  id                   String               @id @default(cuid())
+  tipoLayout           TipoLayoutTelemetria @map("tipo_layout")
+  nomeArquivo          String               @map("nome_arquivo")
+  /// Data de geração DECLARADA pela operadora quando o arquivo a traz;
+  /// nula quando não traz — nunca substituída pelo momento da importação,
+  /// que é outro fato e mora em `criadoEm`.
+  dataGeracaoDeclarada DateTime?            @map("data_geracao_declarada") @db.Date
+  /// SHA-256 do conteúdo, em hex.
+  hashConteudo         String               @map("hash_conteudo")
+  autorId              String               @map("autor_id")
+  lidas                Int
+  aplicadas            Int
+  recusadas            Int
+  /// Contagem por causa nomeada (RN55/RN69): { CAUSA: quantidade }. É Json
+  /// porque o conjunto de causas é do domínio e cresce com os layouts —
+  /// uma coluna por causa envelheceria a cada relatório novo. As três
+  /// causas da junção nominal são contadas SEPARADAS, nunca somadas.
+  recusasPorCausa      Json                 @map("recusas_por_causa")
+  criadoEm             DateTime             @default(now()) @map("criado_em")
+
+  autor        Usuario                      @relation(fields: [autorId], references: [id])
+  contadores   ContadorDeOfertaTelemetria[]
+  divergencias DivergenciaDeCatalogo[]
+  eventos      EventoDeResgateTelemetria[]
+
+  /// A cerca da idempotência (RN67).
+  @@unique([hashConteudo, tipoLayout])
+  @@index([tipoLayout, criadoEm])
+  @@map("importacoes_telemetria")
+}
+
+/// RN68 — o contador acumulado por oferta, vindo do CATÁLOGO.
+///
+/// **Último retrato por oferta** (`ofertaId` único): série histórica é
+/// fora de escopo (ficha §6) e guardar todos os retratos é decisão de
+/// outra onda. `dataArquivo` é a data do retrato, e ela viaja com o
+/// número em toda tela — sem ela o contador seria um número sem quando.
+///
+/// Este número **nunca é somado** ao extrato nominal (RN68): eles medem
+/// coisas diferentes e divergem hoje (227 × 38). Cada um aparece com a
+/// origem nomeada — "catálogo" aqui, "extrato" no evento.
+model ContadorDeOfertaTelemetria {
+  id           String    @id @default(cuid())
+  ofertaId     String    @unique @map("oferta_id")
+  resgates     Int
+  compras      Int
+  /// Data do arquivo que produziu o retrato; nula quando o arquivo não a
+  /// declara — a tela então diz que a data não veio, e não inventa uma.
+  dataArquivo  DateTime? @map("data_arquivo") @db.Date
+  importacaoId String    @map("importacao_id")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  oferta     Oferta               @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  importacao ImportacaoTelemetria @relation(fields: [importacaoId], references: [id])
+
+  @@index([importacaoId])
+  @@map("contadores_oferta_telemetria")
+}
+
+/// RN70 — o que difere entre a plataforma e o espelho da operadora.
+enum TipoDivergenciaCatalogo {
+  /// Ativa na plataforma e ausente no arquivo da operadora.
+  AUSENTE_NA_OPERADORA
+  /// Presente no arquivo da operadora e desconhecida na plataforma.
+  AUSENTE_NA_PLATAFORMA
+  /// Existe nos dois lados com atributo diferente.
+  ATRIBUTO_DIVERGENTE
+}
+
+/// RN70 — a divergência é RELATO, nunca correção.
+///
+/// A plataforma é a origem do cadastro; a operadora é o espelho do que
+/// está publicado. Quando divergem, a importação registra aqui e exibe na
+/// T34 — e **em nenhuma hipótese** altera aliado, solução ou oferta. A
+/// cerca de `infra/arquitetura/reconciliacao-nao-corrige.test.ts` quebra o
+/// build se alguém desfizer isso.
+model DivergenciaDeCatalogo {
+  id            String                  @id @default(cuid())
+  importacaoId  String                  @map("importacao_id")
+  tipo          TipoDivergenciaCatalogo
+  /// Identificador do item na origem em que ele existe — id externo da
+  /// oferta ou do seller. É o que permite ir conferir na origem certa.
+  identificador String
+  /// O que difere, em texto legível. Texto livre porque a divergência é
+  /// para leitura humana e decisão humana: taxonomia de atributo aqui
+  /// suporia uma regra de correção que a RN70 proíbe existir.
+  descricao     String
+  criadoEm      DateTime                @default(now()) @map("criado_em")
+
+  importacao ImportacaoTelemetria @relation(fields: [importacaoId], references: [id], onDelete: Cascade)
+
+  @@index([importacaoId, tipo])
+  @@map("divergencias_catalogo")
+}
+
+/// RN69 — o evento nominal de resgate, ligado ao assinante por CPF-HMAC.
+///
+/// **`ofertaId` é anulável de propósito:** a operadora ainda não envia o
+/// id da oferta no extrato (item 2 da requisição de 27/07). O evento entra
+/// mesmo assim, com o produto e o seller como vieram — perder o fato por
+/// falta de um vínculo que a origem não manda seria pior que guardá-lo
+/// sem ele. Sem ASSINANTE resolvido, porém, o evento não entra: é a
+/// recusa nomeada da RN69.
+///
+/// **`chaveNatural` é o que deduplica.** A fonte é acumulada e será
+/// reimportada todo dia; sem id de evento na origem, a identidade
+/// possível é o SHA-256 da tupla (assinante, data, produto, seller). Ela
+/// tem um limite conhecido e declarado: **dois resgates genuínos do mesmo
+/// produto, no mesmo seller, no mesmo dia, pelo mesmo assinante colapsam
+/// em um só**. É o item 2 da requisição que resolve isso — com id de
+/// evento na origem, a chave passa a ser ele. Até lá, subcontar é o erro
+/// menos danoso que superconstar a cada reimportação diária.
+model EventoDeResgateTelemetria {
+  id           String   @id @default(cuid())
+  assinanteId  String   @map("assinante_id")
+  dataEvento   DateTime @map("data_evento") @db.Date
+  produto      String
+  /// Tipo de oferta como veio da operadora ("Recompensa gratuita",
+  /// "Cupom de desconto"): texto, não enum — o dicionário de valores é
+  /// `[A CONFIRMAR — Minutrade]` e enum recusaria valor novo na carga.
+  tipoOferta   String?  @map("tipo_oferta")
+  seller       String?
+  ofertaId     String?  @map("oferta_id")
+  chaveNatural String   @unique @map("chave_natural")
+  importacaoId String   @map("importacao_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  assinante  Assinante            @relation(fields: [assinanteId], references: [id])
+  oferta     Oferta?              @relation(fields: [ofertaId], references: [id])
+  importacao ImportacaoTelemetria @relation(fields: [importacaoId], references: [id])
+
+  /// Os cards de Consumo da T33 contam por assinante e por período.
+  @@index([assinanteId, dataEvento])
+  @@index([ofertaId])
+  @@index([importacaoId])
+  @@map("eventos_resgate_telemetria")
 }
