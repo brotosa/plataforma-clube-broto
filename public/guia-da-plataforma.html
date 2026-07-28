@@ -1150,6 +1150,25 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pt-drop a{display:block;text-decoration:none;color:var(--azul-texto-aaa)}
 .pt-drop a:hover{text-decoration:underline}
 
+/* ---- Extensão (Onda 14 · Acabamento) ----
+
+   `.skip` — atalho "pular para o conteúdo", EXTRAÍDO do protótipo
+   v10.1 tal como o Design o escreveu; só a formatação mudou, de uma linha
+   para três. Fora da tela por deslocamento (`left:-9999px`) e não por
+   `display:none` nem `visibility:hidden`, que o tirariam da ordem de foco
+   e o tornariam inalcançável — que é justamente o que ele existe para
+   resolver. Com onze itens de menu, quem navega por teclado atravessava a
+   lateral inteira a cada tela.
+
+   O seletor já era emitido pelo miolo do guia (`montarGuiaHtml`, herdado
+   do documento original) e NUNCA teve regra: até aqui, o link aparecia
+   como texto solto no topo da ajuda e do documento autônomo. A regra
+   chega agora, e conserta os dois de uma vez. */
+.skip{position:absolute;left:-9999px;top:10px;z-index:200;background:var(--branco);
+  color:var(--azul-texto-aaa);font:var(--font-body-label-bold);padding:10px 16px;
+  border-radius:var(--r-sm);border:2px solid var(--azul);box-shadow:var(--shadow-lg)}
+.skip:focus{left:10px}
+
 </style>
 <style>
 html{scroll-behavior:smooth}
