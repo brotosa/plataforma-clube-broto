@@ -23,11 +23,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name  = "app"
-      image = var.ghcr_imagem
-
-      repositoryCredentials = {
-        credentialsParameter = aws_secretsmanager_secret.ghcr.arn
-      }
+      image = "${aws_ecr_repository.app.repository_url}:${var.imagem_tag}"
 
       portMappings = [
         { containerPort = 3000, protocol = "tcp" }
@@ -35,7 +31,7 @@ resource "aws_ecs_task_definition" "app" {
 
       environment = [
         { name = "AUTH_TRUST_HOST", value = "true" },
-        { name = "AUTH_URL", value = "http://${aws_lb.this.dns_name}" },
+        { name = "AUTH_URL", value = "https://admclube.broto.com.br" },
       ]
 
       secrets = [
@@ -45,15 +41,17 @@ resource "aws_ecs_task_definition" "app" {
         { name = "APP_ENCRYPTION_KEY", valueFrom = aws_secretsmanager_secret.app_encryption_key.arn },
       ]
 
-      # curl/wget não existem na imagem de runtime (RN61 — enxuta, de
-      # propósito); o próprio node já está presente e faz a checagem.
-      healthCheck = {
-        command     = ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/saude',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 30
-      }
+      # SEM healthCheck de contêiner de propósito — removido depois de
+      # causar instabilidade real em produção (28/07/2026, ver
+      # IMPLANTACAO-REAL.md): o comando `node -e ...` nasce um processo
+      # Node inteiro por cima do que já roda, dentro do MESMO cgroup de
+      # memória da task, a cada 30s. Com a task em 1024 MB, isso derrubava
+      # o contêiner repetidamente (healthy status oscilando) mesmo com a
+      # aplicação respondendo normalmente. O alvo do ALB (aws_lb_target_group,
+      # que consulta /api/saude/pronto de FORA do contêiner, sem competir
+      # por memória) já cobre a prontidão — é a fonte única de saúde desta
+      # task. Se um health check de contêiner voltar a ser necessário,
+      # subir a memória primeiro e medir, não reintroduzir às cegas.
 
       logConfiguration = {
         logDriver = "awslogs"

@@ -61,17 +61,3 @@ resource "aws_secretsmanager_secret_version" "database_url" {
   secret_id = aws_secretsmanager_secret.database_url.id
   secret_string = "postgresql://${aws_db_instance.this.username}:${random_password.db_master.result}@${aws_db_instance.this.endpoint}/${aws_db_instance.this.db_name}?schema=public"
 }
-
-# Credencial do ECS para puxar a imagem privada do GHCR — formato exigido
-# pelo repositoryCredentials do ECS (JSON com username/password).
-resource "aws_secretsmanager_secret" "ghcr" {
-  name = "${var.nome_prefixo}/ghcr-credentials"
-}
-
-resource "aws_secretsmanager_secret_version" "ghcr" {
-  secret_id = aws_secretsmanager_secret.ghcr.id
-  secret_string = jsonencode({
-    username = var.ghcr_usuario
-    password = var.ghcr_token
-  })
-}

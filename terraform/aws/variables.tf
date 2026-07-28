@@ -59,9 +59,9 @@ variable "ecs_cpu" {
 }
 
 variable "ecs_memoria" {
-  description = "Memória da task Fargate, em MB."
+  description = "Memória da task Fargate, em MB. Subida de 1024 para 2048 depois de instabilidade real em produção (ver IMPLANTACAO-REAL.md) — sem folga suficiente, o processo da aplicação e o do health check de contêiner disputavam a mesma cota de memória."
   type        = number
-  default     = 1024
+  default     = 2048
 }
 
 variable "ecs_desired_count" {
