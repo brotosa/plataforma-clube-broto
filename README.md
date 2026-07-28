@@ -1507,9 +1507,11 @@ primeiras de N") — lista truncada em silêncio se lê como "é só isso".
   F19: o protótipo segue ausente do repositório. A tela não tem protótipo
   próprio nem por lá — a ficha §5 a declara utilitária e manda reusar o
   padrão das telas de importação, que foi o que se fez, **sem classe nova**.
-- **A versão saltou 1.0.0 → 1.2.0.** O 1.1.0 que a F19 fecharia nunca chegou
-  ao `package.json`. O número da F20 é o que a ficha §2 contrata; o degrau
-  perdido fica registrado aqui em vez de ser encoberto.
+- **A versão vai a 1.2.0**, que é o que a ficha §2 contrata para o fecho da
+  onda. Durante esta fase o `package.json` ainda estava em 1.0.0 — o 1.1.0
+  da F19 chegou à main pelo commit `7756fa3`, já com a F20 em andamento, e
+  entrou aqui pelo rebase. O degrau existe; fica o registro de que ele foi
+  corrigido depois da F19, não durante.
 
 ## Operação da plataforma
 
