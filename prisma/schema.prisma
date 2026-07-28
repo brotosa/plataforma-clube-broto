@@ -2374,3 +2374,53 @@ model EventoDeResgateTelemetria {
   @@index([importacaoId])
   @@map("eventos_resgate_telemetria")
 }
+
+// ---------------------------------------------------------------------
+// Onda 13 (F21) — Armazenamento persistente de arquivos (RN71)
+// ---------------------------------------------------------------------
+
+/// RN71 — o conteúdo por trás de uma chave de `ArmazenadorSnapshots`.
+///
+/// **A quarta vez que a plataforma guarda binário no próprio banco**,
+/// depois da marca do aliado (RN54), da imagem do card (RN60) e da minuta
+/// do contrato (F19) — e pelo mesmo motivo das três: poucos arquivos,
+/// pequenos, sem dependência externa a provisionar. O que muda aqui é a
+/// natureza do arquivo: peça de campanha, snapshot de exportação e kit de
+/// execução são **derivados**, não identitários, e por isso a tabela não
+/// é 1:1 com entidade nenhuma — a chave é opaca e o dono dela é a porta.
+///
+/// **Não há coluna nova em `pecas_campanha`, `exportacoes_lista` nem
+/// `kits_campanha`.** `imagem_chave` e `arquivo_chave` continuam
+/// guardando exatamente o que guardavam; o que mudou é onde o conteúdo
+/// daquela chave vive. É também o motivo de o binário não morar naquelas
+/// tabelas: o Prisma seleciona escalares por padrão, e um BYTEA em
+/// `kits_campanha` faria a lista de kits da T25 carregar o zip inteiro.
+///
+/// **Sem `autor_id`, de propósito.** Quem enviou a peça, quem exportou a
+/// lista e quem gerou o kit já está na trilha de auditoria da entidade que
+/// aponta para a chave — e o kit não tem autor distinto do próprio kit.
+/// A ficha §5 enumera seis campos, e são estes seis.
+model ArquivoArmazenado {
+  /// A chave do armazenador, tal como gravada na entidade que a referencia
+  /// (`pecas/…`, `listas-contato/…`, `kits/…`). É a identidade: única por
+  /// ser a própria primária, sem coluna de id redundante.
+  chave    String @id
+  /// O conteúdo, exatamente como o adapter o produziu.
+  conteudo Bytes
+  /// Tipo do artefato. Para a peça é o tipo REAL apurado pelo conteúdo na
+  /// hora do envio; para snapshot e kit é o que a plataforma gerou.
+  tipoMime String @map("tipo_mime")
+  /// Tamanho em bytes do que foi gravado — os tetos da RN71 são medidos
+  /// sobre ele, e é a coluna que responde "o total passou de 5 GB?".
+  bytes    Int
+  /// SHA-256 do conteúdo. Não substitui o `hash_arquivo` da exportação nem
+  /// do kit: aqueles são a integridade declarada do artefato de negócio,
+  /// este é a identidade do que está gravado — e é o que permite conferir
+  /// um contra o outro.
+  hash     String
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("arquivos_armazenados")
+}
