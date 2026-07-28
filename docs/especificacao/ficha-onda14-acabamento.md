@@ -22,13 +22,15 @@ Fase **F22**, única da onda. **Sem migration, sem regra de negócio nova** — 
 
 **Editorial** — 9. A seção 4.7 (Patrocinadores) permanece como está, **salvo ajustes de texto enviados pela Superintendência** junto com esta ficha; se vierem, entram no mesmo commit de guia.
 
+**Acabamento visual — achado de passeio (28/07)** — 10. **Espaçamento vertical dos formulários em grade**: os formulários de patrocinador (T32 e edição na T33), de contrato (T33) e um trecho da modelagem de campanha montam a grade de duas colunas com estilo inline `gap: "0 16px"` — **row-gap zero** —, e o rótulo da linha seguinte cola no campo de cima. O `.field` está correto e idêntico ao protótipo; o defeito é a grade. Conserto: **promover a grade de formulário a classe do design system** (row-gap na régua da casa, coluna 16px, colapso mobile preservado via `.g-resp`), substituindo o estilo inline nos três pontos — inline é invisível às cercas, e foi por isso que o defeito se propagou por três fases sem ser visto.
+
 ## 2. O item de risco: a cerca da RN58
 
 As doze seções transcritas são cobradas **frase por frase contra a referência da Onda 9** — "divergência de uma frase é regressão". Os complementos dos itens 1–4 tocam seções transcritas, e a regra é: **as frases da referência permanecem todas, intactas e na ordem; o complemento entra em bloco próprio, com origem declarada** ("Complemento — Onda 8", no padrão que a F19 criou para seção nascida depois). Se a cerca hoje exigir igualdade estrita e não contenção, ela é estendida **cirurgicamente** para reconhecer blocos de complemento com origem — no mesmo rito da F19: as doze continuam cobradas, e a extensão da cerca é o primeiro alvo do red team desta fase. O documento autônomo é regerado (`pnpm guia:gerar`) — a cerca de sincronia cobra isso sozinha.
 
 ## 3. Fora de escopo
 
-Qualquer migration; qualquer regra de negócio; qualquer tela além do `.skip` e do print do R1; a ajuda contextual (mapa RN59 já cobre tudo); valores do contrato Yamer (dado, entra pela tela quando a minuta for lida); adaptador de objeto (condição da RN71 não satisfeita).
+Qualquer migration; qualquer regra de negócio; qualquer tela além do `.skip`, do print do R1 e do espaçamento do item 10; a ajuda contextual (mapa RN59 já cobre tudo); valores do contrato Yamer (dado, entra pela tela quando a minuta for lida); adaptador de objeto (condição da RN71 não satisfeita).
 
 ## 4. Pendências que esta rodada NÃO fecha (registro honesto)
 
