@@ -255,15 +255,30 @@ A esteira publica no GHCR a cada merge na main, com três etiquetas:
 
 | Etiqueta | Quando usar |
 |---|---|
-| `1.0.0` (versão do `package.json`) | **produção** — fixa exatamente o que está no ar |
+| `<versão do package.json>` | **produção** — fixa exatamente o que está no ar |
 | `a1b2c3d` (sha curto do commit) | rastrear ou voltar para um commit específico |
 | `latest` | ambientes de teste, nunca produção |
+
+`<versão do package.json>` é o valor do campo `version` no `package.json`
+do commit que você quer implantar — o mesmo número que o rodapé da
+plataforma exibe. Para lê-lo sem abrir o arquivo:
+
+```bash
+node -p "require('./package.json').version"     # no repositório
+gh api repos/marcosantos1804-blip/plataforma-clube-broto/contents/package.json \
+  --jq '.content | @base64d | fromjson | .version'   # sem clonar
+```
+
+Os exemplos abaixo escrevem a etiqueta como `<versão>`: **substitua pelo
+número que você acabou de ler**, e não por um valor fixo — versão copiada
+de exemplo envelhece a cada fase, que foi como estes comandos ficaram
+apontando para a `1.0.0` por seis ondas.
 
 ```bash
 docker login ghcr.io -u <seu-usuario-github>
 # (senha: um Personal Access Token com escopo read:packages)
 
-docker pull ghcr.io/marcosantos1804-blip/plataforma-clube-broto:1.0.0
+docker pull ghcr.io/marcosantos1804-blip/plataforma-clube-broto:<versão>
 ```
 
 > O registro definitivo é `[A CONFIRMAR — TI]`: o GHCR foi escolhido porque
@@ -349,7 +364,7 @@ docker run -d --name clube-broto -p 3000:3000 \
   -e AUTH_TRUST_HOST=true \
   -e CPF_HASH_KEY="<o valor gerado no passo 2>" \
   -e APP_ENCRYPTION_KEY="<o valor gerado no passo 2>" \
-  ghcr.io/marcosantos1804-blip/plataforma-clube-broto:1.0.0
+  ghcr.io/marcosantos1804-blip/plataforma-clube-broto:<versão>
 ```
 
 A aplicação escuta em `0.0.0.0:3000`. Para encerrar, `docker stop
