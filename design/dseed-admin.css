@@ -1009,3 +1009,13 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   color:var(--azul-texto-aaa);font:var(--font-body-label-bold);padding:10px 16px;
   border-radius:var(--r-sm);border:2px solid var(--azul);box-shadow:var(--shadow-lg)}
 .skip:focus{left:10px}
+
+/* `.vt-barra` — barra da volta das telas de documento do produto, irmã
+   da `.gd-volta` do guia: é navegação, não documento, então some no
+   papel. O R1 nasceu na F19 sem classe nenhuma (o prompt daquela onda
+   admitia um único seletor novo, o `.pt-drop`), e a consequência —
+   declarada no comentário da própria tela — era a barra sair impressa.
+   Fica aqui, e não junto da `.gd-volta`, porque a cerca da RN58 prende
+   o bloco do guia a seletores `.gd`. */
+.vt-barra{margin-bottom:18px}
+@media print{.vt-barra{display:none}}
