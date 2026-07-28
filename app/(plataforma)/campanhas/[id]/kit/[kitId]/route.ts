@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/infra/auth";
 import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import { prisma } from "@/infra/prisma/cliente";
-import { criarArmazenadorLocal } from "@/infra/exportacoes/armazenador";
+import { criarArmazenadorPrisma } from "@/infra/exportacoes/armazenador";
+import { ErroDeArquivoAusente } from "@/dominio/arquivos/artefato-derivado";
+import { mensagemGenerica } from "@/infra/erros/falha-para-mensagem";
+import { logger } from "@/infra/log/logger";
 
 /**
  * Download do kit (T25). O pacote leva a lista de assinantes: a rota
@@ -30,7 +33,29 @@ export async function GET(
     return NextResponse.json({ erro: "kit não encontrado" }, { status: 404 });
   }
 
-  const conteudo = await criarArmazenadorLocal().ler(kit.arquivoChave);
+  // RN71 — a rota lê pelo mesmo armazenador dos casos de uso. Até a F20
+  // ela instanciava o local por conta própria, fora deles: era o caminho
+  // que ninguém lembrava de migrar junto.
+  let conteudo: Buffer;
+  try {
+    conteudo = await criarArmazenadorPrisma().ler(kit.arquivoChave);
+  } catch (erro) {
+    // Chave órfã sobe a própria mensagem (RN55): ela diz que o pacote não
+    // está no armazenamento e que o caminho é gerar uma versão nova.
+    if (erro instanceof ErroDeArquivoAusente) {
+      return NextResponse.json({ erro: erro.message }, { status: 404 });
+    }
+    logger.error(
+      {
+        erro: erro instanceof Error ? { nome: erro.name, mensagem: erro.message } : String(erro),
+        pilha: erro instanceof Error ? erro.stack : undefined,
+        contexto: "download do kit",
+      },
+      "falha inesperada ao ler o pacote do kit",
+    );
+    return NextResponse.json({ erro: mensagemGenerica("baixar o kit") }, { status: 500 });
+  }
+
   const nome = kit.arquivoChave.split("/").pop() ?? `kit-v${kit.versao}.zip`;
   return new NextResponse(new Uint8Array(conteudo), {
     headers: {

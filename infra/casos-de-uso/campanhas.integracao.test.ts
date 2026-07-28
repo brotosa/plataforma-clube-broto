@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
 import { gerarAssinantesSinteticos } from "@/infra/assinantes/fixtures-sinteticas";
 import { cifrarCpf, hashCpf } from "@/infra/assinantes/protecao-cpf";
-import { criarArmazenadorLocal } from "@/infra/exportacoes/armazenador";
+import { criarArmazenadorPrisma } from "@/infra/exportacoes/armazenador";
 import { painelDaCampanha } from "@/infra/consultas/campanhas";
 import { ErroDeValidacao, type Ator } from "./contexto";
 import {
@@ -255,7 +255,7 @@ describe.skipIf(!temBanco)("F12 — campanhas e cestas (integração)", () => {
     expect(campanha.kits[0]!.diffTexto).toBeNull();
 
     // O pacote existe no armazenamento e é um zip legível.
-    const pacote = await criarArmazenadorLocal().ler(campanha.kits[0]!.arquivoChave);
+    const pacote = await criarArmazenadorPrisma().ler(campanha.kits[0]!.arquivoChave);
     expect(pacote.subarray(0, 2).toString("latin1")).toBe("PK");
 
     const auditoriaExportacao = await prisma.auditoriaEvento.findMany({

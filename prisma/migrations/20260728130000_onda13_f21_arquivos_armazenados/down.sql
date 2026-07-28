@@ -1,0 +1,25 @@
+-- Reversão da Onda 13 (F21) — armazenamento persistente de arquivos.
+-- Aplicar manualmente (ver LEIA-ME.md).
+--
+-- REVERTER DESTRÓI TODA PEÇA, SNAPSHOT E KIT gravados desde a fase: o
+-- conteúdo só existe nesta tabela, e o disco para o qual ele voltaria já
+-- não tem os arquivos. Antes de aplicar em ambiente com uso real,
+-- extrair o conteúdo — por exemplo
+--
+--   \copy (SELECT chave, tipo_mime, encode(conteudo, 'base64')
+--          FROM arquivos_armazenados) TO 'arquivos.csv' CSV
+--
+-- — porque depois do DROP não há de onde recuperar. E note que reverter
+-- não devolve a plataforma a um estado que funcione em produção: devolve
+-- ao estado em que a ativação de campanha falha, que é o defeito que esta
+-- fase veio consertar.
+--
+-- O schema volta inteiro ao estado da F20: a ida não tocou coluna
+-- alguma das três tabelas que guardam chave, então não há o que restaurar
+-- nelas — `imagem_chave` e `arquivo_chave` seguem apontando para chaves
+-- que passam a não ter conteúdo em lugar nenhum. Os eventos de auditoria
+-- de peça, exportação e kit permanecem gravados: é a RN49 valendo também
+-- na reversão.
+
+-- DropTable
+DROP TABLE "arquivos_armazenados";

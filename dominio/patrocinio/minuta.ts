@@ -17,8 +17,13 @@ import {
  * para não se rediscutir a cada arquivo novo: *arquivo pequeno, pouco e
  * identitário vive no banco da plataforma; arquivo grande, numeroso e
  * descartável vive em armazenamento de objetos.* A minuta é do primeiro
- * tipo — uma por contrato, e ela **é** o contrato. As peças de campanha
- * continuam no S3 via `ExportAdapter`.
+ * tipo — uma por contrato, e ela **é** o contrato.
+ *
+ * A F21 estendeu a mesma decisão aos arquivos DERIVADOS (peça, snapshot e
+ * kit, RN71), que até ela iam para o disco da máquina: são poucos e
+ * pequenos hoje, e ficam no banco com teto declarado e condição objetiva
+ * de saída. O `ExportAdapter` segue existindo para quando a condição for
+ * satisfeita.
  */
 
 /**
