@@ -1,0 +1,26 @@
+# =====================================================================
+# Imagem de operação (migrations, seed, job diário) — NÃO é a imagem de
+# produção da aplicação. A imagem de runtime (Dockerfile na raiz) é
+# standalone de propósito e não traz prisma/, scripts/ nem o CLI do Prisma
+# (RN61, verificado na F18) — CLI de migration numa imagem que atende
+# tráfego também sabe fazer `migrate reset`. Esta imagem existe só para
+# rodar como task avulsa do ECS (nunca como serviço) dentro da VPC, onde
+# alcança o RDS pela rede interna.
+# =====================================================================
+ARG NODE_VERSAO=22
+FROM node:${NODE_VERSAO}-bookworm-slim AS ops
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
+WORKDIR /app
+
+COPY . .
+RUN pnpm install --frozen-lockfile
+
+USER node
+CMD ["node", "-e", "console.log('forneca um comando via containerOverrides do ECS')"]

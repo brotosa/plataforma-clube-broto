@@ -22,22 +22,23 @@ variable "azs" {
   default     = ["sa-east-1a", "sa-east-1b"]
 }
 
-variable "ghcr_imagem" {
-  description = "Imagem publicada pela esteira do repositório (RN61), com a etiqueta de versão a implantar."
+variable "imagem_tag" {
+  description = "Etiqueta da imagem a implantar (ex.: a versão do package.json)."
   type        = string
+  default     = "1.4.0"
 }
 
-variable "ghcr_usuario" {
-  description = "Usuário/organização do GHCR para autenticação do ECS."
-  type        = string
-  default     = "brotosa"
-}
-
-variable "ghcr_token" {
-  description = "Personal Access Token do GitHub (escopo read:packages) — nunca commitado, vem de tfvars ignorado pelo git."
-  type        = string
-  sensitive   = true
-}
+# A esteira do próprio repositório (RN61, .github/workflows/ci.yml) publica no
+# GHCR a cada merge na main — é o caminho documentado no README e o alvo
+# original desta pilha. Nesta primeira implantação, porém, o GitHub Actions
+# nunca chegou a executar de fato neste ambiente (zero workflow runs
+# registrados, mesmo após merges reais em main), então a imagem não existia
+# em lugar nenhum. Como alternativa, a imagem é construída pelo AWS
+# CodeBuild (projeto codebuild.tf) — roda dentro da própria AWS, sem
+# depender de rede externa — e publicada no Amazon ECR (ecr.tf), que também
+# elimina a necessidade de credencial do GHCR no ECS. Quando a esteira do
+# GitHub passar a publicar de verdade, trocar a origem da imagem de volta
+# para o GHCR é mudança de configuração, não de arquitetura.
 
 variable "rds_instance_class" {
   description = "Classe da instância RDS. Menor viável para começar (uso administrativo interno)."
