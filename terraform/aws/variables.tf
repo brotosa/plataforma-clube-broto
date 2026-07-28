@@ -1,7 +1,7 @@
 variable "aws_region" {
-  description = "Região AWS de implantação."
+  description = "Região AWS de implantação. sa-east-1 (São Paulo): us-east-1 estava no limite de 5 VPCs/IGWs da conta, e sa-east-1 também aproxima o dado de CPF do território brasileiro."
   type        = string
-  default     = "us-east-1"
+  default     = "sa-east-1"
 }
 
 variable "nome_prefixo" {
@@ -11,7 +11,7 @@ variable "nome_prefixo" {
 }
 
 variable "vpc_cidr" {
-  description = "CIDR da VPC dedicada. Escolhido para não colidir com as VPCs já existentes na conta (172.30.0.0/16 x3, 10.20.0.0/16, 172.16.24.0/21)."
+  description = "CIDR da VPC dedicada. Escolhido para não colidir com as VPCs já existentes em sa-east-1 (10.42.0.0/24, 172.16.16.0/21)."
   type        = string
   default     = "10.60.0.0/16"
 }
@@ -19,7 +19,7 @@ variable "vpc_cidr" {
 variable "azs" {
   description = "Zonas de disponibilidade usadas (2, para o ALB e o RDS)."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["sa-east-1a", "sa-east-1b"]
 }
 
 variable "ghcr_imagem" {
