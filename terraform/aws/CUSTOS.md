@@ -64,12 +64,13 @@ número real no Cost Explorer depois do primeiro ciclo de faturamento.**
 | AWS WAF na frente do ALB | ~+US$ 5–10/mês + por regra/requisição |
 | Reserved Instance / Savings Plan no RDS ou Fargate | **reduz** o custo, se o uso 24/7 se confirmar estável por 1 ano |
 
-## Ponto de limpeza identificado
+## Ponto de limpeza — resolvido
 
-O secret `broto-clube/ghcr-credentials` no Secrets Manager ficou **órfão**
-depois que a imagem passou a vir do ECR em vez do GHCR (ver
-`IMPLANTACAO-REAL.md`) — ainda existe e ainda cobra os ~US$ 0,40/mês de um
-segredo, sem uso. Pode ser apagado com segurança.
+O secret `broto-clube/ghcr-credentials` no Secrets Manager tinha ficado
+**órfão** depois que a imagem passou a vir do ECR em vez do GHCR (ver
+`IMPLANTACAO-REAL.md`). Apagado em 28/07/2026 (janela de recuperação de 7
+dias, padrão do Secrets Manager) — não consta mais na tabela de custo
+recorrente acima.
 
 ## Como obter o número real
 
