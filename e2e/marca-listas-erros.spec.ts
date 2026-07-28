@@ -240,6 +240,7 @@ test.describe("RN56 — rolagem contínua da lista de aliados", () => {
     await expect(page.getByRole("row")).toHaveCount(26);
     await expect(botao).toHaveCount(0);
   });
+  });
 
 test.describe("RN55 — a falha nomeia a causa", () => {
   test("erro conhecido chega com a mensagem do domínio, não com genérica", async ({ page }) => {
