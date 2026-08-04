@@ -101,6 +101,15 @@ COPY --from=construcao --chown=node:node /app/dados ./dados
 # lê `conteudo/guia-plataforma` por `process.cwd()`, e o guia é fonte única
 # — sem a cópia, a ajuda ficaria vazia justamente na imagem de produção.
 COPY --from=construcao --chown=node:node /app/conteudo ./conteudo
+# Mesma razão de novo, e faltou até esta correção: o dossiê assistido
+# (Onda 2, F8) lê docs/especificacao/prompt-dossie-due-diligence.md em
+# runtime por `process.cwd()` (infra/dossie/template.ts) — de propósito,
+# para registrar em cada dossiê exatamente qual versão do template gerou o
+# prompt. Sem a cópia, T11 quebrava com ENOENT em produção (achado em uso
+# real, não na fumaça — o smoke test não abre a tela do dossiê). Só
+# `especificacao/`, não `docs/` inteiro: o resto (referências, prompts das
+# fases) não é lido por nada em runtime e só infla a imagem.
+COPY --from=construcao --chown=node:node /app/docs/especificacao ./docs/especificacao
 
 EXPOSE 3000
 
