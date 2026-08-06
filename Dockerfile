@@ -14,11 +14,17 @@
 # =====================================================================
 
 ARG NODE_VERSAO=22
+# Espelho público da AWS, não Docker Hub: o CodeBuild roda atrás de um NAT
+# compartilhado por várias contas, e o limite de pull anônimo do Docker Hub
+# (429 Too Many Requests) é por IP, não por conta — o build passou a falhar
+# de forma persistente, não esporádica. O `public.ecr.aws` espelha as
+# mesmas imagens oficiais, sem esse limite.
+ARG REGISTRO_BASE=public.ecr.aws/docker/library
 
 # ---------------------------------------------------------------------
 # 1. Dependências — cache estável: só muda quando os manifestos mudam.
 # ---------------------------------------------------------------------
-FROM node:${NODE_VERSAO}-bookworm-slim AS dependencias
+FROM ${REGISTRO_BASE}/node:${NODE_VERSAO}-bookworm-slim AS dependencias
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
@@ -45,7 +51,7 @@ RUN pnpm install --frozen-lockfile
 # ---------------------------------------------------------------------
 # 2. Build — gera o servidor standalone.
 # ---------------------------------------------------------------------
-FROM node:${NODE_VERSAO}-bookworm-slim AS construcao
+FROM ${REGISTRO_BASE}/node:${NODE_VERSAO}-bookworm-slim AS construcao
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -64,7 +70,7 @@ RUN pnpm build
 # ---------------------------------------------------------------------
 # 3. Runtime — imagem final sem toolchain de build, usuário sem root.
 # ---------------------------------------------------------------------
-FROM node:${NODE_VERSAO}-bookworm-slim AS runtime
+FROM ${REGISTRO_BASE}/node:${NODE_VERSAO}-bookworm-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
