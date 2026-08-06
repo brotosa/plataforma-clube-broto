@@ -38,6 +38,11 @@ function formatarData(data: Date | null): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(data);
 }
 
+/** Data em `yyyy-mm-dd` para preencher `input[type="date"]` (UTC, como é gravada). */
+function paraInputData(data: Date | null): string {
+  return data ? data.toISOString().slice(0, 10) : "";
+}
+
 const ROTULO_PAPEL_CONTATO: Record<string, string> = {
   COMERCIAL: "Comercial",
   TECNICO: "Técnico",
@@ -533,7 +538,32 @@ export default async function PaginaFichaAliado({
                   <span><span className="selo">A CONFIRMAR — onde residem (Broto ou Operadora)</span></span>
                 </div>
                 {podeEditar ? (
-                  <div style={{ borderTop: "1px solid var(--borda)", marginTop: 16, paddingTop: 14 }}>
+                  <div style={{ borderTop: "1px solid var(--borda)", marginTop: 16, paddingTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+                    <details>
+                      <summary className="btn btn-ghost btn-sm" style={{ display: "inline-block", cursor: "pointer" }}>
+                        Editar contrato
+                      </summary>
+                      <p className="cap" style={{ margin: "12px 0 10px" }}>
+                        Corrige o contrato vigente sem denunciá-lo — inclusive para preencher o
+                        anexo obrigatório. A alteração fica registrada na auditoria.
+                      </p>
+                      <FormularioContrato
+                        empresaId={empresa.id}
+                        comissaoPadrao={comissaoPadrao}
+                        contrato={{
+                          id: contratoVigente.id,
+                          vigenciaBase: paraInputData(contratoVigente.vigenciaBase),
+                          dataAssinatura: paraInputData(contratoVigente.dataAssinatura),
+                          comissaoPct:
+                            contratoVigente.comissaoPct !== null
+                              ? String(contratoVigente.comissaoPct)
+                              : "",
+                          ambientesPagamento: contratoVigente.ambientesPagamento,
+                          anexoS3Key: contratoVigente.anexoS3Key ?? "",
+                          hashVerificacao: contratoVigente.hashVerificacao ?? "",
+                        }}
+                      />
+                    </details>
                     <AcoesContrato empresaId={empresa.id} contratoId={contratoVigente.id} />
                   </div>
                 ) : null}

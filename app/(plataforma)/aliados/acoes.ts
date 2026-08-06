@@ -14,6 +14,7 @@ import {
   suspenderEmpresa,
 } from "@/infra/casos-de-uso/empresas";
 import {
+  atualizarContrato,
   criarContato,
   criarContrato,
   mudarStatusContrato,
@@ -264,6 +265,44 @@ export async function acaoCriarContrato(
     });
     revalidatePath(`/aliados/${empresaId}`);
     return { sucesso: "Contrato registrado." };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
+/**
+ * Edita o contrato vigente sem trocá-lo — mesma permissão (CRIAR_EDITAR) e
+ * mesma trilha de auditoria de `atualizarContrato`. Serve, entre outras
+ * coisas, para preencher o anexo obrigatório de um contrato já vigente sem
+ * precisar denunciá-lo e registrar outro.
+ */
+export async function acaoAtualizarContrato(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const ator = await atorDaSessao();
+  const empresaId = String(dados.get("empresaId") ?? "");
+  try {
+    const vigenciaBase = texto(dados, "vigenciaBase");
+    if (!vigenciaBase) {
+      return { erros: ["Data-base da vigência é obrigatória."] };
+    }
+    const comissaoPct = texto(dados, "comissaoPct");
+    await atualizarContrato(ator, String(dados.get("contratoId") ?? ""), {
+      vigenciaBase: new Date(`${vigenciaBase}T00:00:00Z`),
+      dataAssinatura: texto(dados, "dataAssinatura")
+        ? new Date(`${texto(dados, "dataAssinatura")}T00:00:00Z`)
+        : null,
+      anexoS3Key: texto(dados, "anexoS3Key"),
+      hashVerificacao: texto(dados, "hashVerificacao"),
+      comissaoPct: comissaoPct ? Number(comissaoPct.replace(",", ".")) : null,
+      ambientesPagamento: String(dados.get("ambientesPagamento")) as
+        | "DENTRO_PLATAFORMA"
+        | "FORA_PLATAFORMA"
+        | "AMBOS",
+    });
+    revalidatePath(`/aliados/${empresaId}`);
+    return { sucesso: "Contrato atualizado." };
   } catch (erro) {
     return paraEstado(erro);
   }
