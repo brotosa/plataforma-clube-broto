@@ -52,7 +52,7 @@ imagem de volta para o GHCR é mudança de configuração, não de arquitetura.
 | Listener HTTP:80 | ARN em `aws-recursos.env` (não versionado) |
 | ECS cluster | `broto-clube-cluster` |
 | Log group | `/ecs/broto-clube` |
-| Task definition app | `broto-clube-app:2` (revisão 1 usava GHCR — obsoleta) |
+| Task definition app | `broto-clube-app:7` em produção (imagem `1.5.0`; revisões 1–6 obsoletas — ver incidentes abaixo) |
 | ECS service | `broto-clube-app-service` |
 | ECR repository | `broto-clube-app` — sem `.tf` correspondente ainda |
 | CodeBuild projects | `broto-clube-build` (app) e `broto-clube-build-ops` (imagem ops), ambos em **us-east-1** (mesma região do bucket de origem — CodeBuild exige S3 na mesma região) — sem `.tf` correspondente ainda |
@@ -111,6 +111,44 @@ o incidente em si, só o registro aqui.
 se o `describe-services` mostrar mais de duas `deployments` sem progresso
 — apague e recrie o service direto, é mais rápido e mais previsível do
 que tentar reconciliar o histórico acumulado.
+
+## Incidente: 429 do Docker Hub bloqueando o build (imagem 1.5.0)
+
+O build de `broto-clube-build` (imagem `1.5.0`, que unifica a edição de
+contrato vigente com esta infraestrutura) passou a falhar de forma
+consistente na fase `BUILD`:
+
+```
+ERROR: unexpected status from HEAD request to
+https://registry-1.docker.io/v2/library/node/manifests/22-bookworm-slim:
+429 Too Many Requests
+```
+
+Causa: o NAT do CodeBuild é um IP compartilhado por várias contas AWS, e o
+limite de pull anônimo do Docker Hub (100 pulls/6h) é por IP — não por
+conta nem por projeto. Duas tentativas seguidas falharam do mesmo jeito,
+confirmando que não era transitório.
+
+Correção: as três etapas do `Dockerfile` (`dependencias`, `construcao`,
+`runtime`) passaram a puxar `node:22-bookworm-slim` de
+`public.ecr.aws/docker/library/` em vez de `docker.io/library/` — mesmo
+conteúdo (espelho oficial da AWS das imagens Docker Official Images), sem
+o limite do Docker Hub. Terceira tentativa de build passou de primeira.
+
+## Registro do deploy da imagem 1.5.0
+
+- Task definition `broto-clube-app:7` (imagem `...):1.5.0`), registrada a
+  partir da `:6` só trocando a tag da imagem — memória (2048 MB) e ausência
+  de `healthCheck` de contêiner preservadas.
+- Validada antes de tocar no serviço: task avulsa (`run-task`, mesma
+  rede/SG do serviço) com log limpo (`Ready in 300ms`, sem erro) e depois
+  `update-service` para a revisão 7 — rollout padrão (rolling, sem
+  circuit breaker), task nova ficou `healthy` no ALB antes da antiga
+  drenar. Sem downtime observado.
+- Pós-deploy: `/api/saude` (200, `vivo`), `/api/saude/pronto` (200,
+  `pronto` — confirma alcance ao RDS) e `/entrar` (200) verificados
+  direto no ALB; `/aliados` sem sessão devolveu 307 para `/entrar`
+  (RN61 — recusa de acesso anônimo em rota protegida).
 
 ## Higiene de segurança desta sessão
 
