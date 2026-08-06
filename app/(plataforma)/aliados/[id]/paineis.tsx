@@ -2,6 +2,7 @@
 
 import type { EstagioEmpresa } from "@prisma/client";
 import {
+  acaoAtualizarContrato,
   acaoCriarContato,
   acaoCriarContrato,
   acaoEncerrarAliado,
@@ -174,30 +175,70 @@ export function FormularioContato({ empresaId }: { empresaId: string }) {
   );
 }
 
+/** Valores já formatados (strings) para pré-preencher a edição do contrato. */
+export interface ContratoPrefill {
+  id: string;
+  vigenciaBase: string;
+  dataAssinatura: string;
+  comissaoPct: string;
+  ambientesPagamento: string;
+  anexoS3Key: string;
+  hashVerificacao: string;
+}
+
 /**
- * Formulário de novo contrato (aba Comercial). A comissão vem
- * pré-preenchida com a comissão-padrão do contrato-modelo, lida do
- * Parametrizador (5% confirmados em 24/07) e editável por contrato.
+ * Formulário do contrato comercial (aba Comercial). Serve a dois modos, com
+ * os mesmos campos:
+ *  • registro (sem `contrato`): a comissão vem pré-preenchida com a
+ *    comissão-padrão do contrato-modelo, lida do Parametrizador, e editável;
+ *  • edição (com `contrato`): reaproveita `atualizarContrato` para corrigir o
+ *    contrato vigente — inclusive preencher o anexo obrigatório — sem
+ *    denunciá-lo. Mesma permissão (CRIAR_EDITAR) e mesma auditoria.
  */
 export function FormularioContrato({
   empresaId,
   comissaoPadrao,
+  contrato,
 }: {
   empresaId: string;
   comissaoPadrao: number | null;
+  contrato?: ContratoPrefill;
 }) {
+  const editando = contrato !== undefined;
+  const comissaoInicial = editando
+    ? contrato.comissaoPct
+    : comissaoPadrao === null
+      ? ""
+      : String(comissaoPadrao);
   return (
-    <FormularioComEstado acao={acaoCriarContrato} rotuloEnviar="Registrar contrato">
+    <FormularioComEstado
+      acao={editando ? acaoAtualizarContrato : acaoCriarContrato}
+      rotuloEnviar={editando ? "Salvar alterações" : "Registrar contrato"}
+    >
       <input type="hidden" name="empresaId" value={empresaId} />
+      {editando ? <input type="hidden" name="contratoId" value={contrato.id} /> : null}
       <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
         <div className="field">
           <label htmlFor="campo-vigencia-base">Data-base da vigência</label>
-          <input id="campo-vigencia-base" className="input" name="vigenciaBase" type="date" required />
+          <input
+            id="campo-vigencia-base"
+            className="input"
+            name="vigenciaBase"
+            type="date"
+            required
+            defaultValue={editando ? contrato.vigenciaBase : undefined}
+          />
           <span className="hint">Padrão contratual: 12 meses com renovação automática.</span>
         </div>
         <div className="field">
           <label htmlFor="campo-assinatura">Data de assinatura</label>
-          <input id="campo-assinatura" className="input" name="dataAssinatura" type="date" />
+          <input
+            id="campo-assinatura"
+            className="input"
+            name="dataAssinatura"
+            type="date"
+            defaultValue={editando ? contrato.dataAssinatura : undefined}
+          />
         </div>
         <div className="field">
           <label htmlFor="campo-comissao">Comissão (%)</label>
@@ -206,17 +247,23 @@ export function FormularioContrato({
             className="input"
             name="comissaoPct"
             inputMode="decimal"
-            defaultValue={comissaoPadrao === null ? "" : String(comissaoPadrao)}
+            defaultValue={comissaoInicial}
           />
           <span className="hint">
-            {comissaoPadrao === null
+            {editando || comissaoPadrao === null
               ? "Por aliado; fonte = contrato. Incide só sobre Benefícios pagos."
               : `Pré-preenchida com a comissão-padrão do contrato-modelo (${comissaoPadrao}%) e editável por contrato. Incide só sobre Benefícios pagos.`}
           </span>
         </div>
         <div className="field">
           <label htmlFor="campo-ambientes">Ambientes de pagamento habilitados</label>
-          <select id="campo-ambientes" className="select" name="ambientesPagamento" required defaultValue="">
+          <select
+            id="campo-ambientes"
+            className="select"
+            name="ambientesPagamento"
+            required
+            defaultValue={editando ? contrato.ambientesPagamento : ""}
+          >
             <option value="" disabled>
               Selecionar…
             </option>
@@ -228,12 +275,23 @@ export function FormularioContrato({
         </div>
         <div className="field">
           <label htmlFor="campo-anexo">Anexo do contrato (chave do arquivo)</label>
-          <input id="campo-anexo" className="input" name="anexoS3Key" placeholder="s3://contratos/…" />
+          <input
+            id="campo-anexo"
+            className="input"
+            name="anexoS3Key"
+            placeholder="s3://contratos/…"
+            defaultValue={editando ? contrato.anexoS3Key : undefined}
+          />
           <span className="hint">Upload de PDF entra com o S3 (F4).</span>
         </div>
         <div className="field">
           <label htmlFor="campo-hash">Hash/código de verificação</label>
-          <input id="campo-hash" className="input" name="hashVerificacao" />
+          <input
+            id="campo-hash"
+            className="input"
+            name="hashVerificacao"
+            defaultValue={editando ? contrato.hashVerificacao : undefined}
+          />
           <span className="hint">Da assinatura eletrônica.</span>
         </div>
       </div>
