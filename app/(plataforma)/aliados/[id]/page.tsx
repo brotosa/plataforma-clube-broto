@@ -11,6 +11,7 @@ import { lerValor } from "@/infra/configuracao/servico-configuracao";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
 import { AvisoEdicaoDesktop } from "../../aviso-desktop";
 import { AcoesDeEstagio, AcoesContrato, FormularioContato, FormularioContrato } from "./paineis";
+import { CartaoDeAnexoContrato } from "./cartao-anexo-contrato";
 import { AbaDossie, AbaScouting } from "./abas-scout";
 import { FormularioM1 } from "./formulario-m1";
 import { acaoRemoverContato } from "../acoes";
@@ -514,7 +515,13 @@ export default async function PaginaFichaAliado({
                     ) : null}
                   </span>
                   <span className="cap">Anexo (PDF)</span>
-                  {contratoVigente.anexoS3Key ? (
+                  {contratoVigente.anexo ? (
+                    <span>
+                      <a href={`/api/aliados/${empresa.id}/contrato/anexo`}>
+                        {contratoVigente.anexo.nomeArquivo}
+                      </a>
+                    </span>
+                  ) : contratoVigente.anexoS3Key ? (
                     <span className="mono">{contratoVigente.anexoS3Key}</span>
                   ) : (
                     <span><PendenteObrigatorio /></span>
@@ -580,6 +587,15 @@ export default async function PaginaFichaAliado({
               </>
             )}
           </div>
+
+          {contratoVigente ? (
+            <CartaoDeAnexoContrato
+              empresaId={empresa.id}
+              contratoId={contratoVigente.id}
+              anexo={contratoVigente.anexo}
+              podeEditar={podeEditar}
+            />
+          ) : null}
 
           {empresa.contratos.length > (contratoVigente ? 1 : 0) ? (
             <div className="card" style={{ padding: "20px 22px" }}>
@@ -739,7 +755,38 @@ export default async function PaginaFichaAliado({
                 </tbody>
               </table>
             )}
-            {podeEditar ? <FormularioContato empresaId={empresa.id} /> : null}
+            {podeEditar && empresa.contatos.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {empresa.contatos.map((contato) => (
+                  <details key={contato.id}>
+                    <summary className="btn btn-ghost btn-sm" style={{ display: "inline-block", cursor: "pointer" }}>
+                      Editar {contato.nome}
+                    </summary>
+                    <div style={{ marginTop: 12 }}>
+                      <FormularioContato
+                        empresaId={empresa.id}
+                        contato={{
+                          id: contato.id,
+                          papel: contato.papel,
+                          nome: contato.nome,
+                          cargo: contato.cargo ?? "",
+                          email: contato.email,
+                          telefone: contato.telefone ?? "",
+                        }}
+                      />
+                    </div>
+                  </details>
+                ))}
+              </div>
+            ) : null}
+            {podeEditar ? (
+              <>
+                <h3 className="h-el" style={{ fontSize: 15, marginBottom: 10 }}>
+                  Adicionar contato
+                </h3>
+                <FormularioContato empresaId={empresa.id} />
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}

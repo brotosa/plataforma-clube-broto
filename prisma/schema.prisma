@@ -92,6 +92,7 @@ model Usuario {
   // Onda 12 (F19)
   patrociniosComoComercial Patrocinador[]               @relation("responsavelComercialPatrocinio")
   minutasEnviadas          MinutaContrato[]
+  anexosDeContratoEnviados AnexoContrato[]
   evidenciasDeAprovacao    EvidenciaAprovacaoCampanha[]
   relatoriosDePatrocinador RelatorioPatrocinador[]
 
@@ -632,12 +633,43 @@ model ContratoComercial {
   criadoEm             DateTime          @default(now()) @map("criado_em")
   atualizadoEm         DateTime          @updatedAt @map("atualizado_em")
 
-  empresa Empresa @relation(fields: [empresaId], references: [id])
+  empresa Empresa        @relation(fields: [empresaId], references: [id])
+  anexo   AnexoContrato?
 
   @@index([empresaId])
   /// T26 — janelas contratuais de não-renovação na faixa "exige ação hoje".
   @@index([status, emJanelaNaoRenovacao])
   @@map("contratos_comerciais")
+}
+
+/// Anexo (PDF) do contrato comercial do aliado, guardado pela plataforma —
+/// mesmo desenho da minuta do patrocínio (`MinutaContrato`): binário em
+/// tabela 1:1 com o contrato, tipo real pelo conteúdo, troca e remoção
+/// auditadas. Nível 2 do "editar contrato": substitui a chave S3 textual
+/// (`ContratoComercial.anexoS3Key`, que permanece só para compatibilidade
+/// com registros antigos) pelo upload real do documento.
+model AnexoContrato {
+  /// A própria chave do contrato: 1:1 sem coluna de id redundante.
+  contratoId  String @id @map("contrato_id")
+  /// O arquivo já validado — nunca o que chegou cru.
+  conteudo    Bytes
+  /// Tipo REAL, apurado pela assinatura do conteúdo, nunca pela extensão.
+  tipoMime    String @map("tipo_mime")
+  bytes       Int
+  /// SHA-256 do conteúdo — identidade de versão para o ETag da rota.
+  hash        String
+  /// Nome do arquivo enviado, preservado para a auditoria. É dado do
+  /// usuário: nunca compõe caminho de arquivo nem URL.
+  nomeArquivo String @map("nome_arquivo")
+
+  autorId      String   @map("autor_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  contrato ContratoComercial @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  autor    Usuario           @relation(fields: [autorId], references: [id])
+
+  @@map("anexos_contrato")
 }
 
 // ---------------------------------------------------------------------

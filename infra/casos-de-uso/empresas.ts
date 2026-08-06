@@ -214,7 +214,13 @@ export async function avaliarPromocao(empresaId: string) {
     where: { id: empresaId },
     include: {
       contatos: true,
-      contratos: { where: { status: "VIGENTE" }, orderBy: { criadoEm: "desc" } },
+      contratos: {
+        where: { status: "VIGENTE" },
+        orderBy: { criadoEm: "desc" },
+        // Nível 2: o anexo agora pode ser o PDF enviado (tabela própria), não
+        // só a chave S3 textual legada. Seleciona a existência, nunca o binário.
+        include: { anexo: { select: { contratoId: true } } },
+      },
     },
   });
   const contrato = empresa.contratos[0] ?? null;
@@ -229,7 +235,7 @@ export async function avaliarPromocao(empresaId: string) {
       quantidadeContatos: empresa.contatos.length,
       contratoVigente: contrato
         ? {
-            temAnexo: Boolean(contrato.anexoS3Key),
+            temAnexo: contrato.anexo !== null || Boolean(contrato.anexoS3Key),
             comissaoPctDefinida: contrato.comissaoPct !== null,
             ambientesDefinidos: true, // enum obrigatório no contrato
           }

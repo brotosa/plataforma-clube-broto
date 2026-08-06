@@ -373,7 +373,13 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 }
 
 /* ---- Extensões Onda 2: Mercado & Scout (kanban, notas 1-5, stepper) ---- */
-.kb-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;align-items:start}
+/* minmax(0,1fr), não 1fr: a trilha 1fr tem min-width:auto e não encolhe
+   abaixo do min-content dos cards — a categoria do card é white-space:nowrap,
+   então uma coluna com categoria longa (ex.: três categorias juntas) esticava
+   e comia o ellipsis do .kb-cat, deixando as colunas desproporcionais. Mesmo
+   remédio do hero da Onda 7 (.dash-stats): minmax(0,1fr) trava as 5 colunas
+   iguais e devolve o corte por reticências ao .kb-cat. */
+.kb-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:start}
 .kb-lane{background:var(--color-transparency-black-on-light-10);border-radius:var(--r-lg);padding:10px}
 .kb-col-h{display:flex;justify-content:space-between;align-items:center;font:var(--font-body-label-bold);color:var(--preto);padding:2px 6px 10px}
 .kb-cards{display:flex;flex-direction:column;gap:8px}

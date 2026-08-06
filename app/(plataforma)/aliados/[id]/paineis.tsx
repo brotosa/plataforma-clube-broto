@@ -2,6 +2,7 @@
 
 import type { EstagioEmpresa } from "@prisma/client";
 import {
+  acaoAtualizarContato,
   acaoAtualizarContrato,
   acaoCriarContato,
   acaoCriarContrato,
@@ -141,34 +142,92 @@ export function AcoesDeEstagio({
 }
 
 /** Formulário de novo contato (aba Contatos). */
-export function FormularioContato({ empresaId }: { empresaId: string }) {
+/** Valores para pré-preencher a edição de um contato. */
+export interface ContatoPrefill {
+  id: string;
+  papel: string;
+  nome: string;
+  cargo: string;
+  email: string;
+  telefone: string;
+}
+
+/**
+ * Formulário de contato (aba Contatos). Dois modos, mesmos campos:
+ *  • adicionar (sem `contato`): cria um novo contato;
+ *  • editar (com `contato`): reaproveita `atualizarContato` para corrigir um
+ *    contato existente. Os ids dos campos são sufixados com o id do contato
+ *    para não colidirem quando vários formulários de edição coexistem na aba.
+ */
+export function FormularioContato({
+  empresaId,
+  contato,
+}: {
+  empresaId: string;
+  contato?: ContatoPrefill;
+}) {
+  const editando = contato !== undefined;
+  const sufixo = editando ? `-${contato.id}` : "";
   return (
-    <FormularioComEstado acao={acaoCriarContato} rotuloEnviar="Adicionar contato">
+    <FormularioComEstado
+      acao={editando ? acaoAtualizarContato : acaoCriarContato}
+      rotuloEnviar={editando ? "Salvar contato" : "Adicionar contato"}
+    >
       <input type="hidden" name="empresaId" value={empresaId} />
+      {editando ? <input type="hidden" name="contatoId" value={contato.id} /> : null}
       <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "160px 1fr 1fr", gap: 14, marginBottom: 14 }}>
         <div className="field">
-          <label htmlFor="campo-contato-papel">Papel</label>
-          <select id="campo-contato-papel" className="select" name="papel" required defaultValue="COMERCIAL">
+          <label htmlFor={`campo-contato-papel${sufixo}`}>Papel</label>
+          <select
+            id={`campo-contato-papel${sufixo}`}
+            className="select"
+            name="papel"
+            required
+            defaultValue={editando ? contato.papel : "COMERCIAL"}
+          >
             <option value="COMERCIAL">Comercial</option>
             <option value="TECNICO">Técnico</option>
             <option value="FINANCEIRO">Financeiro</option>
           </select>
         </div>
         <div className="field">
-          <label htmlFor="campo-contato-nome">Nome</label>
-          <input id="campo-contato-nome" className="input" name="nome" required />
+          <label htmlFor={`campo-contato-nome${sufixo}`}>Nome</label>
+          <input
+            id={`campo-contato-nome${sufixo}`}
+            className="input"
+            name="nome"
+            required
+            defaultValue={editando ? contato.nome : undefined}
+          />
         </div>
         <div className="field">
-          <label htmlFor="campo-contato-cargo">Cargo</label>
-          <input id="campo-contato-cargo" className="input" name="cargo" />
+          <label htmlFor={`campo-contato-cargo${sufixo}`}>Cargo</label>
+          <input
+            id={`campo-contato-cargo${sufixo}`}
+            className="input"
+            name="cargo"
+            defaultValue={editando ? contato.cargo : undefined}
+          />
         </div>
         <div className="field" style={{ gridColumn: "span 2" }}>
-          <label htmlFor="campo-contato-email">E-mail</label>
-          <input id="campo-contato-email" className="input" name="email" type="email" required />
+          <label htmlFor={`campo-contato-email${sufixo}`}>E-mail</label>
+          <input
+            id={`campo-contato-email${sufixo}`}
+            className="input"
+            name="email"
+            type="email"
+            required
+            defaultValue={editando ? contato.email : undefined}
+          />
         </div>
         <div className="field">
-          <label htmlFor="campo-contato-telefone">Telefone</label>
-          <input id="campo-contato-telefone" className="input" name="telefone" />
+          <label htmlFor={`campo-contato-telefone${sufixo}`}>Telefone</label>
+          <input
+            id={`campo-contato-telefone${sufixo}`}
+            className="input"
+            name="telefone"
+            defaultValue={editando ? contato.telefone : undefined}
+          />
         </div>
       </div>
     </FormularioComEstado>
@@ -282,7 +341,10 @@ export function FormularioContrato({
             placeholder="s3://contratos/…"
             defaultValue={editando ? contrato.anexoS3Key : undefined}
           />
-          <span className="hint">Upload de PDF entra com o S3 (F4).</span>
+          <span className="hint">
+            Opcional/legado. Para anexar o PDF de verdade, use o cartão “Anexo do contrato (PDF)”
+            abaixo.
+          </span>
         </div>
         <div className="field">
           <label htmlFor="campo-hash">Hash/código de verificação</label>

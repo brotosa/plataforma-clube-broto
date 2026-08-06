@@ -218,7 +218,11 @@ export async function buscarAliado(empresaId: string) {
     include: {
       categorias: { include: { categoria: true } },
       contatos: { orderBy: { criadoEm: "asc" } },
-      contratos: { orderBy: { criadoEm: "desc" } },
+      contratos: {
+        orderBy: { criadoEm: "desc" },
+        // Metadados do anexo (PDF); o binário sai só pela rota que o serve.
+        include: { anexo: { select: { nomeArquivo: true, bytes: true, hash: true } } },
+      },
       motivoSuspensao: true,
       // Metadados da marca; o binário sai só pela rota que a serve.
       marca: { select: { hash: true, nomeArquivo: true, bytes: true } },
