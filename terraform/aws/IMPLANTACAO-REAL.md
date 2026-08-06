@@ -52,10 +52,12 @@ imagem de volta para o GHCR é mudança de configuração, não de arquitetura.
 | Listener HTTP:80 | ARN em `aws-recursos.env` (não versionado) |
 | ECS cluster | `broto-clube-cluster` |
 | Log group | `/ecs/broto-clube` |
-| Task definition app | `broto-clube-app:7` em produção (imagem `1.5.0`; revisões 1–6 obsoletas — ver incidentes abaixo) |
+| Task definition app | `broto-clube-app:8` em produção (imagem `1.5.0`; revisões 1–7 obsoletas — ver incidentes abaixo) |
 | ECS service | `broto-clube-app-service` |
 | ECR repository | `broto-clube-app` — sem `.tf` correspondente ainda |
-| CodeBuild projects | `broto-clube-build` (app) e `broto-clube-build-ops` (imagem ops), ambos em **us-east-1** (mesma região do bucket de origem — CodeBuild exige S3 na mesma região) — sem `.tf` correspondente ainda |
+| CodeBuild projects | `broto-clube-build` (app) e `broto-clube-build-ops` (imagem ops), ambos em **us-east-1** — sem `.tf` correspondente ainda |
+| CodeBuild source credentials | `arn:aws:codebuild:us-east-1:373945090777:token/github` — PAT classic da conta `brotosa`, importado via `import-source-credentials`, usado pelo `broto-clube-build` para clonar direto do GitHub e pelo webhook para se autorregistrar |
+| CodeBuild webhook | no projeto `broto-clube-build`, filtro `EVENT=PUSH` + `HEAD_REF=^refs/heads/main$` — todo push aceito na `main` builda e deploya sozinho (ver "Esteira de deploy automático" abaixo) |
 | Task definition ops | `broto-clube-ops:1` — usada só para `run-task` avulso (migrations/seed), nunca como serviço |
 
 ## O que ficou pendente
@@ -150,6 +152,59 @@ o limite do Docker Hub. Terceira tentativa de build passou de primeira.
   direto no ALB; `/aliados` sem sessão devolveu 307 para `/entrar`
   (RN61 — recusa de acesso anônimo em rota protegida).
 
+## Esteira de deploy automático — `main` é sempre produção
+
+Até aqui, cada deploy exigia disparo manual do CodeBuild (upload de zip no
+S3) e troca manual do serviço ECS. Decisão do usuário: `main` passa a ser
+sempre o que está em produção — todo push aceito lá builda e implanta
+sozinho, sem gate humano no meio.
+
+**Como funciona:**
+
+1. `broto-clube-build` trocou a origem de S3 para `GITHUB`
+   (`https://github.com/brotosa/plataforma-clube-broto.git`, branch
+   `main`), com um PAT classic da conta `brotosa` importado via
+   `import-source-credentials` (escopo `repo`, guardado cifrado pela AWS,
+   nunca em texto puro em lugar nenhum do repositório).
+2. Um webhook no projeto (`create-webhook`, filtro `EVENT=PUSH` +
+   `HEAD_REF=^refs/heads/main$`) dispara o build a cada push aceito na
+   `main` — o próprio CodeBuild registra esse webhook no GitHub usando o
+   mesmo PAT.
+3. O `buildspec` (inline no projeto, não em arquivo no repo) builda,
+   publica três tags no ECR (versão do `package.json`, sha curto do
+   commit, `latest`), registra uma **nova revisão** da task definition
+   (clona a atual, só troca a imagem) e chama `update-service` — o ECS
+   faz o rollout normal (task nova `healthy` no ALB antes da antiga
+   drenar), sem circuit breaker automático.
+4. O papel do CodeBuild (`broto-clube-codebuild-role`) ganhou uma política
+   nova (`deploy-ecs-automatico`): `ecs:DescribeTaskDefinition` +
+   `ecs:RegisterTaskDefinition` (sem escopo de recurso — a API não aceita),
+   `ecs:UpdateService` + `ecs:DescribeServices` escopados ao service, e
+   `iam:PassRole` escopado só à role de execução da task.
+
+**Incidente na primeira tentativa**: o `buildspec` tinha um `sed -E
+'s/.*"version": *"([^"]+)".*/\1/'` para extrair a versão do
+`package.json`. O `*` logo depois do primeiro `"` é indicador de *alias*
+em YAML (`*nome`) — o parser do CodeBuild recusou o arquivo inteiro com
+`YAML_FILE_ERROR` na fase `DOWNLOAD_SOURCE`, antes de qualquer comando
+rodar. Trocado por `cut -d'"' -f4` (sem caractere especial de YAML). Uma
+segunda causa correlata, corrigida no mesmo commit: um bloco `- >` (escalar
+dobrado) para a linha do `jq` tinha uma continuação indentada um espaço a
+mais que as demais, o que faz o YAML **preservar** a quebra de linha ali
+em vez de dobrá-la em espaço — quebraria o comando em três na execução.
+Resolvido reescrevendo o filtro `jq` como uma linha só, sem bloco dobrado.
+Validado localmente com `yaml.safe_load` antes de reenviar — os dois
+builds de teste seguintes passaram de primeira.
+
+**Validado ponta a ponta** com um build manual (`start-build` sem
+`environment-variables-override`, para simular exatamente o que o webhook
+dispara): registrou `broto-clube-app:8`, atualizou o serviço, rollout sem
+downtime, smoke test pós-deploy (`/api/saude`, `/api/saude/pronto`,
+`/entrar`) todos 200. O gatilho por webhook em si (push real de alguém,
+não disparo manual) ainda não foi exercitado nesta sessão — o próximo
+push de verdade na `main` é o primeiro teste real do caminho ponta a
+ponta via GitHub.
+
 ## Higiene de segurança desta sessão
 
 - A imagem ops **não definia `NODE_ENV=production`** na primeira versão, e
@@ -163,3 +218,11 @@ o limite do Docker Hub. Terceira tentativa de build passou de primeira.
   este trabalho — **recomenda-se rotacionar ambas** independentemente do
   resultado técnico, pelo mesmo motivo de qualquer segredo que passou por
   um histórico de chat.
+- **Atenção ao rotacionar o PAT do GitHub agora**: diferente de antes, esse
+  token passou a ficar **guardado dentro da AWS**, como source credential
+  do `broto-clube-build` (`import-source-credentials`, usado também pelo
+  webhook). Regenerar o token no GitHub sem reimportar o novo valor
+  (`aws codebuild import-source-credentials --server-type GITHUB
+  --auth-type PERSONAL_ACCESS_TOKEN --token <novo>` — mesmo comando,
+  sobrescreve) quebra a esteira de deploy automático silenciosamente: o
+  próximo push na `main` para de disparar build, sem aviso.
