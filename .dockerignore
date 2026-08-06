@@ -20,6 +20,14 @@ test-results
 
 # Documentação e referências — não fazem parte do runtime.
 docs
+# ATENÇÃO: `docs/especificacao/` é a exceção — o dossiê assistido lê
+# docs/especificacao/prompt-dossie-due-diligence.md em runtime, por
+# `process.cwd()` (infra/dossie/template.ts), de propósito, para registrar
+# a versão exata do template em cada dossiê gerado. Excluí-la do contexto
+# quebra a tela do dossiê (T11) com ENOENT em produção — foi o que
+# aconteceu antes desta linha existir. O resto de `docs/` (referências,
+# prompts das fases) continua fora, porque nada em runtime o lê.
+!docs/especificacao
 
 # ATENÇÃO: `dados/` NÃO entra aqui. A carga inicial lê as planilhas reais em
 # tempo de execução, por `process.cwd()/dados` (infra/casos-de-uso/carga-inicial.ts),

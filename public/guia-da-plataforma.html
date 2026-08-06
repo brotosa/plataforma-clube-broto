@@ -483,6 +483,21 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .aviso-mob{display:none;align-items:center;gap:8px;font:var(--font-body-caption-regular);color:var(--preto);
   background:var(--azul-lightest);border:1px solid var(--azul-claro);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:16px}
 .backdrop{position:fixed;inset:0;background:var(--color-transparency-black-on-light-30);z-index:85;border:0;padding:0;cursor:pointer}
+
+/* Achado em uso real (F22+): dentro do #conteudo com overflow:auto, o
+   Chromium por vezes deixa de repintar a área recém-revelada durante
+   rolagem incremental (roda do mouse/trackpad em vários passos pequenos)
+   quando só uma parte das seções de um .g-resp está aberta — a altura e
+   o layout ficam corretos, só a pintura fica manca, e sobra um vão em
+   branco do tamanho de metade da tela. `transform:translateZ(0)` promove
+   o container à sua própria camada de composição e resolve — confirmado
+   por reprodução (Playwright, scroll em passos, antes/depois). Aplicado
+   na classe (não em #conteudo) de propósito: o #conteudo tem modais com
+   `position:fixed` como descendentes em várias telas, e transform criaria
+   um novo containing block que quebraria esses modais. As duas telas que
+   têm modal fixed E .g-resp (avaliação do Scout, ativação de campanha)
+   têm o modal como IRMÃO do .g-resp, não filho — checado antes de aplicar. */
+.g-resp{transform:translateZ(0)}
 @media (max-width:760px){
   /* fix red team r2 (F2): tabela sem colapso vira rolagem contida (T4) —
      reaplicado sobre a v6.1 (PATCH DO REPO — NÃO REMOVER) */

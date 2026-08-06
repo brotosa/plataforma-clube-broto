@@ -1,0 +1,7 @@
+# Copie para terraform.auto.tfvars (ignorado pelo git) e preencha.
+# Nunca commitar o real: ghcr_token é segredo.
+
+aws_region   = "us-east-1"
+ghcr_imagem  = "ghcr.io/brotosa/plataforma-clube-broto:1.4.0"
+ghcr_usuario = "brotosa"
+ghcr_token   = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
