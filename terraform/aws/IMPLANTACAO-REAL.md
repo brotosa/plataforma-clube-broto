@@ -196,14 +196,14 @@ Resolvido reescrevendo o filtro `jq` como uma linha só, sem bloco dobrado.
 Validado localmente com `yaml.safe_load` antes de reenviar — os dois
 builds de teste seguintes passaram de primeira.
 
-**Validado ponta a ponta** com um build manual (`start-build` sem
-`environment-variables-override`, para simular exatamente o que o webhook
-dispara): registrou `broto-clube-app:8`, atualizou o serviço, rollout sem
-downtime, smoke test pós-deploy (`/api/saude`, `/api/saude/pronto`,
-`/entrar`) todos 200. O gatilho por webhook em si (push real de alguém,
-não disparo manual) ainda não foi exercitado nesta sessão — o próximo
-push de verdade na `main` é o primeiro teste real do caminho ponta a
-ponta via GitHub.
+**Validado ponta a ponta**, em duas camadas: primeiro um build manual
+(`start-build` sem `environment-variables-override`, simulando o que o
+webhook dispara) registrou `broto-clube-app:8` e passou por rollout e
+smoke test sem downtime. Depois, o **push real deste próprio commit de
+documentação** disparou o webhook sozinho — sem `start-build` manual —,
+construiu, registrou `broto-clube-app:9` e atualizou o serviço; rollout
+sem downtime, smoke test pós-deploy (`/api/saude`, `/api/saude/pronto`)
+200. O caminho ponta a ponta via GitHub está confirmado funcionando.
 
 ## Higiene de segurança desta sessão
 
