@@ -178,7 +178,21 @@ export function CartaoDeArquivo({
         // teto do perfil o corpo estouraria o limite da Server Action e a tela
         // cairia com "server-side exception" em vez de uma mensagem. Aqui o
         // usuario ve o motivo (tamanho obtido x permitido) e nada e enviado.
-        if (enviado instanceof File && enviado.size > perfil.tamanhoMaximoEmBytes) {
+        //
+        // **Só quando NÃO há `prepararArquivo`** — isto é, para documento
+        // (o anexo PDF), que é o único caso que esta recusa precisa cobrir.
+        // A imagem tem `prepararArquivo` (o encolhimento por canvas): ela
+        // encolhe para caber no teto e, quando não dá, o SERVIDOR recusa com
+        // a mensagem própria ("A imagem do card tem X e o limite é 400 KB").
+        // Preempção genérica aqui roubava esse caminho — barrava a imagem
+        // encolhível que caberia e trocava a mensagem da imagem/marca, que é
+        // o comportamento que a RN60/RN54 exigem preservar (regressão pega
+        // pelo e2e de imagem-solucao).
+        if (
+          !prepararArquivo &&
+          enviado instanceof File &&
+          enviado.size > perfil.tamanhoMaximoEmBytes
+        ) {
           definirEstado({
             erros: [
               `${perfil.sujeito} excede o limite de ${formatarTamanho(perfil.tamanhoMaximoEmBytes)} — ` +
