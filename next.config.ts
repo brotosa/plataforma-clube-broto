@@ -20,6 +20,18 @@ const nextConfig: NextConfig = {
   // Permite abrir o servidor de desenvolvimento pela URL encaminhada do
   // GitHub Codespaces (só vale em `next dev`; não afeta produção).
   allowedDevOrigins: ["*.app.github.dev"],
+  experimental: {
+    /**
+     * Teto do corpo de uma Server Action. O padrão do Next é 1 MB, e todo
+     * upload de arquivo da plataforma passa por Server Action (marca, imagem
+     * do card, minuta, evidência e o anexo do contrato). O anexo aceita até
+     * 5 MB (PERFIL_ANEXO_CONTRATO) — sem elevar isto, um PDF real acima de
+     * 1 MB estoura antes de chegar ao servidor e a tela cai com "server-side
+     * exception". 6 MB dá folga sobre o maior teto de domínio; a régua real
+     * por tipo continua nos validadores de `dominio/arquivos`.
+     */
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   env: {
     NEXT_PUBLIC_VERSAO_APP: version,
     /**

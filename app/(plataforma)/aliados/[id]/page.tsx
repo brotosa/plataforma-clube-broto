@@ -10,11 +10,12 @@ import { avaliarPromocao } from "@/infra/casos-de-uso/empresas";
 import { lerValor } from "@/infra/configuracao/servico-configuracao";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
 import { AvisoEdicaoDesktop } from "../../aviso-desktop";
-import { AcoesDeEstagio, AcoesContrato, FormularioContato, FormularioContrato } from "./paineis";
+import { AcoesDeEstagio, AcoesContrato, FormularioContrato } from "./paineis";
+import { AbreEdicao } from "./abre-edicao";
+import { GestaoContatos } from "./gestao-contatos";
 import { CartaoDeAnexoContrato } from "./cartao-anexo-contrato";
 import { AbaDossie, AbaScouting } from "./abas-scout";
 import { FormularioM1 } from "./formulario-m1";
-import { acaoRemoverContato } from "../acoes";
 
 export const metadata: Metadata = {
   title: "Ficha do aliado",
@@ -44,11 +45,6 @@ function paraInputData(data: Date | null): string {
   return data ? data.toISOString().slice(0, 10) : "";
 }
 
-const ROTULO_PAPEL_CONTATO: Record<string, string> = {
-  COMERCIAL: "Comercial",
-  TECNICO: "Técnico",
-  FINANCEIRO: "Financeiro",
-};
 
 const ROTULO_AMBIENTES: Record<string, string> = {
   DENTRO_PLATAFORMA: "Dentro da Plataforma",
@@ -516,13 +512,32 @@ export default async function PaginaFichaAliado({
                   </span>
                   <span className="cap">Anexo (PDF)</span>
                   {contratoVigente.anexo ? (
-                    <span>
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                       <a href={`/api/aliados/${empresa.id}/contrato/anexo`}>
                         {contratoVigente.anexo.nomeArquivo}
                       </a>
                     </span>
                   ) : contratoVigente.anexoS3Key ? (
-                    <span className="mono">{contratoVigente.anexoS3Key}</span>
+                    /^https?:\/\//i.test(contratoVigente.anexoS3Key) ? (
+                      // Chave legada que é uma URL: clicável (abre o arquivo) e
+                      // com quebra, para a URL longa não estourar o card.
+                      <a
+                        href={contratoVigente.anexoS3Key}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mono"
+                        style={{ minWidth: 0, wordBreak: "break-all", overflowWrap: "anywhere" }}
+                      >
+                        {contratoVigente.anexoS3Key}
+                      </a>
+                    ) : (
+                      <span
+                        className="mono"
+                        style={{ minWidth: 0, wordBreak: "break-all", overflowWrap: "anywhere" }}
+                      >
+                        {contratoVigente.anexoS3Key}
+                      </span>
+                    )
                   ) : (
                     <span><PendenteObrigatorio /></span>
                   )}
@@ -546,11 +561,8 @@ export default async function PaginaFichaAliado({
                 </div>
                 {podeEditar ? (
                   <div style={{ borderTop: "1px solid var(--borda)", marginTop: 16, paddingTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-                    <details>
-                      <summary className="btn btn-ghost btn-sm" style={{ display: "inline-block", cursor: "pointer" }}>
-                        Editar contrato
-                      </summary>
-                      <p className="cap" style={{ margin: "12px 0 10px" }}>
+                    <AbreEdicao rotulo="Editar contrato">
+                      <p className="cap" style={{ margin: "0 0 4px" }}>
                         Corrige o contrato vigente sem denunciá-lo — inclusive para preencher o
                         anexo obrigatório. A alteração fica registrada na auditoria.
                       </p>
@@ -570,7 +582,7 @@ export default async function PaginaFichaAliado({
                           hashVerificacao: contratoVigente.hashVerificacao ?? "",
                         }}
                       />
-                    </details>
+                    </AbreEdicao>
                     <AcoesContrato empresaId={empresa.id} contratoId={contratoVigente.id} />
                   </div>
                 ) : null}
@@ -709,84 +721,18 @@ export default async function PaginaFichaAliado({
             <h2 className="h-el" style={{ marginBottom: 14 }}>
               Contatos com papel tipado
             </h2>
-            {empresa.contatos.length === 0 ? (
-              <p className="cap" style={{ margin: "0 0 14px" }}>
-                Nenhum contato — mínimo de 1 para promover; o financeiro recebe o ciclo de
-                conciliação de comissão.
-              </p>
-            ) : (
-              <table className="tbl" style={{ marginBottom: 16 }}>
-                <thead>
-                  <tr>
-                    <th>Papel</th>
-                    <th>Nome</th>
-                    <th>Cargo</th>
-                    <th>E-mail</th>
-                    <th>Telefone</th>
-                    {podeEditar ? <th style={{ width: 90 }}><span className="sr-oculto">Ações</span></th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {empresa.contatos.map((contato) => (
-                    <tr key={contato.id}>
-                      <td>
-                        <span className="pill pill-info">
-                          <i aria-hidden="true" />
-                          {ROTULO_PAPEL_CONTATO[contato.papel]}
-                        </span>
-                      </td>
-                      <td style={{ fontWeight: 600 }}>{contato.nome}</td>
-                      <td className="cap">{contato.cargo ?? "—"}</td>
-                      <td className="cap">{contato.email}</td>
-                      <td className="cap num">{contato.telefone ?? "—"}</td>
-                      {podeEditar ? (
-                        <td>
-                          <form action={acaoRemoverContato}>
-                            <input type="hidden" name="empresaId" value={empresa.id} />
-                            <input type="hidden" name="contatoId" value={contato.id} />
-                            <button type="submit" className="btn btn-ghost btn-sm">
-                              Remover
-                            </button>
-                          </form>
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            {podeEditar && empresa.contatos.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                {empresa.contatos.map((contato) => (
-                  <details key={contato.id}>
-                    <summary className="btn btn-ghost btn-sm" style={{ display: "inline-block", cursor: "pointer" }}>
-                      Editar {contato.nome}
-                    </summary>
-                    <div style={{ marginTop: 12 }}>
-                      <FormularioContato
-                        empresaId={empresa.id}
-                        contato={{
-                          id: contato.id,
-                          papel: contato.papel,
-                          nome: contato.nome,
-                          cargo: contato.cargo ?? "",
-                          email: contato.email,
-                          telefone: contato.telefone ?? "",
-                        }}
-                      />
-                    </div>
-                  </details>
-                ))}
-              </div>
-            ) : null}
-            {podeEditar ? (
-              <>
-                <h3 className="h-el" style={{ fontSize: 15, marginBottom: 10 }}>
-                  Adicionar contato
-                </h3>
-                <FormularioContato empresaId={empresa.id} />
-              </>
-            ) : null}
+            <GestaoContatos
+              empresaId={empresa.id}
+              podeEditar={podeEditar}
+              contatos={empresa.contatos.map((contato) => ({
+                id: contato.id,
+                papel: contato.papel,
+                nome: contato.nome,
+                cargo: contato.cargo,
+                email: contato.email,
+                telefone: contato.telefone,
+              }))}
+            />
           </div>
         </div>
       ) : null}

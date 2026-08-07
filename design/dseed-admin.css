@@ -199,7 +199,10 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 
 /* transição de tela */
 @keyframes tela-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.tela{animation:tela-in var(--dur-1) var(--ease)}
+/* margin-inline:auto — as telas usam .tela com um maxWidth inline; sem isto o
+   bloco fica colado à esquerda e sobra um vão branco à direita em monitor
+   largo. Centralizar equilibra a margem e some com o aspecto "empurrado". */
+.tela{animation:tela-in var(--dur-1) var(--ease);margin-inline:auto}
 @media (prefers-reduced-motion:reduce){.tela{animation:none}}
 
 /* ---- Extensão: toast ---- */
