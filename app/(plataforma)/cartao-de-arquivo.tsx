@@ -174,6 +174,20 @@ export function CartaoDeArquivo({
         resultado = await acaoRemover({}, dados);
       } else {
         const enviado = dados.get(campo);
+        // Recusa de tamanho no cliente, ANTES de chegar ao servidor: acima do
+        // teto do perfil o corpo estouraria o limite da Server Action e a tela
+        // cairia com "server-side exception" em vez de uma mensagem. Aqui o
+        // usuario ve o motivo (tamanho obtido x permitido) e nada e enviado.
+        if (enviado instanceof File && enviado.size > perfil.tamanhoMaximoEmBytes) {
+          definirEstado({
+            erros: [
+              `${perfil.sujeito} excede o limite de ${formatarTamanho(perfil.tamanhoMaximoEmBytes)} — ` +
+                `o arquivo tem ${formatarTamanho(enviado.size)}.` +
+                (perfil.dicaDeReducao ? ` ${perfil.dicaDeReducao}` : ""),
+            ],
+          });
+          return;
+        }
         if (prepararArquivo && enviado instanceof File && enviado.size > 0) {
           dados.set(campo, await prepararArquivo(enviado));
         }
