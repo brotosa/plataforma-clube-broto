@@ -1,0 +1,74 @@
+version: 0.2
+
+# Buildspec do projeto CodeBuild `broto-clube-build` (deploy automático do app
+# em cada push na main). Passou de inline no projeto para arquivo versionado no
+# repositório: mudança de pipeline agora é commit revisável.
+#
+# O que faz, em ordem: constrói e publica a imagem do app; constrói e publica a
+# imagem ops (que carrega o Prisma CLI + as migrations); aplica as migrations
+# rodando a imagem ops como task Fargate DENTRO da VPC (o RDS é privado e não é
+# alcançável do CodeBuild, que roda fora da VPC e em outra região); e só então
+# registra a nova task definition do app e dispara o rollout. Se a migration
+# falhar, o build aborta ANTES de trocar o app — o que está no ar continua
+# coerente com o schema atual.
+
+env:
+  variables:
+    ECR_URI: "373945090777.dkr.ecr.sa-east-1.amazonaws.com/broto-clube-app"
+    ECS_CLUSTER: "broto-clube-cluster"
+    ECS_SERVICE: "broto-clube-app-service"
+    ECS_FAMILY: "broto-clube-app"
+    ECS_REGION: "sa-east-1"
+    # Task de operação (migrations/seed) e a rede em que ela roda — mesma do
+    # serviço do app (subnets públicas + SG do ECS, que alcança o RDS).
+    OPS_FAMILY: "broto-clube-ops"
+    OPS_SUBNETS: "subnet-080e77d4c755742f6,subnet-0a514b3830c212c99"
+    OPS_SG: "sg-004f9a0bd01d5a672"
+
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region $ECS_REGION | docker login --username AWS --password-stdin $ECR_URI
+      - VERSAO=$(grep -m1 '"version"' package.json | cut -d'"' -f4)
+      - SHA_CURTO=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-7)
+      - echo "Publicando versao $VERSAO (commit $SHA_CURTO)"
+  build:
+    commands:
+      - docker build -t "$ECR_URI:$VERSAO" -t "$ECR_URI:$SHA_CURTO" -t "$ECR_URI:latest" .
+      # Imagem ops do mesmo commit: carrega as migrations desta versao.
+      - docker build -f terraform/aws/docker/Dockerfile.ops -t "$ECR_URI:ops" .
+  post_build:
+    commands:
+      - docker push "$ECR_URI:$VERSAO"
+      - docker push "$ECR_URI:$SHA_CURTO"
+      - docker push "$ECR_URI:latest"
+      - docker push "$ECR_URI:ops"
+      # --- Migrations, antes do deploy do app ---
+      - |
+        echo "Aplicando migrations via task ops (Fargate, dentro da VPC, alcanca o RDS)"
+        TASK_ARN=$(aws ecs run-task \
+          --cluster "$ECS_CLUSTER" \
+          --task-definition "$OPS_FAMILY" \
+          --launch-type FARGATE \
+          --network-configuration "awsvpcConfiguration={subnets=[$OPS_SUBNETS],securityGroups=[$OPS_SG],assignPublicIp=ENABLED}" \
+          --overrides '{"containerOverrides":[{"name":"ops","command":["pnpm","db:migrate"]}]}' \
+          --region "$ECS_REGION" \
+          --query "tasks[0].taskArn" --output text)
+        if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+          echo "ERRO: a task de migration nao iniciou"; exit 1;
+        fi
+        echo "Task de migration: $TASK_ARN"
+        aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" --region "$ECS_REGION"
+        EXIT=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" --region "$ECS_REGION" --query "tasks[0].containers[0].exitCode" --output text)
+        echo "Migration exit code: $EXIT"
+        if [ "$EXIT" != "0" ]; then
+          echo "ERRO: migration falhou (exit $EXIT). Abortando o deploy do app."; exit 1;
+        fi
+        echo "Migrations aplicadas com sucesso"
+      # --- Deploy do app (como antes) ---
+      - aws ecs describe-task-definition --task-definition "$ECS_FAMILY" --region "$ECS_REGION" --query "taskDefinition" > taskdef-atual.json
+      - jq --arg IMG "$ECR_URI:$VERSAO" '.containerDefinitions[0].image = $IMG | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy,.deregisteredAt)' taskdef-atual.json > taskdef-nova.json
+      - NOVA_REVISAO=$(aws ecs register-task-definition --region "$ECS_REGION" --cli-input-json file://taskdef-nova.json --query "taskDefinition.taskDefinitionArn" --output text)
+      - echo "Nova revisao registrada $NOVA_REVISAO"
+      - aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --task-definition "$NOVA_REVISAO" --region "$ECS_REGION" --query "service.taskDefinition" --output text
+      - echo "Deploy disparado para $NOVA_REVISAO"
