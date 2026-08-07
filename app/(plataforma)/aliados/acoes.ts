@@ -14,10 +14,13 @@ import {
   suspenderEmpresa,
 } from "@/infra/casos-de-uso/empresas";
 import {
+  atualizarContato,
   atualizarContrato,
   criarContato,
   criarContrato,
+  enviarAnexoContrato,
   mudarStatusContrato,
+  removerAnexoContrato,
   removerContato,
 } from "@/infra/casos-de-uso/contatos-contratos";
 import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
@@ -231,6 +234,28 @@ export async function acaoCriarContato(
   }
 }
 
+export async function acaoAtualizarContato(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const ator = await atorDaSessao();
+  const empresaId = String(dados.get("empresaId") ?? "");
+  const contatoId = String(dados.get("contatoId") ?? "");
+  try {
+    await atualizarContato(ator, contatoId, {
+      papel: String(dados.get("papel")) as PapelContato,
+      nome: texto(dados, "nome") ?? "",
+      cargo: texto(dados, "cargo"),
+      email: texto(dados, "email") ?? "",
+      telefone: texto(dados, "telefone"),
+    });
+    revalidatePath(`/aliados/${empresaId}`);
+    return { sucesso: "Contato atualizado." };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
 export async function acaoRemoverContato(dados: FormData): Promise<void> {
   const ator = await atorDaSessao();
   const empresaId = String(dados.get("empresaId") ?? "");
@@ -328,6 +353,49 @@ export async function acaoMudarStatusContrato(
           ? `Contrato atualizado. ${ofertasPausadas} oferta(s) pausada(s) em cascata (RN04).`
           : "Contrato atualizado.",
     };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Anexo (PDF) do contrato comercial — Nível 2 do "editar contrato".
+// O upload real, guardado no banco (mesma infra da minuta). Convive com o
+// campo de chave S3 do formulário: a régua de completude aceita os dois.
+// ---------------------------------------------------------------------
+
+export async function acaoEnviarAnexoContrato(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const ator = await atorDaSessao();
+  const empresaId = String(dados.get("empresaId") ?? "");
+  const contratoId = String(dados.get("contratoId") ?? "");
+  const arquivo = dados.get("anexoContrato");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erros: ["Selecione o anexo (PDF) do contrato e envie novamente."] };
+  }
+  try {
+    const conteudo = new Uint8Array(await arquivo.arrayBuffer());
+    const { hash } = await enviarAnexoContrato(ator, contratoId, { nome: arquivo.name, conteudo });
+    revalidatePath(`/aliados/${empresaId}`);
+    return { sucesso: "Anexo do contrato enviado.", versao: hash };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
+export async function acaoRemoverAnexoContrato(
+  _anterior: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const ator = await atorDaSessao();
+  const empresaId = String(dados.get("empresaId") ?? "");
+  const contratoId = String(dados.get("contratoId") ?? "");
+  try {
+    await removerAnexoContrato(ator, contratoId);
+    revalidatePath(`/aliados/${empresaId}`);
+    return { sucesso: "Anexo removido. O contrato volta a exibir a pendência.", versao: null };
   } catch (erro) {
     return paraEstado(erro);
   }
