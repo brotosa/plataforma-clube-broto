@@ -25,12 +25,13 @@ import {
 
 const CHAVE_ABERTO = "painel-atividades-aberto";
 
-// A coluna só entra em linha (rail) quando há espaço para o conteúdo manter a
-// largura de sempre (~1240) SEM apertá-lo — senão tabelas largas passam a
-// rolar (defeito de acessibilidade scrollable-region-focusable) e formulários
-// ficam espremidos. Abaixo disso a coluna é flutuante/gaveta e não encolhe o
-// conteúdo. 1240 (conteúdo) + 350 (rail+gap) + 64 (padding) ≈ 1600.
-const LARGURA_RAIL = 1600;
+// A coluna entra em linha (rail) já a partir do laptop (≥1280px): é o
+// espírito ClickUp, atividade ao lado do conteúdo. Abaixo disso a faixa é
+// flutuante e abrir mostra a gaveta sobreposta (não encolhe o conteúdo). Para
+// o rail apertar o conteúdo sem quebrar acessibilidade, as tabelas de texto da
+// ficha (declarados, auditoria, M1) são regiões roláveis focáveis por teclado
+// — senão o axe reprova scrollable-region-focusable quando elas rolam.
+const LARGURA_RAIL = 1280;
 const MQ_ESTREITO = `(max-width: ${LARGURA_RAIL - 1}px)`;
 
 function formatarQuando(valor: Date | string): string {

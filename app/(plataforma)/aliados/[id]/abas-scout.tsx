@@ -114,7 +114,9 @@ export async function AbaScouting({
             Nenhuma declaração registrada. O preenchimento é feito na aba Ficha M1.
           </p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          // Região rolável focável por teclado: sem conteúdo interativo dentro,
+          // o axe exige que a própria caixa role receba foco (AAA).
+          <div style={{ overflowX: "auto" }} tabIndex={0} role="group" aria-label="Indicadores declarados (tabela rolável)">
             <table className="tbl tbl-resp">
               <thead>
                 <tr>
