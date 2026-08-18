@@ -38,7 +38,12 @@ export default async function PaginaAliados({
       ? (parametros.estagio as EstagioEmpresa)
       : undefined;
   const semOfertaAtiva = parametros.semOferta === "1";
-  const temFiltros = Boolean(busca || categoriaId || estagio || semOfertaAtiva);
+  // Deep-links dos cartões de pendência do Dashboard (Onda 6/7).
+  const completude = parametros.completude === "incompletos" ? "incompletos" : undefined;
+  const contrato = parametros.contrato === "janela" ? "janela" : undefined;
+  const temFiltros = Boolean(
+    busca || categoriaId || estagio || semOfertaAtiva || completude || contrato,
+  );
 
   const [contadores, resultado, categorias, totalGeral] = await Promise.all([
     contadoresAliados(),
@@ -50,6 +55,8 @@ export default async function PaginaAliados({
       categoriaId: categoriaId || undefined,
       estagio,
       semOfertaAtiva,
+      completude,
+      contrato,
       pagina: 1,
       tamanho: TAMANHO_BLOCO_ROLAGEM,
     }),
@@ -234,6 +241,34 @@ export default async function PaginaAliados({
         </span>
       </form>
 
+      {completude || contrato ? (
+        <div
+          className="aviso-inline"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
+          <span>
+            Mostrando{" "}
+            <b>
+              {completude
+                ? "cadastros incompletos (bloqueiam publicação)"
+                : "contratos na janela de não-renovação"}
+            </b>{" "}
+            — filtro vindo do painel de pendências.
+          </span>
+          {/* Navegação que só limpa a query usa âncora nativa (convenção do
+              CLAUDE.md): o Router Cache descartava o payload e a URL não mudava. */}
+          <a href="/aliados" className="chip on" style={{ textDecoration: "none" }}>
+            Limpar filtro
+          </a>
+        </div>
+      ) : null}
+
       {resultado.total === 0 && !temFiltros ? (
         <div className="card">
           <div className="vazio">
@@ -289,6 +324,8 @@ export default async function PaginaAliados({
               categoriaId: categoriaId || undefined,
               estagio,
               semOfertaAtiva,
+              completude,
+              contrato,
             }}
             tamanhoDoBloco={resultado.tamanhoPagina}
           />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
@@ -37,18 +38,39 @@ function formatarData(data: Date | null): string {
  * 90 d) e a distinção fora-da-Plataforma (resgate aguardando conciliação) ×
  * compra confirmada. Ações de publicação e importação no topo (por papel).
  */
-export default async function PaginaOfertas() {
+export default async function PaginaOfertas({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const sessao = await auth();
   const papel = sessao?.user?.papel ?? "LEITURA";
   const podeGerarExport = podeExecutar(papel, "GERAR_EXPORTACAO");
   const podeImportar = podeExecutar(papel, "IMPORTAR_TELEMETRIA");
 
-  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas, vitrine, janelaVigencia] =
+  const parametros = await searchParams;
+  const hoje = new Date();
+  // Régua "vigência a vencer" (15 dias na implantação): alterá-la na T17
+  // muda o alerta na próxima visita, sem tocar em nada gravado. Lida antes
+  // da lista porque o filtro do cartão de pendência do Dashboard usa a mesma
+  // janela — a lista recortada bate com a contagem que levou o usuário aqui.
+  const janelaVigencia = await lerRegua("OFERTA_VIGENCIA_A_VENCER_DIAS");
+  const filtrarAVencer = parametros.vigencia === "a-vencer";
+  const limiteVigencia = new Date(hoje.getTime() + janelaVigencia * 24 * 60 * 60 * 1000);
+  const ondeOfertas: Prisma.OfertaWhereInput = filtrarAVencer
+    ? {
+        status: { in: ["RASCUNHO", "PUBLICADA", "PAUSADA"] },
+        vigenciaFim: { not: null, gte: hoje, lte: limiteVigencia },
+      }
+    : {};
+
+  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas, vitrine] =
     await Promise.all([
       prisma.oferta.count(),
       prisma.oferta.count({ where: { status: "PUBLICADA" } }),
       prisma.oferta.count({ where: { pendenteRepublicacao: true } }),
       prisma.oferta.findMany({
+        where: ondeOfertas,
         orderBy: { atualizadoEm: "desc" },
         take: 50,
         include: {
@@ -58,11 +80,7 @@ export default async function PaginaOfertas() {
         },
       }),
       kpiVitrineViva(),
-      // Régua "vigência a vencer" (15 dias na implantação): alterá-la na
-      // T17 muda o alerta na próxima visita, sem tocar em nada gravado.
-      lerRegua("OFERTA_VIGENCIA_A_VENCER_DIAS"),
     ]);
-  const hoje = new Date();
 
   const [telemetria, contadoresDeCatalogo] = await Promise.all([
     resumoTelemetriaPorOferta(ofertas.map((oferta) => oferta.id)),
@@ -146,6 +164,22 @@ export default async function PaginaOfertas() {
         </div>
       </div>
 
+      {filtrarAVencer ? (
+        <div
+          className="aviso-inline"
+          style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}
+        >
+          <span>
+            Mostrando <b>ofertas com vigência a vencer</b> (nos próximos {janelaVigencia} dias) —
+            filtro vindo do painel de pendências.
+          </span>
+          {/* Âncora nativa: navegação que só limpa a query (convenção do CLAUDE.md). */}
+          <a href="/ofertas" className="chip on" style={{ textDecoration: "none" }}>
+            Limpar filtro
+          </a>
+        </div>
+      ) : null}
+
       {ofertas.length === 0 ? (
         <div className="card">
           <div className="vazio">
@@ -154,7 +188,9 @@ export default async function PaginaOfertas() {
                 <path d="M12 2H2v10l9.3 9.3a1.5 1.5 0 0 0 2.1 0l7.9-7.9a1.5 1.5 0 0 0 0-2.1zM7 7h.01" />
               </svg>
             </span>
-            <h2 className="h-el">Nenhuma oferta cadastrada</h2>
+            <h2 className="h-el">
+              {filtrarAVencer ? "Nenhuma oferta a vencer na janela" : "Nenhuma oferta cadastrada"}
+            </h2>
             <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
               Ofertas nascem dentro de uma solução, na ficha do aliado. A carga inicial
               também povoa esta lista.

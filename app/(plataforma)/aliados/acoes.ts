@@ -465,6 +465,8 @@ export interface FiltrosDaRolagem {
   categoriaId?: string;
   estagio?: EstagioEmpresa;
   semOfertaAtiva?: boolean;
+  completude?: "incompletos";
+  contrato?: "janela";
 }
 
 /**
@@ -484,6 +486,8 @@ export async function acaoCarregarMaisAliados(
     categoriaId: filtros.categoriaId || undefined,
     estagio: filtros.estagio,
     semOfertaAtiva: filtros.semOfertaAtiva,
+    completude: filtros.completude,
+    contrato: filtros.contrato,
     pagina: Math.max(1, pagina),
     tamanho: TAMANHO_BLOCO_ROLAGEM,
   });

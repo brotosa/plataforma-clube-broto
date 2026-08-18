@@ -113,6 +113,23 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await expect(page.getByRole("button", { name: "Encerrar contrato" })).toBeVisible();
   });
 
+  test("cartão de pendência: /aliados?completude=incompletos recorta a lista e limpa", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-incompleto`;
+    await semearAliadoEmNegociacao(nome); // cru (sem contato/contrato/categoria) → incompleto
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/aliados?completude=incompletos");
+
+    // O banner explica o recorte e o aliado incompleto aparece nele.
+    await expect(page.getByText(/cadastros incompletos/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: new RegExp(nome) })).toBeVisible();
+
+    // "Limpar filtro" devolve à lista sem o parâmetro.
+    await page.getByRole("link", { name: "Limpar filtro" }).click();
+    await expect(page).toHaveURL(/\/aliados$/);
+    await expect(page.getByText(/cadastros incompletos/i)).toHaveCount(0);
+  });
+
   test("promoção com usuário distinto vira Aliada ativa (RN06)", async ({ page }) => {
     const nome = `Aliado E2E ${runId()}-t3`;
     await semearAliadoEmNegociacaoM2Completo(nome); // promovível (M2 completo)
