@@ -465,6 +465,29 @@ export async function semearAliadoAtivoComContrato(nome: string) {
 }
 
 /**
+ * Cria uma importação de prospects (CARGA_PROSPECTS) com linhas em quarentena
+ * já gravadas em `relatorioQuarentena` — serve ao histórico de prospects da
+ * T9 (Item 1). Auto-limpa cargas de execuções anteriores da própria suíte.
+ */
+export async function semearImportacaoProspectsComQuarentena(nomeArquivo: string) {
+  const autor = await prisma.usuario.findFirstOrThrow({ where: { papel: "ANALISTA_SCOUT" } });
+  await prisma.importacao.deleteMany({ where: { nomeArquivo: { startsWith: "[E2E-PROSPECT" } } });
+  return prisma.importacao.create({
+    data: {
+      tipo: "CARGA_PROSPECTS",
+      nomeArquivo,
+      autorId: autor.id,
+      linhasOk: 18,
+      linhasErro: 2,
+      relatorioQuarentena: [
+        { linha: 4, motivo: "Sem categoria-alvo reconhecida (RN13)" },
+        { linha: 11, motivo: "CNPJ ausente" },
+      ],
+    },
+  });
+}
+
+/**
  * Cria N avaliações de scout FECHADAS (imutáveis, RN18) para a empresa, da
  * versão 1 à N, cada uma com subtotais congelados e total crescente. Serve
  * à aba Scouting (Modelo C): histórico com mais de uma versão para a gaveta.

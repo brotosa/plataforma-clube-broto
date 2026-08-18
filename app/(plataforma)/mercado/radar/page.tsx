@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/infra/prisma/cliente";
 import { ROTULOS_ORIGEM } from "@/dominio/funil/regras";
 import { FormularioRadar } from "./formulario-radar";
+import { HistoricoDeProspects } from "./historico-prospects";
 import { ImportacaoDeLista } from "./importacao";
 
 export const metadata: Metadata = {
@@ -57,6 +58,8 @@ export default async function PaginaRadar({
         />
         <ImportacaoDeLista focoInicial={focoNaImportacao} />
       </div>
+
+      <HistoricoDeProspects />
     </div>
   );
 }

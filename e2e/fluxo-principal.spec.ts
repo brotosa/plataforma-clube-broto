@@ -7,6 +7,7 @@ import {
   semViolacoesAxe,
   semearAliadoAtivoComContrato,
   semearAliadoEmNegociacao,
+  semearImportacaoProspectsComQuarentena,
   semearAliadoEmNegociacaoM2Completo,
   semearOfertaPublicada,
   semearSolucaoCompleta,
@@ -128,6 +129,23 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.getByRole("link", { name: "Limpar filtro" }).click();
     await expect(page).toHaveURL(/\/aliados$/);
     await expect(page.getByText(/cadastros incompletos/i)).toHaveCount(0);
+  });
+
+  test("radar: histórico de prospects deixa ver quais linhas foram para quarentena", async ({ page }) => {
+    const arquivo = `[E2E-PROSPECT ${runId()}] aliados-mapeados.csv`;
+    await semearImportacaoProspectsComQuarentena(arquivo);
+
+    await entrar(page, "scout@dev.clubebroto.local");
+    await page.goto("/mercado/radar");
+
+    const linha = page.locator("#historico-prospects tr", { hasText: arquivo });
+    await expect(linha).toBeVisible();
+    await expect(linha.getByText(/em quarentena/)).toBeVisible();
+
+    // Expandir mostra "linha: motivo" de cada recusada — o que faltava ver.
+    await linha.locator("summary").click();
+    await expect(linha.getByText(/Sem categoria-alvo reconhecida/)).toBeVisible();
+    await expect(linha.getByText(/CNPJ ausente/)).toBeVisible();
   });
 
   test("promoção com usuário distinto vira Aliada ativa (RN06)", async ({ page }) => {
