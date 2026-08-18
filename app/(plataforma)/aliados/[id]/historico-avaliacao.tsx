@@ -124,7 +124,7 @@ export function AcoesEHistoricoAvaliacao({
               top: 0,
               right: 0,
               height: "100%",
-              width: "min(460px, 94vw)",
+              width: "min(600px, 94vw)",
               background: "var(--branco)",
               borderLeft: "1px solid var(--borda)",
               boxShadow: "var(--shadow-lg)",
@@ -178,12 +178,13 @@ export function AcoesEHistoricoAvaliacao({
                       padding: "11px 14px",
                       display: "flex",
                       alignItems: "center",
-                      gap: 10,
+                      gap: 8,
+                      flexWrap: "nowrap",
                       fontSize: 13.5,
                       listStyle: "none",
                     }}
                   >
-                    <b>Versão {versao.versao}</b>
+                    <b style={{ whiteSpace: "nowrap" }}>Versão {versao.versao}</b>
                     {indice === 0 ? <span className="pill pill-info">atual</span> : null}
                     <span className="num" style={{ fontWeight: 700 }}>
                       {versao.total ?? "—"}
@@ -194,7 +195,20 @@ export function AcoesEHistoricoAvaliacao({
                         {ROTULOS_RECOMENDACAO[versao.recomendacao]}
                       </span>
                     ) : null}
-                    <span className="cap" style={{ fontSize: 12 }}>
+                    {/* Meta na mesma linha; se faltar espaço, trunca com … em
+                        vez de quebrar a linha e empurrar os selos para baixo. */}
+                    <span
+                      className="cap"
+                      style={{
+                        fontSize: 12,
+                        minWidth: 0,
+                        flex: "1 1 auto",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={`/100 · ${formatarData(versao.fechadaEm)} · ${versao.avaliadorNome}`}
+                    >
                       /100 · {formatarData(versao.fechadaEm)} · {versao.avaliadorNome}
                     </span>
                   </summary>

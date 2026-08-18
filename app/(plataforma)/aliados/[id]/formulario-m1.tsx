@@ -423,7 +423,12 @@ export function FormularioM1({
         </p>
 
         {ofertasPretendidas.length > 0 ? (
-          <div style={{ overflowX: "auto", marginBottom: 14 }}>
+          <div
+            style={{ overflowX: "auto", marginBottom: 14 }}
+            tabIndex={0}
+            role="group"
+            aria-label="Ofertas pretendidas (tabela rolável)"
+          >
             <table className="tbl tbl-resp">
               <thead>
                 <tr>

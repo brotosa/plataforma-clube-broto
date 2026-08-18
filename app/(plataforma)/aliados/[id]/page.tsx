@@ -248,7 +248,12 @@ export default async function PaginaFichaAliado({
         aria-label="Seções da ficha do aliado"
       >
         {ABAS.map((candidata) => (
-          <Link
+          // Troca só a query (?aba=) na mesma rota: âncora nativa, não <Link>
+          // (convenção do CLAUDE.md — com <Link> o Router Cache podia engolir
+          // o clique e a aba não trocava; medido como flakiness na navegação
+          // por teclado). O href é dinâmico, então o no-html-link-for-pages
+          // não dispara — sem necessidade de disable.
+          <a
             key={candidata.id}
             href={`/aliados/${empresa.id}?aba=${candidata.id}`}
             className={candidata.id === aba ? "tab-it on" : "tab-it"}
@@ -256,7 +261,7 @@ export default async function PaginaFichaAliado({
             style={{ textDecoration: "none" }}
           >
             {candidata.rotulo}
-          </Link>
+          </a>
         ))}
       </nav>
       <AvisoEdicaoDesktop />
@@ -783,7 +788,9 @@ export default async function PaginaFichaAliado({
             {trilha.length === 0 ? (
               <p className="cap" style={{ margin: 0 }}>Nenhum evento registrado.</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              // Região rolável focável por teclado (AAA): tabela sem conteúdo
+              // interativo dentro precisa que a caixa role receba foco.
+              <div style={{ overflowX: "auto" }} tabIndex={0} role="group" aria-label="Histórico de alterações (tabela rolável)">
                 <table className="tbl">
                   <thead>
                     <tr>
