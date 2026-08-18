@@ -11,7 +11,7 @@ test.describe("painel de atividades do aliado", () => {
     const empresa = await semearAliadoAtivoComContrato(nome);
 
     await entrar(page, "scout@dev.clubebroto.local");
-    await page.setViewportSize({ width: 1400, height: 1000 });
+    await page.setViewportSize({ width: 1680, height: 1000 });
     await page.goto(`/aliados/${empresa.id}`);
 
     // O painel aparece no shell, em qualquer aba.
@@ -52,7 +52,7 @@ test.describe("painel de atividades do aliado", () => {
     const empresa = await semearAliadoAtivoComContrato(nome);
 
     await entrar(page, "leitura@dev.clubebroto.local");
-    await page.setViewportSize({ width: 1400, height: 1000 });
+    await page.setViewportSize({ width: 1680, height: 1000 });
     await page.goto(`/aliados/${empresa.id}`);
 
     await expect(page.getByRole("heading", { name: "Atividades" })).toBeVisible();

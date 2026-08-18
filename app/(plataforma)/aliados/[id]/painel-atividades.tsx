@@ -25,6 +25,14 @@ import {
 
 const CHAVE_ABERTO = "painel-atividades-aberto";
 
+// A coluna só entra em linha (rail) quando há espaço para o conteúdo manter a
+// largura de sempre (~1240) SEM apertá-lo — senão tabelas largas passam a
+// rolar (defeito de acessibilidade scrollable-region-focusable) e formulários
+// ficam espremidos. Abaixo disso a coluna é flutuante/gaveta e não encolhe o
+// conteúdo. 1240 (conteúdo) + 350 (rail+gap) + 64 (padding) ≈ 1600.
+const LARGURA_RAIL = 1600;
+const MQ_ESTREITO = `(max-width: ${LARGURA_RAIL - 1}px)`;
+
 function formatarQuando(valor: Date | string): string {
   return new Date(valor).toLocaleString("pt-BR", {
     day: "2-digit",
@@ -39,7 +47,7 @@ function formatarQuando(valor: Date | string): string {
 function useEstreito(): boolean {
   const [estreito, setEstreito] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1099px)");
+    const mq = window.matchMedia(MQ_ESTREITO);
     const aplicar = () => setEstreito(mq.matches);
     aplicar();
     mq.addEventListener("change", aplicar);
@@ -72,7 +80,7 @@ export function PainelAtividades({
     const salvo = window.localStorage.getItem(CHAVE_ABERTO);
     if (salvo === "0") setAberto(false);
     else if (salvo === "1") setAberto(true);
-    else setAberto(!window.matchMedia("(max-width: 1099px)").matches);
+    else setAberto(!window.matchMedia(MQ_ESTREITO).matches);
   }, []);
 
   function definirAberto(valor: boolean) {
@@ -98,7 +106,10 @@ export function PainelAtividades({
   // Recolhido: faixa fina com o gatilho e os contadores.
   if (!aberto) {
     return (
-      <aside className="pa-strip" aria-label="Painel de atividades (recolhido)">
+      <aside
+        className={estreito ? "pa-strip pa-strip-flutuante" : "pa-strip"}
+        aria-label="Painel de atividades (recolhido)"
+      >
         <button
           ref={gatilhoRef}
           type="button"
