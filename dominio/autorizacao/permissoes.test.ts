@@ -325,6 +325,14 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "ADMINISTRADOR_PLATAFORMA",
     ],
   },
+  {
+    // Pós-homologação — comentar na ficha do aliado (painel de atividades).
+    // Os papéis que operam a ficha comentam; Leitura, Aprovador e
+    // Administrador da Plataforma leem o feed, mas não escrevem.
+    acao: "COMENTAR_FICHA_ALIADO",
+    permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
+    negados: ["APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+  },
 ];
 
 describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {
