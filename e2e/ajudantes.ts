@@ -465,6 +465,50 @@ export async function semearAliadoAtivoComContrato(nome: string) {
 }
 
 /**
+ * Cria N avaliações de scout FECHADAS (imutáveis, RN18) para a empresa, da
+ * versão 1 à N, cada uma com subtotais congelados e total crescente. Serve
+ * à aba Scouting (Modelo C): histórico com mais de uma versão para a gaveta.
+ */
+export async function semearAvaliacaoFechada(
+  empresaId: string,
+  opcoes?: { versoes?: number },
+) {
+  const avaliador = await prisma.usuario.findFirstOrThrow({
+    where: { papel: "ANALISTA_SCOUT" },
+  });
+  const total = opcoes?.versoes ?? 1;
+  const subtotais = (score: number) => [
+    { dimensao: "Capilaridade", quantidadeNotas: 1, media: score / 20, peso: 1, subtotal: score },
+    {
+      dimensao: "Fit de Negócio",
+      quantidadeNotas: 1,
+      media: Math.max(0, score - 10) / 20,
+      peso: 1,
+      subtotal: Math.max(0, score - 10),
+    },
+  ];
+  for (let versao = 1; versao <= total; versao += 1) {
+    const score = 60 + versao * 10;
+    await prisma.avaliacaoScout.create({
+      data: {
+        empresaId,
+        versao,
+        avaliadorId: avaliador.id,
+        status: "FECHADA",
+        recomendacao: "AVANCAR",
+        subtotais: subtotais(score),
+        total: score,
+        fechadaEm: new Date(`2026-0${versao}-10T00:00:00Z`),
+      },
+    });
+  }
+  await prisma.empresa.update({
+    where: { id: empresaId },
+    data: { scoreScouting: 60 + total * 10 },
+  });
+}
+
+/**
  * Solução com CARD COMPLETO (RN09): nome, descrição curta, categoria, ≥1
  * cultura (Todas), cobertura nacional e imagem do card. A empresa deve ter
  * nomeFantasia + logoUrl (garantido por semearAliadoAtivoComContrato).

@@ -109,6 +109,17 @@ export default async function configuracaoGlobal() {
       await prisma.solucaoCultura.deleteMany({ where: { solucaoId: { in: solucaoIds } } });
       await prisma.solucaoUf.deleteMany({ where: { solucaoId: { in: solucaoIds } } });
       await prisma.solucao.deleteMany({ where: { id: { in: solucaoIds } } });
+      // F9: um aliado ativo pode carregar avaliações de scout fechadas (aba
+      // Scouting/reavaliação). O pedido de promoção já saiu acima (RN20), então
+      // é seguro remover as avaliações e suas notas antes de apagar a empresa.
+      const avaliacaoIds = (
+        await prisma.avaliacaoScout.findMany({
+          where: { empresaId: empresa.id },
+          select: { id: true },
+        })
+      ).map((avaliacao) => avaliacao.id);
+      await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
+      await prisma.avaliacaoScout.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.contratoComercial.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.contatoEmpresa.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.empresaCategoria.deleteMany({ where: { empresaId: empresa.id } });

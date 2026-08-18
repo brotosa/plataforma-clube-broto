@@ -8,13 +8,52 @@ import type { telaAvaliacao } from "@/infra/consultas/avaliacoes";
  */
 
 type Fechadas = NonNullable<Awaited<ReturnType<typeof telaAvaliacao>>>["fechadas"];
+type VersaoFechada = Fechadas[number];
+
+/**
+ * Barras de subtotal por dimensão de uma versão fechada. Extraída para ser
+ * a **fonte única** do desenho do score: a T10 e a gaveta de histórico da
+ * aba Scouting (Modelo C) renderizam exatamente isto — nenhuma tela redesenha
+ * a barra por conta própria. Componente puro (sem hooks): serve tanto em
+ * Server Component quanto em Client Component.
+ */
+export function BarrasPorDimensao({ subtotais }: { subtotais: VersaoFechada["subtotais"] }) {
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 14, fontSize: 12.5 }}
+    >
+      {subtotais.map((subtotal) => (
+        <div key={subtotal.dimensao} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ width: 200, flex: "none" }}>{subtotal.dimensao}</span>
+          <span
+            className="dim-bar"
+            role="img"
+            aria-label={`${subtotal.dimensao}: ${Math.round(subtotal.subtotal)} de 100`}
+          >
+            <i style={{ width: `${Math.round(subtotal.subtotal)}%` }} />
+          </span>
+          <span className="num" style={{ width: 64, textAlign: "right" }}>
+            {Math.round(subtotal.subtotal)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function CartoesDaAvaliacaoFechada({
   ultimaFechada,
   fechadas,
+  /**
+   * F9/Modelo C — a aba Scouting oculta a lista de versões inline porque
+   * mostra o histórico numa gaveta lateral. A T10 (chamador original) não
+   * passa a prop e mantém o comportamento de sempre: cartão + lista inline.
+   */
+  ocultarHistorico = false,
 }: {
   ultimaFechada: Fechadas[number];
   fechadas: Fechadas;
+  ocultarHistorico?: boolean;
 }) {
   return (
     <>
@@ -30,25 +69,7 @@ export function CartoesDaAvaliacaoFechada({
             / 100 · ScoutCB
           </span>
         </div>
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 14, fontSize: 12.5 }}
-        >
-          {ultimaFechada.subtotais.map((subtotal) => (
-            <div key={subtotal.dimensao} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 200, flex: "none" }}>{subtotal.dimensao}</span>
-              <span
-                className="dim-bar"
-                role="img"
-                aria-label={`${subtotal.dimensao}: ${Math.round(subtotal.subtotal)} de 100`}
-              >
-                <i style={{ width: `${Math.round(subtotal.subtotal)}%` }} />
-              </span>
-              <span className="num" style={{ width: 64, textAlign: "right" }}>
-                {Math.round(subtotal.subtotal)}
-              </span>
-            </div>
-          ))}
-        </div>
+        <BarrasPorDimensao subtotais={ultimaFechada.subtotais} />
         <p className="cap" style={{ margin: "12px 0 0" }}>
           Fechada em{" "}
           {ultimaFechada.fechadaEm
@@ -57,7 +78,7 @@ export function CartoesDaAvaliacaoFechada({
           por {ultimaFechada.avaliadorNome}. Avaliação fechada é imutável (RN18).
         </p>
       </div>
-      {fechadas.length > 1 ? (
+      {!ocultarHistorico && fechadas.length > 1 ? (
         <div className="card" style={{ padding: "16px 20px" }}>
           <h2 className="h-el" style={{ marginBottom: 8 }}>
             Histórico de versões

@@ -3,6 +3,8 @@ import {
   entrar,
   runId,
   semViolacoesAxe,
+  semearAliadoAtivoComContrato,
+  semearAvaliacaoFechada,
   semearEmpresaRadar,
 } from "./ajudantes";
 
@@ -166,6 +168,39 @@ test.describe("avaliação e score — T10 (F7) — testes isolados", () => {
     await expect(
       lanePriorizada.locator(".kb-card", { hasText: nome }).getByText("score 60"),
     ).toBeVisible();
+  });
+
+  test("aba Scouting (Modelo C): reavaliar aliado ativo e gaveta de histórico com a versão atual", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-scoutaba`;
+    const empresa = await semearAliadoAtivoComContrato(nome);
+    // Duas versões fechadas: a gaveta lista as duas, com a atual incluída.
+    await semearAvaliacaoFechada(empresa.id, { versoes: 2 });
+
+    // Scout (avaliador) em aliado ATIVO: vê "Reavaliar" (RN21) e o histórico.
+    await entrar(page, "scout@dev.clubebroto.local");
+    await page.goto(`/aliados/${empresa.id}?aba=scouting`);
+    await expect(
+      page.getByRole("heading", { name: /Última avaliação fechada · versão 2/ }),
+    ).toBeVisible();
+    const reavaliar = page.getByRole("link", { name: "Reavaliar (nova versão)" });
+    await expect(reavaliar).toBeVisible();
+    await expect(reavaliar).toHaveAttribute("href", `/mercado/${empresa.id}/avaliacao`);
+
+    // Gaveta: todas as versões, a atual marcada e expandida (comparação).
+    await page.getByRole("button", { name: /Ver histórico/ }).click();
+    const gaveta = page.getByRole("dialog", { name: /Histórico de avaliações/ });
+    await expect(gaveta).toBeVisible();
+    await expect(gaveta.getByText("atual")).toBeVisible();
+    await expect(gaveta.getByText("Versão 1")).toBeVisible();
+    await expect(gaveta.getByText("Versão 2")).toBeVisible();
+    await gaveta.getByRole("button", { name: "Fechar histórico" }).click();
+    await expect(gaveta).toBeHidden();
+
+    // Leitura NÃO pode reavaliar (RBAC), mas consulta o histórico normalmente.
+    await entrar(page, "leitura@dev.clubebroto.local");
+    await page.goto(`/aliados/${empresa.id}?aba=scouting`);
+    await expect(page.getByRole("button", { name: /Ver histórico/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Reavaliar (nova versão)" })).toHaveCount(0);
   });
 
   test("axe-core limpo na T10: formulário, modal de conclusão e estado vazio", async ({ page }) => {
