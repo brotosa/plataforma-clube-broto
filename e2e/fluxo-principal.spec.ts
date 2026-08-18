@@ -7,6 +7,7 @@ import {
   semViolacoesAxe,
   semearAliadoAtivoComContrato,
   semearAliadoEmNegociacao,
+  semearImportacaoProspectsComQuarentena,
   semearAliadoEmNegociacaoM2Completo,
   semearOfertaPublicada,
   semearSolucaoCompleta,
@@ -111,6 +112,40 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     // A revalidação troca o formulário pela visão do contrato vigente
     await expect(page.getByRole("heading", { name: "Contrato vigente" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Encerrar contrato" })).toBeVisible();
+  });
+
+  test("cartão de pendência: /aliados?completude=incompletos recorta a lista e limpa", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-incompleto`;
+    await semearAliadoEmNegociacao(nome); // cru (sem contato/contrato/categoria) → incompleto
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/aliados?completude=incompletos");
+
+    // O banner explica o recorte e o aliado incompleto aparece nele.
+    await expect(page.getByText(/cadastros incompletos/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: new RegExp(nome) })).toBeVisible();
+
+    // "Limpar filtro" devolve à lista sem o parâmetro.
+    await page.getByRole("link", { name: "Limpar filtro" }).click();
+    await expect(page).toHaveURL(/\/aliados$/);
+    await expect(page.getByText(/cadastros incompletos/i)).toHaveCount(0);
+  });
+
+  test("radar: histórico de prospects deixa ver quais linhas foram para quarentena", async ({ page }) => {
+    const arquivo = `[E2E-PROSPECT ${runId()}] aliados-mapeados.csv`;
+    await semearImportacaoProspectsComQuarentena(arquivo);
+
+    await entrar(page, "scout@dev.clubebroto.local");
+    await page.goto("/mercado/radar");
+
+    const linha = page.locator("#historico-prospects tr", { hasText: arquivo });
+    await expect(linha).toBeVisible();
+    await expect(linha.getByText(/em quarentena/)).toBeVisible();
+
+    // Expandir mostra "linha: motivo" de cada recusada — o que faltava ver.
+    await linha.locator("summary").click();
+    await expect(linha.getByText(/Sem categoria-alvo reconhecida/)).toBeVisible();
+    await expect(linha.getByText(/CNPJ ausente/)).toBeVisible();
   });
 
   test("promoção com usuário distinto vira Aliada ativa (RN06)", async ({ page }) => {

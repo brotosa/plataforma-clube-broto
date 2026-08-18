@@ -465,6 +465,73 @@ export async function semearAliadoAtivoComContrato(nome: string) {
 }
 
 /**
+ * Cria uma importação de prospects (CARGA_PROSPECTS) com linhas em quarentena
+ * já gravadas em `relatorioQuarentena` — serve ao histórico de prospects da
+ * T9 (Item 1). Auto-limpa cargas de execuções anteriores da própria suíte.
+ */
+export async function semearImportacaoProspectsComQuarentena(nomeArquivo: string) {
+  const autor = await prisma.usuario.findFirstOrThrow({ where: { papel: "ANALISTA_SCOUT" } });
+  await prisma.importacao.deleteMany({ where: { nomeArquivo: { startsWith: "[E2E-PROSPECT" } } });
+  return prisma.importacao.create({
+    data: {
+      tipo: "CARGA_PROSPECTS",
+      nomeArquivo,
+      autorId: autor.id,
+      linhasOk: 18,
+      linhasErro: 2,
+      relatorioQuarentena: [
+        { linha: 4, motivo: "Sem categoria-alvo reconhecida (RN13)" },
+        { linha: 11, motivo: "CNPJ ausente" },
+      ],
+    },
+  });
+}
+
+/**
+ * Cria N avaliações de scout FECHADAS (imutáveis, RN18) para a empresa, da
+ * versão 1 à N, cada uma com subtotais congelados e total crescente. Serve
+ * à aba Scouting (Modelo C): histórico com mais de uma versão para a gaveta.
+ */
+export async function semearAvaliacaoFechada(
+  empresaId: string,
+  opcoes?: { versoes?: number },
+) {
+  const avaliador = await prisma.usuario.findFirstOrThrow({
+    where: { papel: "ANALISTA_SCOUT" },
+  });
+  const total = opcoes?.versoes ?? 1;
+  const subtotais = (score: number) => [
+    { dimensao: "Capilaridade", quantidadeNotas: 1, media: score / 20, peso: 1, subtotal: score },
+    {
+      dimensao: "Fit de Negócio",
+      quantidadeNotas: 1,
+      media: Math.max(0, score - 10) / 20,
+      peso: 1,
+      subtotal: Math.max(0, score - 10),
+    },
+  ];
+  for (let versao = 1; versao <= total; versao += 1) {
+    const score = 60 + versao * 10;
+    await prisma.avaliacaoScout.create({
+      data: {
+        empresaId,
+        versao,
+        avaliadorId: avaliador.id,
+        status: "FECHADA",
+        recomendacao: "AVANCAR",
+        subtotais: subtotais(score),
+        total: score,
+        fechadaEm: new Date(`2026-0${versao}-10T00:00:00Z`),
+      },
+    });
+  }
+  await prisma.empresa.update({
+    where: { id: empresaId },
+    data: { scoreScouting: 60 + total * 10 },
+  });
+}
+
+/**
  * Solução com CARD COMPLETO (RN09): nome, descrição curta, categoria, ≥1
  * cultura (Todas), cobertura nacional e imagem do card. A empresa deve ter
  * nomeFantasia + logoUrl (garantido por semearAliadoAtivoComContrato).

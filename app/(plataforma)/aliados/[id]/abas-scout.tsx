@@ -1,10 +1,14 @@
 import Link from "next/link";
+import type { EstagioEmpresa, Papel } from "@prisma/client";
+import { podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { podeAvaliarNoEstagio } from "@/dominio/avaliacao/regras";
 import { ROTULOS_ORIGEM_DOSSIE, ROTULOS_STATUS_DOSSIE } from "@/dominio/dossie/regras";
 import { telaAvaliacao } from "@/infra/consultas/avaliacoes";
 import { telaDossie } from "@/infra/consultas/dossies";
 import { prisma } from "@/infra/prisma/cliente";
 import { CartoesDaAvaliacaoFechada } from "../../mercado/[empresaId]/avaliacao/cartoes-avaliacao";
 import { LeituraDoDossie } from "../../mercado/[empresaId]/dossie/leitura-dossie";
+import { AcoesEHistoricoAvaliacao } from "./historico-avaliacao";
 
 /**
  * T12 — abas Scouting e Dossiê da ficha da empresa (F9). Ambas
@@ -18,7 +22,15 @@ function data(valor: Date | null | undefined): string {
 }
 
 /** Aba Scouting: score explicado + indicadores autodeclarados (seção D do M1). */
-export async function AbaScouting({ empresaId }: { empresaId: string }) {
+export async function AbaScouting({
+  empresaId,
+  papel,
+  estagio,
+}: {
+  empresaId: string;
+  papel: Papel;
+  estagio: EstagioEmpresa;
+}) {
   const [tela, declaracoes] = await Promise.all([
     telaAvaliacao(empresaId),
     prisma.indicadorDeclarado.findMany({
@@ -29,11 +41,34 @@ export async function AbaScouting({ empresaId }: { empresaId: string }) {
   ]);
 
   const ultimaFechada = tela?.fechadas[0] ?? null;
+  // Reavaliar abre nova versão (RN18/RN21): só quem avalia, e só em estágio
+  // avaliável (inclui Aliada ativa — reavaliação anual). O botão não decide
+  // nada: leva à T10, que é onde a nova versão nasce, com as mesmas guardas.
+  const podeReavaliar =
+    podeExecutar(papel, "ASSUMIR_E_AVALIAR") && podeAvaliarNoEstagio(estagio);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 900 }}>
       {ultimaFechada && tela ? (
-        <CartoesDaAvaliacaoFechada ultimaFechada={ultimaFechada} fechadas={tela.fechadas} />
+        <>
+          <CartoesDaAvaliacaoFechada
+            ultimaFechada={ultimaFechada}
+            fechadas={tela.fechadas}
+            ocultarHistorico
+          />
+          <AcoesEHistoricoAvaliacao
+            empresaId={empresaId}
+            podeReavaliar={podeReavaliar}
+            versoes={tela.fechadas.map((versao) => ({
+              id: versao.id,
+              versao: versao.versao,
+              total: versao.total,
+              fechadaEm: versao.fechadaEm,
+              avaliadorNome: versao.avaliadorNome,
+              subtotais: versao.subtotais,
+            }))}
+          />
+        </>
       ) : (
         <div className="card">
           <div className="vazio">

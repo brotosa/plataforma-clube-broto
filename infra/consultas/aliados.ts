@@ -39,11 +39,46 @@ export function calcularCompletudeAliado(aliado: {
   return Math.round((itens.filter(Boolean).length / itens.length) * 100);
 }
 
+/**
+ * Predicado Prisma de "cadastro incompleto": ao menos um dos itens de
+ * `calcularCompletudeAliado` está em falta (completude < 100). É a mesma
+ * régua daquela função, do lado do banco, para o filtro `completude=incompletos`
+ * dos cartões de pendência do Dashboard poder recortar a lista sem recomputar
+ * em memória. A coerência entre este predicado e o cálculo em JS é garantida
+ * por `infra/consultas/aliados-completude.integracao.test.ts`.
+ */
+export function filtroCadastroIncompletoPrisma(): Prisma.EmpresaWhereInput {
+  return {
+    OR: [
+      // nomeFantasia é obrigatório no schema: só o vazio conta como falta.
+      { nomeFantasia: "" },
+      { razaoSocial: null },
+      { razaoSocial: "" },
+      { cnpj: null },
+      { cnpj: "" },
+      { enderecoMunicipio: null },
+      { enderecoMunicipio: "" },
+      { descricaoInstitucional: null },
+      { descricaoInstitucional: "" },
+      { categorias: { none: {} } },
+      { contatos: { none: {} } },
+      { contratos: { none: { status: "VIGENTE" } } },
+      // Item da marca (RN54): incompleto quando não há marca guardada nem o
+      // endereço S3 legado.
+      { AND: [{ marca: { is: null } }, { OR: [{ logoUrl: null }, { logoUrl: "" }] }] },
+    ],
+  };
+}
+
 export interface FiltrosAliados {
   busca?: string;
   categoriaId?: string;
   estagio?: EstagioEmpresa;
   semOfertaAtiva?: boolean;
+  /** Cartão "Cadastros incompletos" do Dashboard (RN09, nível do aliado). */
+  completude?: "incompletos";
+  /** Cartão "Janelas contratuais" do Dashboard: contrato vigente na janela. */
+  contrato?: "janela";
   pagina?: number;
   /** Tamanho do bloco; a T1 usa o da rolagem contínua (RN56). */
   tamanho?: number;
@@ -95,11 +130,17 @@ export const ESTAGIOS_DA_REDE: ReadonlyArray<EstagioEmpresa> = [
 
 export async function listarAliados(filtros: FiltrosAliados) {
   const onde: Prisma.EmpresaWhereInput = {};
+  // Vários filtros deste conjunto usam OR próprio (busca, cadastro incompleto);
+  // combiná-los num único `onde.OR` faria um cancelar o outro. O AND agrega
+  // cada bloco preservando o seu OR interno.
+  const e: Prisma.EmpresaWhereInput[] = [];
   if (filtros.busca?.trim()) {
-    onde.OR = [
-      { nomeFantasia: { contains: filtros.busca.trim(), mode: "insensitive" } },
-      { razaoSocial: { contains: filtros.busca.trim(), mode: "insensitive" } },
-    ];
+    e.push({
+      OR: [
+        { nomeFantasia: { contains: filtros.busca.trim(), mode: "insensitive" } },
+        { razaoSocial: { contains: filtros.busca.trim(), mode: "insensitive" } },
+      ],
+    });
   }
   if (filtros.categoriaId) {
     onde.categorias = { some: { categoriaId: filtros.categoriaId } };
@@ -107,6 +148,15 @@ export async function listarAliados(filtros: FiltrosAliados) {
   onde.estagio = filtros.estagio ?? { in: [...ESTAGIOS_DA_REDE] };
   if (filtros.semOfertaAtiva) {
     onde.solucoes = { none: { ofertas: { some: { status: "PUBLICADA" } } } };
+  }
+  if (filtros.completude === "incompletos") {
+    e.push(filtroCadastroIncompletoPrisma());
+  }
+  if (filtros.contrato === "janela") {
+    e.push({ contratos: { some: { status: "VIGENTE", emJanelaNaoRenovacao: true } } });
+  }
+  if (e.length > 0) {
+    onde.AND = e;
   }
 
   const pagina = Math.max(1, filtros.pagina ?? 1);

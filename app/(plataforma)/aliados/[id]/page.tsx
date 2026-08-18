@@ -648,7 +648,9 @@ export default async function PaginaFichaAliado({
         </div>
       ) : null}
 
-      {aba === "scouting" ? <AbaScouting empresaId={empresa.id} /> : null}
+      {aba === "scouting" ? (
+        <AbaScouting empresaId={empresa.id} papel={papel} estagio={empresa.estagio} />
+      ) : null}
 
       {aba === "dossie" ? <AbaDossie empresaId={empresa.id} /> : null}
 
