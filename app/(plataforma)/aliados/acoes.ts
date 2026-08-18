@@ -467,6 +467,12 @@ export interface FiltrosDaRolagem {
   semOfertaAtiva?: boolean;
   completude?: "incompletos";
   contrato?: "janela";
+  /**
+   * Sino → "pendências que mencionam você". Booleano, não o id: o usuário
+   * vem da sessão no servidor, nunca do cliente — ninguém pede a menção de
+   * outra pessoa alterando o payload.
+   */
+  mencaoMinhas?: boolean;
 }
 
 /**
@@ -488,6 +494,7 @@ export async function acaoCarregarMaisAliados(
     semOfertaAtiva: filtros.semOfertaAtiva,
     completude: filtros.completude,
     contrato: filtros.contrato,
+    mencaoDeUsuarioId: filtros.mencaoMinhas ? ator.id : undefined,
     pagina: Math.max(1, pagina),
     tamanho: TAMANHO_BLOCO_ROLAGEM,
   });
