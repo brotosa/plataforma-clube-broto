@@ -2,8 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import type { RecomendacaoAvaliacao } from "@prisma/client";
+import { ROTULOS_RECOMENDACAO } from "@/dominio/avaliacao/regras";
 import type { SubtotalDimensao } from "@/dominio/avaliacao/score";
 import { BarrasPorDimensao } from "../../mercado/[empresaId]/avaliacao/cartoes-avaliacao";
+
+/** Classe do selo por recomendação (mesma leitura de cor do funil). */
+const CLASSE_RECOMENDACAO: Record<RecomendacaoAvaliacao, string> = {
+  AVANCAR: "pill pill-ok",
+  MONITORAR: "pill pill-warn",
+  DESCARTAR: "pill pill-erro",
+};
 
 /**
  * Modelo C (F9) — gaveta de histórico da aba Scouting.
@@ -24,6 +33,7 @@ export interface VersaoDoHistorico {
   total: number | null;
   fechadaEm: Date | string | null;
   avaliadorNome: string;
+  recomendacao: RecomendacaoAvaliacao | null;
   subtotais: SubtotalDimensao[];
 }
 
@@ -178,6 +188,12 @@ export function AcoesEHistoricoAvaliacao({
                     <span className="num" style={{ fontWeight: 700 }}>
                       {versao.total ?? "—"}
                     </span>
+                    {versao.recomendacao ? (
+                      <span className={CLASSE_RECOMENDACAO[versao.recomendacao]}>
+                        <i aria-hidden="true" />
+                        {ROTULOS_RECOMENDACAO[versao.recomendacao]}
+                      </span>
+                    ) : null}
                     <span className="cap" style={{ fontSize: 12 }}>
                       /100 · {formatarData(versao.fechadaEm)} · {versao.avaliadorNome}
                     </span>

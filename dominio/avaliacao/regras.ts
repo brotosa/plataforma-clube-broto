@@ -12,6 +12,15 @@ import type { EstagioEmpresa, RecomendacaoAvaliacao, StatusAvaliacao } from "@pr
 export const ESCALA_NOTA = { minima: 1, maxima: 5 } as const;
 
 /**
+ * "Não se aplica" (acréscimo pós-homologação): resposta para o indicador
+ * que não faz sentido para o aliado. Conta como respondido, mas fica fora
+ * da média do score — nunca vira 0 nem 5. Rótulo e sigla ficam aqui como
+ * fonte única para o formulário e a leitura.
+ */
+export const ROTULO_NAO_SE_APLICA = "Não se aplica";
+export const SIGLA_NAO_SE_APLICA = "N/A";
+
+/**
  * Régua da reavaliação (RN21): aliada ativa completa o ciclo ao fim de N
  * meses desde a última avaliação fechada. Desde a F10 o N vem do Serviço
  * de Configuração (chave REAVALIACAO_MESES) e entra por parâmetro.
@@ -40,14 +49,16 @@ export function validarNota(nota: number): string[] {
 
 /** Dados mínimos avaliados no fechamento de uma versão. */
 export interface DadosFechamento {
+  /** Quantidade de notas **reais** 1–5 (as N/A não contam — não geram score). */
   quantidadeNotas: number;
   recomendacao: RecomendacaoAvaliacao | null;
 }
 
 /**
- * Fechar uma avaliação exige ao menos uma nota (sem nota não há score
- * calculado — RN15 depende dele) e a recomendação explícita do avaliador.
- * Retorna a lista de erros — vazia quando o fechamento é válido.
+ * Fechar uma avaliação exige ao menos uma nota real 1–5 (sem nota não há
+ * score calculado — RN15 depende dele; "não se aplica" não pontua) e a
+ * recomendação explícita do avaliador. Retorna a lista de erros — vazia
+ * quando o fechamento é válido.
  */
 export function validarFechamento(dados: DadosFechamento): string[] {
   const erros: string[] = [];

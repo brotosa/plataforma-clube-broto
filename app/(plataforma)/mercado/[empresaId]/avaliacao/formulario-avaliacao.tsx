@@ -5,7 +5,11 @@ import type { RecomendacaoAvaliacao } from "@prisma/client";
 import type { DimensaoDaTela, NotaDaTela, VersaoFechada } from "@/infra/consultas/avaliacoes";
 import type { NotaInformada } from "@/infra/casos-de-uso/avaliacoes";
 import { calcularScore, compararSubtotais, type NotaParaCalculo } from "@/dominio/avaliacao/score";
-import { ESCALA_NOTA, ROTULOS_RECOMENDACAO } from "@/dominio/avaliacao/regras";
+import {
+  ROTULO_NAO_SE_APLICA,
+  ROTULOS_RECOMENDACAO,
+  SIGLA_NAO_SE_APLICA,
+} from "@/dominio/avaliacao/regras";
 import { acaoConcluirAvaliacao, acaoSalvarRascunho, type EstadoAcaoAvaliacao } from "./acoes";
 
 /**
@@ -18,14 +22,34 @@ import { acaoConcluirAvaliacao, acaoSalvarRascunho, type EstadoAcaoAvaliacao } f
 
 interface NotaLocal {
   nota: number | null;
+  naoSeAplica: boolean;
   evidencia: string;
 }
+
+/** Valor de seleção do radiogroup: nota 1–5 ou "não se aplica". */
+type Selecao = number | "NA";
+
+/** As seis opções do radiogroup, na ordem em que aparecem (N/A por último). */
+const OPCOES_NOTA: ReadonlyArray<{ valor: Selecao; rotulo: string; aria: string }> = [
+  ...[1, 2, 3, 4, 5].map((valor) => ({
+    valor,
+    rotulo: String(valor),
+    aria: `Nota ${valor}`,
+  })),
+  { valor: "NA", rotulo: SIGLA_NAO_SE_APLICA, aria: ROTULO_NAO_SE_APLICA },
+];
 
 const RECOMENDACOES: ReadonlyArray<RecomendacaoAvaliacao> = [
   "AVANCAR",
   "MONITORAR",
   "DESCARTAR",
 ];
+
+/** Seleção corrente de um indicador a partir do estado local. */
+function selecaoDe(local: NotaLocal | undefined): Selecao | null {
+  if (local?.naoSeAplica) return "NA";
+  return local?.nota ?? null;
+}
 
 /** Peso sem zeros à direita (1.00 → "1"; 1.50 → "1,5"). */
 function formatarPeso(peso: number): string {
@@ -68,7 +92,11 @@ export function FormularioAvaliacao({
     const inicial: Record<string, NotaLocal> = {};
     for (const [indicadorId, nota] of Object.entries(origem)) {
       if (indicadoresConhecidos.has(indicadorId)) {
-        inicial[indicadorId] = { nota: nota.nota, evidencia: nota.evidencia ?? "" };
+        inicial[indicadorId] = {
+          nota: nota.nota,
+          naoSeAplica: nota.naoSeAplica ?? false,
+          evidencia: nota.evidencia ?? "",
+        };
       }
     }
     return inicial;
@@ -96,10 +124,15 @@ export function FormularioAvaliacao({
 
   const versaoExibida = rascunho?.versao ?? (ultimaFechada ? ultimaFechada.versao + 1 : 1);
 
+  // Só notas reais 1–5 entram no score; "não se aplica" fica de fora (sai da
+  // média — nunca vira 0 nem 5).
   const notasParaCalculo: NotaParaCalculo[] = useMemo(
     () =>
       Object.entries(notas)
-        .filter((par): par is [string, NotaLocal & { nota: number }] => par[1].nota !== null)
+        .filter(
+          (par): par is [string, NotaLocal & { nota: number }] =>
+            par[1].nota !== null && !par[1].naoSeAplica,
+        )
         .map(([indicadorId, local]) => {
           const indicador = indicadoresConhecidos.get(indicadorId)!;
           return { dimensao: indicador.dimensao, peso: indicador.peso, nota: local.nota };
@@ -116,8 +149,15 @@ export function FormularioAvaliacao({
     [ultimaFechada, score],
   );
 
-  const totalRespondidas = notasParaCalculo.length;
-  const podeConcluir = totalRespondidas > 0 && recomendacao !== null;
+  // Notas reais → geram score; N/A conta como respondido, mas não pontua.
+  const totalNotasReais = notasParaCalculo.length;
+  const totalNaoSeAplica = useMemo(
+    () => Object.values(notas).filter((local) => local.naoSeAplica).length,
+    [notas],
+  );
+  const totalRespondidos = totalNotasReais + totalNaoSeAplica;
+  // Concluir exige ao menos uma nota real (sem nota real não há score — RN15).
+  const podeConcluir = totalNotasReais > 0 && recomendacao !== null;
 
   function aplicarResultado(resultado: EstadoAcaoAvaliacao) {
     if (resultado.erros?.length) {
@@ -128,11 +168,14 @@ export function FormularioAvaliacao({
   }
 
   function notasInformadas(): NotaInformada[] {
+    // Envia toda resposta: nota real (1–5) ou "não se aplica". Indicador sem
+    // resposta nenhuma não entra.
     return Object.entries(notas)
-      .filter((par): par is [string, NotaLocal & { nota: number }] => par[1].nota !== null)
+      .filter(([, local]) => local.naoSeAplica || local.nota !== null)
       .map(([indicadorId, local]) => ({
         indicadorId,
-        nota: local.nota,
+        nota: local.naoSeAplica ? null : local.nota,
+        naoSeAplica: local.naoSeAplica,
         evidencia: local.evidencia.trim() || null,
       }));
   }
@@ -168,17 +211,27 @@ export function FormularioAvaliacao({
     });
   }
 
-  function definirNota(indicadorId: string, nota: number) {
-    setNotas((atuais) => ({
-      ...atuais,
-      [indicadorId]: { nota, evidencia: atuais[indicadorId]?.evidencia ?? "" },
-    }));
+  function definirSelecao(indicadorId: string, selecao: Selecao) {
+    setNotas((atuais) => {
+      const evidencia = atuais[indicadorId]?.evidencia ?? "";
+      return {
+        ...atuais,
+        [indicadorId]:
+          selecao === "NA"
+            ? { nota: null, naoSeAplica: true, evidencia }
+            : { nota: selecao, naoSeAplica: false, evidencia },
+      };
+    });
   }
 
   function definirEvidencia(indicadorId: string, evidencia: string) {
     setNotas((atuais) => ({
       ...atuais,
-      [indicadorId]: { nota: atuais[indicadorId]?.nota ?? null, evidencia },
+      [indicadorId]: {
+        nota: atuais[indicadorId]?.nota ?? null,
+        naoSeAplica: atuais[indicadorId]?.naoSeAplica ?? false,
+        evidencia,
+      },
     }));
   }
 
@@ -199,7 +252,8 @@ export function FormularioAvaliacao({
             ScoutCB · nota 1–5 por indicador ·{" "}
             {rascunho ? `versão ${versaoExibida} (rascunho)` : `versão ${versaoExibida} (nova)`}
             {" · "}
-            {totalRespondidas}/{indicadoresConhecidos.size} indicadores respondidos
+            {totalRespondidos}/{indicadoresConhecidos.size} indicadores respondidos
+            {totalNaoSeAplica > 0 ? ` (${totalNaoSeAplica} N/A)` : ""}
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -229,9 +283,20 @@ export function FormularioAvaliacao({
           {dimensoes.map((dimensao) => {
             const aberta = abertas.has(dimensao.dimensao);
             const subtotal = subtotalPorDimensao.get(dimensao.dimensao);
-            const respondidas = dimensao.indicadores.filter(
-              (indicador) => notas[indicador.id]?.nota != null,
+            const reaisNaDim = dimensao.indicadores.filter(
+              (indicador) => notas[indicador.id]?.nota != null && !notas[indicador.id]?.naoSeAplica,
             ).length;
+            const naNaDim = dimensao.indicadores.filter(
+              (indicador) => notas[indicador.id]?.naoSeAplica,
+            ).length;
+            const respondidas = reaisNaDim + naNaDim;
+            // Dimensão só com N/A não tem subtotal: mostra "não se aplica" em
+            // vez de "—", para o avaliador ver que respondeu, mas não pontuou.
+            const rotuloSubtotal = subtotal
+              ? ` · subtotal ${Math.round(subtotal.subtotal)}`
+              : naNaDim > 0 && reaisNaDim === 0
+                ? ` · ${ROTULO_NAO_SE_APLICA.toLowerCase()}`
+                : " · subtotal —";
             const idSecao = `dim-${dimensao.indicadores[0]?.slug ?? dimensao.dimensao}`;
             return (
               <div className="card" key={dimensao.dimensao}>
@@ -254,7 +319,7 @@ export function FormularioAvaliacao({
                   </span>
                   <span className="num cap" style={{ fontSize: 13 }}>
                     {respondidas}/{dimensao.indicadores.length}
-                    {subtotal ? ` · subtotal ${Math.round(subtotal.subtotal)}` : " · subtotal —"}
+                    {rotuloSubtotal}
                   </span>
                 </button>
                 {aberta ? (
@@ -293,25 +358,24 @@ export function FormularioAvaliacao({
                             <span
                               className="nota"
                               role="radiogroup"
-                              aria-label={`Nota de 1 a 5 — ${indicador.nome}`}
+                              aria-label={`Nota de 1 a 5 ou "${ROTULO_NAO_SE_APLICA}" — ${indicador.nome}`}
                             >
-                              {[1, 2, 3, 4, 5].map((valor) => {
-                                const selecionada = local?.nota === valor;
-                                const semSelecao = local?.nota == null;
+                              {OPCOES_NOTA.map((opcao, indiceOpcao) => {
+                                const selecao = selecaoDe(local);
+                                const selecionada = selecao === opcao.valor;
+                                const semSelecao = selecao == null;
                                 return (
                                   <button
-                                    key={valor}
+                                    key={String(opcao.valor)}
                                     type="button"
                                     role="radio"
                                     aria-checked={selecionada}
-                                    aria-label={`Nota ${valor}`}
-                                    className={selecionada ? "on" : ""}
-                                    tabIndex={
-                                      selecionada || (semSelecao && valor === ESCALA_NOTA.minima)
-                                        ? 0
-                                        : -1
-                                    }
-                                    onClick={() => definirNota(indicador.id, valor)}
+                                    aria-label={opcao.aria}
+                                    className={`${opcao.valor === "NA" ? "na" : ""}${
+                                      selecionada ? " on" : ""
+                                    }`.trim()}
+                                    tabIndex={selecionada || (semSelecao && indiceOpcao === 0) ? 0 : -1}
+                                    onClick={() => definirSelecao(indicador.id, opcao.valor)}
                                     onKeyDown={(evento) => {
                                       const passo =
                                         evento.key === "ArrowRight" || evento.key === "ArrowDown"
@@ -321,16 +385,17 @@ export function FormularioAvaliacao({
                                             : 0;
                                       if (passo === 0) return;
                                       evento.preventDefault();
-                                      const atual = local?.nota ?? valor;
-                                      // Passeia 1..5 com contorno nas pontas (padrão radiogroup).
-                                      const proxima = ((atual - 1 + passo + 5) % 5) + 1;
-                                      definirNota(indicador.id, proxima);
+                                      // Passeia pelas 6 opções com contorno nas pontas (padrão
+                                      // radiogroup); N/A é a última posição.
+                                      const proximoIndice =
+                                        (indiceOpcao + passo + OPCOES_NOTA.length) % OPCOES_NOTA.length;
+                                      definirSelecao(indicador.id, OPCOES_NOTA[proximoIndice]!.valor);
                                       const grupo = evento.currentTarget.parentElement;
                                       const botoes = grupo?.querySelectorAll("button");
-                                      (botoes?.[proxima - 1] as HTMLButtonElement | undefined)?.focus();
+                                      (botoes?.[proximoIndice] as HTMLButtonElement | undefined)?.focus();
                                     }}
                                   >
-                                    {valor}
+                                    {opcao.rotulo}
                                   </button>
                                 );
                               })}
@@ -505,7 +570,8 @@ export function FormularioAvaliacao({
         <ModalConclusao
           nomeFantasia={empresa.nomeFantasia}
           total={score.totalInteiro}
-          respondidas={totalRespondidas}
+          respondidas={totalNotasReais}
+          naoSeAplica={totalNaoSeAplica}
           recomendacao={recomendacao}
           podeConcluir={podeConcluir}
           pendente={pendente}
@@ -557,6 +623,7 @@ function ModalConclusao({
   nomeFantasia,
   total,
   respondidas,
+  naoSeAplica,
   recomendacao,
   podeConcluir,
   pendente,
@@ -566,6 +633,7 @@ function ModalConclusao({
   nomeFantasia: string;
   total: number | null;
   respondidas: number;
+  naoSeAplica: number;
   recomendacao: RecomendacaoAvaliacao | null;
   podeConcluir: boolean;
   pendente: boolean;
@@ -610,13 +678,14 @@ function ModalConclusao({
           humana (RN15).
         </p>
         <div className="card" style={{ padding: "12px 16px", marginBottom: 14, fontSize: 14 }}>
-          Score <b className="num">{total ?? "—"}</b>/100 · {respondidas} indicador(es)
-          respondido(s) · recomendação:{" "}
+          Score <b className="num">{total ?? "—"}</b>/100 · {respondidas} nota(s) 1–5
+          {naoSeAplica > 0 ? ` · ${naoSeAplica} não se aplica (fora da média)` : ""} · recomendação:{" "}
           <b>{recomendacao ? ROTULOS_RECOMENDACAO[recomendacao] : "— não escolhida"}</b>
         </div>
         {!podeConcluir ? (
           <p className="cap" style={{ margin: "0 0 14px", color: "var(--erro)" }}>
-            Para concluir: ao menos uma nota registrada e uma recomendação escolhida.
+            Para concluir: ao menos uma nota real 1–5 (indicadores só com “não se aplica” não
+            geram score) e uma recomendação escolhida.
           </p>
         ) : null}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

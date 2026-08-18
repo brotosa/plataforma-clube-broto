@@ -231,4 +231,76 @@ describe.skipIf(!temBanco)("avaliação de scout — casos de uso integrados (F7
   it("consulta de empresa inexistente devolve null (estado de erro da tela)", async () => {
     expect(await telaAvaliacao("id-inexistente")).toBeNull();
   });
+
+  // "Não se aplica" (acréscimo pós-homologação): resposta sem nota, fora da
+  // média do score. Cada teste abre sua própria empresa para não interferir
+  // na jornada acima; a limpeza cobre pelo prefixo [TESTE-F7].
+  async function novaEmpresaEmAvaliacao(sufixo: string) {
+    const categoria = await prisma.categoria.findFirstOrThrow();
+    const empresa = await entrarNoRadar(scout, {
+      nomeFantasia: `[TESTE-F7] N/A ${sufixo}`,
+      origem: "SCOUTING_ATIVO",
+      categoriaIds: [categoria.id],
+    });
+    await moverNoFunil(scout, empresa.id, "EM_AVALIACAO");
+    const rascunho = await iniciarAvaliacao(scout, empresa.id);
+    return { empresaId: empresa.id, avaliacaoId: rascunho.id };
+  }
+
+  it("N/A é gravado com nota nula e sai da média — não é tratado como 0", async () => {
+    const { empresaId: alvo, avaliacaoId } = await novaEmpresaEmAvaliacao("exclui");
+    // Capilaridade: uma nota real 4 + um N/A · Fit de Negócio: dimensão só N/A.
+    await salvarNotas(scout, avaliacaoId, [
+      { indicadorId: presencaGeografica.id, nota: 4 },
+      { indicadorId: canaisDistribuicao.id, nota: null, naoSeAplica: true },
+      { indicadorId: culturasAtendidas.id, nota: null, naoSeAplica: true },
+    ]);
+
+    // Persistência: o N/A vira linha com nota NULL e naoSeAplica=true.
+    const canais = await prisma.avaliacaoNota.findFirstOrThrow({
+      where: { avaliacaoId, indicadorId: canaisDistribuicao.id },
+    });
+    expect(canais.nota).toBeNull();
+    expect(canais.naoSeAplica).toBe(true);
+
+    const fechada = await fecharAvaliacao(scout, avaliacaoId, "AVANCAR");
+    // Capilaridade = só a nota real 4 → 4 × 20 = 80 (o N/A não vira 0; se
+    // virasse, a média cairia para (4+0)/2 × 20 = 40). Fit de Negócio, só N/A,
+    // fica fora do total. Total = 80.
+    expect(fechada.total).toBe(80);
+
+    const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: alvo } });
+    expect(empresa.scoreScouting).toBe(80);
+
+    // A dimensão inteiramente N/A não aparece nos subtotais congelados.
+    const tela = await telaAvaliacao(alvo);
+    const dimensoesPontuadas = tela!.fechadas[0]!.subtotais.map((s) => s.dimensao);
+    expect(dimensoesPontuadas).toContain("Capilaridade");
+    expect(dimensoesPontuadas).not.toContain("Fit de Negócio");
+  });
+
+  it("avaliação só com N/A não fecha — sem nota real não há score (RN15)", async () => {
+    const { avaliacaoId } = await novaEmpresaEmAvaliacao("so-na");
+    await salvarNotas(scout, avaliacaoId, [
+      { indicadorId: presencaGeografica.id, nota: null, naoSeAplica: true },
+      { indicadorId: culturasAtendidas.id, nota: null, naoSeAplica: true },
+    ]);
+    await expect(fecharAvaliacao(scout, avaliacaoId, "MONITORAR")).rejects.toThrow(
+      /ao menos uma nota/,
+    );
+  });
+
+  it("o pré-preenchimento da nova versão preserva o N/A da anterior (RN18)", async () => {
+    const { empresaId: alvo, avaliacaoId } = await novaEmpresaEmAvaliacao("copia");
+    await salvarNotas(scout, avaliacaoId, [
+      { indicadorId: presencaGeografica.id, nota: 3 },
+      { indicadorId: canaisDistribuicao.id, nota: null, naoSeAplica: true },
+    ]);
+    await fecharAvaliacao(scout, avaliacaoId, "AVANCAR");
+
+    const v2 = await iniciarAvaliacao(scout, alvo);
+    const canaisCopiado = v2.notas.find((n) => n.indicadorId === canaisDistribuicao.id);
+    expect(canaisCopiado?.naoSeAplica).toBe(true);
+    expect(canaisCopiado?.nota).toBeNull();
+  });
 });

@@ -30,7 +30,9 @@ export interface DimensaoDaTela {
 }
 
 export interface NotaDaTela {
-  nota: number;
+  /** 1–5; null quando "não se aplica". */
+  nota: number | null;
+  naoSeAplica: boolean;
   evidencia: string | null;
 }
 
@@ -162,7 +164,7 @@ export async function telaAvaliacao(empresaId: string): Promise<TelaAvaliacao | 
           notas: Object.fromEntries(
             rascunho.notas.map((nota) => [
               nota.indicadorId,
-              { nota: nota.nota, evidencia: nota.evidencia },
+              { nota: nota.nota, naoSeAplica: nota.naoSeAplica, evidencia: nota.evidencia },
             ]),
           ),
         }
@@ -180,7 +182,7 @@ export async function telaAvaliacao(empresaId: string): Promise<TelaAvaliacao | 
       ? Object.fromEntries(
           notasUltimaFechada.map((nota) => [
             nota.indicadorId,
-            { nota: nota.nota, evidencia: nota.evidencia },
+            { nota: nota.nota, naoSeAplica: nota.naoSeAplica, evidencia: nota.evidencia },
           ]),
         )
       : null,

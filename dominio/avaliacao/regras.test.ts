@@ -3,6 +3,8 @@ import { DIMENSOES_MEDICAO, grupoDaDimensao } from "./dimensoes";
 import {
   ESCALA_NOTA,
   ESTAGIOS_AVALIAVEIS,
+  ROTULO_NAO_SE_APLICA,
+  SIGLA_NAO_SE_APLICA,
   podeAvaliarNoEstagio,
   podeEditarAvaliacao,
   precisaReavaliacao,
@@ -38,12 +40,20 @@ describe("escala de nota 1–5 (ficha §3.3)", () => {
   });
 });
 
+describe("'não se aplica' (acréscimo pós-homologação)", () => {
+  it("tem rótulo e sigla próprios, fonte única para form e leitura", () => {
+    expect(ROTULO_NAO_SE_APLICA).toBe("Não se aplica");
+    expect(SIGLA_NAO_SE_APLICA).toBe("N/A");
+  });
+});
+
 describe("fechamento de versão", () => {
   it("aceita fechamento com ao menos uma nota e recomendação", () => {
     expect(validarFechamento({ quantidadeNotas: 1, recomendacao: "AVANCAR" })).toEqual([]);
   });
 
-  it("rejeita fechamento sem nenhuma nota", () => {
+  it("rejeita fechamento sem nenhuma nota real (quantidadeNotas conta só as 1–5)", () => {
+    // As respostas N/A não entram em quantidadeNotas — quem chama já as filtra.
     expect(validarFechamento({ quantidadeNotas: 0, recomendacao: "MONITORAR" })).toContain(
       "Fechar a avaliação exige ao menos uma nota registrada.",
     );
