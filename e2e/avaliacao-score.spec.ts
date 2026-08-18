@@ -170,6 +170,50 @@ test.describe("avaliação e score — T10 (F7) — testes isolados", () => {
     ).toBeVisible();
   });
 
+  test("T10 com 'não se aplica': N/A sai da média (não vira 0) e conclui com score", async ({ page }) => {
+    const nome = `Radar E2E ${runId()}-na`;
+    const empresa = await semearEmpresaRadar(nome, {
+      estagio: "EM_AVALIACAO",
+      origem: "SCOUTING_ATIVO",
+      categoriaSlug: "TECNOLOGIA_E_SOFTWARE",
+    });
+
+    await entrar(page, "scout@dev.clubebroto.local");
+    await page.goto(`/mercado/${empresa.id}/avaliacao`);
+
+    // Capilaridade (dimensão aberta por padrão): Presença geográfica = 4.
+    await page
+      .getByRole("radiogroup", { name: /Presença geográfica/ })
+      .getByRole("radio", { name: "Nota 4" })
+      .click();
+    // Score ao vivo: só Presença → subtotal e total 80.
+    await expect(page.getByText("80", { exact: true }).first()).toBeVisible();
+
+    // Segundo indicador da mesma dimensão marcado como "Não se aplica": o
+    // subtotal continua 80 (se o N/A virasse 0, cairia para (4+0)/2×20 = 40).
+    await page
+      .getByRole("radiogroup", { name: /Canais e parcerias/ })
+      .getByRole("radio", { name: "Não se aplica" })
+      .click();
+    await expect(
+      page.getByRole("radiogroup", { name: /Canais e parcerias/ }).getByRole("radio", {
+        name: "Não se aplica",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("80", { exact: true }).first()).toBeVisible();
+    // O cabeçalho contabiliza o N/A como respondido, sinalizado à parte.
+    await expect(page.getByText(/\(1 N\/A\)/)).toBeVisible();
+
+    // Conclui: score 80, e o N/A não impede o fechamento (há nota real).
+    await page.getByRole("radio", { name: "Avançar" }).check();
+    await page.getByRole("button", { name: "Concluir avaliação" }).click();
+    await page
+      .getByRole("dialog", { name: `Concluir avaliação de ${nome}` })
+      .getByRole("button", { name: "Concluir avaliação" })
+      .click();
+    await expect(page.getByRole("status")).toContainText("score 80");
+  });
+
   test("aba Scouting (Modelo C): reavaliar aliado ativo e gaveta de histórico com a versão atual", async ({ page }) => {
     const nome = `Aliado E2E ${runId()}-scoutaba`;
     const empresa = await semearAliadoAtivoComContrato(nome);

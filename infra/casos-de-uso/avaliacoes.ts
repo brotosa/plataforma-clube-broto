@@ -84,6 +84,7 @@ export async function iniciarAvaliacao(ator: Ator, empresaId: string) {
       .map((nota) => ({
         indicadorId: nota.indicadorId,
         nota: nota.nota,
+        naoSeAplica: nota.naoSeAplica,
         evidencia: nota.evidencia,
       }));
 
@@ -115,14 +116,18 @@ export async function iniciarAvaliacao(ator: Ator, empresaId: string) {
 
 export interface NotaInformada {
   indicadorId: string;
-  nota: number;
+  /** Nota 1–5; null quando naoSeAplica é true. */
+  nota: number | null;
+  /** "Não se aplica" — resposta sem nota, fora da média do score. */
+  naoSeAplica?: boolean;
   evidencia?: string | null;
 }
 
 /**
  * T10 — grava (cria/atualiza) notas do rascunho, uma auditoria por nota
  * alterada. Avaliação fechada não aceita nota (RN18); indicador inativo
- * não recebe nota nova.
+ * não recebe nota nova. "Não se aplica" é gravado com nota nula (o CHECK de
+ * coerência do banco garante o XOR entre nota 1–5 e N/A).
  */
 export async function salvarNotas(
   ator: Ator,
@@ -130,7 +135,18 @@ export async function salvarNotas(
   notas: ReadonlyArray<NotaInformada>,
 ) {
   exigirPermissao(ator.papel, "ASSUMIR_E_AVALIAR");
-  const errosDeEscala = [...new Set(notas.flatMap((n) => validarNota(n.nota)))];
+  // N/A não tem nota a validar; nota real precisa existir e estar na escala.
+  const errosDeEscala = [
+    ...new Set(
+      notas
+        .filter((n) => n.naoSeAplica !== true)
+        .flatMap((n) =>
+          n.nota == null
+            ? ["Nota obrigatória quando o indicador não é 'não se aplica'."]
+            : validarNota(n.nota),
+        ),
+    ),
+  ];
   if (errosDeEscala.length > 0) {
     throw new ErroDeValidacao(errosDeEscala);
   }
@@ -163,22 +179,27 @@ export async function salvarNotas(
         where: { avaliacaoId_indicadorId: chave },
       });
       const evidencia = informada.evidencia?.trim() || null;
+      const naoSeAplica = informada.naoSeAplica === true;
+      const notaValor = naoSeAplica ? null : informada.nota;
       const gravada = await tx.avaliacaoNota.upsert({
         where: { avaliacaoId_indicadorId: chave },
-        update: { nota: informada.nota, evidencia },
-        create: { ...chave, nota: informada.nota, evidencia },
+        update: { nota: notaValor, naoSeAplica, evidencia },
+        create: { ...chave, nota: notaValor, naoSeAplica, evidencia },
       });
       await registrarMutacao(criarGravadorPrisma(tx), {
         entidade: "avaliacao_nota",
         entidadeId: gravada.id,
         autorId: ator.id,
-        anterior: anterior ? { nota: anterior.nota, evidencia: anterior.evidencia } : null,
+        anterior: anterior
+          ? { nota: anterior.nota, naoSeAplica: anterior.naoSeAplica, evidencia: anterior.evidencia }
+          : null,
         novo: anterior
-          ? { nota: gravada.nota, evidencia: gravada.evidencia }
+          ? { nota: gravada.nota, naoSeAplica: gravada.naoSeAplica, evidencia: gravada.evidencia }
           : {
               avaliacaoId,
               indicadorId: informada.indicadorId,
               nota: gravada.nota,
+              naoSeAplica: gravada.naoSeAplica,
               evidencia: gravada.evidencia,
             },
       });
@@ -213,8 +234,14 @@ export async function fecharAvaliacao(
     if (!podeEditarAvaliacao(avaliacao.status)) {
       throw new ErroDeValidacao([MENSAGEM_RN18]);
     }
+    // "Não se aplica" conta como respondido, mas não gera nota: sai do score
+    // e não satisfaz o mínimo de fechamento (sem nota real não há total).
+    const notasReais = avaliacao.notas.filter(
+      (nota): nota is (typeof avaliacao.notas)[number] & { nota: number } =>
+        nota.naoSeAplica !== true && nota.nota !== null,
+    );
     const erros = validarFechamento({
-      quantidadeNotas: avaliacao.notas.length,
+      quantidadeNotas: notasReais.length,
       recomendacao,
     });
     if (erros.length > 0) {
@@ -222,7 +249,7 @@ export async function fecharAvaliacao(
     }
 
     const score = calcularScore(
-      avaliacao.notas.map((nota) => ({
+      notasReais.map((nota) => ({
         dimensao: nota.indicador.dimensao,
         peso: Number(nota.indicador.peso),
         nota: nota.nota,

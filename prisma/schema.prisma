@@ -458,8 +458,13 @@ model AvaliacaoNota {
   id          String  @id @default(cuid())
   avaliacaoId String  @map("avaliacao_id")
   indicadorId String  @map("indicador_id")
-  /// 1–5 (validada em domínio e por CHECK no banco).
-  nota        Int
+  /// 1–5 (validada em domínio e por CHECK no banco). NULL quando o indicador
+  /// é "não se aplica" — nesse caso naoSeAplica = true. O CHECK de coerência
+  /// garante o XOR: ou há nota 1–5, ou é N/A, nunca ambos nem nenhum.
+  nota        Int?
+  /// "Não se aplica": o indicador não faz sentido para este aliado. Conta
+  /// como respondido, mas sai da média do score (pós-homologação, Onda 2).
+  naoSeAplica Boolean @default(false) @map("nao_se_aplica")
   evidencia   String?
 
   avaliacao AvaliacaoScout @relation(fields: [avaliacaoId], references: [id])
