@@ -25,14 +25,19 @@ import {
 
 const CHAVE_ABERTO = "painel-atividades-aberto";
 
-// A coluna entra em linha (rail) já a partir do laptop (≥1280px): é o
-// espírito ClickUp, atividade ao lado do conteúdo. Abaixo disso a faixa é
-// flutuante e abrir mostra a gaveta sobreposta (não encolhe o conteúdo). Para
-// o rail apertar o conteúdo sem quebrar acessibilidade, as tabelas de texto da
-// ficha (declarados, auditoria, M1) são regiões roláveis focáveis por teclado
-// — senão o axe reprova scrollable-region-focusable quando elas rolam.
+// Dois limites, de propósito:
+// • LARGURA_RAIL (1280): quando ABERTA, a coluna é rail em linha (≥1280) ou
+//   gaveta sobreposta (<1280). No rail o conteúdo aperta, então as tabelas de
+//   texto da ficha viram regiões roláveis focáveis por teclado (senão o axe
+//   reprova scrollable-region-focusable ao estreitar).
+// • LARGURA_GRANDE (1600): só em tela grande a coluna **abre sozinha** e a
+//   faixa recolhida fica no fluxo. No laptop (1280–1599) ela nasce recolhida
+//   numa aba flutuante que não come conteúdo — e vira coluna quando o usuário
+//   abre. O estado escolhido é lembrado por usuário.
 const LARGURA_RAIL = 1280;
+const LARGURA_GRANDE = 1600;
 const MQ_ESTREITO = `(max-width: ${LARGURA_RAIL - 1}px)`;
+const MQ_GRANDE = `(min-width: ${LARGURA_GRANDE}px)`;
 
 function formatarQuando(valor: Date | string): string {
   return new Date(valor).toLocaleString("pt-BR", {
@@ -44,17 +49,17 @@ function formatarQuando(valor: Date | string): string {
   });
 }
 
-/** true quando a viewport é estreita (a gaveta sobreposta assume). */
-function useEstreito(): boolean {
-  const [estreito, setEstreito] = useState(false);
+/** Acompanha uma media query (após montar, para não divergir do SSR). */
+function useMediaQuery(query: string): boolean {
+  const [combina, setCombina] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia(MQ_ESTREITO);
-    const aplicar = () => setEstreito(mq.matches);
+    const mq = window.matchMedia(query);
+    const aplicar = () => setCombina(mq.matches);
     aplicar();
     mq.addEventListener("change", aplicar);
     return () => mq.removeEventListener("change", aplicar);
-  }, []);
-  return estreito;
+  }, [query]);
+  return combina;
 }
 
 export function PainelAtividades({
@@ -70,10 +75,11 @@ export function PainelAtividades({
   usuarioAtualId: string;
   podeComentar: boolean;
 }) {
-  const estreito = useEstreito();
-  // Aberto por padrão em tela larga; recolhido em tela estreita. Depois de
-  // montar, respeita a última escolha do usuário.
-  const [aberto, setAberto] = useState(true);
+  const estreito = useMediaQuery(MQ_ESTREITO);
+  const grande = useMediaQuery(MQ_GRANDE);
+  // Nasce recolhido; só abre sozinho em tela grande (≥1600). No laptop fica
+  // recolhido até o usuário abrir. Depois de montar, respeita a última escolha.
+  const [aberto, setAberto] = useState(false);
   const gavetaRef = useRef<HTMLDivElement | null>(null);
   const gatilhoRef = useRef<HTMLButtonElement | null>(null);
 
@@ -81,7 +87,7 @@ export function PainelAtividades({
     const salvo = window.localStorage.getItem(CHAVE_ABERTO);
     if (salvo === "0") setAberto(false);
     else if (salvo === "1") setAberto(true);
-    else setAberto(!window.matchMedia(MQ_ESTREITO).matches);
+    else setAberto(window.matchMedia(MQ_GRANDE).matches);
   }, []);
 
   function definirAberto(valor: boolean) {
@@ -108,7 +114,7 @@ export function PainelAtividades({
   if (!aberto) {
     return (
       <aside
-        className={estreito ? "pa-strip pa-strip-flutuante" : "pa-strip"}
+        className={grande ? "pa-strip" : "pa-strip pa-strip-flutuante"}
         aria-label="Painel de atividades (recolhido)"
       >
         <button

@@ -1103,7 +1103,7 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 /* Abaixo de 1600px a faixa não fica no fluxo (encolheria o conteúdo e faria
    tabelas largas rolarem): vira uma aba fixa na borda direita. Abrir mostra a
    gaveta sobreposta; o conteúdo mantém a largura de sempre. */
-.pa-strip-flutuante{position:fixed;right:0;top:110px;z-index:60;align-self:auto}
+.pa-strip-flutuante{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:60}
 .pa-strip-flutuante .pa-strip-btn{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
 
 /* gaveta sobreposta (tela estreita) */
