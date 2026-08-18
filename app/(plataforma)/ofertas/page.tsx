@@ -173,7 +173,10 @@ export default async function PaginaOfertas({
             Mostrando <b>ofertas com vigência a vencer</b> (nos próximos {janelaVigencia} dias) —
             filtro vindo do painel de pendências.
           </span>
-          {/* Âncora nativa: navegação que só limpa a query (convenção do CLAUDE.md). */}
+          {/* Âncora nativa: navegação que só limpa a query (convenção do
+              CLAUDE.md). O lint pede <Link> para páginas internas; a convenção
+              medida vence, e a exceção fica declarada aqui. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/ofertas" className="chip on" style={{ textDecoration: "none" }}>
             Limpar filtro
           </a>

@@ -262,7 +262,10 @@ export default async function PaginaAliados({
             — filtro vindo do painel de pendências.
           </span>
           {/* Navegação que só limpa a query usa âncora nativa (convenção do
-              CLAUDE.md): o Router Cache descartava o payload e a URL não mudava. */}
+              CLAUDE.md): com <Link>, o Router Cache descartava o payload e o
+              filtro não saía. O lint quer <Link> para páginas internas — aqui
+              a convenção medida vence a regra, e a exceção fica declarada. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/aliados" className="chip on" style={{ textDecoration: "none" }}>
             Limpar filtro
           </a>
