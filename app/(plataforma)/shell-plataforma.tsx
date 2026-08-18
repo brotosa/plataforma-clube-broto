@@ -372,10 +372,17 @@ export function ShellPlataforma({
             </svg>
           </button>
 
+          {/* Busca global: form GET nativo para a rota de resultados. Antes
+              o `onSubmit` só chamava preventDefault e o campo não buscava
+              nada — agora navega para /busca?q=, que consulta aliados,
+              soluções e ofertas. GET nativo funciona sem JavaScript e troca
+              de rota (não é navegação só-query, então não cai na ressalva do
+              Router Cache). */}
           <form
             role="search"
+            action="/busca"
+            method="get"
             style={{ position: "relative", width: "min(420px,40vw)" }}
-            onSubmit={(evento) => evento.preventDefault()}
           >
             <svg
               aria-hidden="true"
@@ -397,7 +404,7 @@ export function ShellPlataforma({
               placeholder="Buscar aliados, soluções e ofertas…"
               aria-label="Busca global"
               type="search"
-              name="busca"
+              name="q"
             />
           </form>
 

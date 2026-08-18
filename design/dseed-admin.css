@@ -1065,3 +1065,12 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
    `style`, e é isso que ela passa a cobrir. */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}
 .form-grid-inteiro{grid-column:1 / -1}
+
+/* Linha de resultado da busca global (/busca). Clicável, com nome à esquerda
+   e metadado/estado à direita; divisória entre linhas dentro do card. */
+.busca-lin{display:flex;align-items:center;gap:12px;padding:10px 4px;text-decoration:none;
+  color:inherit;border-top:1px solid var(--borda-suave,var(--borda))}
+.busca-lin:first-child{border-top:0}
+.busca-lin:hover{background:var(--azul-lightest)}
+.busca-lin:focus-visible{outline:2px solid var(--azul);outline-offset:-2px}
+.busca-nome{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
