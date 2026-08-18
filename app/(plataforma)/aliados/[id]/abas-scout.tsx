@@ -65,6 +65,7 @@ export async function AbaScouting({
               total: versao.total,
               fechadaEm: versao.fechadaEm,
               avaliadorNome: versao.avaliadorNome,
+              recomendacao: versao.recomendacao,
               subtotais: versao.subtotais,
             }))}
           />

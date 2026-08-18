@@ -193,6 +193,8 @@ test.describe("avaliação e score — T10 (F7) — testes isolados", () => {
     await expect(gaveta.getByText("atual")).toBeVisible();
     await expect(gaveta.getByText("Versão 1")).toBeVisible();
     await expect(gaveta.getByText("Versão 2")).toBeVisible();
+    // A recomendação de cada versão aparece no histórico (semeada como Avançar).
+    await expect(gaveta.getByText("Avançar").first()).toBeVisible();
     await gaveta.getByRole("button", { name: "Fechar histórico" }).click();
     await expect(gaveta).toBeHidden();
 
