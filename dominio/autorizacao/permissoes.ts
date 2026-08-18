@@ -51,7 +51,11 @@ export type Acao =
   // Onda 12 — Patrocinadores (ficha §4, RN62 e RN66).
   | "VISUALIZAR_PATROCINADORES"
   | "GERIR_PATROCINADORES"
-  | "GERAR_RELATORIO_PATROCINADOR";
+  | "GERAR_RELATORIO_PATROCINADOR"
+  // Pós-homologação — painel de atividades da ficha do aliado. Comentar é
+  // ato de quem opera a ficha; Leitura só lê (e Aprovador/Administrador,
+  // que observam, não comentam). Ler o feed é VISUALIZAR (todos).
+  | "COMENTAR_FICHA_ALIADO";
 
 /**
  * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
@@ -196,6 +200,11 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
    * única linha a mudar.
    */
   GERAR_RELATORIO_PATROCINADOR: ["GESTOR"],
+  // Pós-homologação — comentar na ficha do aliado (painel de atividades). Os
+  // papéis que operam a ficha em qualquer módulo: Gestor, Analista (Aliados),
+  // Analista de Scout e Comercial. Leitura, Aprovador e Administrador da
+  // Plataforma leem o feed (VISUALIZAR), mas não escrevem.
+  COMENTAR_FICHA_ALIADO: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
 };
 
 /**

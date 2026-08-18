@@ -79,6 +79,8 @@ export interface FiltrosAliados {
   completude?: "incompletos";
   /** Cartão "Janelas contratuais" do Dashboard: contrato vigente na janela. */
   contrato?: "janela";
+  /** Sino: aliados com pendência aberta que menciona este usuário. */
+  mencaoDeUsuarioId?: string;
   pagina?: number;
   /** Tamanho do bloco; a T1 usa o da rolagem contínua (RN56). */
   tamanho?: number;
@@ -151,6 +153,18 @@ export async function listarAliados(filtros: FiltrosAliados) {
   }
   if (filtros.completude === "incompletos") {
     e.push(filtroCadastroIncompletoPrisma());
+  }
+  if (filtros.mencaoDeUsuarioId) {
+    e.push({
+      notasRapidas: {
+        some: {
+          ehPendencia: true,
+          pendenciaResolvidaEm: null,
+          removidoEm: null,
+          mencoes: { some: { usuarioId: filtros.mencaoDeUsuarioId } },
+        },
+      },
+    });
   }
   if (filtros.contrato === "janela") {
     e.push({ contratos: { some: { status: "VIGENTE", emJanelaNaoRenovacao: true } } });

@@ -156,6 +156,7 @@ export function ShellPlataforma({
   usuario,
   sair,
   pendencias,
+  mencoesAbertas = 0,
   children,
 }: {
   usuario: { nome: string; rotuloPapel: string };
@@ -167,6 +168,8 @@ export function ShellPlataforma({
    * é a garantia estrutural de que ele não pode divergir da HOME.
    */
   pendencias: ReadonlyArray<PendenciaApurada>;
+  /** Pendências que mencionam o usuário — linha pessoal, à parte das da HOME. */
+  mencoesAbertas?: number;
   children: React.ReactNode;
 }) {
   const [recolhida, setRecolhida] = useState(false);
@@ -414,7 +417,7 @@ export function ShellPlataforma({
           {/* F14: o `title` antigo prometia "alertas de vigência e janela
               contratual chegam com a carga de dados" — alertas que nunca
               existiriam. Saiu junto com o botão decorativo. */}
-          <SinoPendencias pendencias={pendencias} />
+          <SinoPendencias pendencias={pendencias} mencoesAbertas={mencoesAbertas} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className="dot-avatar" aria-hidden="true">

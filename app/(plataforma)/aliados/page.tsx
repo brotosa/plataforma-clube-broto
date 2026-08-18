@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { EstagioEmpresa } from "@prisma/client";
+import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
 import {
   contadoresAliados,
@@ -41,8 +42,12 @@ export default async function PaginaAliados({
   // Deep-links dos cartões de pendência do Dashboard (Onda 6/7).
   const completude = parametros.completude === "incompletos" ? "incompletos" : undefined;
   const contrato = parametros.contrato === "janela" ? "janela" : undefined;
+  // Sino → "pendências que mencionam você": filtra pela menção ao usuário logado.
+  const sessao = await auth();
+  const mencaoDeUsuarioId =
+    parametros.mencao === "minhas" && sessao?.user?.id ? sessao.user.id : undefined;
   const temFiltros = Boolean(
-    busca || categoriaId || estagio || semOfertaAtiva || completude || contrato,
+    busca || categoriaId || estagio || semOfertaAtiva || completude || contrato || mencaoDeUsuarioId,
   );
 
   const [contadores, resultado, categorias, totalGeral] = await Promise.all([
@@ -57,6 +62,7 @@ export default async function PaginaAliados({
       semOfertaAtiva,
       completude,
       contrato,
+      mencaoDeUsuarioId,
       pagina: 1,
       tamanho: TAMANHO_BLOCO_ROLAGEM,
     }),
@@ -241,7 +247,7 @@ export default async function PaginaAliados({
         </span>
       </form>
 
-      {completude || contrato ? (
+      {completude || contrato || mencaoDeUsuarioId ? (
         <div
           className="aviso-inline"
           style={{
@@ -255,11 +261,13 @@ export default async function PaginaAliados({
           <span>
             Mostrando{" "}
             <b>
-              {completude
-                ? "cadastros incompletos (bloqueiam publicação)"
-                : "contratos na janela de não-renovação"}
+              {mencaoDeUsuarioId
+                ? "aliados com pendência que menciona você"
+                : completude
+                  ? "cadastros incompletos (bloqueiam publicação)"
+                  : "contratos na janela de não-renovação"}
             </b>{" "}
-            — filtro vindo do painel de pendências.
+            — filtro vindo do {mencaoDeUsuarioId ? "sino" : "painel de pendências"}.
           </span>
           {/* Navegação que só limpa a query usa âncora nativa (convenção do
               CLAUDE.md): com <Link>, o Router Cache descartava o payload e o
@@ -329,6 +337,7 @@ export default async function PaginaAliados({
               semOfertaAtiva,
               completude,
               contrato,
+              mencaoMinhas: Boolean(mencaoDeUsuarioId),
             }}
             tamanhoDoBloco={resultado.tamanhoPagina}
           />

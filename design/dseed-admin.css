@@ -1074,3 +1074,84 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .busca-lin:hover{background:var(--azul-lightest)}
 .busca-lin:focus-visible{outline:2px solid var(--azul);outline-offset:-2px}
 .busca-nome{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Painel de atividades da ficha do aliado (pós-homologação) ──────────
+   Coluna recuável à direita, persistente em todas as abas porque mora no
+   shell. Larga: rail fixo ao lado do conteúdo, recolhível numa faixa fina.
+   Estreita (<1100px): a faixa abre uma gaveta sobreposta que não encolhe o
+   conteúdo (mesmo padrão da gaveta do histórico do Scouting). */
+.pa-layout{display:flex;gap:22px;align-items:flex-start}
+.pa-conteudo{flex:1 1 auto;min-width:0;max-width:1240px}
+.pa-rail{flex:0 0 328px;position:sticky;top:16px;align-self:flex-start}
+.pa-corpo{display:flex;flex-direction:column;gap:10px;background:var(--branco);
+  border:1px solid var(--borda);border-radius:var(--r-md);box-shadow:var(--shadow);
+  padding:14px 14px 12px;max-height:calc(100vh - 32px)}
+.pa-h{display:flex;align-items:center;gap:8px}
+.pa-feed{display:flex;flex-direction:column;gap:10px;flex:1 1 auto;min-height:0;
+  overflow:auto;padding-right:2px}
+
+/* faixa recolhida */
+.pa-strip{flex:0 0 auto;position:sticky;top:16px;align-self:flex-start}
+.pa-strip-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;
+  background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-md);cursor:pointer;
+  color:var(--paragrafo-aaa);box-shadow:var(--shadow);
+  transition:border-color var(--dur-1) var(--ease),color var(--dur-1) var(--ease)}
+.pa-strip-btn:hover{border-color:var(--azul);color:var(--azul)}
+.pa-strip-n{font:var(--font-body-label-bold);font-size:13px}
+.pa-strip-dot{width:8px;height:8px;border-radius:50%;background:var(--erro-texto-aaa)}
+.pa-strip-txt{writing-mode:vertical-rl;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+/* Abaixo de 1600px a faixa não fica no fluxo (encolheria o conteúdo e faria
+   tabelas largas rolarem): vira uma aba fixa na borda direita. Abrir mostra a
+   gaveta sobreposta; o conteúdo mantém a largura de sempre. */
+.pa-strip-flutuante{position:fixed;right:0;top:110px;z-index:60;align-self:auto}
+.pa-strip-flutuante .pa-strip-btn{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
+
+/* gaveta sobreposta (tela estreita) */
+.pa-scrim{position:fixed;inset:0;z-index:110;
+  background:var(--color-transparency-black-on-light-30,rgba(15,17,26,.42))}
+.pa-gaveta{position:fixed;top:0;right:0;height:100%;width:min(420px,94vw);z-index:111;
+  background:var(--branco);border-left:1px solid var(--borda);box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;outline:none}
+.pa-gaveta .pa-corpo{height:100%;max-height:100%;border:0;border-radius:0;box-shadow:none}
+
+/* editor (composer e edição inline) */
+.pa-editor{display:flex;flex-direction:column;gap:8px;border:1px solid var(--borda);
+  border-radius:var(--r-sm);padding:10px}
+.pa-ta{width:100%;resize:vertical;font-size:13.5px;min-height:56px}
+.pa-editor-linha{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pa-check{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--paragrafo-aaa);cursor:pointer}
+.pa-mencao{position:relative}
+.pa-mencao>summary{list-style:none;cursor:pointer;display:inline-flex}
+.pa-mencao>summary::-webkit-details-marker{display:none}
+.pa-mencao-lista{position:absolute;z-index:5;margin-top:4px;max-height:200px;overflow:auto;
+  background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-sm);
+  box-shadow:var(--shadow-lg);padding:6px;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.pa-mencao-it{display:flex;align-items:center;gap:7px;font-size:13px;padding:5px 7px;border-radius:6px;cursor:pointer}
+.pa-mencao-it:hover{background:var(--azul-lightest)}
+.pa-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pa-chip{display:inline-flex;align-items:center;gap:5px;background:var(--azul-lightest);
+  color:var(--azul-texto-aaa);border-radius:var(--r-pill);padding:2px 4px 2px 9px;font-size:12px;font-weight:600}
+.pa-chip button{border:0;background:none;cursor:pointer;color:inherit;font-size:15px;line-height:1;padding:0 4px}
+.pa-editor-acoes{display:flex;justify-content:flex-end;gap:8px}
+
+/* item do feed */
+.pa-item{border:1px solid var(--borda);border-radius:var(--r-sm);padding:10px 11px;background:var(--branco);
+  display:flex;flex-direction:column;gap:6px}
+.pa-item.pa-mim{border-color:var(--azul);box-shadow:0 0 0 1px var(--azul) inset}
+.pa-item-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pa-autor{font-size:13px}
+.pa-quando{font-size:11.5px}
+.pa-texto{margin:0;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.pa-mencoes-lidas{display:flex;flex-wrap:wrap;gap:5px}
+.pa-tag-mencao{font-size:11.5px;color:var(--azul-texto-aaa);background:var(--azul-lightest);
+  border-radius:var(--r-pill);padding:1px 8px}
+.pa-tag-mencao.eu{background:var(--azul);color:#fff}
+.pa-item-acoes{display:flex;gap:6px;flex-wrap:wrap}
+.pa-apagar:hover{color:var(--erro-texto-aaa)}
+.pa-toast{margin-top:8px;padding:8px 10px;border-radius:var(--r-sm);
+  background:var(--azul-lightest);color:var(--azul-texto-aaa);font-size:12.5px}
+.pa-toast.erro{background:var(--erro-texto-aaa);color:#fff}
+
+@media (max-width:760px){.pa-layout{gap:12px}}
+@media print{.pa-rail,.pa-strip,.pa-gaveta,.pa-scrim{display:none}}
+@media (prefers-reduced-motion:reduce){.pa-strip-btn{transition:none}}

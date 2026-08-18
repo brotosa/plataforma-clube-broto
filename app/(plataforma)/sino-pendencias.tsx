@@ -37,8 +37,17 @@ function focaveis(painel: HTMLElement): HTMLElement[] {
 
 export function SinoPendencias({
   pendencias,
+  mencoesAbertas = 0,
 }: {
   pendencias: ReadonlyArray<PendenciaApurada>;
+  /**
+   * Pendências que mencionam o usuário (painel de atividades). É uma linha
+   * **pessoal**, à parte das operacionais: as da HOME continuam sendo a
+   * soma exata dos cartões (o invariante do sino), e a menção entra por
+   * cima como derivação própria — some sozinha quando a pendência é
+   * resolvida, sem fila nem estado de lido/não-lido.
+   */
+  mencoesAbertas?: number;
 }) {
   const [aberto, setAberto] = useState(false);
   const botaoRef = useRef<HTMLButtonElement | null>(null);
@@ -46,7 +55,8 @@ export function SinoPendencias({
   const idPainel = useId();
   const rota = usePathname();
 
-  const total = totalDePendencias(pendencias);
+  const totalOperacional = totalDePendencias(pendencias);
+  const total = totalOperacional + mencoesAbertas;
   const linhas = pendenciasAcionaveis(pendencias);
 
   /** Fecha devolvendo o foco ao botão — sem isso o teclado fica órfão. */
@@ -184,16 +194,44 @@ export function SinoPendencias({
               </span>
             </div>
 
+            {/* Linha pessoal: pendências que mencionam você (painel de
+                atividades). Fica acima das operacionais, com o mesmo desenho
+                de linha, e leva à lista de aliados filtrada. */}
+            {mencoesAbertas > 0 ? (
+              <Link
+                className="not-lin"
+                href="/aliados?mencao=minhas"
+                onClick={() => fechar(false)}
+              >
+                <span className="not-n" aria-hidden="true">
+                  {FORMATO.format(mencoesAbertas)}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", font: "var(--font-body-label-bold)" }}>
+                    {FORMATO.format(mencoesAbertas)} ·{" "}
+                    {mencoesAbertas === 1
+                      ? "pendência menciona você"
+                      : "pendências mencionam você"}
+                  </span>
+                  <span className="cap" style={{ display: "block" }}>
+                    painel de atividades do aliado
+                  </span>
+                </span>
+              </Link>
+            ) : null}
+
             {linhas.length === 0 ? (
-              <div className="vazio" style={{ padding: "22px 14px", borderTop: 0 }}>
-                <h3 className="h-el" style={{ margin: 0 }}>
-                  Nenhuma ação pendente
-                </h3>
-                <p className="cap" style={{ maxWidth: "34ch", margin: "6px 0 0" }}>
-                  Aprovações em dia, vigências saudáveis, sem quarentenas. As réguas do
-                  Parametrizador seguem vigiando.
-                </p>
-              </div>
+              mencoesAbertas === 0 ? (
+                <div className="vazio" style={{ padding: "22px 14px", borderTop: 0 }}>
+                  <h3 className="h-el" style={{ margin: 0 }}>
+                    Nenhuma ação pendente
+                  </h3>
+                  <p className="cap" style={{ maxWidth: "34ch", margin: "6px 0 0" }}>
+                    Aprovações em dia, vigências saudáveis, sem quarentenas. As réguas do
+                    Parametrizador seguem vigiando.
+                  </p>
+                </div>
+              ) : null
             ) : (
               <div>
                 {linhas.map((pendencia) => (

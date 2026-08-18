@@ -74,6 +74,7 @@ model Usuario {
   empresasComoScout        Empresa[]                 @relation("responsavelScout")
   empresasComoComercial    Empresa[]                 @relation("responsavelComercial")
   notasRapidas             NotaRapida[]
+  mencoesRecebidas         NotaRapidaMencao[]        @relation("mencionadoEm")
   registrosNegociacao      RegistroNegociacao[]
   avaliacoesScout          AvaliacaoScout[]
   segmentos                Segmento[]
@@ -320,18 +321,51 @@ model Empresa {
 
 /// Notas rápidas da empresa no funil (ficha Onda 2 §3.1): texto livre
 /// curto, em histórico — corrigir é acrescentar nova nota.
+/// Comentário da equipe na ficha do aliado (painel de atividades). Nasceu
+/// como "nota rápida do funil" (append-only, dormante) e passou a ser a base
+/// do feed: o próprio autor edita/apaga (soft-delete via `removidoEm`), pode
+/// marcar como pendência (aberta/resolvida) e mencionar outros usuários. Tudo
+/// auditado — apagar some da vista, a trilha permanece (RN49).
 model NotaRapida {
   id        String   @id @default(cuid())
   empresaId String   @map("empresa_id")
   autorId   String   @map("autor_id")
   texto     String
   criadoEm  DateTime @default(now()) @map("criado_em")
+  /// Marca da última edição pelo autor (null = nunca editado).
+  editadoEm DateTime? @map("editado_em")
+  /// Soft-delete pelo autor (null = visível). Preserva menções e auditoria.
+  removidoEm DateTime? @map("removido_em")
+  /// Comentário marcado como pendência a resolver.
+  ehPendencia Boolean @default(false) @map("eh_pendencia")
+  /// Quando a pendência foi resolvida (null = aberta, enquanto ehPendencia).
+  pendenciaResolvidaEm DateTime? @map("pendencia_resolvida_em")
 
-  empresa Empresa @relation(fields: [empresaId], references: [id])
-  autor   Usuario @relation(fields: [autorId], references: [id])
+  empresa Empresa            @relation(fields: [empresaId], references: [id])
+  autor   Usuario            @relation(fields: [autorId], references: [id])
+  mencoes NotaRapidaMencao[]
 
   @@index([empresaId])
+  /// Feed do painel: ordena por data dentro do aliado.
+  @@index([empresaId, criadoEm])
   @@map("notas_rapidas")
+}
+
+/// Menção de um usuário num comentário. Só destaca o nome no painel; quando o
+/// comentário é uma pendência aberta, alimenta a linha derivada do sino
+/// ("pendências que mencionam você") — sem fila nem estado de lido/não-lido.
+model NotaRapidaMencao {
+  id           String   @id @default(cuid())
+  notaRapidaId String   @map("nota_rapida_id")
+  usuarioId    String   @map("usuario_id")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+
+  nota    NotaRapida @relation(fields: [notaRapidaId], references: [id], onDelete: Cascade)
+  usuario Usuario    @relation("mencionadoEm", fields: [usuarioId], references: [id])
+
+  @@unique([notaRapidaId, usuarioId])
+  @@index([usuarioId])
+  @@map("nota_rapida_mencoes")
 }
 
 enum TipoRegistroNegociacao {

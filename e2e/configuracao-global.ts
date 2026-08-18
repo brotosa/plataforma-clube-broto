@@ -120,6 +120,14 @@ export default async function configuracaoGlobal() {
       ).map((avaliacao) => avaliacao.id);
       await prisma.avaliacaoNota.deleteMany({ where: { avaliacaoId: { in: avaliacaoIds } } });
       await prisma.avaliacaoScout.deleteMany({ where: { empresaId: empresa.id } });
+      const notaIds = (
+        await prisma.notaRapida.findMany({
+          where: { empresaId: empresa.id },
+          select: { id: true },
+        })
+      ).map((nota) => nota.id);
+      await prisma.notaRapidaMencao.deleteMany({ where: { notaRapidaId: { in: notaIds } } });
+      await prisma.notaRapida.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.contratoComercial.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.contatoEmpresa.deleteMany({ where: { empresaId: empresa.id } });
       await prisma.empresaCategoria.deleteMany({ where: { empresaId: empresa.id } });

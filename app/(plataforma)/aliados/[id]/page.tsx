@@ -6,6 +6,7 @@ import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { buscarAliado, trilhaDeAuditoria } from "@/infra/consultas/aliados";
+import { feedDoAliado, usuariosMencionaveis } from "@/infra/consultas/comentarios";
 import { avaliarPromocao } from "@/infra/casos-de-uso/empresas";
 import { lerValor } from "@/infra/configuracao/servico-configuracao";
 import { BarraCompletude, PendenteObrigatorio, PillEstagio, iniciaisDoNome } from "../componentes";
@@ -16,6 +17,7 @@ import { GestaoContatos } from "./gestao-contatos";
 import { CartaoDeAnexoContrato } from "./cartao-anexo-contrato";
 import { AbaDossie, AbaScouting } from "./abas-scout";
 import { FormularioM1 } from "./formulario-m1";
+import { PainelAtividades } from "./painel-atividades";
 
 export const metadata: Metadata = {
   title: "Ficha do aliado",
@@ -76,7 +78,9 @@ export default async function PaginaFichaAliado({
 
   const sessao = await auth();
   const papel = sessao?.user?.papel ?? "LEITURA";
+  const usuarioAtualId = sessao?.user?.id ?? "";
   const podeEditar = podeExecutar(papel, "CRIAR_EDITAR");
+  const podeComentar = podeExecutar(papel, "COMENTAR_FICHA_ALIADO");
 
   const resultado = await buscarAliado(id);
   if (!resultado) {
@@ -84,20 +88,30 @@ export default async function PaginaFichaAliado({
   }
   const { empresa, contratoVigente, completude } = resultado;
 
-  const [{ pendencias }, motivosSuspensao, solicitacaoPendente, trilha, comissaoPadrao] =
-    await Promise.all([
-      empresa.estagio === "EM_NEGOCIACAO"
-        ? avaliarPromocao(id)
-        : Promise.resolve({ pendencias: [] as string[] }),
-      prisma.motivoSuspensao.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
-      prisma.aprovacaoSolicitacao.findFirst({
-        where: { tipoEntidade: "PROMOCAO_ALIADA_ATIVA", entidadeId: id, estado: "SOLICITADA" },
-      }),
-      aba === "integracao" ? trilhaDeAuditoria("empresa", id) : Promise.resolve([]),
-      // Comissão-padrão do contrato-modelo (Parametrizador, F10): 5%
-      // confirmados em 24/07 — pré-preenche o contrato novo, editável.
-      lerValor("COMISSAO_PADRAO_PCT"),
-    ]);
+  const [
+    { pendencias },
+    motivosSuspensao,
+    solicitacaoPendente,
+    trilha,
+    comissaoPadrao,
+    comentarios,
+    usuariosParaMencao,
+  ] = await Promise.all([
+    empresa.estagio === "EM_NEGOCIACAO"
+      ? avaliarPromocao(id)
+      : Promise.resolve({ pendencias: [] as string[] }),
+    prisma.motivoSuspensao.findMany({ where: { ativa: true }, orderBy: { ordem: "asc" } }),
+    prisma.aprovacaoSolicitacao.findFirst({
+      where: { tipoEntidade: "PROMOCAO_ALIADA_ATIVA", entidadeId: id, estado: "SOLICITADA" },
+    }),
+    aba === "integracao" ? trilhaDeAuditoria("empresa", id) : Promise.resolve([]),
+    // Comissão-padrão do contrato-modelo (Parametrizador, F10): 5%
+    // confirmados em 24/07 — pré-preenche o contrato novo, editável.
+    lerValor("COMISSAO_PADRAO_PCT"),
+    // Painel de atividades — feed e usuários mencionáveis, em todas as abas.
+    feedDoAliado(id),
+    usuariosMencionaveis(),
+  ]);
 
   const ofertasDoAliado = empresa.solucoes.flatMap((solucao) =>
     solucao.ofertas.map((oferta) => ({ ...oferta, solucaoNome: solucao.nome })),
@@ -132,7 +146,8 @@ export default async function PaginaFichaAliado({
     .join(", ");
 
   return (
-    <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+    <div className="tela pa-layout" style={{ padding: "26px 32px 40px", maxWidth: 1600 }}>
+      <div className="pa-conteudo">
       <div className="cap" style={{ marginBottom: 14 }}>
         <Link href="/aliados">Aliados</Link> /{" "}
         <b style={{ color: "var(--preto)" }}>{empresa.nomeFantasia}</b>
@@ -801,6 +816,15 @@ export default async function PaginaFichaAliado({
           </div>
         </div>
       ) : null}
+      </div>
+
+      <PainelAtividades
+        empresaId={empresa.id}
+        comentarios={comentarios}
+        usuarios={usuariosParaMencao}
+        usuarioAtualId={usuarioAtualId}
+        podeComentar={podeComentar}
+      />
     </div>
   );
 }
