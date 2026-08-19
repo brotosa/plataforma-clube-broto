@@ -121,6 +121,11 @@ export default async function PaginaOfertas({
             Importar telemetria
           </Link>
         ) : null}
+        {podeExecutar(papel, "CRIAR_EDITAR") ? (
+          <Link href="/ofertas/importar" className="btn btn-ghost" style={{ textDecoration: "none" }}>
+            Importar ofertas
+          </Link>
+        ) : null}
       </div>
 
       <div className="contadores" style={{ marginBottom: 18 }}>
