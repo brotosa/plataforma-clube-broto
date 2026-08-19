@@ -38,7 +38,9 @@ test.describe("importar soluções (/aliados/importar-solucoes)", () => {
     // Tela 2 — conferência.
     await page.waitForURL(/\/aliados\/importar-solucoes\?lote=/);
     await expect(page.getByRole("heading", { level: 1, name: "Conferência da importação" })).toBeVisible();
-    await expect(page.getByText("criar", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: /Linhas da importação/ }).getByText("criar", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: /Efetivar/ })).toBeVisible();
     await semViolacoesAxe(page);
   });
@@ -71,7 +73,9 @@ test.describe("importar ofertas (/ofertas/importar)", () => {
 
     await page.waitForURL(/\/ofertas\/importar\?lote=/);
     await expect(page.getByRole("heading", { level: 1, name: "Conferência da importação" })).toBeVisible();
-    await expect(page.getByText("criar", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: /Linhas da importação/ }).getByText("criar", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: /Efetivar/ })).toBeVisible();
     await semViolacoesAxe(page);
   });
