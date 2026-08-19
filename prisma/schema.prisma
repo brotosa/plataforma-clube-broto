@@ -327,17 +327,17 @@ model Empresa {
 /// marcar como pendência (aberta/resolvida) e mencionar outros usuários. Tudo
 /// auditado — apagar some da vista, a trilha permanece (RN49).
 model NotaRapida {
-  id        String   @id @default(cuid())
-  empresaId String   @map("empresa_id")
-  autorId   String   @map("autor_id")
-  texto     String
-  criadoEm  DateTime @default(now()) @map("criado_em")
+  id                   String    @id @default(cuid())
+  empresaId            String    @map("empresa_id")
+  autorId              String    @map("autor_id")
+  texto                String
+  criadoEm             DateTime  @default(now()) @map("criado_em")
   /// Marca da última edição pelo autor (null = nunca editado).
-  editadoEm DateTime? @map("editado_em")
+  editadoEm            DateTime? @map("editado_em")
   /// Soft-delete pelo autor (null = visível). Preserva menções e auditoria.
-  removidoEm DateTime? @map("removido_em")
+  removidoEm           DateTime? @map("removido_em")
   /// Comentário marcado como pendência a resolver.
-  ehPendencia Boolean @default(false) @map("eh_pendencia")
+  ehPendencia          Boolean   @default(false) @map("eh_pendencia")
   /// Quando a pendência foi resolvida (null = aberta, enquanto ehPendencia).
   pendenciaResolvidaEm DateTime? @map("pendencia_resolvida_em")
 
@@ -972,6 +972,10 @@ enum TipoImportacao {
   /// Onda 5 — as duas famílias da importação de assinantes (ficha §3).
   ASSINANTES_NUCLEO
   ASSINANTES_ENRIQUECIMENTO
+  /// Importador self-service de soluções em massa por planilha, chaveado
+  /// por CNPJ do aliado (RN01 preservada). Reaproveita `criarSolucao`/
+  /// `atualizarSolucao`, então cria e enriquece com auditoria de graça.
+  IMPORTA_SOLUCOES
 }
 
 /// Política de carga de assinantes (RN29): a carga declara o que a
@@ -1015,6 +1019,7 @@ model Importacao {
   stagingEmpresas     StagingEmpresa[]
   stagingAssinantes   StagingAssinante[]
   atributosGravados   AtributoEnriquecimento[]
+  stagingSolucoesImp  StagingSolucaoImportada[]
 
   /// T26 — importações em quarentena na faixa "exige ação hoje".
   @@index([criadoEm])
@@ -1129,6 +1134,51 @@ model StagingAgrupamento {
 
   @@index([importacaoId])
   @@map("staging_agrupamentos")
+}
+
+// ---------------------------------------------------------------------
+// Staging do importador self-service de soluções (planilha → conferência
+// → efetivação). Chave do aliado = CNPJ; efetivação reusa criarSolucao/
+// atualizarSolucao (RN01 + auditoria). Tabela transitória: cada lote é
+// apagado quando substituído. Estritamente aditiva sobre a base povoada.
+// ---------------------------------------------------------------------
+
+/// O que a linha fará ao efetivar, resolvido na validação.
+enum AcaoImportacaoCatalogo {
+  CRIAR
+  ENRIQUECER
+}
+
+model StagingSolucaoImportada {
+  id                 String                  @id @default(cuid())
+  importacaoId       String                  @map("importacao_id")
+  linhaOrigem        Int                     @map("linha_origem")
+  /// Linha crua da planilha (tolerante a colunas extras).
+  dadosOriginais     Json                    @map("dados_originais")
+  // Campos mapeados da aba "Soluções" (valores já com correção leve aplicada)
+  cnpj               String?
+  nomeSolucao        String?                 @map("nome_solucao")
+  descricaoCurta     String?                 @map("descricao_curta")
+  descricaoCompleta  String?                 @map("descricao_completa")
+  categoriaTexto     String?                 @map("categoria_texto")
+  linkExterno        String?                 @map("link_externo")
+  culturasTexto      String?                 @map("culturas_texto")
+  coberturaTexto     String?                 @map("cobertura_texto")
+  // Resolução da validação
+  acao               AcaoImportacaoCatalogo?
+  empresaIdResolvida String?                 @map("empresa_id_resolvida")
+  solucaoIdResolvida String?                 @map("solucao_id_resolvida")
+  estado             EstadoStaging           @default(PENDENTE)
+  /// Pendências bloqueantes (uma por causa nomeada); vazio = pronta.
+  mensagemErro       String?                 @map("mensagem_erro")
+  solucaoIdEfetivada String?                 @map("solucao_id_efetivada")
+  criadoEm           DateTime                @default(now()) @map("criado_em")
+  atualizadoEm       DateTime                @updatedAt @map("atualizado_em")
+
+  importacao Importacao @relation(fields: [importacaoId], references: [id])
+
+  @@index([importacaoId])
+  @@map("staging_solucoes_importadas")
 }
 
 // ---------------------------------------------------------------------

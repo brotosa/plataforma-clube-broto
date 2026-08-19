@@ -118,6 +118,13 @@ export default async function PaginaAliados({
           visoes={VISOES_DE_ALIADOS}
           ativa="LISTA"
         />
+        <Link
+          href="/aliados/importar-solucoes"
+          className="btn btn-ghost"
+          style={{ textDecoration: "none" }}
+        >
+          Importar soluções
+        </Link>
         <Link href="/aliados/novo" className="btn btn-azul" style={{ textDecoration: "none" }}>
           + Novo aliado
         </Link>
