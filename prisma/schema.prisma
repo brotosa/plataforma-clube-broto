@@ -976,6 +976,9 @@ enum TipoImportacao {
   /// por CNPJ do aliado (RN01 preservada). Reaproveita `criarSolucao`/
   /// `atualizarSolucao`, então cria e enriquece com auditoria de graça.
   IMPORTA_SOLUCOES
+  /// Importador self-service de ofertas em massa por planilha, apontando a
+  /// solução por ID. Reaproveita `criarOferta` (rascunho) / `atualizarOferta`.
+  IMPORTA_OFERTAS
 }
 
 /// Política de carga de assinantes (RN29): a carga declara o que a
@@ -1020,6 +1023,7 @@ model Importacao {
   stagingAssinantes   StagingAssinante[]
   atributosGravados   AtributoEnriquecimento[]
   stagingSolucoesImp  StagingSolucaoImportada[]
+  stagingOfertasImp   StagingOfertaImportada[]
 
   /// T26 — importações em quarentena na faixa "exige ação hoje".
   @@index([criadoEm])
@@ -1179,6 +1183,28 @@ model StagingSolucaoImportada {
 
   @@index([importacaoId])
   @@map("staging_solucoes_importadas")
+}
+
+/// Staging do importador self-service de ofertas. A oferta aponta a solução
+/// por ID; `ofertaIdResolvida` != null = enriquecer, senão criar (rascunho).
+model StagingOfertaImportada {
+  id                 String                  @id @default(cuid())
+  importacaoId       String                  @map("importacao_id")
+  linhaOrigem        Int                     @map("linha_origem")
+  dadosOriginais     Json                    @map("dados_originais")
+  acao               AcaoImportacaoCatalogo?
+  solucaoIdResolvida String?                 @map("solucao_id_resolvida")
+  ofertaIdResolvida  String?                 @map("oferta_id_resolvida")
+  estado             EstadoStaging           @default(PENDENTE)
+  mensagemErro       String?                 @map("mensagem_erro")
+  ofertaIdEfetivada  String?                 @map("oferta_id_efetivada")
+  criadoEm           DateTime                @default(now()) @map("criado_em")
+  atualizadoEm       DateTime                @updatedAt @map("atualizado_em")
+
+  importacao Importacao @relation(fields: [importacaoId], references: [id])
+
+  @@index([importacaoId])
+  @@map("staging_ofertas_importadas")
 }
 
 // ---------------------------------------------------------------------
