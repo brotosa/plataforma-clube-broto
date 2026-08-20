@@ -401,8 +401,10 @@ function EditorComentario({
           rows={3}
           placeholder="Escreva um comentário para a equipe…"
           value={texto}
-          role="combobox"
-          aria-expanded={mostrando}
+          // Sem role="combobox": a ARIA não permite esse papel em <textarea>
+          // (axe: aria-allowed-role). O campo continua textbox e recebe só os
+          // atributos que o textbox aceita — aria-autocomplete/activedescendant —
+          // mais os globais aria-controls/haspopup, apontando para o listbox.
           aria-controls={idLista}
           aria-autocomplete="list"
           aria-haspopup="listbox"
