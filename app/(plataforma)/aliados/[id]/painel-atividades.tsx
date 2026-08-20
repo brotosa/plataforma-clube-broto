@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { ComentarioDoFeed, UsuarioMencionavel } from "@/infra/consultas/comentarios";
 import {
   acaoAdicionarComentario,
@@ -264,6 +264,24 @@ function CorpoPainel({
   );
 }
 
+/** Normaliza para busca: sem acento, minúsculo. */
+function normalizarBusca(valor: string): string {
+  return valor.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/**
+ * Detecta uma menção em digitação: um `@` no início ou após espaço, seguido do
+ * que se digitou até o cursor sem espaço. Devolve onde o `@` começa e a
+ * consulta, ou `null` quando não há menção ativa sob o cursor.
+ */
+function detectarMencao(texto: string, cursor: number): { inicio: number; consulta: string } | null {
+  const antes = texto.slice(0, cursor);
+  const casamento = /(^|\s)@(\S*)$/.exec(antes);
+  if (!casamento) return null;
+  const consulta = casamento[2] ?? "";
+  return { inicio: cursor - consulta.length - 1, consulta };
+}
+
 /** Editor de comentário — reusado pelo composer e pela edição inline. */
 function EditorComentario({
   textoInicial,
@@ -289,10 +307,28 @@ function EditorComentario({
   const [texto, setTexto] = useState(textoInicial);
   const [ehPendencia, setEhPendencia] = useState(pendenciaInicial);
   const [mencionados, setMencionados] = useState<string[]>(mencionadosIniciais);
-  const idPend = useMemo(() => `pend-${Math.round(texto.length)}-${rotuloEnviar}`, [rotuloEnviar, texto.length]);
+  const idBase = useId();
+  const idTa = `ta-${idBase}`;
+  const idLista = `lb-${idBase}`;
+  const idOpcao = (indice: number) => `op-${idBase}-${indice}`;
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Autocomplete de @menção: aberto, o que se digitou após o `@`, onde o `@`
+  // começa e qual opção está ativa (navegação por teclado).
+  const [sugestaoAberta, setSugestaoAberta] = useState(false);
+  const [consulta, setConsulta] = useState("");
+  const [inicioMencao, setInicioMencao] = useState(0);
+  const [ativa, setAtiva] = useState(0);
 
   const mencionaveis = usuarios.filter((u) => u.id !== usuarioAtualId);
   const selecionados = mencionaveis.filter((u) => mencionados.includes(u.id));
+
+  const opcoes = sugestaoAberta
+    ? mencionaveis.filter((u) => normalizarBusca(u.nome).includes(normalizarBusca(consulta)))
+    : [];
+  // Só mostra quando há de fato o que escolher (evita caixa vazia).
+  const mostrando = sugestaoAberta && opcoes.length > 0;
+  const indiceAtivo = Math.min(ativa, Math.max(opcoes.length - 1, 0));
 
   function alternarMencao(id: string) {
     setMencionados((atuais) =>
@@ -300,19 +336,123 @@ function EditorComentario({
     );
   }
 
+  /** Recalcula a menção sob o cursor a partir do texto e posição atuais. */
+  function reavaliarMencao(valor: string, cursor: number) {
+    const achado = detectarMencao(valor, cursor);
+    if (achado) {
+      setInicioMencao(achado.inicio);
+      setConsulta(achado.consulta);
+      setSugestaoAberta(true);
+      setAtiva(0);
+    } else {
+      setSugestaoAberta(false);
+    }
+  }
+
+  /** Escolhe um usuário: troca o trecho `@consulta` por `@Nome ` e registra o id. */
+  function escolher(usuario: UsuarioMencionavel) {
+    const ta = taRef.current;
+    const cursor = ta?.selectionStart ?? texto.length;
+    const antes = texto.slice(0, inicioMencao);
+    const depois = texto.slice(cursor);
+    const trecho = `@${usuario.nome} `;
+    const novo = `${antes}${trecho}${depois}`;
+    setTexto(novo);
+    setMencionados((atuais) => (atuais.includes(usuario.id) ? atuais : [...atuais, usuario.id]));
+    setSugestaoAberta(false);
+    const posicao = antes.length + trecho.length;
+    // Devolve o foco ao campo e posiciona o cursor após a menção inserida.
+    requestAnimationFrame(() => {
+      const alvo = taRef.current;
+      if (!alvo) return;
+      alvo.focus();
+      alvo.setSelectionRange(posicao, posicao);
+    });
+  }
+
+  function aoTeclar(evento: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!mostrando) return;
+    if (evento.key === "ArrowDown") {
+      evento.preventDefault();
+      setAtiva((i) => (i + 1) % opcoes.length);
+    } else if (evento.key === "ArrowUp") {
+      evento.preventDefault();
+      setAtiva((i) => (i - 1 + opcoes.length) % opcoes.length);
+    } else if (evento.key === "Enter" || evento.key === "Tab") {
+      evento.preventDefault();
+      const alvo = opcoes[indiceAtivo];
+      if (alvo) escolher(alvo);
+    } else if (evento.key === "Escape") {
+      evento.preventDefault();
+      setSugestaoAberta(false);
+    }
+  }
+
   return (
     <div className="pa-editor">
-      <label className="sr-oculto" htmlFor={`ta-${idPend}`}>
+      <label className="sr-oculto" htmlFor={idTa}>
         Texto do comentário
       </label>
-      <textarea
-        id={`ta-${idPend}`}
-        className="input pa-ta"
-        rows={3}
-        placeholder="Escreva um comentário para a equipe…"
-        value={texto}
-        onChange={(evento) => setTexto(evento.target.value)}
-      />
+      <div className="pa-sug-anc">
+        <textarea
+          id={idTa}
+          ref={taRef}
+          className="input pa-ta"
+          rows={3}
+          placeholder="Escreva um comentário para a equipe…"
+          value={texto}
+          // Sem role="combobox": a ARIA não permite esse papel em <textarea>
+          // (axe: aria-allowed-role). O campo continua textbox e recebe só os
+          // atributos que o textbox aceita — aria-autocomplete/activedescendant —
+          // mais os globais aria-controls/haspopup, apontando para o listbox.
+          aria-controls={idLista}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-activedescendant={mostrando ? idOpcao(indiceAtivo) : undefined}
+          onChange={(evento) => {
+            setTexto(evento.target.value);
+            reavaliarMencao(evento.target.value, evento.target.selectionStart ?? evento.target.value.length);
+          }}
+          onKeyDown={aoTeclar}
+          onKeyUp={(evento) => {
+            if (mostrando && ["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(evento.key)) return;
+            const alvo = evento.currentTarget;
+            reavaliarMencao(alvo.value, alvo.selectionStart ?? alvo.value.length);
+          }}
+          onClick={(evento) => {
+            const alvo = evento.currentTarget;
+            reavaliarMencao(alvo.value, alvo.selectionStart ?? alvo.value.length);
+          }}
+          onBlur={() => setSugestaoAberta(false)}
+        />
+        <ul
+          id={idLista}
+          role="listbox"
+          aria-label="Mencionar alguém da equipe"
+          className="pa-mencao-lista pa-sug-lista"
+          hidden={!mostrando}
+        >
+          {opcoes.map((usuario, indice) => (
+            <li
+              key={usuario.id}
+              id={idOpcao(indice)}
+              role="option"
+              aria-selected={indice === indiceAtivo}
+              className="pa-mencao-it pa-sug-it"
+              // mousedown (não click) para não tirar o foco do campo antes de inserir.
+              onMouseDown={(evento) => {
+                evento.preventDefault();
+                escolher(usuario);
+              }}
+            >
+              ＠{usuario.nome}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {mencionaveis.length > 0 ? (
+        <p className="cap pa-sug-dica">Digite @ para mencionar alguém da equipe.</p>
+      ) : null}
       <div className="pa-editor-linha">
         <label className="pa-check">
           <input
@@ -323,26 +463,6 @@ function EditorComentario({
           />
           Marcar como pendência
         </label>
-        {mencionaveis.length > 0 ? (
-          <details className="pa-mencao">
-            <summary className="btn btn-ghost btn-sm">
-              ＠ Mencionar{selecionados.length > 0 ? ` (${selecionados.length})` : ""}
-            </summary>
-            <div className="pa-mencao-lista" role="group" aria-label="Mencionar usuários">
-              {mencionaveis.map((usuario) => (
-                <label key={usuario.id} className="pa-mencao-it">
-                  <input
-                    type="checkbox"
-                    checked={mencionados.includes(usuario.id)}
-                    onChange={() => alternarMencao(usuario.id)}
-                    style={{ accentColor: "var(--azul)" }}
-                  />
-                  {usuario.nome}
-                </label>
-              ))}
-            </div>
-          </details>
-        ) : null}
       </div>
       {selecionados.length > 0 ? (
         <div className="pa-chips">
