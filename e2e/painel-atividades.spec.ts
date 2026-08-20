@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrar, runId, semearAliadoAtivoComContrato } from "./ajudantes";
+import { entrar, runId, semViolacoesAxe, semearAliadoAtivoComContrato } from "./ajudantes";
 
 /**
  * Painel de atividades da ficha do aliado: comentar, marcar como pendência e
@@ -45,6 +45,48 @@ test.describe("painel de atividades do aliado", () => {
     await expect(reabrir).toBeVisible();
     await reabrir.click();
     await expect(page.getByRole("heading", { name: "Atividades" })).toBeVisible();
+  });
+
+  test("mencionar digitando @: autocomplete inline, escolha por teclado, tag no feed", async ({ page }) => {
+    const nome = `Aliado E2E ${runId()}-mencao`;
+    const empresa = await semearAliadoAtivoComContrato(nome);
+
+    await entrar(page, "scout@dev.clubebroto.local");
+    await page.setViewportSize({ width: 1680, height: 1000 });
+    await page.goto(`/aliados/${empresa.id}`);
+
+    const painel = page.getByRole("complementary", { name: /Painel de atividades do aliado/ });
+    const campo = painel.getByPlaceholder("Escreva um comentário para a equipe…");
+    await expect(campo).toBeVisible();
+
+    // Digitar "@Gest" abre o listbox filtrado — sem apertar botão nenhum.
+    const texto = `Ver com o time ${runId()} @Gest`;
+    await campo.click();
+    await campo.pressSequentially(texto);
+
+    const opcao = painel.getByRole("option", { name: /Gestor \(desenvolvimento\)/ });
+    await expect(opcao).toBeVisible();
+
+    // O campo é um combobox e o listbox está limpo no axe (AAA) enquanto aberto.
+    await semViolacoesAxe(page);
+
+    // Escolher pelo teclado (opção ativa é a primeira): Enter insere "@Nome ".
+    await campo.press("Enter");
+    await expect(campo).toHaveValue(/@Gestor \(desenvolvimento\) $/);
+    await expect(opcao).toBeHidden();
+
+    await painel.getByRole("button", { name: "Comentar" }).click();
+
+    // No feed: o texto e a tag de menção ao Gestor.
+    const item = painel.locator(".pa-item", { hasText: "Ver com o time" });
+    await expect(item).toBeVisible();
+    await expect(item.locator(".pa-tag-mencao", { hasText: "Gestor (desenvolvimento)" })).toBeVisible();
+
+    // Persiste após recarregar (menção gravada no banco).
+    await page.reload();
+    await expect(
+      page.getByRole("complementary").locator(".pa-tag-mencao", { hasText: "Gestor (desenvolvimento)" }),
+    ).toBeVisible();
   });
 
   test("Leitura vê o feed mas não tem campo de comentar", async ({ page }) => {
