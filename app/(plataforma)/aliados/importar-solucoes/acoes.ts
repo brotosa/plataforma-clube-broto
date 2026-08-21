@@ -88,5 +88,9 @@ export async function acaoEfetivar(
   } catch (erro) {
     return paraEstado(erro, "efetivar a importação");
   }
+  // A importação cria/atualiza dezenas de soluções de uma vez: invalida o cache
+  // de navegação de toda a app (dashboard, /aliados, vitrine e funil) para os
+  // números refletirem sem depender de recarregar a página.
+  revalidatePath("/", "layout");
   redirect(`/aliados/importar-solucoes?feito=1&criadas=${criadas}&enriquecidas=${enriquecidas}`);
 }

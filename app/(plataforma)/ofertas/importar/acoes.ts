@@ -85,5 +85,9 @@ export async function acaoEfetivarOfertas(
   } catch (erro) {
     return paraEstado(erro, "efetivar a importação");
   }
+  // A importação cria/atualiza dezenas de ofertas de uma vez: invalida o cache
+  // de navegação de toda a app (dashboard, /ofertas, listas e funil) para os
+  // números refletirem sem depender de recarregar a página.
+  revalidatePath("/", "layout");
   redirect(`/ofertas/importar?feito=1&criadas=${criadas}&enriquecidas=${enriquecidas}`);
 }
