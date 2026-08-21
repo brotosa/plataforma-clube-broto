@@ -50,7 +50,10 @@ export async function acaoImportarSolucoes(
   } catch (erro) {
     return paraEstado(erro, "importar a planilha");
   }
-  redirect(`/aliados/importar-solucoes?lote=${importacaoId}`);
+  // Conferência em rota própria (não `?lote=`): redirect de server action para
+  // a mesma rota mudando só a query não navega com payload grande. Ver a
+  // convenção de navegação no CLAUDE.md.
+  redirect(`/aliados/importar-solucoes/${importacaoId}`);
 }
 
 /** Correção leve: reescreve uma célula sinalizada e revalida o lote. */
@@ -62,8 +65,8 @@ export async function acaoCorrigirCelula(dados: FormData): Promise<void> {
   const importacaoId = String(dados.get("importacaoId") ?? "");
   if (!stagingId || !coluna) return;
   await corrigirCelulaSolucao(ator, { stagingId, coluna, valor });
-  revalidatePath(`/aliados/importar-solucoes`);
-  redirect(`/aliados/importar-solucoes?lote=${importacaoId}`);
+  revalidatePath(`/aliados/importar-solucoes/${importacaoId}`);
+  redirect(`/aliados/importar-solucoes/${importacaoId}`);
 }
 
 /** Passo 3 — efetiva o lote (bloqueia se houver pendência). */

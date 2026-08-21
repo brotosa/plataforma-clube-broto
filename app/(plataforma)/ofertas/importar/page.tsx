@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/infra/auth";
-import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
-import { conferenciaImportacaoOfertas } from "@/infra/casos-de-uso/importar-ofertas";
-import { ROTULO_MODALIDADE, ROTULO_NATUREZA } from "@/dominio/importacao-catalogo/ofertas";
 import { FormularioComEstado } from "../../aliados/formularios";
 import { acaoImportarOfertas } from "./acoes";
-import { Conferencia } from "./conferencia";
 
 export const metadata: Metadata = {
   title: "Importar ofertas",
@@ -21,9 +17,9 @@ export const metadata: Metadata = {
 export default async function PaginaImportarOfertas({
   searchParams,
 }: {
-  searchParams: Promise<{ lote?: string; feito?: string; criadas?: string; enriquecidas?: string }>;
+  searchParams: Promise<{ feito?: string; criadas?: string; enriquecidas?: string }>;
 }) {
-  const { lote, feito, criadas, enriquecidas } = await searchParams;
+  const { feito, criadas, enriquecidas } = await searchParams;
   const sessao = await auth();
   const papel = sessao?.user?.papel ?? "LEITURA";
   const podeImportar = podeExecutar(papel, "CRIAR_EDITAR");
@@ -55,44 +51,6 @@ export default async function PaginaImportarOfertas({
             </Link>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (lote) {
-    const conferencia = await conferenciaImportacaoOfertas(lote);
-    if (!conferencia) {
-      return (
-        <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 720 }}>
-          {cabecalho}
-          <h1 className="h-page">Lote não encontrado</h1>
-          <p className="cap" style={{ marginTop: 8 }}>
-            Este lote de importação não existe (ou já foi efetivado).{" "}
-            <Link href="/ofertas/importar">Começar de novo</Link>.
-          </p>
-        </div>
-      );
-    }
-    const [tipos, mecanicas] = await Promise.all([
-      prisma.tipoBeneficio.findMany({ orderBy: { nome: "asc" }, select: { nome: true } }),
-      prisma.mecanica.findMany({ orderBy: { nome: "asc" }, select: { nome: true } }),
-    ]);
-    const listas = {
-      naturezas: Object.values(ROTULO_NATUREZA),
-      tipos: tipos.map((t) => t.nome),
-      mecanicas: mecanicas.map((m) => m.nome),
-      modalidades: Object.values(ROTULO_MODALIDADE),
-    };
-
-    return (
-      <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1100 }}>
-        {cabecalho}
-        <h1 className="h-page">Conferência da importação</h1>
-        <div className="cap" style={{ marginTop: 4, marginBottom: 18, maxWidth: "82ch" }}>
-          Revise as linhas antes de gravar. Ações: <b>criar</b> (rascunho) ou <b>enriquecer</b>{" "}
-          (oferta existente, quando o `ID Oferta` vem preenchido).
-        </div>
-        <Conferencia conferencia={conferencia} listas={listas} />
       </div>
     );
   }

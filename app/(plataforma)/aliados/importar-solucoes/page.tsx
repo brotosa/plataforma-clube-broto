@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/infra/auth";
-import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
-import { conferenciaImportacaoSolucoes } from "@/infra/casos-de-uso/importar-solucoes";
 import { COLUNAS_SOLUCAO } from "@/dominio/importacao-catalogo/solucoes";
 import { FormularioComEstado } from "../formularios";
 import { acaoImportarSolucoes } from "./acoes";
-import { Conferencia } from "./conferencia";
 
 export const metadata: Metadata = {
   title: "Importar soluções",
@@ -24,9 +21,9 @@ const COLUNAS_DO_MODELO = Object.values(COLUNAS_SOLUCAO).join(" · ");
 export default async function PaginaImportarSolucoes({
   searchParams,
 }: {
-  searchParams: Promise<{ lote?: string; feito?: string; criadas?: string; enriquecidas?: string }>;
+  searchParams: Promise<{ feito?: string; criadas?: string; enriquecidas?: string }>;
 }) {
-  const { lote, feito, criadas, enriquecidas } = await searchParams;
+  const { feito, criadas, enriquecidas } = await searchParams;
   const sessao = await auth();
   const papel = sessao?.user?.papel ?? "LEITURA";
   const podeImportar = podeExecutar(papel, "CRIAR_EDITAR");
@@ -63,42 +60,6 @@ export default async function PaginaImportarSolucoes({
             </Link>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Conferência de um lote já enviado.
-  if (lote) {
-    const conferencia = await conferenciaImportacaoSolucoes(lote);
-    if (!conferencia) {
-      return (
-        <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 720 }}>
-          {cabecalho}
-          <h1 className="h-page">Lote não encontrado</h1>
-          <p className="cap" style={{ marginTop: 8 }}>
-            Este lote de importação não existe (ou já foi efetivado).{" "}
-            <Link href="/aliados/importar-solucoes">Começar de novo</Link>.
-          </p>
-        </div>
-      );
-    }
-    const categorias = (
-      await prisma.categoria.findMany({
-        where: { ativa: true },
-        orderBy: { ordem: "asc" },
-        select: { nome: true },
-      })
-    ).map((c) => c.nome);
-
-    return (
-      <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1100 }}>
-        {cabecalho}
-        <h1 className="h-page">Conferência da importação</h1>
-        <div className="cap" style={{ marginTop: 4, marginBottom: 18, maxWidth: "82ch" }}>
-          Revise as linhas antes de gravar. Ações: <b>criar</b> (solução nova) ou{" "}
-          <b>enriquecer</b> (solução já existente, casada por CNPJ + nome).
-        </div>
-        <Conferencia conferencia={conferencia} categorias={categorias} />
       </div>
     );
   }
