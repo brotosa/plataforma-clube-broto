@@ -36,7 +36,7 @@ test.describe("importar soluções (/aliados/importar-solucoes)", () => {
     await page.getByRole("button", { name: "Enviar e conferir" }).click();
 
     // Tela 2 — conferência.
-    await page.waitForURL(/\/aliados\/importar-solucoes\?lote=/);
+    await page.waitForURL(/\/aliados\/importar-solucoes\/[a-z0-9]+$/);
     await expect(page.getByRole("heading", { level: 1, name: "Conferência da importação" })).toBeVisible();
     await expect(
       page.getByRole("group", { name: /Linhas da importação/ }).getByText("criar", { exact: true }),
@@ -71,7 +71,7 @@ test.describe("importar ofertas (/ofertas/importar)", () => {
     });
     await page.getByRole("button", { name: "Enviar e conferir" }).click();
 
-    await page.waitForURL(/\/ofertas\/importar\?lote=/);
+    await page.waitForURL(/\/ofertas\/importar\/[a-z0-9]+$/);
     await expect(page.getByRole("heading", { level: 1, name: "Conferência da importação" })).toBeVisible();
     await expect(
       page.getByRole("group", { name: /Linhas da importação/ }).getByText("criar", { exact: true }),

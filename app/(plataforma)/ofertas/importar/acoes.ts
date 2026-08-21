@@ -49,7 +49,10 @@ export async function acaoImportarOfertas(
   } catch (erro) {
     return paraEstado(erro, "importar a planilha");
   }
-  redirect(`/ofertas/importar?lote=${importacaoId}`);
+  // Conferência em rota própria (não `?lote=`): redirect de server action para
+  // a mesma rota mudando só a query não navega com payload grande. Ver a
+  // convenção de navegação no CLAUDE.md.
+  redirect(`/ofertas/importar/${importacaoId}`);
 }
 
 export async function acaoCorrigirCelulaOferta(dados: FormData): Promise<void> {
@@ -60,8 +63,8 @@ export async function acaoCorrigirCelulaOferta(dados: FormData): Promise<void> {
   const importacaoId = String(dados.get("importacaoId") ?? "");
   if (!stagingId || !coluna) return;
   await corrigirCelulaOferta(ator, { stagingId, coluna, valor });
-  revalidatePath(`/ofertas/importar`);
-  redirect(`/ofertas/importar?lote=${importacaoId}`);
+  revalidatePath(`/ofertas/importar/${importacaoId}`);
+  redirect(`/ofertas/importar/${importacaoId}`);
 }
 
 export async function acaoEfetivarOfertas(
