@@ -65,8 +65,11 @@ export async function acaoCorrigirCelula(dados: FormData): Promise<void> {
   const importacaoId = String(dados.get("importacaoId") ?? "");
   if (!stagingId || !coluna) return;
   await corrigirCelulaSolucao(ator, { stagingId, coluna, valor });
+  // Sem redirect: a conferência já está nesta rota e `revalidatePath` a
+  // atualiza em pé. Um redirect de server action para a MESMA rota não é
+  // aplicado pelo cliente em produção (deixa o conteúdo em branco) — mesmo
+  // defeito do upload, resolvido do mesmo jeito. Ver CLAUDE.md (navegação).
   revalidatePath(`/aliados/importar-solucoes/${importacaoId}`);
-  redirect(`/aliados/importar-solucoes/${importacaoId}`);
 }
 
 /** Passo 3 — efetiva o lote (bloqueia se houver pendência). */
