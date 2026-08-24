@@ -26,6 +26,7 @@ export const COLUNAS_OFERTA = {
   mecanica: "Mecânica de Resgate",
   precoDe: "Preço De",
   precoPor: "Preço Por",
+  percentualDesconto: "Percentual de Desconto (%)",
   cupomCodigoRegras: "Código/Regras do Cupom",
   modalidade: "Modalidade de Pagamento",
   instrucoes: "Instruções Pós-Voucher",
@@ -57,6 +58,7 @@ function colunaDoErroNatureza(
   precos: { precoDe: number | null; precoPor: number | null },
 ): string {
   if (erro.startsWith("Modalidade de pagamento")) return COLUNAS_OFERTA.modalidade;
+  if (erro.startsWith("Percentual de desconto")) return COLUNAS_OFERTA.percentualDesconto;
   if (erro.includes("preços devem ficar zerados")) {
     // Aponta o preço que está de fato preenchido — senão a correção ofereceria
     // "Preço Por" mesmo quando o valor não-zero está em "Preço De".
@@ -102,6 +104,7 @@ export interface CamposOfertaMapeados {
   mecanicaId: string | undefined;
   precoDe: number | null;
   precoPor: number | null;
+  percentualDesconto: number | null;
   cupomCodigoRegras: string | null;
   modalidadePagamento: ModalidadePagamento | null;
   instrucoesResgate: string | null;
@@ -271,6 +274,21 @@ export function validarLinhaOferta(
     pendencias.push({ coluna: COLUNAS_OFERTA.precoPor, motivo: "Preço Por não é um número válido." });
   }
 
+  // --- Percentual de desconto (Tipo = Percentual de desconto) ---
+  const percentualBruto = limpar(v[COLUNAS_OFERTA.percentualDesconto]);
+  let percentualDesconto: number | null = null;
+  if (percentualBruto !== "") {
+    const n = parseNumero(percentualBruto);
+    if (n === null || Number.isNaN(n) || !Number.isInteger(n) || n < 1 || n > 100) {
+      pendencias.push({
+        coluna: COLUNAS_OFERTA.percentualDesconto,
+        motivo: "Percentual de desconto deve ser um número inteiro entre 1 e 100.",
+      });
+    } else {
+      percentualDesconto = n;
+    }
+  }
+
   // --- Modalidade ---
   const modBruta = limpar(v[COLUNAS_OFERTA.modalidade]);
   let modalidade: ModalidadePagamento | null = null;
@@ -337,6 +355,7 @@ export function validarLinhaOferta(
       tipoBeneficioSlug: tipo.slug,
       precoDe: Number.isNaN(precoDe) ? null : precoDe,
       precoPor: Number.isNaN(precoPor) ? null : precoPor,
+      percentualDesconto,
       cupomCodigoRegras,
       modalidadePagamento: modalidade,
     })) {
@@ -363,8 +382,11 @@ export function validarLinhaOferta(
       natureza,
       tipoBeneficioId: tipo?.id,
       mecanicaId: mecanica?.id,
-      precoDe: Number.isNaN(precoDe) ? null : precoDe,
-      precoPor: Number.isNaN(precoPor) ? null : precoPor,
+      // Percentual substitui preço de/por: no tipo Percentual grava o % e
+      // zera os preços; nos demais, o % fica vazio.
+      precoDe: tipo?.slug === "PCT_DESCONTO" ? null : Number.isNaN(precoDe) ? null : precoDe,
+      precoPor: tipo?.slug === "PCT_DESCONTO" ? null : Number.isNaN(precoPor) ? null : precoPor,
+      percentualDesconto: tipo?.slug === "PCT_DESCONTO" ? percentualDesconto : null,
       cupomCodigoRegras,
       modalidadePagamento: modalidade,
       instrucoesResgate: vazioParaNulo(limpar(v[COLUNAS_OFERTA.instrucoes])),

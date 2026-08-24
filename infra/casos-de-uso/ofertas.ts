@@ -26,6 +26,8 @@ export interface DadosOferta {
   tipoBeneficioId?: string;
   precoDe?: number | null;
   precoPor?: number | null;
+  /** Benefício com Tipo = Percentual de desconto: inteiro 1–100. */
+  percentualDesconto?: number | null;
   cupomCodigoRegras?: string | null;
   modalidadePagamento?: ModalidadePagamento | null;
   mecanicaId?: string;
@@ -47,6 +49,7 @@ function estadoAuditavelOferta(oferta: {
   tipoBeneficioId: string;
   precoDe: unknown;
   precoPor: unknown;
+  percentualDesconto: number | null;
   cupomCodigoRegras: string | null;
   modalidadePagamento: ModalidadePagamento | null;
   mecanicaId: string;
@@ -67,6 +70,7 @@ function estadoAuditavelOferta(oferta: {
     tipoBeneficioId: oferta.tipoBeneficioId,
     precoDe: oferta.precoDe,
     precoPor: oferta.precoPor,
+    percentualDesconto: oferta.percentualDesconto,
     cupomCodigoRegras: oferta.cupomCodigoRegras,
     modalidadePagamento: oferta.modalidadePagamento,
     mecanicaId: oferta.mecanicaId,
@@ -88,6 +92,7 @@ async function validarConsistencia(dados: {
   tipoBeneficioId: string;
   precoDe: number | null;
   precoPor: number | null;
+  percentualDesconto: number | null;
   cupomCodigoRegras: string | null;
   modalidadePagamento: ModalidadePagamento | null;
 }) {
@@ -99,12 +104,14 @@ async function validarConsistencia(dados: {
     tipoBeneficioSlug: tipo.slug,
     precoDe: dados.precoDe,
     precoPor: dados.precoPor,
+    percentualDesconto: dados.percentualDesconto,
     cupomCodigoRegras: dados.cupomCodigoRegras,
     modalidadePagamento: dados.modalidadePagamento,
   });
   if (erros.length > 0) {
     throw new ErroDeValidacao(erros);
   }
+  return { tipoSlug: tipo.slug };
 }
 
 export async function criarOferta(ator: Ator, solucaoId: string, dados: DadosOferta) {
@@ -118,14 +125,23 @@ export async function criarOferta(ator: Ator, solucaoId: string, dados: DadosOfe
   if (obrigatorios.length > 0) {
     throw new ErroDeValidacao(obrigatorios);
   }
-  await validarConsistencia({
+  const { tipoSlug } = await validarConsistencia({
     natureza: dados.natureza!,
     tipoBeneficioId: dados.tipoBeneficioId!,
     precoDe: dados.precoDe ?? null,
     precoPor: dados.precoPor ?? null,
+    percentualDesconto: dados.percentualDesconto ?? null,
     cupomCodigoRegras: dados.cupomCodigoRegras ?? null,
     modalidadePagamento: dados.modalidadePagamento ?? null,
   });
+
+  // Percentual de desconto substitui preço de/por: quando o tipo é Percentual,
+  // grava o % e zera os preços; nos demais tipos, o % fica vazio (o servidor é
+  // a autoridade — não depende só de a tela ter escondido os campos).
+  const ehPercentual = tipoSlug === "PCT_DESCONTO";
+  const precoDeFinal = ehPercentual ? null : (dados.precoDe ?? null);
+  const precoPorFinal = ehPercentual ? null : (dados.precoPor ?? null);
+  const percentualFinal = ehPercentual ? (dados.percentualDesconto ?? null) : null;
 
   return prisma.$transaction(async (tx) => {
     const oferta = await tx.oferta.create({
@@ -134,8 +150,9 @@ export async function criarOferta(ator: Ator, solucaoId: string, dados: DadosOfe
         titulo: dados.titulo!.trim(),
         natureza: dados.natureza!,
         tipoBeneficioId: dados.tipoBeneficioId!,
-        precoDe: dados.precoDe ?? null,
-        precoPor: dados.precoPor ?? null,
+        precoDe: precoDeFinal,
+        precoPor: precoPorFinal,
+        percentualDesconto: percentualFinal,
         cupomCodigoRegras: dados.cupomCodigoRegras ?? null,
         modalidadePagamento: dados.modalidadePagamento ?? null,
         mecanicaId: dados.mecanicaId!,
@@ -172,6 +189,10 @@ export async function atualizarOferta(ator: Ator, ofertaId: string, dados: Dados
       tipoBeneficioId: dados.tipoBeneficioId ?? anterior.tipoBeneficioId,
       precoDe: dados.precoDe === undefined ? decimalParaNumero(anterior.precoDe) : dados.precoDe,
       precoPor: dados.precoPor === undefined ? decimalParaNumero(anterior.precoPor) : dados.precoPor,
+      percentualDesconto:
+        dados.percentualDesconto === undefined
+          ? anterior.percentualDesconto
+          : dados.percentualDesconto,
       cupomCodigoRegras:
         dados.cupomCodigoRegras === undefined ? anterior.cupomCodigoRegras : dados.cupomCodigoRegras,
       modalidadePagamento:

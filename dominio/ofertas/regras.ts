@@ -65,6 +65,12 @@ export interface DadosNaturezaOferta {
   precoPor: number | null;
   cupomCodigoRegras: string | null;
   modalidadePagamento: "UNICA" | "RECORRENTE" | null;
+  /**
+   * Benefício com Tipo = Percentual de desconto. Inteiro 1–100. Opcional aqui
+   * de propósito: só é validado quando informado, para não reprovar ofertas
+   * Percentual anteriores à adoção do campo (que têm preço de/por e este vazio).
+   */
+  percentualDesconto?: number | null;
 }
 
 /**
@@ -111,6 +117,17 @@ export function validarNatureza(dados: DadosNaturezaOferta): string[] {
 
   if (dados.modalidadePagamento && dados.natureza !== "BENEFICIO") {
     erros.push("Modalidade de pagamento (única/recorrente) aplica-se somente a Benefícios.");
+  }
+
+  // Percentual de desconto: quando informado, é inteiro de 1 a 100. Só valida
+  // se veio preenchido — ofertas Percentual anteriores ao campo têm este vazio
+  // e não podem regredir. O tipo Percentual, por si, já conta como desconto
+  // definido acima; o número, quando presente, tem de ser sadio.
+  if (dados.percentualDesconto !== null && dados.percentualDesconto !== undefined) {
+    const p = dados.percentualDesconto;
+    if (!Number.isInteger(p) || p < 1 || p > 100) {
+      erros.push("Percentual de desconto deve ser um número inteiro entre 1 e 100.");
+    }
   }
 
   return erros;

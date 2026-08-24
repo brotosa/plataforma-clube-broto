@@ -14,6 +14,7 @@ function ctxBase(): ContextoValidacaoOferta {
     tiposBeneficio: [
       { id: "tb-fixo", nome: "Valor fixo", slug: "VALOR_FIXO" },
       { id: "tb-grat", nome: "Gratuidade", slug: "GRATUIDADE" },
+      { id: "tb-pct", nome: "Percentual de desconto", slug: "PCT_DESCONTO" },
     ],
     mecanicas: [{ id: "mec-checkout", nome: "Checkout no clube", slug: "CHECKOUT" }],
     solucaoIds: new Set(["sol-1"]),
@@ -164,6 +165,39 @@ describe("validarLinhaOferta — pendência cruzada ancora na coluna editável",
     const p = r.pendencias.find((x) => x.motivo.startsWith("Modalidade de pagamento"));
     expect(p, "esperava pendência de modalidade").toBeTruthy();
     expect(p?.coluna).toBe(COLUNAS_OFERTA.modalidade);
+  });
+});
+
+describe("validarLinhaOferta — Percentual de desconto", () => {
+  it("Percentual válido grava o % e zera os preços (some o preço, fica só o %)", () => {
+    const r = validarLinhaOferta(
+      linha({
+        [COLUNAS_OFERTA.natureza]: "Benefício",
+        [COLUNAS_OFERTA.tipoBeneficio]: "Percentual de desconto",
+        [COLUNAS_OFERTA.percentualDesconto]: "15",
+        [COLUNAS_OFERTA.precoDe]: "100,00",
+        [COLUNAS_OFERTA.precoPor]: "85,00",
+      }),
+      ctxBase(),
+    );
+    expect(r.pendencias).toEqual([]);
+    expect(r.campos.percentualDesconto).toBe(15);
+    expect(r.campos.precoDe).toBeNull();
+    expect(r.campos.precoPor).toBeNull();
+  });
+
+  it("Percentual não inteiro ou fora de 1–100 aponta a coluna Percentual de Desconto", () => {
+    const r = validarLinhaOferta(
+      linha({
+        [COLUNAS_OFERTA.natureza]: "Benefício",
+        [COLUNAS_OFERTA.tipoBeneficio]: "Percentual de desconto",
+        [COLUNAS_OFERTA.percentualDesconto]: "120",
+      }),
+      ctxBase(),
+    );
+    const p = r.pendencias.find((x) => x.motivo.startsWith("Percentual de desconto"));
+    expect(p, "esperava pendência de percentual").toBeTruthy();
+    expect(p?.coluna).toBe(COLUNAS_OFERTA.percentualDesconto);
   });
 });
 

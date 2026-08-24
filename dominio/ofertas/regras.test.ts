@@ -144,6 +144,50 @@ describe("validações de natureza da oferta (três valores, decisão de 24/07)"
       }),
     ).toContain("Modalidade de pagamento (única/recorrente) aplica-se somente a Benefícios.");
   });
+
+  it("percentual de desconto inteiro válido (1–100) passa", () => {
+    expect(
+      validarNatureza({
+        natureza: "BENEFICIO",
+        tipoBeneficioSlug: "PCT_DESCONTO",
+        precoDe: null,
+        precoPor: null,
+        percentualDesconto: 15,
+        cupomCodigoRegras: null,
+        modalidadePagamento: "UNICA",
+      }),
+    ).toEqual([]);
+  });
+
+  it("percentual fora da faixa ou não inteiro reprova", () => {
+    for (const p of [0, 101, 12.5, -5]) {
+      const erros = validarNatureza({
+        natureza: "BENEFICIO",
+        tipoBeneficioSlug: "PCT_DESCONTO",
+        precoDe: null,
+        precoPor: null,
+        percentualDesconto: p,
+        cupomCodigoRegras: null,
+        modalidadePagamento: null,
+      });
+      expect(erros, `percentual ${p} deveria reprovar`).toContain(
+        "Percentual de desconto deve ser um número inteiro entre 1 e 100.",
+      );
+    }
+  });
+
+  it("percentual ausente não reprova (ofertas Percentual anteriores ao campo)", () => {
+    const erros = validarNatureza({
+      natureza: "BENEFICIO",
+      tipoBeneficioSlug: "PCT_DESCONTO",
+      precoDe: 100,
+      precoPor: 85,
+      percentualDesconto: null,
+      cupomCodigoRegras: null,
+      modalidadePagamento: null,
+    });
+    expect(erros.some((e) => e.includes("Percentual de desconto"))).toBe(false);
+  });
 });
 
 function cardCompleto(): DadosCompletudeCard {

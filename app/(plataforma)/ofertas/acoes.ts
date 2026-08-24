@@ -63,6 +63,7 @@ function dadosOfertaDoFormulario(dados: FormData) {
     tipoBeneficioId: texto(dados, "tipoBeneficioId") ?? undefined,
     precoDe: numero(dados, "precoDe"),
     precoPor: numero(dados, "precoPor"),
+    percentualDesconto: numero(dados, "percentualDesconto"),
     cupomCodigoRegras: texto(dados, "cupomCodigoRegras"),
     modalidadePagamento: (modalidade as ModalidadePagamento | null) ?? null,
     mecanicaId: texto(dados, "mecanicaId") ?? undefined,

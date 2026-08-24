@@ -138,10 +138,19 @@ export default async function PaginaOferta({
               </span>
               <span className="cap">Tipo de benefício</span>
               <span>{oferta.tipoBeneficio.nome}</span>
-              <span className="cap">Preço de / por</span>
-              <span className="num">
-                {formatarMoeda(oferta.precoDe)} / {formatarMoeda(oferta.precoPor)}
-              </span>
+              {oferta.percentualDesconto !== null ? (
+                <>
+                  <span className="cap">Desconto</span>
+                  <span className="num">{oferta.percentualDesconto}% de desconto</span>
+                </>
+              ) : (
+                <>
+                  <span className="cap">Preço de / por</span>
+                  <span className="num">
+                    {formatarMoeda(oferta.precoDe)} / {formatarMoeda(oferta.precoPor)}
+                  </span>
+                </>
+              )}
               {oferta.natureza === "CUPOM_DESCONTO" ? (
                 <>
                   <span className="cap">Código/regras do cupom</span>

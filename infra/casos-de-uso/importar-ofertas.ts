@@ -214,6 +214,7 @@ export async function efetivarImportacaoOfertas(
       mecanicaId: r.campos.mecanicaId,
       precoDe: r.campos.precoDe,
       precoPor: r.campos.precoPor,
+      percentualDesconto: r.campos.percentualDesconto,
       cupomCodigoRegras: r.campos.cupomCodigoRegras,
       modalidadePagamento: r.campos.modalidadePagamento,
       instrucoesResgate: r.campos.instrucoesResgate,
