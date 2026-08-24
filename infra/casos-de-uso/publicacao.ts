@@ -81,6 +81,7 @@ export async function publicarCatalogo(
     mecanica: oferta.mecanica.slug as MecanicaSlug,
     precoDe: numero(oferta.precoDe),
     precoPor: numero(oferta.precoPor),
+    percentualDesconto: oferta.percentualDesconto,
     cupomCodigoRegras: oferta.cupomCodigoRegras,
     vigenciaInicio: dataIso(oferta.vigenciaInicio),
     vigenciaFim: oferta.vigenciaFim ? dataIso(oferta.vigenciaFim) : null,

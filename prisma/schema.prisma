@@ -821,6 +821,11 @@ model Oferta {
   tipoBeneficioId      String               @map("tipo_beneficio_id")
   precoDe              Decimal?             @map("preco_de") @db.Decimal(12, 2)
   precoPor             Decimal?             @map("preco_por") @db.Decimal(12, 2)
+  /// Benefício com Tipo = Percentual de desconto: guarda o percentual inteiro
+  /// (1–100). Substitui preço de/por para esse tipo — quando preenchido, os
+  /// preços ficam vazios. Nullable e aditiva (decisão de 24/08): ofertas
+  /// Percentual anteriores permanecem com preço de/por e este campo vazio.
+  percentualDesconto   Int?                 @map("percentual_desconto")
   /// Somente quando natureza = CUPOM_DESCONTO.
   cupomCodigoRegras    String?              @map("cupom_codigo_regras")
   /// Somente Benefícios; recorrente para prestação continuada.

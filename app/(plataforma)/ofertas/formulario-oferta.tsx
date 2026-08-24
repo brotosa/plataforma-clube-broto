@@ -30,6 +30,8 @@ export interface ValoresOferta {
   tipoBeneficioId?: string;
   precoDe?: string;
   precoPor?: string;
+  /** Benefício com Tipo = Percentual de desconto: inteiro 1–100, como texto. */
+  percentualDesconto?: string | null;
   cupomCodigoRegras?: string | null;
   modalidadePagamento?: string | null;
   mecanicaId?: string;
@@ -111,6 +113,9 @@ export function FormularioOferta({
   const [tipoBeneficioId, definirTipoBeneficioId] = useState(valores?.tipoBeneficioId ?? "");
   const [precoDe, definirPrecoDe] = useState(valores?.precoDe ?? "");
   const [precoPor, definirPrecoPor] = useState(valores?.precoPor ?? "");
+  const [percentualDesconto, definirPercentualDesconto] = useState(
+    valores?.percentualDesconto ?? "",
+  );
   const [mecanicaId, definirMecanicaId] = useState(valores?.mecanicaId ?? "");
   const [destinacao, definirDestinacao] = useState<DestinacaoOferta>(
     valores?.destinacao ?? "VITRINE",
@@ -143,9 +148,22 @@ export function FormularioOferta({
     }
   }
 
-  const exigePrecos =
-    natureza === "BENEFICIO" &&
-    (tipoSelecionado?.slug === "PCT_DESCONTO" || tipoSelecionado?.slug === "VALOR_FIXO");
+  // Percentual de desconto substitui preço de/por: some o preço, fica só o %.
+  const exigePercentual = natureza === "BENEFICIO" && tipoSelecionado?.slug === "PCT_DESCONTO";
+  const exigePrecos = natureza === "BENEFICIO" && tipoSelecionado?.slug === "VALOR_FIXO";
+
+  function aoMudarTipo(novoId: string) {
+    definirTipoBeneficioId(novoId);
+    const novoTipo = tiposBeneficio.find((tipo) => tipo.id === novoId);
+    if (novoTipo?.slug === "PCT_DESCONTO") {
+      // Percentual não usa preço: limpa os campos que somem da tela.
+      definirPrecoDe("");
+      definirPrecoPor("");
+    } else {
+      // Qualquer outro tipo não usa percentual.
+      definirPercentualDesconto("");
+    }
+  }
 
   return (
     <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 18, alignItems: "start" }}>
@@ -211,7 +229,7 @@ export function FormularioOferta({
                 name="tipoBeneficioId"
                 required
                 value={tipoBeneficioId}
-                onChange={(evento) => definirTipoBeneficioId(evento.target.value)}
+                onChange={(evento) => aoMudarTipo(evento.target.value)}
               >
                 <option value="">Selecionar…</option>
                 {tiposBeneficio.map((tipo) => {
@@ -243,34 +261,56 @@ export function FormularioOferta({
                 </select>
               </div>
             ) : null}
-            <div className="field">
-              <label htmlFor="campo-of-preco-de">Preço de (R$)</label>
-              <input
-                id="campo-of-preco-de"
-                className="input"
-                name="precoDe"
-                inputMode="decimal"
-                disabled={natureza === "RECOMPENSA"}
-                value={precoDe}
-                onChange={(evento) => definirPrecoDe(evento.target.value)}
-              />
-              {natureza === "RECOMPENSA" ? (
-                <span className="hint">Recompensa é gratuidade — preços ficam zerados.</span>
-              ) : null}
-            </div>
-            <div className="field">
-              <label htmlFor="campo-of-preco-por">Preço por (R$)</label>
-              <input
-                id="campo-of-preco-por"
-                className="input"
-                name="precoPor"
-                inputMode="decimal"
-                disabled={natureza === "RECOMPENSA"}
-                required={exigePrecos}
-                value={precoPor}
-                onChange={(evento) => definirPrecoPor(evento.target.value)}
-              />
-            </div>
+            {exigePercentual ? (
+              <div className="field">
+                <label htmlFor="campo-of-percentual">Percentual de desconto (%)</label>
+                <input
+                  id="campo-of-percentual"
+                  className="input"
+                  name="percentualDesconto"
+                  inputMode="numeric"
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  required
+                  value={percentualDesconto}
+                  onChange={(evento) => definirPercentualDesconto(evento.target.value)}
+                />
+                <span className="hint">Número inteiro de 1 a 100. Substitui preço de/por.</span>
+              </div>
+            ) : (
+              <>
+                <div className="field">
+                  <label htmlFor="campo-of-preco-de">Preço de (R$)</label>
+                  <input
+                    id="campo-of-preco-de"
+                    className="input"
+                    name="precoDe"
+                    inputMode="decimal"
+                    disabled={natureza === "RECOMPENSA"}
+                    value={precoDe}
+                    onChange={(evento) => definirPrecoDe(evento.target.value)}
+                  />
+                  {natureza === "RECOMPENSA" ? (
+                    <span className="hint">Recompensa é gratuidade — preços ficam zerados.</span>
+                  ) : null}
+                </div>
+                <div className="field">
+                  <label htmlFor="campo-of-preco-por">Preço por (R$)</label>
+                  <input
+                    id="campo-of-preco-por"
+                    className="input"
+                    name="precoPor"
+                    inputMode="decimal"
+                    disabled={natureza === "RECOMPENSA"}
+                    required={exigePrecos}
+                    value={precoPor}
+                    onChange={(evento) => definirPrecoPor(evento.target.value)}
+                  />
+                </div>
+              </>
+            )}
             {natureza === "CUPOM_DESCONTO" ? (
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label htmlFor="campo-of-cupom">Código/regras do cupom (opcional)</label>
@@ -526,6 +566,10 @@ export function FormularioOferta({
               <span className="cupom">
                 <b>CUPOM</b>
                 <span className="cap">código exibido após o resgate do voucher</span>
+              </span>
+            ) : exigePercentual ? (
+              <span className="por">
+                {percentualDesconto ? `${percentualDesconto}% de desconto` : "—"}
               </span>
             ) : (
               <>

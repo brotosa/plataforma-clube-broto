@@ -90,6 +90,8 @@ export default async function PaginaEditarOferta({
           tipoBeneficioId: oferta.tipoBeneficioId,
           precoDe: oferta.precoDe === null ? "" : String(oferta.precoDe),
           precoPor: oferta.precoPor === null ? "" : String(oferta.precoPor),
+          percentualDesconto:
+            oferta.percentualDesconto === null ? "" : String(oferta.percentualDesconto),
           cupomCodigoRegras: oferta.cupomCodigoRegras,
           modalidadePagamento: oferta.modalidadePagamento,
           mecanicaId: oferta.mecanicaId,

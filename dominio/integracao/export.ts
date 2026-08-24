@@ -29,6 +29,8 @@ export interface ItemPublicavel {
   mecanica: MecanicaSlug;
   precoDe: number | null;
   precoPor: number | null;
+  /** Benefício Percentual de desconto: inteiro 1–100 (substitui os preços). */
+  percentualDesconto: number | null;
   cupomCodigoRegras: string | null;
   /** Datas em ISO (yyyy-mm-dd) — o adapter formata conforme o destino. */
   vigenciaInicio: string;
@@ -78,6 +80,7 @@ function chaveConteudo(item: ItemPublicavel): string {
     item.mecanica,
     item.precoDe,
     item.precoPor,
+    item.percentualDesconto,
     item.cupomCodigoRegras,
     item.vigenciaInicio,
     item.vigenciaFim,
@@ -141,6 +144,7 @@ const COLUNAS_CSV: ReadonlyArray<readonly [string, (item: ItemPublicavel) => str
   ["mecanica", (item) => item.mecanica],
   ["preco_de", (item) => valorMonetario(item.precoDe)],
   ["preco_por", (item) => valorMonetario(item.precoPor)],
+  ["percentual_desconto", (item) => (item.percentualDesconto === null ? "" : String(item.percentualDesconto))],
   ["cupom_codigo_regras", (item) => item.cupomCodigoRegras ?? ""],
   ["vigencia_inicio", (item) => item.vigenciaInicio],
   ["vigencia_fim", (item) => item.vigenciaFim ?? ""],

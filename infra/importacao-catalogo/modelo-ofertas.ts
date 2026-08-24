@@ -47,6 +47,7 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
         natureza: true,
         precoDe: true,
         precoPor: true,
+        percentualDesconto: true,
         cupomCodigoRegras: true,
         modalidadePagamento: true,
         instrucoesResgate: true,
@@ -79,6 +80,7 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
     { header: COLUNAS_OFERTA.mecanica, key: "mecanica", width: 22 },
     { header: COLUNAS_OFERTA.precoDe, key: "precoDe", width: 12 },
     { header: COLUNAS_OFERTA.precoPor, key: "precoPor", width: 12 },
+    { header: COLUNAS_OFERTA.percentualDesconto, key: "percentualDesconto", width: 22 },
     { header: COLUNAS_OFERTA.cupomCodigoRegras, key: "cupom", width: 24 },
     { header: COLUNAS_OFERTA.modalidade, key: "modalidade", width: 20 },
     { header: COLUNAS_OFERTA.instrucoes, key: "instrucoes", width: 40 },
@@ -99,6 +101,7 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
       mecanica: o.mecanica.nome,
       precoDe: numeroBr(o.precoDe),
       precoPor: numeroBr(o.precoPor),
+      percentualDesconto: o.percentualDesconto ?? "",
       cupom: o.cupomCodigoRegras ?? "",
       modalidade: o.modalidadePagamento ? ROTULO_MODALIDADE[o.modalidadePagamento] : "",
       instrucoes: o.instrucoesResgate ?? "",
@@ -147,7 +150,7 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
     { col: 4, faixa: `Listas!$A$2:$A$${naturezas.length + 1}`, erro: "Escolha uma natureza da lista." },
     { col: 5, faixa: `Listas!$B$2:$B$${tipos.length + 1}`, erro: "Escolha um tipo de benefício da lista." },
     { col: 6, faixa: `Listas!$C$2:$C$${mecanicas.length + 1}`, erro: "Escolha uma mecânica da lista." },
-    { col: 10, faixa: `Listas!$D$2:$D$${modalidades.length + 1}`, erro: "Escolha uma modalidade da lista." },
+    { col: 11, faixa: `Listas!$D$2:$D$${modalidades.length + 1}`, erro: "Escolha uma modalidade da lista." },
   ];
   for (const menu of menus) {
     for (let linha = 2; linha <= LINHAS_COM_VALIDACAO + 1; linha += 1) {

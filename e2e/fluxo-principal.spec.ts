@@ -275,8 +275,8 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.getByLabel("Título comercial").fill(tituloOferta);
     await page.getByRole("radio", { name: /Benefício/ }).check();
     await page.getByLabel("Tipo de benefício").selectOption({ label: "% desconto" });
-    await page.getByLabel("Preço de (R$)").fill("100");
-    await page.getByLabel("Preço por (R$)").fill("85");
+    // Tipo Percentual: o campo de % substitui preço de/por (some o preço).
+    await page.getByLabel("Percentual de desconto (%)").fill("15");
     await page.getByRole("radio", { name: /Checkout no clube/ }).check();
     await page.getByLabel("Vigência início").fill("2026-07-01");
     await page.waitForLoadState("networkidle");

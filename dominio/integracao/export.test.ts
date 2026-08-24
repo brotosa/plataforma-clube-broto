@@ -21,6 +21,7 @@ function item(over: Partial<ItemPublicavel> = {}): ItemPublicavel {
     mecanica: "CHECKOUT_CLUBE",
     precoDe: 100,
     precoPor: 85,
+    percentualDesconto: null,
     cupomCodigoRegras: null,
     vigenciaInicio: "2026-07-01",
     vigenciaFim: null,
