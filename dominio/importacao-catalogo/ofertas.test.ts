@@ -138,18 +138,18 @@ describe("validarLinhaOferta — pendências", () => {
 });
 
 describe("validarLinhaOferta — pendência cruzada ancora na coluna editável", () => {
-  it("cupom sem código aponta a coluna Código/Regras do Cupom (não Natureza)", () => {
+  it("cupom sem código NÃO gera pendência (código é opcional)", () => {
     const r = validarLinhaOferta(
       linha({
         [COLUNAS_OFERTA.natureza]: "Cupom de desconto",
+        [COLUNAS_OFERTA.tipoBeneficio]: "Valor fixo",
         [COLUNAS_OFERTA.cupomCodigoRegras]: "",
         [COLUNAS_OFERTA.modalidade]: "",
       }),
       ctxBase(),
     );
-    const p = r.pendencias.find((x) => x.motivo.includes("código/regras"));
-    expect(p, "esperava pendência de código do cupom").toBeTruthy();
-    expect(p?.coluna).toBe(COLUNAS_OFERTA.cupomCodigoRegras);
+    expect(r.pendencias.some((x) => x.motivo.includes("código/regras"))).toBe(false);
+    expect(r.pendencias.some((x) => x.coluna === COLUNAS_OFERTA.cupomCodigoRegras)).toBe(false);
   });
 
   it("modalidade em Cupom aponta a coluna Modalidade de Pagamento (não Natureza)", () => {

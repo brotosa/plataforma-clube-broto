@@ -95,7 +95,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 | **Natureza** | enum: Recompensa · Benefício · Cupom de desconto | ● | Decisão de 24/07 (consistência com a operação). Recompensa: gratuita, não comissiona. Benefício: pago, comissiona sobre valor efetivamente pago. Cupom de desconto: resgate materializa código de desconto para uso no canal do aliado (definição operacional proposta — validar); comissão do cupom **[A CONFIRMAR]** |
 | Tipo de benefício | enum: % desconto · valor fixo · gratuidade · condição especial | ● | Gratuidade ⇒ natureza Recompensa; lista fixa na v1 |
 | Preço de / preço por | moeda / moeda | condicional | Exigido conforme o tipo; Recompensa exige valor zero; Cupom exige desconto definido |
-| Código/regras do cupom | texto | condicional | Somente quando natureza = Cupom de desconto |
+| Código/regras do cupom | texto | opcional | Aplica-se a Cupom de desconto, mas **nunca é obrigatório** — pode não existir na carga (errata de 24/08, sobre a v0.6, que o dava como campo condicional exigido). O cupom continua exigindo desconto definido |
 | **Modalidade de pagamento** | enum: única · recorrente | condicional | Somente Benefícios; recorrente para prestação continuada (definição contratual) |
 | Mecânica de resgate | enum: checkout no clube · checkout externo · recompensa gratuita | ● | Mapeamento contratual: checkout no clube = pagamento *dentro da Plataforma*; checkout externo = *fora da Plataforma*; recompensa gratuita = Recompensa. Toda mecânica emite voucher |
 | URL de resgate externo | URL | condicional | Obrigatória se mecânica = checkout externo com resgate por link |

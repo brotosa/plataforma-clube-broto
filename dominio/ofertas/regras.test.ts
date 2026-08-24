@@ -92,7 +92,21 @@ describe("validações de natureza da oferta (três valores, decisão de 24/07)"
     ).toContain("Gratuidade implica natureza Recompensa (ficha §3.3).");
   });
 
-  it("cupom exige código/regras e desconto definido", () => {
+  it("cupom sem código/regras é válido (código é opcional) desde que tenha desconto", () => {
+    const erros = validarNatureza({
+      natureza: "CUPOM_DESCONTO",
+      tipoBeneficioSlug: "PCT_DESCONTO",
+      precoDe: null,
+      precoPor: null,
+      cupomCodigoRegras: null,
+      modalidadePagamento: null,
+    });
+    // Código/regras é opcional: não gera erro mesmo vazio.
+    expect(erros.some((e) => e.includes("código/regras"))).toBe(false);
+    expect(erros).toEqual([]);
+  });
+
+  it("cupom sem desconto definido ainda reprova (código continua opcional)", () => {
     const erros = validarNatureza({
       natureza: "CUPOM_DESCONTO",
       tipoBeneficioSlug: "CONDICAO_ESPECIAL",
@@ -101,7 +115,7 @@ describe("validações de natureza da oferta (três valores, decisão de 24/07)"
       cupomCodigoRegras: null,
       modalidadePagamento: null,
     });
-    expect(erros).toContain("Cupom de desconto exige código/regras do cupom.");
+    expect(erros.some((e) => e.includes("código/regras"))).toBe(false);
     expect(erros.some((e) => e.includes("desconto definido"))).toBe(true);
   });
 
