@@ -273,13 +273,12 @@ export function FormularioOferta({
             </div>
             {natureza === "CUPOM_DESCONTO" ? (
               <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label htmlFor="campo-of-cupom">Código/regras do cupom</label>
+                <label htmlFor="campo-of-cupom">Código/regras do cupom (opcional)</label>
                 <textarea
                   id="campo-of-cupom"
                   className="textarea"
                   name="cupomCodigoRegras"
                   rows={2}
-                  required
                   defaultValue={valores?.cupomCodigoRegras ?? ""}
                 />
                 <span className="hint">

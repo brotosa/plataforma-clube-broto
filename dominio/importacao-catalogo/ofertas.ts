@@ -56,7 +56,6 @@ function colunaDoErroNatureza(
   erro: string,
   precos: { precoDe: number | null; precoPor: number | null },
 ): string {
-  if (erro.includes("código/regras")) return COLUNAS_OFERTA.cupomCodigoRegras;
   if (erro.startsWith("Modalidade de pagamento")) return COLUNAS_OFERTA.modalidade;
   if (erro.includes("preços devem ficar zerados")) {
     // Aponta o preço que está de fato preenchido — senão a correção ofereceria

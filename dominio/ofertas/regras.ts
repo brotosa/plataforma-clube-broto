@@ -72,7 +72,8 @@ export interface DadosNaturezaOferta {
  * condicionais (ficha §3.3):
  * - Recompensa: gratuita — preços zero/vazios; tipo gratuidade.
  * - Gratuidade ⇒ natureza Recompensa.
- * - Cupom de desconto: desconto definido + código/regras do cupom.
+ * - Cupom de desconto: desconto definido. O código/regras do cupom é
+ *   opcional (pode não existir na carga) — decisão de negócio de 24/08.
  * - Modalidade de pagamento (única/recorrente): somente Benefícios.
  */
 export function validarNatureza(dados: DadosNaturezaOferta): string[] {
@@ -97,9 +98,8 @@ export function validarNatureza(dados: DadosNaturezaOferta): string[] {
   }
 
   if (dados.natureza === "CUPOM_DESCONTO") {
-    if (!dados.cupomCodigoRegras?.trim()) {
-      erros.push("Cupom de desconto exige código/regras do cupom.");
-    }
+    // O código/regras do cupom é opcional: pode não existir na carga e nunca
+    // é obrigatório em nenhuma natureza (decisão de negócio de 24/08).
     const descontoDefinido =
       dados.tipoBeneficioSlug === "PCT_DESCONTO" ||
       dados.tipoBeneficioSlug === "VALOR_FIXO" ||
