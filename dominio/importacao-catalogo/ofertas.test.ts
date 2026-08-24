@@ -125,6 +125,44 @@ describe("validarLinhaOferta — pendências", () => {
       ctxBase(),
     );
     expect(linhaOfertaPronta(r)).toBe(false);
-    expect(r.pendencias.some((p) => p.coluna === COLUNAS_OFERTA.natureza)).toBe(true);
+    // A regra de natureza reprova; a pendência é ancorada na coluna editável
+    // (preço/tipo), não na Natureza, para dar saída à correção na conferência.
+    expect(r.pendencias.some((p) => /Recompensa/.test(p.motivo))).toBe(true);
+    expect(
+      r.pendencias.some(
+        (p) =>
+          p.coluna === COLUNAS_OFERTA.precoPor || p.coluna === COLUNAS_OFERTA.tipoBeneficio,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("validarLinhaOferta — pendência cruzada ancora na coluna editável", () => {
+  it("cupom sem código aponta a coluna Código/Regras do Cupom (não Natureza)", () => {
+    const r = validarLinhaOferta(
+      linha({
+        [COLUNAS_OFERTA.natureza]: "Cupom de desconto",
+        [COLUNAS_OFERTA.cupomCodigoRegras]: "",
+        [COLUNAS_OFERTA.modalidade]: "",
+      }),
+      ctxBase(),
+    );
+    const p = r.pendencias.find((x) => x.motivo.includes("código/regras"));
+    expect(p, "esperava pendência de código do cupom").toBeTruthy();
+    expect(p?.coluna).toBe(COLUNAS_OFERTA.cupomCodigoRegras);
+  });
+
+  it("modalidade em Cupom aponta a coluna Modalidade de Pagamento (não Natureza)", () => {
+    const r = validarLinhaOferta(
+      linha({
+        [COLUNAS_OFERTA.natureza]: "Cupom de desconto",
+        [COLUNAS_OFERTA.cupomCodigoRegras]: "CUPOM10",
+        [COLUNAS_OFERTA.modalidade]: "Única",
+      }),
+      ctxBase(),
+    );
+    const p = r.pendencias.find((x) => x.motivo.startsWith("Modalidade de pagamento"));
+    expect(p, "esperava pendência de modalidade").toBeTruthy();
+    expect(p?.coluna).toBe(COLUNAS_OFERTA.modalidade);
   });
 });

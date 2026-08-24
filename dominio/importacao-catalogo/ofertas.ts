@@ -45,6 +45,24 @@ export const ROTULO_MODALIDADE: Record<ModalidadePagamento, string> = {
   RECORRENTE: "Recorrente",
 };
 
+/**
+ * `validarNatureza` devolve mensagens cruzadas (natureza × preço × cupom ×
+ * modalidade). Na conferência da importação, cada pendência vira um controle
+ * de correção da SUA coluna — então o erro precisa apontar a coluna que o
+ * usuário edita para resolvê-lo, não a Natureza (lista fechada). O mapeamento
+ * é por conteúdo estável da mensagem; `ofertas.test.ts` o cobre.
+ */
+function colunaDoErroNatureza(erro: string): string {
+  if (erro.includes("código/regras")) return COLUNAS_OFERTA.cupomCodigoRegras;
+  if (erro.startsWith("Modalidade de pagamento")) return COLUNAS_OFERTA.modalidade;
+  if (erro.includes("desconto definido") || erro.includes("preços devem ficar zerados")) {
+    return COLUNAS_OFERTA.precoPor;
+  }
+  if (erro.includes("tipo de benefício Gratuidade")) return COLUNAS_OFERTA.tipoBeneficio;
+  // "Gratuidade implica natureza Recompensa" e demais: é a Natureza mesmo.
+  return COLUNAS_OFERTA.natureza;
+}
+
 export interface LinhaOfertaCrua {
   linha: number;
   valores: Record<string, string>;
@@ -316,7 +334,11 @@ export function validarLinhaOferta(
       cupomCodigoRegras,
       modalidadePagamento: modalidade,
     })) {
-      pendencias.push({ coluna: COLUNAS_OFERTA.natureza, motivo: erro });
+      // Ancora o erro cruzado na coluna que o usuário precisa EDITAR para
+      // resolvê-lo — senão a correção na conferência ofereceria só o campo
+      // Natureza (lista fechada) e a pendência do cupom/modalidade ficaria
+      // sem saída. `ofertas.test.ts` trava esse mapeamento.
+      pendencias.push({ coluna: colunaDoErroNatureza(erro), motivo: erro });
     }
   }
 
