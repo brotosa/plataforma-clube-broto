@@ -52,12 +52,19 @@ export const ROTULO_MODALIDADE: Record<ModalidadePagamento, string> = {
  * usuário edita para resolvê-lo, não a Natureza (lista fechada). O mapeamento
  * é por conteúdo estável da mensagem; `ofertas.test.ts` o cobre.
  */
-function colunaDoErroNatureza(erro: string): string {
+function colunaDoErroNatureza(
+  erro: string,
+  precos: { precoDe: number | null; precoPor: number | null },
+): string {
   if (erro.includes("código/regras")) return COLUNAS_OFERTA.cupomCodigoRegras;
   if (erro.startsWith("Modalidade de pagamento")) return COLUNAS_OFERTA.modalidade;
-  if (erro.includes("desconto definido") || erro.includes("preços devem ficar zerados")) {
-    return COLUNAS_OFERTA.precoPor;
+  if (erro.includes("preços devem ficar zerados")) {
+    // Aponta o preço que está de fato preenchido — senão a correção ofereceria
+    // "Preço Por" mesmo quando o valor não-zero está em "Preço De".
+    const preDeNaoZero = precos.precoDe !== null && precos.precoDe !== 0;
+    return preDeNaoZero ? COLUNAS_OFERTA.precoDe : COLUNAS_OFERTA.precoPor;
   }
+  if (erro.includes("desconto definido")) return COLUNAS_OFERTA.precoPor;
   if (erro.includes("tipo de benefício Gratuidade")) return COLUNAS_OFERTA.tipoBeneficio;
   // "Gratuidade implica natureza Recompensa" e demais: é a Natureza mesmo.
   return COLUNAS_OFERTA.natureza;
@@ -338,7 +345,13 @@ export function validarLinhaOferta(
       // resolvê-lo — senão a correção na conferência ofereceria só o campo
       // Natureza (lista fechada) e a pendência do cupom/modalidade ficaria
       // sem saída. `ofertas.test.ts` trava esse mapeamento.
-      pendencias.push({ coluna: colunaDoErroNatureza(erro), motivo: erro });
+      pendencias.push({
+        coluna: colunaDoErroNatureza(erro, {
+          precoDe: Number.isNaN(precoDe) ? null : precoDe,
+          precoPor: Number.isNaN(precoPor) ? null : precoPor,
+        }),
+        motivo: erro,
+      });
     }
   }
 
