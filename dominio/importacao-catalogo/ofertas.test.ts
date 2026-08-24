@@ -166,3 +166,36 @@ describe("validarLinhaOferta — pendência cruzada ancora na coluna editável",
     expect(p?.coluna).toBe(COLUNAS_OFERTA.modalidade);
   });
 });
+
+describe("validarLinhaOferta — Recompensa: preço aponta o campo preenchido", () => {
+  it("Recompensa com valor só em Preço De aponta a coluna Preço De", () => {
+    const r = validarLinhaOferta(
+      linha({
+        [COLUNAS_OFERTA.natureza]: "Recompensa",
+        [COLUNAS_OFERTA.tipoBeneficio]: "Gratuidade",
+        [COLUNAS_OFERTA.precoDe]: "11,90",
+        [COLUNAS_OFERTA.precoPor]: "0",
+        [COLUNAS_OFERTA.modalidade]: "",
+      }),
+      ctxBase(),
+    );
+    const p = r.pendencias.find((x) => x.motivo.includes("preços devem ficar zerados"));
+    expect(p, "esperava pendência de preços zerados").toBeTruthy();
+    expect(p?.coluna).toBe(COLUNAS_OFERTA.precoDe);
+  });
+
+  it("Recompensa com valor em Preço Por aponta a coluna Preço Por", () => {
+    const r = validarLinhaOferta(
+      linha({
+        [COLUNAS_OFERTA.natureza]: "Recompensa",
+        [COLUNAS_OFERTA.tipoBeneficio]: "Gratuidade",
+        [COLUNAS_OFERTA.precoDe]: "0",
+        [COLUNAS_OFERTA.precoPor]: "10,00",
+        [COLUNAS_OFERTA.modalidade]: "",
+      }),
+      ctxBase(),
+    );
+    const p = r.pendencias.find((x) => x.motivo.includes("preços devem ficar zerados"));
+    expect(p?.coluna).toBe(COLUNAS_OFERTA.precoPor);
+  });
+});
