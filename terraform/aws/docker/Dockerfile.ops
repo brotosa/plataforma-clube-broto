@@ -8,7 +8,14 @@
 # alcança o RDS pela rede interna.
 # =====================================================================
 ARG NODE_VERSAO=22
-FROM node:${NODE_VERSAO}-bookworm-slim AS ops
+# Espelho público da AWS, não Docker Hub: o CodeBuild roda atrás de um NAT
+# compartilhado por várias contas, e o limite de pull anônimo do Docker Hub
+# (429 Too Many Requests) é por IP, não por conta — o build passou a falhar
+# de forma persistente, não esporádica. O `public.ecr.aws` espelha as
+# mesmas imagens oficiais, sem esse limite. Mesma decisão do Dockerfile da
+# raiz: esta imagem puxava direto do Docker Hub e derrubava o deploy no 429.
+ARG REGISTRO_BASE=public.ecr.aws/docker/library
+FROM ${REGISTRO_BASE}/node:${NODE_VERSAO}-bookworm-slim AS ops
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
