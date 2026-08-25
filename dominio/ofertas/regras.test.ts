@@ -228,9 +228,11 @@ describe("RN09 — régua de completude do card", () => {
   it("sem logo do aliado a régua cai e bloqueia publicação", () => {
     const dados = cardCompleto();
     dados.aliado.logoUrl = null;
+    dados.aliado.temMarca = false;
     const resultado = calcularCompletudeCard(dados);
     expect(resultado.completa).toBe(false);
-    expect(resultado.percentual).toBe(88);
+    // 6 de 7 obrigatórios (a imagem é opcional e não entra na conta).
+    expect(resultado.percentual).toBe(86);
     expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(false);
   });
 
@@ -260,7 +262,8 @@ describe("RN09 — régua de completude do card", () => {
     dados.aliado.temMarca = false;
     const resultado = calcularCompletudeCard(dados);
     expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(false);
-    expect(resultado.percentual).toBe(88);
+    // 6 de 7 obrigatórios (imagem opcional fora da conta).
+    expect(resultado.percentual).toBe(86);
   });
 
   it("F15 (não-regressão): quem tinha só o endereço S3 antigo mantém o ponto", () => {
@@ -292,13 +295,18 @@ describe("RN09 — régua de completude do card", () => {
     expect(resultado.completa).toBe(true);
   });
 
-  it("F17: sem imagem e sem endereço obsoleto, o item continua faltando", () => {
+  it("24/08: sem imagem a régua NÃO cai e a oferta segue publicável (item opcional)", () => {
     const dados = cardCompleto();
     dados.solucao.imagemCardUrl = null;
     dados.solucao.temImagem = false;
     const resultado = calcularCompletudeCard(dados);
-    expect(resultado.itens.find((i) => i.rotulo === "Imagem do card")?.ok).toBe(false);
-    expect(resultado.percentual).toBe(88);
+    const imagem = resultado.itens.find((i) => i.rotulo === "Imagem do card");
+    // O item aparece na régua marcado como opcional e sem preenchimento…
+    expect(imagem?.ok).toBe(false);
+    expect(imagem?.opcional).toBe(true);
+    // …mas não bloqueia: 7 de 7 obrigatórios → 100% e publicável.
+    expect(resultado.percentual).toBe(100);
+    expect(resultado.completa).toBe(true);
   });
 
   it("F17 (não-regressão): quem tinha só o endereço antigo mantém o ponto", () => {

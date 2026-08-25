@@ -180,12 +180,20 @@ export interface DadosCompletudeCard {
 export interface ItemCompletude {
   rotulo: string;
   ok: boolean;
+  /**
+   * Item informativo que NÃO trava a publicação (não entra no cálculo de
+   * `completa`/`percentual`). Continua visível na régua para orientar. A
+   * imagem do card é opcional desde 24/08 (decisão de negócio) — o texto do
+   * card (descrição curta) segue obrigatório.
+   */
+  opcional?: boolean;
 }
 
 /**
  * RN09 — conjunto mínimo do card para publicar oferta: nome de exibição e
- * logo do aliado; nome, descrição curta, categoria, culturas, cobertura e
- * imagem da solução. Alimenta a régua visível nas telas.
+ * logo do aliado; nome, descrição curta, categoria, culturas e cobertura da
+ * solução. A imagem do card é item OPCIONAL (24/08): aparece na régua, mas
+ * não bloqueia a publicação. Alimenta a régua visível nas telas.
  */
 export function calcularCompletudeCard(dados: DadosCompletudeCard): {
   itens: ItemCompletude[];
@@ -210,13 +218,19 @@ export function calcularCompletudeCard(dados: DadosCompletudeCard): {
     {
       rotulo: "Imagem do card",
       ok: dados.solucao.temImagem || Boolean(dados.solucao.imagemCardUrl?.trim()),
+      // Opcional (24/08): permanece na régua como orientação, mas não trava a
+      // publicação — some do numerador/denominador do percentual e de `completa`.
+      opcional: true,
     },
   ];
-  const feitos = itens.filter((item) => item.ok).length;
+  // Só os itens obrigatórios contam para o percentual e para `completa`. Os
+  // opcionais aparecem na lista, mas não movem a régua nem bloqueiam publicar.
+  const obrigatorios = itens.filter((item) => !item.opcional);
+  const feitos = obrigatorios.filter((item) => item.ok).length;
   return {
     itens,
-    percentual: Math.round((feitos / itens.length) * 100),
-    completa: feitos === itens.length,
+    percentual: Math.round((feitos / obrigatorios.length) * 100),
+    completa: feitos === obrigatorios.length,
   };
 }
 
