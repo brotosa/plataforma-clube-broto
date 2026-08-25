@@ -217,6 +217,53 @@ export function lerCsvTelemetria(texto: string): LinhaTelemetria[] {
 // Validação linha a linha (quarentena com motivo)
 // ---------------------------------------------------------------------
 
+// ---------------------------------------------------------------------
+// Modelo para download (evita erro de layout antes do upload)
+// ---------------------------------------------------------------------
+
+/**
+ * Cabeçalho do modelo, na ordem canônica da ficha §6. Cada nome é o
+ * **primeiro alias** de `ALIASES_CABECALHO` — a mesma fonte que o leitor
+ * casa —, então o modelo baixado nunca diverge do que a importação aceita.
+ * O teste `dominio/integracao/telemetria.test.ts` prende os dois juntos:
+ * mudar uma coluna sem atualizar a outra quebra o build.
+ */
+export const CABECALHO_MODELO_TELEMETRIA = [
+  "data_hora_evento",
+  "cpf_assinante",
+  "id_seller",
+  "id_oferta",
+  "id_voucher",
+  "tipo_evento",
+  "valor_transacao",
+  "canal",
+] as const;
+
+/**
+ * Conteúdo CSV do modelo de telemetria: o cabeçalho do layout-alvo e uma
+ * linha de exemplo para **cada um** dos três eventos reconhecidos
+ * (MAPA_TIPO_EVENTO), para a pessoa ver o formato certo — data, o menu de
+ * `tipo_evento` e quando o valor é exigido — antes de montar o arquivo.
+ * É o mesmo "baixar modelo" do importador de soluções, aplicado à §6.
+ *
+ * O CPF de exemplo é **SINTÉTICO** (`111.111.111-11`, dígitos repetidos):
+ * jamais de pessoa real, e só ilustra a coluna. A linha de compra leva
+ * valor porque `compra_confirmada` sem valor cai em quarentena
+ * (`validarLinhaTelemetria`); emissão e resgate deixam o valor vazio de
+ * propósito, para mostrar que ali ele é opcional. Separador `;` e fim de
+ * linha `\r\n` para o Excel pt-BR abrir em colunas; o leitor tolera ambos.
+ */
+export function gerarModeloTelemetriaCsv(): string {
+  const cpfExemplo = "111.111.111-11"; // SINTÉTICO — dígitos repetidos, nunca real
+  const linhas = [
+    CABECALHO_MODELO_TELEMETRIA.join(";"),
+    `2026-08-01T10:00:00;${cpfExemplo};SELLER-EXEMPLO;OFERTA-EXEMPLO;VOUCHER-0001;emissao_voucher;;app`,
+    `2026-08-01T11:30:00;${cpfExemplo};SELLER-EXEMPLO;OFERTA-EXEMPLO;VOUCHER-0001;resgate_voucher;;app`,
+    `2026-08-02T09:15:00;${cpfExemplo};SELLER-EXEMPLO;OFERTA-EXEMPLO;VOUCHER-0001;compra_confirmada;99.90;web`,
+  ];
+  return linhas.join("\r\n") + "\r\n";
+}
+
 /** Motivos de quarentena; vazio = linha válida. Nada é adivinhado. */
 export function validarLinhaTelemetria(linha: LinhaTelemetria): string[] {
   const motivos: string[] = [];

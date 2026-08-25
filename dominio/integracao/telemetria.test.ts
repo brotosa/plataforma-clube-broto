@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  CABECALHO_MODELO_TELEMETRIA,
   ErroDeLayoutTelemetria,
   analisarCsv,
+  gerarModeloTelemetriaCsv,
   lerCsvTelemetria,
   validarLinhaTelemetria,
 } from "./telemetria";
@@ -107,5 +109,35 @@ describe("validarLinhaTelemetria — quarentena com motivo", () => {
   it("compra confirmada sem valor vai para quarentena", () => {
     const linha = primeiraLinha("2026-07-20T10:00:00;000.000.000-00;S;O;V-1;compra_confirmada;;web");
     expect(validarLinhaTelemetria(linha)).toContain("Compra confirmada sem valor de transação.");
+  });
+});
+
+describe("gerarModeloTelemetriaCsv — modelo para download", () => {
+  const modelo = gerarModeloTelemetriaCsv();
+
+  it("o cabeçalho do modelo é exatamente o que o leitor casa (fonte única)", () => {
+    // A cerca do requisito: o modelo baixado não pode ter uma coluna que a
+    // importação depois recuse. Casa o cabeçalho gerado com o leitor.
+    const [cabecalho] = analisarCsv(modelo);
+    expect(cabecalho).toEqual([...CABECALHO_MODELO_TELEMETRIA]);
+  });
+
+  it("o próprio modelo, reimportado como está, passa sem nenhuma quarentena", () => {
+    // Baixar → enviar sem editar tem de funcionar: é o caminho que evita
+    // erro. Cada linha de exemplo cobre um dos três eventos reconhecidos.
+    const linhas = lerCsvTelemetria(modelo);
+    expect(linhas).toHaveLength(3);
+    for (const linha of linhas) {
+      expect(validarLinhaTelemetria(linha), `linha ${linha.linha}`).toEqual([]);
+    }
+    expect(linhas.map((l) => l.tipo)).toEqual([
+      "EMISSAO_VOUCHER",
+      "RESGATE_VOUCHER",
+      "COMPRA_CONFIRMADA",
+    ]);
+  });
+
+  it("o CPF de exemplo é sintético (dígitos repetidos), nunca de pessoa real", () => {
+    expect(modelo).toContain("111.111.111-11");
   });
 });
