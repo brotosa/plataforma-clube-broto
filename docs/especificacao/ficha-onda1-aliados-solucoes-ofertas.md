@@ -73,7 +73,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 |---|---|---|---|
 | Aliado | vínculo | ● | Somente aliados em estágio Aliada ativa (RN01) |
 | Nome da solução | texto | ● | |
-| Descrição curta | texto ~140c | ●² | Texto do card |
+| Descrição curta | texto ~140c | ○ | Texto do card. **Opcional (errata de 25/08):** conta no percentual da régua RN09 (sem ela, 88%), mas **não** trava a publicação — mesmo tratamento da imagem do card |
 | Descrição completa | texto longo | ○ | |
 | Categoria | seleção (taxonomia) | ●² | Taxonomia v1 = categorias reais da vitrine (Consultorias e Serviços Profissionais, Formação e Capacitação, Saúde e Bem-estar no Campo, Regularização e Documentação, Certificações e ESG, Mercado e Inteligência Comercial, Agricultura e Pecuária de Precisão, Máquinas e Equipamentos, Tecnologia e Software, Armazenagem e Pós-Colheita, Logística e Transporte) |
 | Culturas atendidas | multi-seleção | ●² | Inclui "todas" |
@@ -84,7 +84,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 | Link externo | URL | ○ | |
 | Status | ativa / inativa | ● | Inativar solução pausa suas ofertas publicadas (RN04) |
 
-² Obrigatório para publicar oferta desta solução (RN09). A **imagem do card** deixou de ser exigida em 24/08 — segue na régua como item opcional.
+² Obrigatório para publicar oferta desta solução (RN09). Deixaram de ser exigidos: a **imagem do card** (24/08) e a **descrição curta** (25/08) — ambos seguem na régua como itens opcionais, contando no percentual mas sem travar a publicação.
 
 ### 3.3 Oferta
 
@@ -120,7 +120,7 @@ A comissão **não** é campo da oferta: vem do bloco comercial do aliado e é a
 6. **RN06** — Aprovações passam pelo **motor genérico de aprovação** (Onda 1): regra por tipo de entidade, ligável/desligável sem código, com designação de aprovadores; nasce com *promoção a Aliada ativa* ligada e *publicação de Oferta* desligada. Fluxo: Solicitada → Aprovada | Devolvida (comentário obrigatório). Solicitante ≠ aprovador.
 7. **RN07** — Telemetria (vouchers, compras) é somente leitura, com origem, data e arquivo de importação rastreáveis.
 8. **RN08** — CNPJ único e validado.
-9. **RN09** — Régua de completude: publicar oferta exige o conjunto mínimo do card (nome de exibição e logo do aliado; nome, descrição curta, categoria, culturas e cobertura da solução). A **imagem do card** é item **opcional** (errata de 24/08): aparece na régua como orientação, mas não bloqueia a publicação — ausência mantém o tratamento neutro do card (RN60). **Errata de 25/08 — duas medidas distintas:** o **percentual** mede o preenchimento e conta **todos** os itens, inclusive o opcional (sem a imagem, 88%; com ela, 100%); a **publicabilidade** (`completa`) conta só os obrigatórios, então a oferta é publicável mesmo abaixo de 100%. "Opcional" quer dizer "não obrigatório para publicar", não "não conta na régua".
+9. **RN09** — Régua de completude: publicar oferta exige o conjunto mínimo do card (nome de exibição e logo do aliado; nome, categoria, culturas e cobertura da solução — **seis itens obrigatórios**). São itens **opcionais** a **imagem do card** (errata de 24/08) e a **descrição curta** (errata de 25/08): aparecem na régua como orientação, mas não bloqueiam a publicação — ausência da imagem mantém o tratamento neutro do card (RN60). **Errata de 25/08 — duas medidas distintas:** o **percentual** mede o preenchimento e conta **todos** os oito itens, inclusive os opcionais (falta um → 88%; faltam os dois opcionais → 75%; completo → 100%); a **publicabilidade** (`completa`) conta só os seis obrigatórios, então a oferta é publicável mesmo abaixo de 100%. "Opcional" quer dizer "não obrigatório para publicar", não "não conta na régua".
 10. **RN10** — Alterar campos publicáveis de uma oferta *Publicada* liga a flag *Pendente de republicação*; o export seguinte a limpa. Sem versionamento formal na v1 (a auditoria guarda o histórico).
 11. **RN11** — Compatibilidade mecânica × ambiente: *checkout no clube* exige ambiente **dentro da Plataforma** habilitado no bloco comercial do aliado; *checkout externo* exige **fora da Plataforma**; *recompensa gratuita* independe. A UI desabilita a mecânica incompatível e explica o porquê.
 12. **RN12** — Suspensão de aliado exige motivo tipificado (ex.: *inadimplência de comissão >30 dias* — hipótese contratual; *decisão de curadoria* — prerrogativa contratual do Broto; *outros*, com descrição), registrado na auditoria.

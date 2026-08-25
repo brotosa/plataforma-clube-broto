@@ -313,6 +313,33 @@ describe("RN09 — régua de completude do card", () => {
     expect(resultado.completa).toBe(true);
   });
 
+  it("25/08: sem descrição curta a régua cai proporcionalmente, mas a oferta segue publicável (item opcional)", () => {
+    const dados = cardCompleto();
+    dados.solucao.descricaoCurta = null;
+    const resultado = calcularCompletudeCard(dados);
+    const descricao = resultado.itens.find((i) => i.rotulo === "Descrição curta da solução");
+    // O item aparece na régua marcado como opcional e sem preenchimento…
+    expect(descricao?.ok).toBe(false);
+    expect(descricao?.opcional).toBe(true);
+    // …e o percentual reflete o preenchimento: 7 de 8 itens → 88%.
+    expect(resultado.percentual).toBe(88);
+    // …mas não bloqueia: os 6 obrigatórios estão completos → publicável.
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("25/08: sem descrição curta E sem imagem (os dois opcionais) ainda publicável", () => {
+    // O caso da tela real: solução importada sem descrição nem imagem. A
+    // régua mostra 6 de 8 (75%), mas os seis obrigatórios fecham e a oferta
+    // pode publicar.
+    const dados = cardCompleto();
+    dados.solucao.descricaoCurta = null;
+    dados.solucao.temImagem = false;
+    dados.solucao.imagemCardUrl = null;
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.percentual).toBe(75);
+    expect(resultado.completa).toBe(true);
+  });
+
   it("F17 (não-regressão): quem tinha só o endereço antigo mantém o ponto", () => {
     // O fallback existe exatamente para esta solução: nada foi enviado
     // pela tela nova, mas o campo obsoleto está preenchido. O número que

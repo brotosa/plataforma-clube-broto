@@ -140,7 +140,7 @@ export function FormularioSolucao({
                 value={descricaoCurta}
                 onChange={(evento) => definirDescricaoCurta(evento.target.value)}
               />
-              <span className="hint">{descricaoCurta.length}/140 caracteres · obrigatória para publicar (RN09).</span>
+              <span className="hint">{descricaoCurta.length}/140 caracteres · opcional (conta na régua, mas não trava a publicação — RN09).</span>
             </div>
             <div className="field">
               <label htmlFor="campo-sol-descricao-completa">Descrição completa</label>
