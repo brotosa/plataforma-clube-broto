@@ -181,19 +181,31 @@ export interface ItemCompletude {
   rotulo: string;
   ok: boolean;
   /**
-   * Item informativo que NÃO trava a publicação (não entra no cálculo de
-   * `completa`/`percentual`). Continua visível na régua para orientar. A
-   * imagem do card é opcional desde 24/08 (decisão de negócio) — o texto do
-   * card (descrição curta) segue obrigatório.
+   * Item informativo que NÃO trava a publicação: entra no `percentual`
+   * (preenchimento), mas fica fora de `completa` (publicabilidade). Continua
+   * visível na régua para orientar. São opcionais a **imagem do card** (desde
+   * 24/08) e a **descrição curta da solução** (desde 25/08) — ambos por
+   * decisão de negócio.
    */
   opcional?: boolean;
 }
 
 /**
  * RN09 — conjunto mínimo do card para publicar oferta: nome de exibição e
- * logo do aliado; nome, descrição curta, categoria, culturas e cobertura da
- * solução. A imagem do card é item OPCIONAL (24/08): aparece na régua, mas
- * não bloqueia a publicação. Alimenta a régua visível nas telas.
+ * logo do aliado; nome, categoria, culturas e cobertura da solução. A imagem
+ * do card (24/08) e a descrição curta (25/08) são itens OPCIONAIS: aparecem
+ * na régua, mas não bloqueiam a publicação. Alimenta a régua visível nas telas.
+ *
+ * Duas medidas distintas (decisão de 25/08), porque respondem a perguntas
+ * diferentes:
+ * - `percentual` mede o **preenchimento** e conta TODOS os itens, inclusive
+ *   os opcionais. Item opcional não preenchido não é um erro, mas também não
+ *   deixa o card 100% fechado — sem imagem a régua mostra 88%, com imagem
+ *   100%. "Opcional" quer dizer "não obrigatório para publicar", não "não
+ *   conta para a completude".
+ * - `completa` mede a **publicabilidade** e conta só os obrigatórios: some
+ *   apenas o item opcional do numerador/denominador. Uma oferta sem imagem é
+ *   publicável (`completa` true) mesmo com `percentual` abaixo de 100.
  */
 export function calcularCompletudeCard(dados: DadosCompletudeCard): {
   itens: ItemCompletude[];
@@ -206,7 +218,13 @@ export function calcularCompletudeCard(dados: DadosCompletudeCard): {
     // continua satisfazendo quem já o tinha, para a régua não regredir.
     { rotulo: "Logo do aliado", ok: dados.aliado.temMarca || Boolean(dados.aliado.logoUrl?.trim()) },
     { rotulo: "Nome da solução", ok: Boolean(dados.solucao.nome?.trim()) },
-    { rotulo: "Descrição curta da solução", ok: Boolean(dados.solucao.descricaoCurta?.trim()) },
+    {
+      rotulo: "Descrição curta da solução",
+      ok: Boolean(dados.solucao.descricaoCurta?.trim()),
+      // Opcional (25/08): permanece na régua como orientação e conta no
+      // percentual, mas não trava a publicação — mesmo tratamento da imagem.
+      opcional: true,
+    },
     { rotulo: "Categoria da solução", ok: dados.solucao.temCategoria },
     { rotulo: "Culturas atendidas", ok: dados.solucao.quantidadeCulturas > 0 },
     {
@@ -223,14 +241,16 @@ export function calcularCompletudeCard(dados: DadosCompletudeCard): {
       opcional: true,
     },
   ];
-  // Só os itens obrigatórios contam para o percentual e para `completa`. Os
-  // opcionais aparecem na lista, mas não movem a régua nem bloqueiam publicar.
+  // `percentual` — preenchimento sobre TODOS os itens (o opcional conta): sem
+  // a imagem, a régua não fecha em 100%.
+  const feitosTotais = itens.filter((item) => item.ok).length;
+  // `completa` — publicabilidade sobre só os obrigatórios: o opcional não trava.
   const obrigatorios = itens.filter((item) => !item.opcional);
-  const feitos = obrigatorios.filter((item) => item.ok).length;
+  const feitosObrigatorios = obrigatorios.filter((item) => item.ok).length;
   return {
     itens,
-    percentual: Math.round((feitos / obrigatorios.length) * 100),
-    completa: feitos === obrigatorios.length,
+    percentual: Math.round((feitosTotais / itens.length) * 100),
+    completa: feitosObrigatorios === obrigatorios.length,
   };
 }
 

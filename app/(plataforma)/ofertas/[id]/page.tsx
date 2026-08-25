@@ -283,6 +283,12 @@ export default async function PaginaOferta({
                 </li>
               ))}
             </ul>
+            {completude.completa && completude.percentual < 100 ? (
+              <p className="cap" style={{ margin: "10px 0 0", color: "var(--verde)" }}>
+                Pronta para publicar — falta apenas o item opcional (imagem do card), que
+                não é obrigatório.
+              </p>
+            ) : null}
           </div>
 
           <div className="kpi">

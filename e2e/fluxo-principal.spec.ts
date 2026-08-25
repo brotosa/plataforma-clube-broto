@@ -205,12 +205,13 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.getByRole("checkbox", { name: "Todas" }).check();
     await page.getByRole("checkbox", { name: "Cobertura nacional" }).check();
     /**
-     * A imagem do card virou item OPCIONAL da RN09 (24/08): não trava a
-     * publicação e sai da conta do percentual. Os sete itens obrigatórios
-     * fecham só com o formulário, então a régua já chega a 100% aqui, antes
-     * mesmo de enviar a imagem (que segue disponível no cartão de envio).
+     * A imagem do card é item OPCIONAL da RN09 (24/08): não trava a
+     * publicação. Mas desde 25/08 o percentual conta o preenchimento de
+     * TODOS os itens, inclusive o opcional — então, com os sete obrigatórios
+     * fechados e a imagem ainda por enviar, a régua mostra 88% (7 de 8),
+     * já publicável (a imagem segue disponível no cartão de envio).
      */
-    await expect(page.getByText("100%")).toBeVisible();
+    await expect(page.getByText("88%")).toBeVisible();
     await page.waitForLoadState("networkidle"); // formulário assentado antes de submeter
     await page.getByRole("button", { name: "Criar solução" }).click();
     // Sinal durável do redirect: o título da solução na ficha (mais robusto que
@@ -219,8 +220,8 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
       timeout: 30_000,
     });
 
-    // A imagem preenche o item opcional da régua (que já estava em 100%):
-    // o envio funciona e a régua permanece em 100%, publicável (RN02).
+    // A imagem preenche o item opcional da régua (que estava em 88%): o
+    // envio funciona e a régua sobe a 100%, seguindo publicável (RN02).
     /**
      * `setInputFiles` dispara o evento de mudança uma vez só: se o React
      * ainda não atou o `onChange`, ele se perde e o clique seguinte vira

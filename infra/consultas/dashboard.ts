@@ -171,12 +171,8 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
       solucao: {
         select: {
           nome: true,
-          descricaoCurta: true,
-          imagemCardUrl: true,
           categoriaId: true,
           coberturaNacional: true,
-          // Só a existência: o binário não entra em consulta de painel.
-          imagemCard: { select: { solucaoId: true } },
           empresa: {
             select: {
               nomeFantasia: true,
@@ -192,14 +188,14 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
   });
 
   return rascunhos.filter(({ solucao }) => {
-    // Mesma régua do domínio (`calcularCompletudeCard`): sete itens
-    // OBRIGATÓRIOS. A imagem do card é opcional desde 24/08 e NÃO entra aqui —
-    // o teste `completude-equivalente.regressao` prende as duas listas juntas.
+    // Mesma régua do domínio (`calcularCompletudeCard`): só os itens
+    // OBRIGATÓRIOS. São opcionais e NÃO entram aqui a imagem do card (24/08) e
+    // a descrição curta (25/08) — restam seis obrigatórios. O teste
+    // `completude-equivalente.regressao` prende as duas listas juntas.
     const itens = [
       Boolean(solucao.empresa.nomeFantasia?.trim()),
       solucao.empresa.marca !== null || Boolean(solucao.empresa.logoUrl?.trim()),
       Boolean(solucao.nome?.trim()),
-      Boolean(solucao.descricaoCurta?.trim()),
       Boolean(solucao.categoriaId),
       solucao._count.culturas > 0,
       solucao.coberturaNacional || solucao._count.ufs > 0,

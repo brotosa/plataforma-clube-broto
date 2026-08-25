@@ -219,9 +219,11 @@ describe.skipIf(!temBanco)("RN09 — painel e domínio contam a mesma régua", (
     const dominioDiz = (await bloqueiaPeloDominio(solucaoId)) ? 1 : 0;
 
     expect(painelContou, `item "${falta}"`).toBe(dominioDiz);
-    // O caso completo e a imagem (opcional desde 24/08) são os que não contam;
-    // qualquer item OBRIGATÓRIO ausente bloqueia.
-    expect(dominioDiz).toBe(falta === "nenhum" || falta === "imagem" ? 0 : 1);
+    // Não bloqueiam: o caso completo e os dois itens OPCIONAIS — imagem
+    // (24/08) e descrição curta (25/08). Qualquer OBRIGATÓRIO ausente bloqueia.
+    const opcionalOuCompleto =
+      falta === "nenhum" || falta === "imagem" || falta === "descricaoCurta";
+    expect(dominioDiz).toBe(opcionalOuCompleto ? 0 : 1);
   });
 
   it("a base do painel não ficou suja depois da tabela-verdade", async () => {

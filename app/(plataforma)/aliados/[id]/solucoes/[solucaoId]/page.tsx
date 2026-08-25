@@ -21,6 +21,18 @@ const ROTULO_STATUS_OFERTA: Record<string, string> = {
   EXPIRADA: "Expirada",
 };
 
+/**
+ * Rótulos de natureza na visão do produto (renome de 24/08): Benefício e
+ * Cupom ganharam a origem do checkout no nome. A mesma tabela vive na T5
+ * (`ofertas/page.tsx` e `ofertas/[id]/page.tsx`) — aqui ela é repetida por
+ * ser um mapa curto e estável, não fonte de regra.
+ */
+const ROTULO_NATUREZA: Record<string, string> = {
+  RECOMPENSA: "Recompensa",
+  BENEFICIO: "Benefício (Checkout Broto)",
+  CUPOM_DESCONTO: "Desconto (Checkout Externo)",
+};
+
 /** T3 — edição da solução + ofertas da solução. */
 export default async function PaginaSolucao({
   params,
@@ -130,11 +142,7 @@ export default async function PaginaSolucao({
                     </Link>
                   </td>
                   <td data-label="Natureza" className="cap">
-                    {oferta.natureza === "RECOMPENSA"
-                      ? "Recompensa"
-                      : oferta.natureza === "BENEFICIO"
-                        ? "Benefício"
-                        : "Cupom de desconto"}
+                    {ROTULO_NATUREZA[oferta.natureza] ?? oferta.natureza}
                   </td>
                   <td data-label="Tipo" className="cap">{oferta.tipoBeneficio.nome}</td>
                   <td data-label="Mecânica" className="cap">{oferta.mecanica.nome}</td>

@@ -231,8 +231,9 @@ describe("RN09 — régua de completude do card", () => {
     dados.aliado.temMarca = false;
     const resultado = calcularCompletudeCard(dados);
     expect(resultado.completa).toBe(false);
-    // 6 de 7 obrigatórios (a imagem é opcional e não entra na conta).
-    expect(resultado.percentual).toBe(86);
+    // 7 de 8 itens preenchidos (a imagem opcional conta para o percentual
+    // desde 25/08); o logo é obrigatório, então `completa` cai.
+    expect(resultado.percentual).toBe(88);
     expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(false);
   });
 
@@ -262,8 +263,8 @@ describe("RN09 — régua de completude do card", () => {
     dados.aliado.temMarca = false;
     const resultado = calcularCompletudeCard(dados);
     expect(resultado.itens.find((i) => i.rotulo === "Logo do aliado")?.ok).toBe(false);
-    // 6 de 7 obrigatórios (imagem opcional fora da conta).
-    expect(resultado.percentual).toBe(86);
+    // 7 de 8 itens preenchidos (imagem opcional conta desde 25/08).
+    expect(resultado.percentual).toBe(88);
   });
 
   it("F15 (não-regressão): quem tinha só o endereço S3 antigo mantém o ponto", () => {
@@ -295,7 +296,7 @@ describe("RN09 — régua de completude do card", () => {
     expect(resultado.completa).toBe(true);
   });
 
-  it("24/08: sem imagem a régua NÃO cai e a oferta segue publicável (item opcional)", () => {
+  it("25/08: sem imagem a régua cai proporcionalmente, mas a oferta segue publicável (item opcional)", () => {
     const dados = cardCompleto();
     dados.solucao.imagemCardUrl = null;
     dados.solucao.temImagem = false;
@@ -304,8 +305,38 @@ describe("RN09 — régua de completude do card", () => {
     // O item aparece na régua marcado como opcional e sem preenchimento…
     expect(imagem?.ok).toBe(false);
     expect(imagem?.opcional).toBe(true);
-    // …mas não bloqueia: 7 de 7 obrigatórios → 100% e publicável.
-    expect(resultado.percentual).toBe(100);
+    // …e o percentual reflete o preenchimento: 7 de 8 itens → 88%. Opcional
+    // significa "não obrigatório para publicar", não "não conta na régua"
+    // (decisão de 25/08).
+    expect(resultado.percentual).toBe(88);
+    // …mas não bloqueia: os 7 obrigatórios estão completos → publicável.
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("25/08: sem descrição curta a régua cai proporcionalmente, mas a oferta segue publicável (item opcional)", () => {
+    const dados = cardCompleto();
+    dados.solucao.descricaoCurta = null;
+    const resultado = calcularCompletudeCard(dados);
+    const descricao = resultado.itens.find((i) => i.rotulo === "Descrição curta da solução");
+    // O item aparece na régua marcado como opcional e sem preenchimento…
+    expect(descricao?.ok).toBe(false);
+    expect(descricao?.opcional).toBe(true);
+    // …e o percentual reflete o preenchimento: 7 de 8 itens → 88%.
+    expect(resultado.percentual).toBe(88);
+    // …mas não bloqueia: os 6 obrigatórios estão completos → publicável.
+    expect(resultado.completa).toBe(true);
+  });
+
+  it("25/08: sem descrição curta E sem imagem (os dois opcionais) ainda publicável", () => {
+    // O caso da tela real: solução importada sem descrição nem imagem. A
+    // régua mostra 6 de 8 (75%), mas os seis obrigatórios fecham e a oferta
+    // pode publicar.
+    const dados = cardCompleto();
+    dados.solucao.descricaoCurta = null;
+    dados.solucao.temImagem = false;
+    dados.solucao.imagemCardUrl = null;
+    const resultado = calcularCompletudeCard(dados);
+    expect(resultado.percentual).toBe(75);
     expect(resultado.completa).toBe(true);
   });
 
