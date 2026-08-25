@@ -61,27 +61,53 @@ export default async function PaginaTelemetria() {
       </div>
 
       {podeImportar ? (
-        <div className="card" style={{ padding: "16px 18px", marginBottom: 22, maxWidth: 620 }}>
-          <FormularioComEstado acao={acaoImportarTelemetria} rotuloEnviar="Importar arquivo">
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label htmlFor="arquivo-telemetria">Arquivo CSV de telemetria</label>
-              <input
-                id="arquivo-telemetria"
-                className="input"
-                type="file"
-                name="arquivo"
-                accept=".csv,text/csv"
-                required
-              />
-              <span className="hint">
-                Colunas: data_hora_evento; cpf_assinante; id_seller; id_oferta; id_voucher;
-                tipo_evento; valor_transacao; canal. Cardápio de eventos{" "}
-                <span className="selo">A CONFIRMAR</span>: valores fora dos três degraus vão à
-                quarentena.
-              </span>
-            </div>
-          </FormularioComEstado>
-        </div>
+        <>
+          <div className="card" style={{ padding: "16px 18px", marginBottom: 18, maxWidth: 620 }}>
+            <h2 className="h-el" style={{ margin: "0 0 6px", fontSize: 15 }}>
+              1. Baixe o modelo
+            </h2>
+            <p className="cap" style={{ margin: "0 0 12px" }}>
+              CSV do layout-alvo, com o cabeçalho na ordem certa e uma linha de exemplo por
+              evento reconhecido (emissão, resgate e compra). Preencha por cima e envie — assim
+              você não erra coluna nem formato de data.
+            </p>
+            {/* Route handler que devolve arquivo (não é página): âncora nativa,
+                nunca <Link> — prefetch de um download não faz sentido. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a
+              href="/ofertas/telemetria/modelo"
+              className="btn btn-ghost"
+              style={{ textDecoration: "none" }}
+            >
+              Baixar modelo (.csv)
+            </a>
+          </div>
+
+          <div className="card" style={{ padding: "16px 18px", marginBottom: 22, maxWidth: 620 }}>
+            <h2 className="h-el" style={{ margin: "0 0 6px", fontSize: 15 }}>
+              2. Envie o arquivo
+            </h2>
+            <FormularioComEstado acao={acaoImportarTelemetria} rotuloEnviar="Importar arquivo">
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label htmlFor="arquivo-telemetria">Arquivo CSV de telemetria</label>
+                <input
+                  id="arquivo-telemetria"
+                  className="input"
+                  type="file"
+                  name="arquivo"
+                  accept=".csv,text/csv"
+                  required
+                />
+                <span className="hint">
+                  Colunas: data_hora_evento; cpf_assinante; id_seller; id_oferta; id_voucher;
+                  tipo_evento; valor_transacao; canal. Cardápio de eventos{" "}
+                  <span className="selo">A CONFIRMAR</span>: valores fora dos três degraus vão à
+                  quarentena.
+                </span>
+              </div>
+            </FormularioComEstado>
+          </div>
+        </>
       ) : (
         <p className="cap" style={{ marginBottom: 22 }}>
           Importação restrita a Gestor e Analista (ficha §2). Você pode consultar o histórico.
