@@ -25,13 +25,18 @@ async function montarContexto(): Promise<ContextoValidacaoOferta> {
     prisma.tipoBeneficio.findMany({ select: { id: true, nome: true, slug: true } }),
     prisma.mecanica.findMany({ select: { id: true, nome: true, slug: true } }),
     prisma.solucao.findMany({ select: { id: true } }),
-    prisma.oferta.findMany({ select: { id: true } }),
+    prisma.oferta.findMany({ select: { id: true, idExternoMinutrade: true } }),
   ]);
+  const idsExternosEmUso = new Map<string, string>();
+  for (const o of ofertas) {
+    if (o.idExternoMinutrade) idsExternosEmUso.set(o.idExternoMinutrade, o.id);
+  }
   return {
     tiposBeneficio: tipos,
     mecanicas,
     solucaoIds: new Set(solucoes.map((s) => s.id)),
     ofertaIds: new Set(ofertas.map((o) => o.id)),
+    idsExternosEmUso,
   };
 }
 
@@ -221,6 +226,7 @@ export async function efetivarImportacaoOfertas(
       vigenciaInicio: r.campos.vigenciaInicio,
       vigenciaFim: r.campos.vigenciaFim,
       limiteResgates: r.campos.limiteResgates,
+      idExternoMinutrade: r.campos.idExternoMinutrade,
     };
     let ofertaId: string;
     if (r.ofertaId) {

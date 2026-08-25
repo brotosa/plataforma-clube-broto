@@ -100,6 +100,7 @@ export default async function PaginaEditarOferta({
           vigenciaInicio: paraCampoData(oferta.vigenciaInicio),
           vigenciaFim: paraCampoData(oferta.vigenciaFim),
           limiteResgates: oferta.limiteResgates,
+          idExternoMinutrade: oferta.idExternoMinutrade,
           destinacao: oferta.destinacao,
           destinacaoCampanhaId: oferta.destinacaoCampanhaId,
           destinacaoCestaId: oferta.destinacaoCestaId,

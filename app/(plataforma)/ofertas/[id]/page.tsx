@@ -198,7 +198,7 @@ export default async function PaginaOferta({
                 {oferta.idExternoMinutrade ? (
                   <span className="mono">{oferta.idExternoMinutrade}</span>
                 ) : (
-                  <span className="cap">— (primeira publicação/carga)</span>
+                  <span className="cap">— (informe em Editar para vincular a telemetria)</span>
                 )}
               </span>
             </div>

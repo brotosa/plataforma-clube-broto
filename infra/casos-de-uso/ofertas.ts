@@ -36,6 +36,13 @@ export interface DadosOferta {
   vigenciaInicio?: Date;
   vigenciaFim?: Date | null;
   limiteResgates?: number | null;
+  /**
+   * Id da oferta na Minutrade — chave que liga a telemetria importada a esta
+   * oferta (coluna `id_oferta` do arquivo). `@unique`. A carga inicial já o
+   * traz; para ofertas nascidas na plataforma, é informado à mão (ou pela
+   * importação). `undefined` = não mexer; `null` = limpar; string = definir.
+   */
+  idExternoMinutrade?: string | null;
   /** Onda 4 (ficha §3): destinação e vínculo opcional — a publicação
    *  Minutrade segue inalterada; o vínculo serve à gestão e à medição. */
   destinacao?: DestinacaoOferta;
@@ -58,6 +65,7 @@ function estadoAuditavelOferta(oferta: {
   vigenciaInicio: Date;
   vigenciaFim: Date | null;
   limiteResgates: number | null;
+  idExternoMinutrade: string | null;
   status: StatusOferta;
   pendenteRepublicacao: boolean;
   destinacao?: DestinacaoOferta;
@@ -79,12 +87,41 @@ function estadoAuditavelOferta(oferta: {
     vigenciaInicio: oferta.vigenciaInicio,
     vigenciaFim: oferta.vigenciaFim,
     limiteResgates: oferta.limiteResgates,
+    // Auditado, mas fora de CAMPOS_PUBLICAVEIS (regras.ts): mudar o id externo
+    // não liga a flag de republicação — não é campo do card nem do export.
+    idExternoMinutrade: oferta.idExternoMinutrade,
     status: oferta.status,
     pendenteRepublicacao: oferta.pendenteRepublicacao,
     destinacao: oferta.destinacao ?? null,
     destinacaoCampanhaId: oferta.destinacaoCampanhaId ?? null,
     destinacaoCestaId: oferta.destinacaoCestaId ?? null,
   };
+}
+
+/**
+ * `idExternoMinutrade` é `@unique`: reusar o de outra oferta viola a
+ * restrição e cairia como exceção genérica na interface. Conferir antes e
+ * lançar `ErroDeValidacao` nomeia a causa (RN55) — a mensagem diz qual id
+ * colidiu. `null`/vazio nunca colide (limpar é sempre permitido).
+ */
+async function garantirIdExternoUnico(
+  tx: Prisma.TransactionClient,
+  idExterno: string | null,
+  ofertaIdAtual: string | null,
+) {
+  if (!idExterno) return;
+  const existente = await tx.oferta.findFirst({
+    where: {
+      idExternoMinutrade: idExterno,
+      ...(ofertaIdAtual ? { id: { not: ofertaIdAtual } } : {}),
+    },
+    select: { id: true },
+  });
+  if (existente) {
+    throw new ErroDeValidacao([
+      `O Id externo (Minutrade) "${idExterno}" já está em uso por outra oferta.`,
+    ]);
+  }
 }
 
 async function validarConsistencia(dados: {
@@ -142,8 +179,10 @@ export async function criarOferta(ator: Ator, solucaoId: string, dados: DadosOfe
   const precoDeFinal = ehPercentual ? null : (dados.precoDe ?? null);
   const precoPorFinal = ehPercentual ? null : (dados.precoPor ?? null);
   const percentualFinal = ehPercentual ? (dados.percentualDesconto ?? null) : null;
+  const idExterno = dados.idExternoMinutrade?.trim() || null;
 
   return prisma.$transaction(async (tx) => {
+    await garantirIdExternoUnico(tx, idExterno, null);
     const oferta = await tx.oferta.create({
       data: {
         solucaoId,
@@ -161,6 +200,7 @@ export async function criarOferta(ator: Ator, solucaoId: string, dados: DadosOfe
         vigenciaInicio: dados.vigenciaInicio!,
         vigenciaFim: dados.vigenciaFim ?? null,
         limiteResgates: dados.limiteResgates ?? null,
+        idExternoMinutrade: idExterno,
         // Onda 4: destinação não é campo publicável (não entra em
         // CAMPOS_PUBLICAVEIS) — a vitrine e o export seguem iguais.
         destinacao: dados.destinacao ?? "VITRINE",
@@ -184,6 +224,11 @@ export async function atualizarOferta(ator: Ator, ofertaId: string, dados: Dados
   exigirPermissao(ator.papel, "CRIAR_EDITAR");
   return prisma.$transaction(async (tx) => {
     const anterior = await tx.oferta.findUniqueOrThrow({ where: { id: ofertaId } });
+    // `undefined` = a chamada não mexe no id externo; `null`/string = trocar.
+    // Só confere unicidade quando o campo veio na atualização (RN55).
+    if (dados.idExternoMinutrade !== undefined) {
+      await garantirIdExternoUnico(tx, dados.idExternoMinutrade?.trim() || null, ofertaId);
+    }
     await validarConsistencia({
       natureza: dados.natureza ?? anterior.natureza,
       tipoBeneficioId: dados.tipoBeneficioId ?? anterior.tipoBeneficioId,
