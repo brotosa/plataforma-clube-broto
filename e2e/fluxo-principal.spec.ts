@@ -269,9 +269,9 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByLabel("Título comercial").fill(tituloOferta);
-    await page.getByRole("radio", { name: /Benefício/ }).check();
-    await page.getByLabel("Tipo de benefício").selectOption({ label: "% desconto" });
-    // Tipo Percentual: o campo de % substitui preço de/por (some o preço).
+    // Desconto (Checkout Externo) é a natureza que usa o campo de %; ao
+    // selecioná-la o tipo "% desconto" é escolhido e o campo aparece.
+    await page.getByRole("radio", { name: /Desconto \(Checkout Externo\)/ }).check();
     await page.getByLabel("Percentual de desconto (%)").fill("15");
     await page.getByRole("radio", { name: /Checkout no clube/ }).check();
     await page.getByLabel("Vigência início").fill("2026-07-01");
@@ -301,7 +301,7 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.goto("/ofertas");
     await expect(page.getByRole("columnheader", { name: "Natureza" })).toBeVisible();
     const linha = page.getByRole("row", { name: new RegExp(tituloOferta) });
-    await expect(linha.getByText("Benefício", { exact: true })).toBeVisible();
+    await expect(linha.getByText("Desconto (Checkout Externo)", { exact: true })).toBeVisible();
     await expect(linha.getByText("Publicada")).toBeVisible();
   });
 

@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 
 const ROTULO_NATUREZA: Record<string, string> = {
   RECOMPENSA: "Recompensa",
-  BENEFICIO: "Benefício",
-  CUPOM_DESCONTO: "Cupom de desconto",
+  BENEFICIO: "Benefício (Checkout Broto)",
+  CUPOM_DESCONTO: "Desconto (Checkout Externo)",
 };
 
 const ROTULO_STATUS: Record<string, string> = {
