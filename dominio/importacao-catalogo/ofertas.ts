@@ -33,6 +33,7 @@ export const COLUNAS_OFERTA = {
   vigenciaInicio: "Vigência Início",
   vigenciaFim: "Vigência Fim",
   limiteResgates: "Limite de Resgates",
+  idExternoMinutrade: "Id Externo (Minutrade)",
 } as const;
 
 /** Rótulos exibidos ↔ enum (o modelo imprime os rótulos). */
@@ -99,6 +100,12 @@ export interface ContextoValidacaoOferta {
   solucaoIds: Set<string>;
   /** ids de ofertas existentes (para o caminho de enriquecimento). */
   ofertaIds: Set<string>;
+  /**
+   * `Id Externo (Minutrade)` já em uso → id da oferta dona. O campo é
+   * `@unique`: reusar o de outra oferta colide na gravação. Casar aqui,
+   * na conferência, transforma a colisão numa pendência com saída clara.
+   */
+  idsExternosEmUso: Map<string, string>;
 }
 
 export interface PendenciaOferta {
@@ -121,6 +128,8 @@ export interface CamposOfertaMapeados {
   vigenciaInicio: Date | undefined;
   vigenciaFim: Date | null;
   limiteResgates: number | null;
+  /** Chave do vínculo da telemetria (coluna `id_oferta` do arquivo). */
+  idExternoMinutrade: string | null;
 }
 
 export interface ResultadoLinhaOferta {
@@ -361,6 +370,20 @@ export function validarLinhaOferta(
 
   const cupomCodigoRegras = vazioParaNulo(limpar(v[COLUNAS_OFERTA.cupomCodigoRegras]));
 
+  // --- Id externo (Minutrade): chave do vínculo da telemetria (@unique) ---
+  const idExternoMinutrade = vazioParaNulo(limpar(v[COLUNAS_OFERTA.idExternoMinutrade]));
+  if (idExternoMinutrade !== null) {
+    const dono = ctx.idsExternosEmUso.get(idExternoMinutrade);
+    // Colide só se o id já pertence a OUTRA oferta — não à que esta linha
+    // enriquece (reimportar a mesma linha com o mesmo id é legítimo).
+    if (dono && dono !== ofertaId) {
+      pendencias.push({
+        coluna: COLUNAS_OFERTA.idExternoMinutrade,
+        motivo: `Id externo "${idExternoMinutrade}" já está em uso por outra oferta.`,
+      });
+    }
+  }
+
   // --- Consistência natureza × preço × cupom × modalidade (mesma regra do manual) ---
   if (natureza && tipo) {
     for (const erro of validarNatureza({
@@ -406,6 +429,7 @@ export function validarLinhaOferta(
       vigenciaInicio,
       vigenciaFim,
       limiteResgates,
+      idExternoMinutrade,
     },
     solucaoId,
     ofertaId,
@@ -418,7 +442,28 @@ export function validarLoteOfertas(
   linhas: LinhaOfertaCrua[],
   ctx: ContextoValidacaoOferta,
 ): ResultadoLinhaOferta[] {
-  return linhas.map((linha) => validarLinhaOferta(linha, ctx));
+  const resultados = linhas.map((linha) => validarLinhaOferta(linha, ctx));
+
+  // Duplicidade de Id externo DENTRO do próprio lote. O `@unique` também a
+  // barra, mas só na gravação — casar aqui vira pendência na conferência,
+  // em vez de um erro no meio da efetivação (que já criou parte das linhas).
+  const ocorrencias = new Map<string, number>();
+  for (const r of resultados) {
+    const id = r.campos.idExternoMinutrade;
+    if (id) ocorrencias.set(id, (ocorrencias.get(id) ?? 0) + 1);
+  }
+  for (const r of resultados) {
+    const id = r.campos.idExternoMinutrade;
+    if (id && (ocorrencias.get(id) ?? 0) > 1) {
+      r.pendencias.push({
+        coluna: COLUNAS_OFERTA.idExternoMinutrade,
+        motivo: `Id externo "${id}" repetido em mais de uma linha da planilha.`,
+      });
+      // Com pendência nova, a linha não efetiva.
+      r.acao = null;
+    }
+  }
+  return resultados;
 }
 
 export function linhaOfertaPronta(resultado: ResultadoLinhaOferta): boolean {

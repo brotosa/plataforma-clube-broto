@@ -5,6 +5,7 @@ import {
   parseData,
   parseNumero,
   validarLinhaOferta,
+  validarLoteOfertas,
   type ContextoValidacaoOferta,
   type LinhaOfertaCrua,
 } from "./ofertas";
@@ -19,6 +20,7 @@ function ctxBase(): ContextoValidacaoOferta {
     mecanicas: [{ id: "mec-checkout", nome: "Checkout no clube", slug: "CHECKOUT" }],
     solucaoIds: new Set(["sol-1"]),
     ofertaIds: new Set(["of-1"]),
+    idsExternosEmUso: new Map(),
   };
 }
 
@@ -198,6 +200,57 @@ describe("validarLinhaOferta — Percentual de desconto", () => {
     const p = r.pendencias.find((x) => x.motivo.startsWith("Percentual de desconto"));
     expect(p, "esperava pendência de percentual").toBeTruthy();
     expect(p?.coluna).toBe(COLUNAS_OFERTA.percentualDesconto);
+  });
+});
+
+describe("validarLinhaOferta — Id externo (Minutrade)", () => {
+  it("mapeia o id externo para os campos e não gera pendência", () => {
+    const r = validarLinhaOferta(
+      linha({ [COLUNAS_OFERTA.idExternoMinutrade]: "MT-777" }),
+      ctxBase(),
+    );
+    expect(r.pendencias).toEqual([]);
+    expect(r.campos.idExternoMinutrade).toBe("MT-777");
+  });
+
+  it("vazio fica null (a oferta pode nascer sem vínculo)", () => {
+    const r = validarLinhaOferta(linha({ [COLUNAS_OFERTA.idExternoMinutrade]: "  " }), ctxBase());
+    expect(r.campos.idExternoMinutrade).toBeNull();
+    expect(r.pendencias).toEqual([]);
+  });
+
+  it("id já usado por OUTRA oferta vira pendência na coluna do id externo", () => {
+    const ctx = ctxBase();
+    ctx.idsExternosEmUso.set("MT-1", "outra-oferta");
+    const r = validarLinhaOferta(linha({ [COLUNAS_OFERTA.idExternoMinutrade]: "MT-1" }), ctx);
+    const p = r.pendencias.find((x) => x.coluna === COLUNAS_OFERTA.idExternoMinutrade);
+    expect(p, "esperava pendência de id externo duplicado").toBeTruthy();
+    expect(p?.motivo).toContain("já está em uso");
+  });
+
+  it("reimportar a MESMA oferta com o próprio id não colide (enriquecer)", () => {
+    const ctx = ctxBase();
+    ctx.idsExternosEmUso.set("MT-1", "of-1");
+    const r = validarLinhaOferta(
+      linha({ [COLUNAS_OFERTA.idOferta]: "of-1", [COLUNAS_OFERTA.idExternoMinutrade]: "MT-1" }),
+      ctx,
+    );
+    expect(r.pendencias.some((x) => x.coluna === COLUNAS_OFERTA.idExternoMinutrade)).toBe(false);
+  });
+
+  it("id externo repetido em duas linhas do lote vira pendência nas duas", () => {
+    const lote = validarLoteOfertas(
+      [
+        linha({ [COLUNAS_OFERTA.idExternoMinutrade]: "MT-9" }, 2),
+        linha({ [COLUNAS_OFERTA.idExternoMinutrade]: "MT-9" }, 3),
+      ],
+      ctxBase(),
+    );
+    for (const r of lote) {
+      const p = r.pendencias.find((x) => x.coluna === COLUNAS_OFERTA.idExternoMinutrade);
+      expect(p?.motivo).toContain("repetido em mais de uma linha");
+      expect(r.acao).toBeNull();
+    }
   });
 });
 

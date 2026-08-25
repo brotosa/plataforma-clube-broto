@@ -54,6 +54,7 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
         vigenciaInicio: true,
         vigenciaFim: true,
         limiteResgates: true,
+        idExternoMinutrade: true,
         tipoBeneficio: { select: { nome: true } },
         mecanica: { select: { nome: true } },
       },
@@ -87,6 +88,9 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
     { header: COLUNAS_OFERTA.vigenciaInicio, key: "vigenciaInicio", width: 16 },
     { header: COLUNAS_OFERTA.vigenciaFim, key: "vigenciaFim", width: 16 },
     { header: COLUNAS_OFERTA.limiteResgates, key: "limiteResgates", width: 16 },
+    // Por último de propósito: os menus suspensos abaixo miram colunas por
+    // índice (4/5/6/11); inserir no meio deslocaria todos eles.
+    { header: COLUNAS_OFERTA.idExternoMinutrade, key: "idExternoMinutrade", width: 24 },
   ];
   aba.getRow(1).font = { bold: true };
   aba.views = [{ state: "frozen", ySplit: 1, xSplit: 2 }];
@@ -108,6 +112,7 @@ export async function gerarModeloOfertas(): Promise<Buffer> {
       vigenciaInicio: dataBr(o.vigenciaInicio),
       vigenciaFim: dataBr(o.vigenciaFim),
       limiteResgates: o.limiteResgates ?? "",
+      idExternoMinutrade: o.idExternoMinutrade ?? "",
     });
   }
   for (let i = 0; i < LINHAS_EM_BRANCO; i += 1) aba.addRow({});

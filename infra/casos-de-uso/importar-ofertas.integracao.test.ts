@@ -185,4 +185,30 @@ describe.skipIf(!temBanco)("importar ofertas — casos de uso integrados", () =>
     const atual = await prisma.oferta.findUnique({ where: { id: existente.id } });
     expect(atual?.titulo).toBe(`${PREFIXO} Oferta Renomeada`);
   });
+
+  it("grava o Id externo (Minutrade) e recusa reusá-lo em outra oferta (RN55)", async () => {
+    const idExterno = `${PREFIXO}-MT-INTEG`;
+    const primeira = await criarOferta(gestor, solucaoId, {
+      titulo: `${PREFIXO} Oferta com Id Externo`,
+      natureza: "BENEFICIO",
+      tipoBeneficioId: tipoId,
+      mecanicaId,
+      vigenciaInicio: new Date(Date.UTC(2026, 7, 5)),
+      idExternoMinutrade: idExterno,
+    });
+    const gravada = await prisma.oferta.findUnique({ where: { id: primeira.id } });
+    expect(gravada?.idExternoMinutrade).toBe(idExterno);
+
+    // Reusar o mesmo id em outra oferta colide (@unique) — mensagem nomeada.
+    await expect(
+      criarOferta(gestor, solucaoId, {
+        titulo: `${PREFIXO} Oferta Colidente`,
+        natureza: "BENEFICIO",
+        tipoBeneficioId: tipoId,
+        mecanicaId,
+        vigenciaInicio: new Date(Date.UTC(2026, 7, 5)),
+        idExternoMinutrade: idExterno,
+      }),
+    ).rejects.toThrow(/já está em uso/);
+  });
 });

@@ -40,6 +40,8 @@ export interface ValoresOferta {
   vigenciaInicio?: string;
   vigenciaFim?: string | null;
   limiteResgates?: number | null;
+  /** Id da oferta na Minutrade — chave do vínculo da telemetria. */
+  idExternoMinutrade?: string | null;
   /** Onda 4 (ficha §3): destinação e vínculo opcional. */
   destinacao?: DestinacaoOferta;
   destinacaoCampanhaId?: string | null;
@@ -544,6 +546,21 @@ export function FormularioOferta({
                 [A CONFIRMAR] suporte da Minutrade — por ora o campo é interno (alerta ao atingir).
               </span>
             </div>
+          </div>
+          <div className="field" style={{ marginTop: 14 }}>
+            <label htmlFor="campo-of-id-externo">Id externo (Minutrade)</label>
+            <input
+              id="campo-of-id-externo"
+              className="input"
+              name="idExternoMinutrade"
+              defaultValue={valores?.idExternoMinutrade ?? ""}
+            />
+            <span className="hint">
+              Chave que liga a telemetria importada a esta oferta (coluna id_oferta do
+              arquivo). Ofertas vindas da carga inicial já vêm preenchidas; para uma oferta
+              criada aqui, informe o id que a Minutrade atribuiu. Vazio = a telemetria dela
+              fica sem vínculo.
+            </span>
           </div>
         </div>
 

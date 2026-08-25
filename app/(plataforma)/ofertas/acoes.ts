@@ -72,6 +72,7 @@ function dadosOfertaDoFormulario(dados: FormData) {
     vigenciaInicio: dataDoFormulario(dados, "vigenciaInicio") ?? undefined,
     vigenciaFim: dataDoFormulario(dados, "vigenciaFim"),
     limiteResgates: numero(dados, "limiteResgates"),
+    idExternoMinutrade: texto(dados, "idExternoMinutrade"),
     // Onda 4 (ficha §3): destinação da oferta. O vínculo só é gravado na
     // destinação correspondente — trocar de destinação limpa o outro lado.
     destinacao: (texto(dados, "destinacao") ?? "VITRINE") as DestinacaoOferta,
