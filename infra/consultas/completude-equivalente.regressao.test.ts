@@ -219,8 +219,9 @@ describe.skipIf(!temBanco)("RN09 — painel e domínio contam a mesma régua", (
     const dominioDiz = (await bloqueiaPeloDominio(solucaoId)) ? 1 : 0;
 
     expect(painelContou, `item "${falta}"`).toBe(dominioDiz);
-    // E o caso completo tem de ser o único que não conta.
-    expect(dominioDiz).toBe(falta === "nenhum" ? 0 : 1);
+    // O caso completo e a imagem (opcional desde 24/08) são os que não contam;
+    // qualquer item OBRIGATÓRIO ausente bloqueia.
+    expect(dominioDiz).toBe(falta === "nenhum" || falta === "imagem" ? 0 : 1);
   });
 
   it("a base do painel não ficou suja depois da tabela-verdade", async () => {
@@ -228,20 +229,14 @@ describe.skipIf(!temBanco)("RN09 — painel e domínio contam a mesma régua", (
     expect(await contagemDoPainel()).toBe(baseDoPainel);
   });
 
-  it("F17 (não-regressão): imagem só no campo obsoleto ainda satisfaz o painel", async () => {
-    // A solução que já existia em produção: nada enviado pela tela nova, o
-    // endereço antigo preenchido. O painel não pode passar a contá-la como
-    // bloqueada — seria um número mudando por troca de armazenamento.
+  it("24/08: imagem ausente não conta como bloqueada (item opcional)", async () => {
+    // A imagem do card virou item opcional da RN09: uma solução completa em
+    // tudo, menos a imagem, não é bloqueada — nem no painel nem no domínio.
     const antes = await contagemDoPainel();
     const solucaoId = await semear("imagem");
-    expect(await contagemDoPainel()).toBe(antes + 1);
-
-    await prisma.solucao.update({
-      where: { id: solucaoId },
-      data: { imagemCardUrl: "s3://cards/legado.png" },
-    });
-
-    expect(await contagemDoPainel()).toBe(antes);
-    expect(await bloqueiaPeloDominio(solucaoId)).toBe(false);
+    expect(await contagemDoPainel(), "imagem ausente não soma ao painel").toBe(antes);
+    expect(await bloqueiaPeloDominio(solucaoId), "imagem ausente não bloqueia o domínio").toBe(
+      false,
+    );
   });
 });
