@@ -279,6 +279,7 @@ export default async function PaginaOferta({
                     }}
                   />
                   {item.rotulo}
+                  {item.opcional ? <span className="cap"> (opcional)</span> : null}
                 </li>
               ))}
             </ul>

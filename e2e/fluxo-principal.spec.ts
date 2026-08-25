@@ -205,16 +205,12 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
     await page.getByRole("checkbox", { name: "Todas" }).check();
     await page.getByRole("checkbox", { name: "Cobertura nacional" }).check();
     /**
-     * F17 (RN60) — a régua para em 88% aqui, e isso é o comportamento
-     * certo, não uma regressão.
-     *
-     * O campo "Imagem do card (chave do arquivo)" deixou de existir: a
-     * imagem virou arquivo da plataforma, e arquivo exige a solução já
-     * criada (é 1:1 com ela). Então os sete itens que dependem só do
-     * formulário fecham antes de salvar, e o oitavo fecha no cartão de
-     * envio da tela de edição — que é o que o teste seguinte cobre.
+     * A imagem do card virou item OPCIONAL da RN09 (24/08): não trava a
+     * publicação e sai da conta do percentual. Os sete itens obrigatórios
+     * fecham só com o formulário, então a régua já chega a 100% aqui, antes
+     * mesmo de enviar a imagem (que segue disponível no cartão de envio).
      */
-    await expect(page.getByText("88%")).toBeVisible();
+    await expect(page.getByText("100%")).toBeVisible();
     await page.waitForLoadState("networkidle"); // formulário assentado antes de submeter
     await page.getByRole("button", { name: "Criar solução" }).click();
     // Sinal durável do redirect: o título da solução na ficha (mais robusto que
@@ -223,8 +219,8 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
       timeout: 30_000,
     });
 
-    // F17 — e o oitavo item fecha aqui, com a imagem enviada: a régua
-    // chega a 100% e a solução fica publicável (RN02).
+    // A imagem preenche o item opcional da régua (que já estava em 100%):
+    // o envio funciona e a régua permanece em 100%, publicável (RN02).
     /**
      * `setInputFiles` dispara o evento de mudança uma vez só: se o React
      * ainda não atou o `onChange`, ele se perde e o clique seguinte vira

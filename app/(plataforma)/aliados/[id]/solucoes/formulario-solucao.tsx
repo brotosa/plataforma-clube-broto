@@ -307,7 +307,10 @@ export function FormularioSolucao({
                     flex: "none",
                   }}
                 />
-                <span style={{ color: item.ok ? "var(--preto)" : undefined }}>{item.rotulo}</span>
+                <span style={{ color: item.ok ? "var(--preto)" : undefined }}>
+                  {item.rotulo}
+                  {item.opcional ? <span className="cap"> (opcional)</span> : null}
+                </span>
               </li>
             ))}
           </ul>

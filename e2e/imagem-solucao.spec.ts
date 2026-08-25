@@ -362,7 +362,8 @@ test.describe("RN60 — imagem do card da solução", () => {
         timeout: 30_000,
       });
 
-      // O item da régua acende — é o que a RN09 exige para publicar.
+      // O item da régua acende com a imagem enviada. É item OPCIONAL da RN09
+      // (24/08): não trava a publicação, mas continua visível e refletindo o envio.
       const itemDaRegua = page.locator("li,div", { hasText: "Imagem do card" }).first();
       await expect(itemDaRegua).toBeVisible();
       const gravada = await prisma.imagemSolucao.findUnique({

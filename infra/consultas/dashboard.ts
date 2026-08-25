@@ -192,6 +192,9 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
   });
 
   return rascunhos.filter(({ solucao }) => {
+    // Mesma régua do domínio (`calcularCompletudeCard`): sete itens
+    // OBRIGATÓRIOS. A imagem do card é opcional desde 24/08 e NÃO entra aqui —
+    // o teste `completude-equivalente.regressao` prende as duas listas juntas.
     const itens = [
       Boolean(solucao.empresa.nomeFantasia?.trim()),
       solucao.empresa.marca !== null || Boolean(solucao.empresa.logoUrl?.trim()),
@@ -200,7 +203,6 @@ async function contarCadastrosBloqueandoPublicacao(): Promise<number> {
       Boolean(solucao.categoriaId),
       solucao._count.culturas > 0,
       solucao.coberturaNacional || solucao._count.ufs > 0,
-      solucao.imagemCard !== null || Boolean(solucao.imagemCardUrl?.trim()),
     ];
     return itens.some((ok) => !ok);
   }).length;
