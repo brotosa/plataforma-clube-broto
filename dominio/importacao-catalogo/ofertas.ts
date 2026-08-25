@@ -38,8 +38,18 @@ export const COLUNAS_OFERTA = {
 /** Rótulos exibidos ↔ enum (o modelo imprime os rótulos). */
 export const ROTULO_NATUREZA: Record<NaturezaOferta, string> = {
   RECOMPENSA: "Recompensa",
-  BENEFICIO: "Benefício",
-  CUPOM_DESCONTO: "Cupom de desconto",
+  BENEFICIO: "Benefício (Checkout Broto)",
+  CUPOM_DESCONTO: "Desconto (Checkout Externo)",
+};
+
+/**
+ * Nomes aceitos na importação por natureza — os novos rótulos E os antigos,
+ * para planilhas geradas antes do rename (24/08) continuarem sendo lidas.
+ */
+const ALIASES_NATUREZA: Record<NaturezaOferta, string[]> = {
+  RECOMPENSA: ["Recompensa"],
+  BENEFICIO: ["Benefício (Checkout Broto)", "Benefício"],
+  CUPOM_DESCONTO: ["Desconto (Checkout Externo)", "Cupom de desconto", "Desconto"],
 };
 export const ROTULO_MODALIDADE: Record<ModalidadePagamento, string> = {
   UNICA: "Única",
@@ -225,11 +235,14 @@ export function validarLinhaOferta(
   if (naturezaBruta === "") {
     pendencias.push({ coluna: COLUNAS_OFERTA.natureza, motivo: "Natureza é obrigatória." });
   } else {
-    natureza = acharPorRotulo(naturezaBruta, ROTULO_NATUREZA);
+    const alvo = normalizarTexto(naturezaBruta);
+    natureza = (Object.keys(ALIASES_NATUREZA) as NaturezaOferta[]).find((k) =>
+      ALIASES_NATUREZA[k].some((rotulo) => normalizarTexto(rotulo) === alvo),
+    );
     if (!natureza) {
       pendencias.push({
         coluna: COLUNAS_OFERTA.natureza,
-        motivo: `Natureza "${naturezaBruta}" inválida (Recompensa, Benefício ou Cupom de desconto).`,
+        motivo: `Natureza "${naturezaBruta}" inválida (Recompensa, Benefício ou Desconto).`,
       });
     }
   }

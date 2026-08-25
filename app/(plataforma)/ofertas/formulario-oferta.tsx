@@ -60,14 +60,27 @@ const DESCRICAO_NATUREZA: Record<NaturezaOferta, { titulo: string; texto: string
     texto: "Produto/serviço gratuito para o assinante testar ou experimentar. Não comissiona.",
   },
   BENEFICIO: {
-    titulo: "Benefício",
-    texto: "Adquirido com desconto, vantagem ou condição especial. Comissiona sobre o valor pago.",
+    titulo: "Benefício (Checkout Broto)",
+    texto: "Adquirido dentro do Clube, com valor fixo ou condição especial. Comissiona sobre o valor pago.",
   },
   CUPOM_DESCONTO: {
-    titulo: "Cupom de desconto",
-    texto: "Resgate materializa código de desconto para uso no canal do aliado. Comissão em confirmação.",
+    titulo: "Desconto (Checkout Externo)",
+    texto: "Desconto percentual para uso no canal do aliado. Informe o percentual; a comissão fica em confirmação.",
   },
 };
+
+/**
+ * Tipos de benefício válidos por natureza (24/08):
+ * - Recompensa: só Gratuidade.
+ * - Benefício (Checkout Broto): Valor fixo e Condição especial (valor).
+ * - Desconto (Checkout Externo): só "% desconto" (o campo de percentual).
+ */
+function tipoBloqueado(slug: string, natureza: NaturezaOferta): boolean {
+  if (natureza === "RECOMPENSA") return slug !== "GRATUIDADE";
+  if (natureza === "BENEFICIO") return slug === "GRATUIDADE" || slug === "PCT_DESCONTO";
+  // CUPOM_DESCONTO = Desconto (Checkout Externo): só percentual.
+  return slug !== "PCT_DESCONTO";
+}
 
 /**
  * T5 — Cadastro/edição de oferta. Natureza condiciona preços e campos;
@@ -110,7 +123,17 @@ export function FormularioOferta({
 
   const [titulo, definirTitulo] = useState(valores?.titulo ?? "");
   const [natureza, definirNatureza] = useState<NaturezaOferta>(valores?.natureza ?? "BENEFICIO");
-  const [tipoBeneficioId, definirTipoBeneficioId] = useState(valores?.tipoBeneficioId ?? "");
+  // Se a oferta carregada tem um tipo que passou a ser inválido para a
+  // natureza (ex.: Benefício com "% desconto", legado do ajuste anterior),
+  // começa vazio — a régua nova não deixa salvar sem trocar (decisão de 24/08).
+  const slugTipoInicial = tiposBeneficio.find((t) => t.id === valores?.tipoBeneficioId)?.slug;
+  const tipoInicialValido =
+    Boolean(valores?.tipoBeneficioId) &&
+    slugTipoInicial !== undefined &&
+    !tipoBloqueado(slugTipoInicial, valores?.natureza ?? "BENEFICIO");
+  const [tipoBeneficioId, definirTipoBeneficioId] = useState(
+    tipoInicialValido ? (valores?.tipoBeneficioId ?? "") : "",
+  );
   const [precoDe, definirPrecoDe] = useState(valores?.precoDe ?? "");
   const [precoPor, definirPrecoPor] = useState(valores?.precoPor ?? "");
   const [percentualDesconto, definirPercentualDesconto] = useState(
@@ -139,17 +162,32 @@ export function FormularioOferta({
       // Recompensa é gratuidade (definição contratual): preços zerados.
       definirPrecoDe("");
       definirPrecoPor("");
+      definirPercentualDesconto("");
       const gratuidade = tiposBeneficio.find((tipo) => tipo.slug === "GRATUIDADE");
       if (gratuidade) definirTipoBeneficioId(gratuidade.id);
       const recompensaGratuita = mecanicas.find((mecanica) => mecanica.slug === "RECOMPENSA_GRATUITA");
       if (recompensaGratuita) definirMecanicaId(recompensaGratuita.id);
-    } else if (tipoSelecionado?.slug === "GRATUIDADE") {
-      definirTipoBeneficioId("");
+    } else if (nova === "CUPOM_DESCONTO") {
+      // Desconto (Checkout Externo): só percentual — seleciona o tipo e limpa preços.
+      definirPrecoDe("");
+      definirPrecoPor("");
+      const pct = tiposBeneficio.find((tipo) => tipo.slug === "PCT_DESCONTO");
+      if (pct) definirTipoBeneficioId(pct.id);
+    } else {
+      // Benefício (Checkout Broto): sem percentual; se o tipo atual ficou
+      // inválido para esta natureza, reseta para forçar nova escolha.
+      definirPercentualDesconto("");
+      if (
+        tipoSelecionado?.slug === "GRATUIDADE" ||
+        tipoSelecionado?.slug === "PCT_DESCONTO"
+      ) {
+        definirTipoBeneficioId("");
+      }
     }
   }
 
-  // Percentual de desconto substitui preço de/por: some o preço, fica só o %.
-  const exigePercentual = natureza === "BENEFICIO" && tipoSelecionado?.slug === "PCT_DESCONTO";
+  // Percentual substitui preço de/por: só existe sob a natureza Desconto.
+  const exigePercentual = tipoSelecionado?.slug === "PCT_DESCONTO";
   const exigePrecos = natureza === "BENEFICIO" && tipoSelecionado?.slug === "VALOR_FIXO";
 
   function aoMudarTipo(novoId: string) {
@@ -171,6 +209,9 @@ export function FormularioOferta({
         <ErrosDoFormulario erros={estado.erros} />
         <input type="hidden" name="solucaoId" value={solucaoId} />
         {edicao ? <input type="hidden" name="ofertaId" value={valores!.ofertaId} /> : null}
+        {/* Código/regras saiu da tela (Desconto usa só %). Preserva o valor
+            legado por campo oculto para a edição não apagá-lo em silêncio. */}
+        <input type="hidden" name="cupomCodigoRegras" value={valores?.cupomCodigoRegras ?? ""} />
 
         <div className="card" style={{ padding: "20px 22px" }}>
           <h2 className="h-el" style={{ marginBottom: 14 }}>
@@ -233,9 +274,7 @@ export function FormularioOferta({
               >
                 <option value="">Selecionar…</option>
                 {tiposBeneficio.map((tipo) => {
-                  const bloqueado =
-                    (natureza === "RECOMPENSA" && tipo.slug !== "GRATUIDADE") ||
-                    (natureza !== "RECOMPENSA" && tipo.slug === "GRATUIDADE");
+                  const bloqueado = tipoBloqueado(tipo.slug, natureza);
                   return (
                     <option key={tipo.id} value={tipo.id} disabled={bloqueado}>
                       {tipo.nome}
@@ -311,22 +350,6 @@ export function FormularioOferta({
                 </div>
               </>
             )}
-            {natureza === "CUPOM_DESCONTO" ? (
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label htmlFor="campo-of-cupom">Código/regras do cupom (opcional)</label>
-                <textarea
-                  id="campo-of-cupom"
-                  className="textarea"
-                  name="cupomCodigoRegras"
-                  rows={2}
-                  defaultValue={valores?.cupomCodigoRegras ?? ""}
-                />
-                <span className="hint">
-                  A comissão do cupom está em confirmação de negócio — nenhum cálculo de
-                  receita é feito para cupom (COMISSAO_CUPOM: EM_CONFIRMACAO).
-                </span>
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -550,7 +573,7 @@ export function FormularioOferta({
               {natureza === "RECOMPENSA"
                 ? "Recompensa"
                 : natureza === "CUPOM_DESCONTO"
-                  ? "Cupom de desconto"
+                  ? "Desconto"
                   : "Oferta"}
             </span>
           </div>
@@ -562,11 +585,6 @@ export function FormularioOferta({
             </span>
             {natureza === "RECOMPENSA" ? (
               <span className="gratis">Gratuito para assinantes</span>
-            ) : natureza === "CUPOM_DESCONTO" ? (
-              <span className="cupom">
-                <b>CUPOM</b>
-                <span className="cap">código exibido após o resgate do voucher</span>
-              </span>
             ) : exigePercentual ? (
               <span className="por">
                 {percentualDesconto ? `${percentualDesconto}% de desconto` : "—"}
