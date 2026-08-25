@@ -80,7 +80,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 | Cobertura (UFs/regiões) | multi-seleção | ●² | Inclui "nacional" |
 | Perfil de cliente-alvo | multi-seleção (pequeno/médio/grande) | ○ | Alimenta recomendação e cestas |
 | Tecnologia/diferenciais | texto/tags | ○ | Herda o vocabulário do scouting (IA, satélite, IoT…) |
-| Imagem do card | imagem | ○ | **Opcional (errata de 24/08):** aparece na régua RN09, mas **não** trava a publicação. Ausência mantém o tratamento neutro do card (RN60) |
+| Imagem do card | imagem | ○ | **Opcional (errata de 24/08):** aparece na régua RN09 e **não** trava a publicação. **Errata de 25/08:** passa a contar no **percentual** de preenchimento (7 de 8 itens = 88%; com a imagem, 100%) — opcional é "não obrigatório para publicar", não "fora da conta". Continua **sem** bloquear a publicação. Ausência mantém o tratamento neutro do card (RN60) |
 | Link externo | URL | ○ | |
 | Status | ativa / inativa | ● | Inativar solução pausa suas ofertas publicadas (RN04) |
 
@@ -120,7 +120,7 @@ A comissão **não** é campo da oferta: vem do bloco comercial do aliado e é a
 6. **RN06** — Aprovações passam pelo **motor genérico de aprovação** (Onda 1): regra por tipo de entidade, ligável/desligável sem código, com designação de aprovadores; nasce com *promoção a Aliada ativa* ligada e *publicação de Oferta* desligada. Fluxo: Solicitada → Aprovada | Devolvida (comentário obrigatório). Solicitante ≠ aprovador.
 7. **RN07** — Telemetria (vouchers, compras) é somente leitura, com origem, data e arquivo de importação rastreáveis.
 8. **RN08** — CNPJ único e validado.
-9. **RN09** — Régua de completude: publicar oferta exige o conjunto mínimo do card (nome de exibição e logo do aliado; nome, descrição curta, categoria, culturas e cobertura da solução). A **imagem do card** é item **opcional** (errata de 24/08): aparece na régua como orientação, mas não bloqueia a publicação nem entra no cálculo do percentual — ausência mantém o tratamento neutro do card (RN60).
+9. **RN09** — Régua de completude: publicar oferta exige o conjunto mínimo do card (nome de exibição e logo do aliado; nome, descrição curta, categoria, culturas e cobertura da solução). A **imagem do card** é item **opcional** (errata de 24/08): aparece na régua como orientação, mas não bloqueia a publicação — ausência mantém o tratamento neutro do card (RN60). **Errata de 25/08 — duas medidas distintas:** o **percentual** mede o preenchimento e conta **todos** os itens, inclusive o opcional (sem a imagem, 88%; com ela, 100%); a **publicabilidade** (`completa`) conta só os obrigatórios, então a oferta é publicável mesmo abaixo de 100%. "Opcional" quer dizer "não obrigatório para publicar", não "não conta na régua".
 10. **RN10** — Alterar campos publicáveis de uma oferta *Publicada* liga a flag *Pendente de republicação*; o export seguinte a limpa. Sem versionamento formal na v1 (a auditoria guarda o histórico).
 11. **RN11** — Compatibilidade mecânica × ambiente: *checkout no clube* exige ambiente **dentro da Plataforma** habilitado no bloco comercial do aliado; *checkout externo* exige **fora da Plataforma**; *recompensa gratuita* independe. A UI desabilita a mecânica incompatível e explica o porquê.
 12. **RN12** — Suspensão de aliado exige motivo tipificado (ex.: *inadimplência de comissão >30 dias* — hipótese contratual; *decisão de curadoria* — prerrogativa contratual do Broto; *outros*, com descrição), registrado na auditoria.
