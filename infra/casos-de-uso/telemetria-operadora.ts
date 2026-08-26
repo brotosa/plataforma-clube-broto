@@ -102,6 +102,17 @@ function inteiroOuNulo(texto: string): number | null {
 }
 
 /**
+ * Valor monetário no formato brasileiro ("149,90", "1.234,56") como
+ * Decimal, ou `null` quando ausente/ilegível. Nunca zero por omissão —
+ * valor ausente é ausência (RN53). "0" legítimo vira `0`.
+ */
+function valorMonetarioOuNulo(texto: string): Prisma.Decimal | null {
+  if (!texto) return null;
+  const numero = Number(texto.replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(numero) ? new Prisma.Decimal(numero) : null;
+}
+
+/**
  * Data do arquivo em ISO. O leitor XLSX já entrega data como ISO; o CSV
  * exportado de planilha traz o formato brasileiro `dd/mm/aaaa [hh:mm[:ss]]`
  * (observado no arquivo real de "Resgate e Compras" em CSV), e o parse
@@ -827,6 +838,7 @@ async function aplicarResgates(
     produto: string;
     tipoOferta: string | null;
     seller: string | null;
+    valor: Prisma.Decimal | null;
     ofertaId: string | null;
     chaveNatural: string;
   }> = [];
@@ -873,6 +885,7 @@ async function aplicarResgates(
       produto,
       tipoOferta: valorDe(linha, "tipo de oferta") || null,
       seller: seller || null,
+      valor: valorMonetarioOuNulo(valorDe(linha, "valor")),
       ofertaId,
       chaveNatural,
     });

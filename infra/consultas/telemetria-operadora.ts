@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { classificarEvento } from "@/dominio/telemetria-operadora/tipo-de-evento";
 import { prisma } from "@/infra/prisma/cliente";
 
@@ -140,6 +142,74 @@ export async function apurarExtratoNominal(
     resgates: fechar(porClasse.RESGATE),
     compras: fechar(porClasse.COMPRA),
     naoClassificados,
+  };
+}
+
+/**
+ * O RFV de um assinante (RN36) — recência, frequência e valor a partir dos
+ * eventos nominais que casaram por CPF na importação da operadora.
+ *
+ * `null` quando o assinante **não tem evento nominal algum** — a seção
+ * "Uso" volta ao estado de espera com motivo (RN53), nunca a zero. `valor`
+ * é ausência declarada, não zero: a coluna `Valor` nem sempre veio, e um
+ * "0" só entra quando foi medido.
+ */
+export interface UsoDoAssinante {
+  totalEventos: number;
+  resgates: number;
+  compras: number;
+  naoClassificados: number;
+  /** Recência — a data do evento mais recente. */
+  dataUltimoEvento: Date;
+  /** Frequência anotada com o horizonte medido pela própria fonte. */
+  dataPrimeiroEvento: Date;
+  /** Soma do `Valor` onde a fonte o trouxe; `null` se nenhuma linha teve valor. */
+  valorTotal: Prisma.Decimal | null;
+  /** Quantos eventos trouxeram valor — o denominador honesto do valor. */
+  eventosComValor: number;
+}
+
+export async function usoPorAssinante(assinanteId: string): Promise<UsoDoAssinante | null> {
+  const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+    where: { assinanteId },
+    select: { dataEvento: true, tipoOferta: true, valor: true },
+  });
+  if (eventos.length === 0) {
+    return null;
+  }
+
+  let resgates = 0;
+  let compras = 0;
+  let naoClassificados = 0;
+  let dataUltimoEvento = eventos[0]!.dataEvento;
+  let dataPrimeiroEvento = eventos[0]!.dataEvento;
+  let valorTotal: Prisma.Decimal | null = null;
+  let eventosComValor = 0;
+
+  for (const evento of eventos) {
+    const classe = classificarEvento(evento.tipoOferta);
+    if (classe === "RESGATE") resgates += 1;
+    else if (classe === "COMPRA") compras += 1;
+    else naoClassificados += 1;
+
+    if (evento.dataEvento > dataUltimoEvento) dataUltimoEvento = evento.dataEvento;
+    if (evento.dataEvento < dataPrimeiroEvento) dataPrimeiroEvento = evento.dataEvento;
+
+    if (evento.valor !== null) {
+      valorTotal = (valorTotal ?? new Prisma.Decimal(0)).add(evento.valor);
+      eventosComValor += 1;
+    }
+  }
+
+  return {
+    totalEventos: eventos.length,
+    resgates,
+    compras,
+    naoClassificados,
+    dataUltimoEvento,
+    dataPrimeiroEvento,
+    valorTotal,
+    eventosComValor,
   };
 }
 

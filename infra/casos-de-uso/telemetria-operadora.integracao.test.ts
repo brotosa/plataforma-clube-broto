@@ -16,7 +16,7 @@ import {
   gerarCsvSellersSintetico,
   gerarCsvUsuariosSintetico,
 } from "@/infra/telemetria-operadora/fixtures-sinteticas";
-import { apurarExtratoNominal } from "@/infra/consultas/telemetria-operadora";
+import { apurarExtratoNominal, usoPorAssinante } from "@/infra/consultas/telemetria-operadora";
 import { higienizarCelula } from "@/dominio/telemetria-operadora/higienes";
 import { normalizarNomeDeColuna } from "@/dominio/telemetria-operadora/layouts";
 import { lerArquivoTabular } from "@/infra/planilhas/leitor-tabular";
@@ -1317,6 +1317,102 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
         where: { entidadeId: resultado.importacaoId },
       });
       expect(JSON.stringify(eventos)).not.toContain(cpf);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // RN36 — Uso por assinante (recência, frequência e valor)
+  // -------------------------------------------------------------------
+
+  describe("RN36 — uso por assinante", () => {
+    it("apura recência, frequência e valor a partir do que casou por CPF", async () => {
+      const [s] = gerarAssinantesSinteticos(1, 70);
+      const assinante = await criarAssinanteSintetico(s!.cpf, "uso-rfv");
+
+      const csv = gerarCsvResgatesRealSintetico([
+        {
+          assinante: s!,
+          dataHora: "2026-08-20 10:00:00",
+          idSeller: "48596479000105",
+          idOferta: ofertaPublicadaId,
+          idVoucher: "CB0700",
+          tipoOferta: "Recompensa gratuita",
+          valor: "0",
+          canal: "app",
+        },
+        {
+          assinante: s!,
+          dataHora: "2026-08-22 11:00:00",
+          idSeller: "48596479000105",
+          idOferta: ofertaPublicadaId,
+          idVoucher: "CB0701",
+          tipoOferta: "Checkout no clube",
+          valor: "149,90",
+          canal: "web",
+        },
+        {
+          assinante: s!,
+          dataHora: "2026-08-21 09:00:00",
+          idSeller: "48596479000105",
+          idOferta: ofertaPublicadaId,
+          idVoucher: "CB0702",
+          tipoOferta: "Checkout externo",
+          valor: "89,90",
+          canal: "app",
+        },
+      ]);
+      const resultado = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} uso-rfv.csv`,
+        conteudo: Buffer.from(csv, "utf8"),
+      });
+      expect(resultado.aplicadas).toBe(3);
+
+      const uso = await usoPorAssinante(assinante.id);
+      expect(uso).not.toBeNull();
+      expect(uso!.totalEventos).toBe(3);
+      expect(uso!.resgates).toBe(1); // Recompensa gratuita
+      expect(uso!.compras).toBe(2); // os dois checkouts
+      expect(uso!.naoClassificados).toBe(0);
+      // Recência é o evento mais recente; o horizonte começa no mais antigo.
+      expect(uso!.dataUltimoEvento.toISOString().slice(0, 10)).toBe("2026-08-22");
+      expect(uso!.dataPrimeiroEvento.toISOString().slice(0, 10)).toBe("2026-08-20");
+      // Valor: 0 + 149,90 + 89,90 = 239,80, com os 3 eventos trazendo valor.
+      expect(uso!.eventosComValor).toBe(3);
+      expect(uso!.valorTotal?.toString()).toBe("239.8");
+    });
+
+    it("sem evento algum, devolve null — ausência, não zero (RN53)", async () => {
+      const [s] = gerarAssinantesSinteticos(1, 71);
+      const assinante = await criarAssinanteSintetico(s!.cpf, "uso-vazio");
+      expect(await usoPorAssinante(assinante.id)).toBeNull();
+    });
+
+    it("formato antigo sem coluna Valor: frequência conta, valor fica ausente", async () => {
+      const [s] = gerarAssinantesSinteticos(1, 72);
+      const assinante = await criarAssinanteSintetico(s!.cpf, "uso-sem-valor");
+
+      await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} uso-sem-valor.csv`,
+        conteudo: Buffer.from(
+          gerarCsvResgatesSintetico([
+            {
+              assinante: s!,
+              data: "2026-07-15",
+              produto: "Curso de solos",
+              tipoOferta: "Recompensa gratuita",
+              seller: "Aliada",
+            },
+          ]),
+          "utf8",
+        ),
+      });
+
+      const uso = await usoPorAssinante(assinante.id);
+      expect(uso!.totalEventos).toBe(1);
+      expect(uso!.resgates).toBe(1);
+      // Sem coluna Valor na fonte, valor é ausência declarada — nunca zero.
+      expect(uso!.valorTotal).toBeNull();
+      expect(uso!.eventosComValor).toBe(0);
     });
   });
 

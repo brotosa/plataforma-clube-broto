@@ -4,6 +4,7 @@ import { auth } from "@/infra/auth";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { decidirExibicaoPlena } from "@/infra/casos-de-uso/assinantes-segmentos";
 import { perfilAssinante } from "@/infra/consultas/assinantes";
+import { usoPorAssinante } from "@/infra/consultas/telemetria-operadora";
 
 /**
  * T19 — Perfil do assinante: núcleo com os dois estados de máscara
@@ -47,6 +48,11 @@ export default async function PaginaPerfilAssinante({
   if (!perfil) {
     notFound();
   }
+
+  // RN36 — recência, frequência e valor a partir da telemetria nominal da
+  // operadora que casou por CPF. `null` quando não há evento (RN53).
+  const uso = await usoPorAssinante(id);
+  const moedaBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
   const rotuloPreferencia =
     perfil.preferencia === "AMBOS"
@@ -219,13 +225,51 @@ export default async function PaginaPerfilAssinante({
               Recência, frequência e valor de uso por assinante alimentam perfil e
               segmentação (RN36).
             </p>
-            <div className="vazio" style={{ padding: "22px 10px" }}>
-              <span className="selo">aguardando telemetria por assinante</span>
-              <p className="cap" style={{ maxWidth: "52ch", margin: "10px 0 0" }}>
-                A telemetria hoje chega agregada. A granularidade por CPF está em
-                confirmação com a Minutrade — até lá, nenhum número é estimado aqui.
-              </p>
-            </div>
+            {uso === null ? (
+              <div className="vazio" style={{ padding: "22px 10px" }}>
+                <span className="selo">aguardando telemetria por assinante</span>
+                <p className="cap" style={{ maxWidth: "56ch", margin: "10px 0 0" }}>
+                  Nenhum evento da operadora casou com este assinante ainda. A junção é
+                  por CPF: assim que um relatório &ldquo;Resgate e Compras&rdquo; trouxer
+                  o CPF desta pessoa, os números aparecem aqui — nenhum é estimado.
+                </p>
+              </div>
+            ) : (
+              <div
+                className="g-resp"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "170px 1fr",
+                  gap: "12px 16px",
+                  fontSize: 14,
+                }}
+              >
+                <span className="cap">Recência</span>
+                <span>
+                  último evento em {dataCurta(uso.dataUltimoEvento)}
+                  <span className="cap"> · desde {dataCurta(uso.dataPrimeiroEvento)}</span>
+                </span>
+                <span className="cap">Frequência</span>
+                <span>
+                  {uso.totalEventos} evento(s) · {uso.resgates} resgate(s) ·{" "}
+                  {uso.compras} compra(s)
+                  {uso.naoClassificados > 0 ? (
+                    <span className="cap"> · {uso.naoClassificados} não classificado(s)</span>
+                  ) : null}
+                </span>
+                <span className="cap">Valor</span>
+                <span>
+                  {uso.valorTotal === null ? (
+                    <span className="cap">não informado na fonte</span>
+                  ) : (
+                    <>
+                      {moedaBRL.format(uso.valorTotal.toNumber())}
+                      <span className="cap"> · em {uso.eventosComValor} evento(s) com valor</span>
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="card" style={{ padding: "20px 22px" }}>
