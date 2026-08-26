@@ -34,12 +34,14 @@ import { normalizarNomeDeColuna } from "./layouts";
 export type ClasseDeEvento = "RESGATE" | "COMPRA" | "NAO_CLASSIFICADO";
 
 /**
- * Os três valores observados na coluna, normalizados.
+ * Os valores observados na coluna, normalizados.
  *
  * `Checkout no clube` e `Checkout externo` são compra: os dois passam por
  * um checkout, e a diferença entre eles é **onde** ele acontece — dentro
  * da vitrine ou no site do aliado —, não se houve pagamento.
- * `Recompensa gratuita` é resgate: preço zero, sem checkout.
+ * `Recompensa gratuita` e `emissao_voucher` são resgate — este último
+ * observado no arquivo real e classificado por decisão do Gestor (26/08),
+ * ainda `[A CONFIRMAR — Minutrade]` (ver abaixo).
  *
  * O catálogo de ofertas corrobora: a coluna `CheckOut` de
  * `dados/Lista_de_Ofertas_3.xlsx` traz "Checkout externo" e "Recompensa
@@ -49,6 +51,15 @@ const CLASSE_POR_VALOR: Readonly<Record<string, ClasseDeEvento>> = {
   "recompensa gratuita": "RESGATE",
   "checkout no clube": "COMPRA",
   "checkout externo": "COMPRA",
+  // Decisão do Gestor (26/08): o arquivo real de "Resgate e Compras" traz
+  // `emissao_voucher` na coluna Tipo de Oferta, e no contexto do relatório
+  // ele representa o resgate do benefício pelo membro. Contamos como
+  // RESGATE. Segue `[A CONFIRMAR — Minutrade]` (item 4): se o dicionário
+  // disser outra coisa, é esta linha que muda — sem reimportar, porque o
+  // `tipoOferta` é gravado como veio. Variantes de grafia toleradas.
+  emissao_voucher: "RESGATE",
+  "emissao de voucher": "RESGATE",
+  "emissao voucher": "RESGATE",
 };
 
 /**
@@ -66,6 +77,7 @@ export function classificarEvento(tipoOferta: string | null): ClasseDeEvento {
 /** Os valores conhecidos, para a tela poder dizer o que ela reconhece. */
 export const VALORES_CONHECIDOS_DE_TIPO_DE_OFERTA = Object.freeze([
   "Recompensa gratuita",
+  "emissao_voucher",
   "Checkout no clube",
   "Checkout externo",
 ]);

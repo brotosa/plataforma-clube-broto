@@ -36,7 +36,7 @@ Consulta da trilha completa: filtros por entidade, registro, autor, tipo de even
 47. **RN47** — Inativação revoga o acesso imediatamente (sessões derrubadas) e preserva integralmente o histórico e a autoria nos registros.
 48. **RN48** — Auditoria é somente leitura; exportar o extrato exige papel Gestor ou Administrador e é auditado.
 49. **RN49** — Nenhum evento de auditoria é apagado na v1; política formal de retenção **[A CONFIRMAR — jurídico/compliance]**, com a premissa de retenção integral até definição.
-50. **RN50** — O Dashboard exibe apenas indicadores com fonte sustentada; estados de indisponibilidade explícitos e etiquetas de atribuição obrigatórias; nenhum indicador novo entra sem constar de ficha validada.
+50. **RN50** — O Dashboard exibe apenas indicadores com fonte sustentada; estados de indisponibilidade explícitos e etiquetas de atribuição obrigatórias; nenhum indicador novo entra sem constar de ficha validada. **Errata de 26/08 — fonte da "vitrine viva":** o numerador "ofertas ativas com resgate na janela" deixou de sair do voucher clássico (Onda 1, `telemetriaEvento`, nunca alimentado em produção) e passou a sair do **extrato nominal da operadora** (Onda 12, `eventoDeResgateTelemetria`), casado à oferta por `id_oferta`. Escolheu-se o **extrato**, e não o **catálogo**, porque só o extrato tem **data por evento** — e a janela de 90 dias é da definição da métrica. "Com resgate" conta o evento classificado como RESGATE (mesma leitura da T33/T34). A célula "Ofertas" do hero continua sendo o mesmo numerador (F15), agora desta fonte. Não é indicador novo: é troca de fonte de um indicador existente, e a RN68 segue intocada (catálogo e extrato jamais somados).
 
 ## 6. Fora de escopo
 

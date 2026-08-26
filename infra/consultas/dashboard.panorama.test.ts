@@ -327,16 +327,43 @@ describe.skipIf(!temBanco)("T26 · célula Ofertas — mesma base da vitrine viv
           }),
         );
       }
+      // A vitrine viva passou a contar pelo EXTRATO NOMINAL da operadora
+      // (RN68/RN50), não mais pelo voucher clássico. Semeamos, então, um
+      // evento de resgate nominal ("Recompensa gratuita") para duas das três
+      // publicadas — o que faz `publicadasComResgate` valer 2.
+      const autor = await prisma.usuario.findFirstOrThrow();
+      const assinante = await prisma.assinante.create({
+        data: {
+          nome: `Assinante${SUFIXO}`,
+          cpfHash: `hash-sintetico${SUFIXO}`,
+          cpfCifrado: `cif-sintetico${SUFIXO}`,
+          marcaSintetico: true,
+        },
+        select: { id: true },
+      });
+      const importacao = await prisma.importacaoTelemetria.create({
+        data: {
+          tipoLayout: "RESGATES",
+          nomeArquivo: `arquivo${SUFIXO}`,
+          hashConteudo: `hash-conteudo${SUFIXO}`,
+          autorId: autor.id,
+          lidas: 2,
+          aplicadas: 2,
+          recusadas: 0,
+          recusasPorCausa: {},
+        },
+        select: { id: true },
+      });
       for (const oferta of ofertas.slice(0, 2)) {
-        await prisma.telemetriaEvento.create({
+        await prisma.eventoDeResgateTelemetria.create({
           data: {
-            idVoucher: `voucher-sintetico-${oferta.id}`,
-            ofertaId: oferta.id,
-            tipo: "RESGATE_VOUCHER",
+            assinanteId: assinante.id,
             dataEvento: new Date(),
-            // Hash sintético: nunca há CPF real neste repositório.
-            cpfHash: `hash-sintetico-${oferta.id}`,
-            valor: "10.00",
+            produto: `Produto${SUFIXO}`,
+            tipoOferta: "Recompensa gratuita", // classifica como RESGATE
+            ofertaId: oferta.id,
+            chaveNatural: `chave-sintetica-${oferta.id}`,
+            importacaoId: importacao.id,
           },
         });
       }
@@ -348,7 +375,11 @@ describe.skipIf(!temBanco)("T26 · célula Ofertas — mesma base da vitrine viv
         select: { id: true },
       });
       const ids = ofertas.map((oferta) => oferta.id);
-      await prisma.telemetriaEvento.deleteMany({ where: { ofertaId: { in: ids } } });
+      await prisma.eventoDeResgateTelemetria.deleteMany({ where: { ofertaId: { in: ids } } });
+      await prisma.importacaoTelemetria.deleteMany({
+        where: { nomeArquivo: { contains: SUFIXO } },
+      });
+      await prisma.assinante.deleteMany({ where: { nome: { contains: SUFIXO } } });
       await prisma.oferta.deleteMany({ where: { id: { in: ids } } });
       await prisma.solucao.deleteMany({ where: { nome: { contains: SUFIXO } } });
       await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: empresaId } });

@@ -2511,6 +2511,11 @@ model EventoDeResgateTelemetria {
   /// `[A CONFIRMAR — Minutrade]` e enum recusaria valor novo na carga.
   tipoOferta   String?  @map("tipo_oferta")
   seller       String?
+  /// Valor da linha na coluna `Valor` do relatório da operadora — o "V" do
+  /// RFV (RN36). Nullable: o formato antigo não trazia a coluna, e valor
+  /// ausente é ausência (RN53), nunca zero. Capturado na importação; nunca
+  /// estimado.
+  valor        Decimal? @db.Decimal(12, 2)
   ofertaId     String?  @map("oferta_id")
   chaveNatural String   @unique @map("chave_natural")
   importacaoId String   @map("importacao_id")

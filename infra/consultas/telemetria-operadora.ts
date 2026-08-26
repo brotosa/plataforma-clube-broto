@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { classificarEvento } from "@/dominio/telemetria-operadora/tipo-de-evento";
 import { prisma } from "@/infra/prisma/cliente";
 
@@ -141,6 +143,135 @@ export async function apurarExtratoNominal(
     compras: fechar(porClasse.COMPRA),
     naoClassificados,
   };
+}
+
+/**
+ * O RFV de um assinante (RN36) — recência, frequência e valor a partir dos
+ * eventos nominais que casaram por CPF na importação da operadora.
+ *
+ * `null` quando o assinante **não tem evento nominal algum** — a seção
+ * "Uso" volta ao estado de espera com motivo (RN53), nunca a zero. `valor`
+ * é ausência declarada, não zero: a coluna `Valor` nem sempre veio, e um
+ * "0" só entra quando foi medido.
+ */
+export interface UsoDoAssinante {
+  totalEventos: number;
+  resgates: number;
+  compras: number;
+  naoClassificados: number;
+  /** Recência — a data do evento mais recente. */
+  dataUltimoEvento: Date;
+  /** Frequência anotada com o horizonte medido pela própria fonte. */
+  dataPrimeiroEvento: Date;
+  /** Soma do `Valor` onde a fonte o trouxe; `null` se nenhuma linha teve valor. */
+  valorTotal: Prisma.Decimal | null;
+  /** Quantos eventos trouxeram valor — o denominador honesto do valor. */
+  eventosComValor: number;
+}
+
+export async function usoPorAssinante(assinanteId: string): Promise<UsoDoAssinante | null> {
+  const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+    where: { assinanteId },
+    select: { dataEvento: true, tipoOferta: true, valor: true },
+  });
+  if (eventos.length === 0) {
+    return null;
+  }
+
+  let resgates = 0;
+  let compras = 0;
+  let naoClassificados = 0;
+  let dataUltimoEvento = eventos[0]!.dataEvento;
+  let dataPrimeiroEvento = eventos[0]!.dataEvento;
+  let valorTotal: Prisma.Decimal | null = null;
+  let eventosComValor = 0;
+
+  for (const evento of eventos) {
+    const classe = classificarEvento(evento.tipoOferta);
+    if (classe === "RESGATE") resgates += 1;
+    else if (classe === "COMPRA") compras += 1;
+    else naoClassificados += 1;
+
+    if (evento.dataEvento > dataUltimoEvento) dataUltimoEvento = evento.dataEvento;
+    if (evento.dataEvento < dataPrimeiroEvento) dataPrimeiroEvento = evento.dataEvento;
+
+    if (evento.valor !== null) {
+      valorTotal = (valorTotal ?? new Prisma.Decimal(0)).add(evento.valor);
+      eventosComValor += 1;
+    }
+  }
+
+  return {
+    totalEventos: eventos.length,
+    resgates,
+    compras,
+    naoClassificados,
+    dataUltimoEvento,
+    dataPrimeiroEvento,
+    valorTotal,
+    eventosComValor,
+  };
+}
+
+/**
+ * Telemetria da operadora de UMA oferta, para o card da T5 — as duas
+ * contagens lado a lado, **nunca somadas** (RN68).
+ *
+ * `catalogo` é o retrato acumulado por oferta (relatório "Lista de
+ * Ofertas"), com a data do arquivo. `extrato` é a contagem dos eventos
+ * nominais que casaram a esta oferta por `ofertaId` (relatório "Resgate e
+ * Compras"), com a data do evento mais recente. Cada bloco é `null` quando
+ * a respectiva fonte não trouxe nada — ausência, não zero (RN53).
+ */
+export interface TelemetriaDaOferta {
+  catalogo: { resgates: number; compras: number; dataArquivo: Date | null } | null;
+  extrato: {
+    resgates: number;
+    compras: number;
+    naoClassificados: number;
+    dataUltimo: Date;
+  } | null;
+}
+
+export async function telemetriaOperadoraDaOferta(
+  ofertaId: string,
+): Promise<TelemetriaDaOferta> {
+  const [contador, eventos] = await Promise.all([
+    prisma.contadorDeOfertaTelemetria.findUnique({
+      where: { ofertaId },
+      select: { resgates: true, compras: true, dataArquivo: true },
+    }),
+    prisma.eventoDeResgateTelemetria.findMany({
+      where: { ofertaId },
+      select: { tipoOferta: true, dataEvento: true },
+    }),
+  ]);
+
+  const catalogo = contador
+    ? {
+        resgates: contador.resgates,
+        compras: contador.compras,
+        dataArquivo: contador.dataArquivo,
+      }
+    : null;
+
+  let extrato: TelemetriaDaOferta["extrato"] = null;
+  if (eventos.length > 0) {
+    let resgates = 0;
+    let compras = 0;
+    let naoClassificados = 0;
+    let dataUltimo = eventos[0]!.dataEvento;
+    for (const evento of eventos) {
+      const classe = classificarEvento(evento.tipoOferta);
+      if (classe === "RESGATE") resgates += 1;
+      else if (classe === "COMPRA") compras += 1;
+      else naoClassificados += 1;
+      if (evento.dataEvento > dataUltimo) dataUltimo = evento.dataEvento;
+    }
+    extrato = { resgates, compras, naoClassificados, dataUltimo };
+  }
+
+  return { catalogo, extrato };
 }
 
 /** O funil de ativação (RN63) da base vinculada a um patrocinador. */
