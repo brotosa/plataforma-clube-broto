@@ -97,7 +97,19 @@ export function lerCsvTabular(conteudo: Buffer): ArquivoTabularLido {
     return { colunas: [], linhas: [] };
   }
   const delimitador = detectarDelimitador(cabecalho);
-  const colunas = dividirCsv(cabecalho, delimitador).map((c) => c.trim());
+  const nomesDoCabecalho = dividirCsv(cabecalho, delimitador).map((c) => c.trim());
+  const colunas: string[] = [];
+  const colunaPorIndice = new Map<number, string>();
+  nomesDoCabecalho.forEach((nome, indice) => {
+    // Higiene 1 (prompt §3): coluna sem nome não vira coluna de dado —
+    // igual ao leitor XLSX. O relatório real da operadora traz uma coluna
+    // de índice sem nome na primeira posição (e, em CSV exportado de
+    // planilha, colunas vazias à direita); é aqui que elas morrem.
+    if (nome) {
+      colunas.push(nome);
+      colunaPorIndice.set(indice, nome);
+    }
+  });
 
   const linhas: ArquivoTabularLido["linhas"] = [];
   for (let i = 1; i < linhasDoArquivo.length; i += 1) {
@@ -107,10 +119,20 @@ export function lerCsvTabular(conteudo: Buffer): ArquivoTabularLido {
     }
     const valores = dividirCsv(bruta, delimitador);
     const registro: Record<string, string> = {};
-    colunas.forEach((coluna, indice) => {
-      registro[coluna] = (valores[indice] ?? "").trim();
-    });
-    linhas.push({ numero: i + 1, valores: registro });
+    let temValor = false;
+    for (const [indice, coluna] of colunaPorIndice) {
+      const valor = (valores[indice] ?? "").trim();
+      registro[coluna] = valor;
+      if (valor) {
+        temValor = true;
+      }
+    }
+    // Linha só de delimitadores (";;;;") não é dado: export de planilha
+    // costuma preencher a grade com linhas vazias, e sem esta guarda cada
+    // uma virava uma recusa de CPF fantasma. Espelha o `temValor` do XLSX.
+    if (temValor) {
+      linhas.push({ numero: i + 1, valores: registro });
+    }
   }
   return { colunas, linhas };
 }

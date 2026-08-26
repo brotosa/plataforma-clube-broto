@@ -37,14 +37,21 @@ describe("higiene 1 — coluna de índice sem nome na primeira posição", () =>
     expect(Object.keys(lido.linhas[0]!.valores)).not.toContain("");
   });
 
-  it("no CSV, coluna sem nome não some — é o XLSX que traz o artefato", () => {
-    // Registro de uma diferença REAL entre os dois leitores, para ninguém
-    // supor simetria: no CSV a posição é significativa (a linha é
-    // dividida por delimitador), então uma coluna sem nome vira a chave
-    // "". Os arquivos da operadora são XLSX; se um dia vierem em CSV com
-    // índice sem nome, esta é a linha que vai precisar mudar.
-    const lido = lerCsvTabular(Buffer.from(",Id do Seller\n1,abc\n", "utf8"));
-    expect(lido.colunas).toEqual(["", "Id do Seller"]);
+  it("no CSV também some — a operadora passou a exportar 'Resgate e Compras' em CSV", () => {
+    // Este teste registrava a diferença oposta: até então, o CSV
+    // preservava a coluna sem nome (chave ""), e só o XLSX a descartava.
+    // O "se um dia vierem em CSV com índice sem nome" aconteceu — o
+    // arquivo `basetestev01` traz a coluna de índice E a grade cheia de
+    // linhas ";;;;". Agora os dois leitores aplicam a higiene 1 igual, e
+    // a linha só de delimitadores não vira dado.
+    const lido = lerCsvTabular(
+      Buffer.from(",Id do Seller\n1,abc\n,\n;;\n", "utf8"),
+    );
+    expect(lido.colunas).toEqual(["Id do Seller"]);
+    expect(lido.colunas).not.toContain("");
+    // Só a linha com dado; as vazias ("," e ";;") ficam de fora.
+    expect(lido.linhas).toHaveLength(1);
+    expect(lido.linhas[0]!.valores).toEqual({ "Id do Seller": "abc" });
   });
 });
 
