@@ -1,5 +1,6 @@
 import { prisma } from "@/infra/prisma/cliente";
 import { type AgregadoOferta, agregarTelemetria } from "@/dominio/integracao/agregados";
+import { classificarEvento } from "@/dominio/telemetria-operadora/tipo-de-evento";
 import { lerRegua } from "@/infra/configuracao/servico-configuracao";
 
 /**
@@ -99,27 +100,48 @@ export async function resumoTelemetriaPorOferta(
   return mapa;
 }
 
-/** KPI "vitrine viva": ofertas publicadas com resgate na janela / total publicadas. */
+/**
+ * KPI "vitrine viva": ofertas publicadas com resgate na janela / total
+ * publicadas.
+ *
+ * **A fonte passou do voucher clássico (Onda 1) para o extrato nominal da
+ * operadora (Onda 12).** O card da oferta e este KPI liam
+ * `telemetriaEvento`, que nunca foi alimentado em produção; o dado real de
+ * resgate chega no relatório "Resgate e Compras", casado à oferta por
+ * `ofertaId`. A janela de 90 dias (RN50) é preservada porque o extrato tem
+ * data por evento — foi por isso que se escolheu o extrato, e não o
+ * catálogo, que é um retrato sem datas (RN68).
+ *
+ * "Com resgate" conta o evento classificado como RESGATE (Recompensa
+ * gratuita) — a mesma leitura da T33/T34. Compra (checkout) é uso, mas não
+ * é resgate: a métrica é literal (RN50). Quando o dicionário de
+ * `Tipo de Oferta` da operadora chegar (item 4, `[A CONFIRMAR]`), é aqui e
+ * na `classificarEvento` que a regra se ajusta, sem tocar no resto.
+ */
 export async function kpiVitrineViva(): Promise<{
   publicadasComResgate: number;
   totalPublicadas: number;
   janelaEmDias: number;
 }> {
   const janelaEmDias = await janelaDaVitrineEmDias();
-  const [totalPublicadas, comResgate] = await Promise.all([
+  const [totalPublicadas, eventos] = await Promise.all([
     prisma.oferta.count({ where: { status: "PUBLICADA" } }),
-    prisma.telemetriaEvento.findMany({
+    prisma.eventoDeResgateTelemetria.findMany({
       where: {
-        tipo: "RESGATE_VOUCHER",
         dataEvento: { gte: corteJanela(janelaEmDias) },
         oferta: { status: "PUBLICADA" },
       },
-      distinct: ["ofertaId"],
-      select: { ofertaId: true },
+      select: { ofertaId: true, tipoOferta: true },
     }),
   ]);
+  const comResgate = new Set<string>();
+  for (const evento of eventos) {
+    if (evento.ofertaId && classificarEvento(evento.tipoOferta) === "RESGATE") {
+      comResgate.add(evento.ofertaId);
+    }
+  }
   return {
-    publicadasComResgate: comResgate.filter((r) => r.ofertaId).length,
+    publicadasComResgate: comResgate.size,
     totalPublicadas,
     janelaEmDias,
   };

@@ -6,6 +6,7 @@ import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { avaliarPublicacao } from "@/infra/casos-de-uso/ofertas";
 import { agregadoDaOferta } from "@/infra/consultas/telemetria";
+import { telemetriaOperadoraDaOferta } from "@/infra/consultas/telemetria-operadora";
 import { FormularioComEstado } from "@/app/(plataforma)/aliados/formularios";
 import { acaoEncerrarOferta, acaoPausarOferta, acaoPublicarOferta } from "../acoes";
 
@@ -55,14 +56,19 @@ export default async function PaginaOferta({
   if (!existe) {
     notFound();
   }
-  const [{ oferta, completude, impedimentos }, solicitacaoPendente, agregadoResultado] =
-    await Promise.all([
-      avaliarPublicacao(id),
-      prisma.aprovacaoSolicitacao.findFirst({
-        where: { tipoEntidade: "PUBLICACAO_OFERTA", entidadeId: id, estado: "SOLICITADA" },
-      }),
-      agregadoDaOferta(id),
-    ]);
+  const [
+    { oferta, completude, impedimentos },
+    solicitacaoPendente,
+    agregadoResultado,
+    telemetriaOperadora,
+  ] = await Promise.all([
+    avaliarPublicacao(id),
+    prisma.aprovacaoSolicitacao.findFirst({
+      where: { tipoEntidade: "PUBLICACAO_OFERTA", entidadeId: id, estado: "SOLICITADA" },
+    }),
+    agregadoDaOferta(id),
+    telemetriaOperadoraDaOferta(id),
+  ]);
   const empresa = oferta.solucao.empresa;
   const agregado = agregadoResultado ?? {
     emitidos: 0,
@@ -75,6 +81,18 @@ export default async function PaginaOferta({
   };
   const temHistorico =
     agregado.historicoResgates !== null || agregado.historicoCompras !== null;
+  // O voucher clássico (Onda 1) só aparece quando REALMENTE tem dado — em
+  // produção ele nunca foi alimentado, e a fonte de resgate passou a ser a
+  // operadora (RN68: catálogo e extrato, lado a lado, nunca somados).
+  const temVoucherClassico =
+    agregado.emitidos > 0 ||
+    agregado.resgatados > 0 ||
+    agregado.comprasConfirmadas > 0 ||
+    temHistorico;
+  const { catalogo, extrato } = telemetriaOperadora;
+  const semTelemetria = !catalogo && !extrato && !temVoucherClassico;
+  const dataCurta = (data: Date | null) =>
+    data ? new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(data) : "—";
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1100 }}>
@@ -295,45 +313,99 @@ export default async function PaginaOferta({
             <div className="cap" style={{ textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>
               Telemetria por oferta (somente leitura — RN07)
             </div>
-            <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 10 }}>
-              <div>
-                <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.emitidos}</div>
-                <div className="cap">emitidos</div>
+
+            {/* Extrato nominal (por CPF) — relatório "Resgate e Compras". */}
+            {extrato ? (
+              <div style={{ marginTop: 12 }}>
+                <div className="cap" style={{ fontWeight: 700 }}>
+                  Extrato · por CPF{" "}
+                  <span style={{ fontWeight: 400 }}>· evento mais recente {dataCurta(extrato.dataUltimo)}</span>
+                </div>
+                <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 6 }}>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{extrato.resgates}</div>
+                    <div className="cap">resgates</div>
+                  </div>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{extrato.compras}</div>
+                    <div className="cap">compras</div>
+                  </div>
+                </div>
+                {extrato.naoClassificados > 0 ? (
+                  <p className="cap" style={{ margin: "6px 0 0" }}>
+                    {extrato.naoClassificados} evento(s) com Tipo de Oferta ainda sem de-para
+                    (item 4, A CONFIRMAR) — contados à parte, nunca estimados.
+                  </p>
+                ) : null}
               </div>
-              <div>
-                <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.resgatados}</div>
-                <div className="cap">
-                  {agregado.foraDaPlataforma ? "resgatados (conciliação)" : "resgatados"}
+            ) : null}
+
+            {/* Catálogo (retrato acumulado) — relatório "Lista de Ofertas".
+                Nunca somado ao extrato: são contagens diferentes (RN68). */}
+            {catalogo ? (
+              <div style={{ marginTop: 14 }}>
+                <div className="cap" style={{ fontWeight: 700 }}>
+                  Catálogo · retrato{" "}
+                  <span style={{ fontWeight: 400 }}>
+                    · {catalogo.dataArquivo ? `de ${dataCurta(catalogo.dataArquivo)}` : "sem data declarada no arquivo"}
+                  </span>
+                </div>
+                <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 6 }}>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{catalogo.resgates}</div>
+                    <div className="cap">resgates</div>
+                  </div>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{catalogo.compras}</div>
+                    <div className="cap">compras</div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.comprasConfirmadas}</div>
-                <div className="cap">compras</div>
+            ) : null}
+
+            {/* Voucher clássico (Onda 1) — só quando tem dado; some quando vazio. */}
+            {temVoucherClassico ? (
+              <div style={{ marginTop: 14 }}>
+                <div className="cap" style={{ fontWeight: 700 }}>Voucher (Onda 1)</div>
+                <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 6 }}>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.emitidos}</div>
+                    <div className="cap">emitidos</div>
+                  </div>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.resgatados}</div>
+                    <div className="cap">
+                      {agregado.foraDaPlataforma ? "resgatados (conciliação)" : "resgatados"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="kpi-n num" style={{ fontSize: 22 }}>{agregado.comprasConfirmadas}</div>
+                    <div className="cap">compras</div>
+                  </div>
+                </div>
+                {agregado.comprasConfirmadas > 0 ? (
+                  <p className="cap" style={{ margin: "10px 0 0" }}>
+                    Receita confirmada: <b className="num">{formatarMoeda(agregado.receitaConfirmada)}</b>
+                  </p>
+                ) : null}
+                {agregado.foraDaPlataforma && agregado.resgatados > 0 ? (
+                  <p className="cap" style={{ margin: "8px 0 0" }}>
+                    Fora da Plataforma: resgates aguardam conciliação mensal, distintos de compra
+                    confirmada (ficha §6).
+                  </p>
+                ) : null}
+                {temHistorico ? (
+                  <p className="cap" style={{ margin: "8px 0 0" }}>
+                    Acumulado histórico da carga: {agregado.historicoResgates ?? 0} resgates ·{" "}
+                    {agregado.historicoCompras ?? 0} compras{" "}
+                    <span className="selo">rótulo A CONFIRMAR</span>
+                  </p>
+                ) : null}
               </div>
-            </div>
-            {agregado.comprasConfirmadas > 0 ? (
-              <p className="cap" style={{ margin: "10px 0 0" }}>
-                Receita confirmada: <b className="num">{formatarMoeda(agregado.receitaConfirmada)}</b>
-              </p>
             ) : null}
-            {agregado.foraDaPlataforma && agregado.resgatados > 0 ? (
-              <p className="cap" style={{ margin: "8px 0 0" }}>
-                Fora da Plataforma: resgates aguardam conciliação mensal, distintos de compra
-                confirmada (ficha §6).
-              </p>
-            ) : null}
-            {temHistorico ? (
-              <p className="cap" style={{ margin: "8px 0 0" }}>
-                Acumulado histórico da carga: {agregado.historicoResgates ?? 0} resgates ·{" "}
-                {agregado.historicoCompras ?? 0} compras{" "}
-                <span className="selo">rótulo A CONFIRMAR</span>
-              </p>
-            ) : null}
-            {agregado.emitidos === 0 &&
-            agregado.resgatados === 0 &&
-            agregado.comprasConfirmadas === 0 &&
-            !temHistorico ? (
-              <p className="cap" style={{ margin: "10px 0 0" }}>
+
+            {semTelemetria ? (
+              <p className="cap" style={{ margin: "12px 0 0" }}>
                 Sem eventos importados para esta oferta ainda — nada é estimado (RN07).
               </p>
             ) : null}

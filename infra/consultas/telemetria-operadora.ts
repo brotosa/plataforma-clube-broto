@@ -213,6 +213,67 @@ export async function usoPorAssinante(assinanteId: string): Promise<UsoDoAssinan
   };
 }
 
+/**
+ * Telemetria da operadora de UMA oferta, para o card da T5 — as duas
+ * contagens lado a lado, **nunca somadas** (RN68).
+ *
+ * `catalogo` é o retrato acumulado por oferta (relatório "Lista de
+ * Ofertas"), com a data do arquivo. `extrato` é a contagem dos eventos
+ * nominais que casaram a esta oferta por `ofertaId` (relatório "Resgate e
+ * Compras"), com a data do evento mais recente. Cada bloco é `null` quando
+ * a respectiva fonte não trouxe nada — ausência, não zero (RN53).
+ */
+export interface TelemetriaDaOferta {
+  catalogo: { resgates: number; compras: number; dataArquivo: Date | null } | null;
+  extrato: {
+    resgates: number;
+    compras: number;
+    naoClassificados: number;
+    dataUltimo: Date;
+  } | null;
+}
+
+export async function telemetriaOperadoraDaOferta(
+  ofertaId: string,
+): Promise<TelemetriaDaOferta> {
+  const [contador, eventos] = await Promise.all([
+    prisma.contadorDeOfertaTelemetria.findUnique({
+      where: { ofertaId },
+      select: { resgates: true, compras: true, dataArquivo: true },
+    }),
+    prisma.eventoDeResgateTelemetria.findMany({
+      where: { ofertaId },
+      select: { tipoOferta: true, dataEvento: true },
+    }),
+  ]);
+
+  const catalogo = contador
+    ? {
+        resgates: contador.resgates,
+        compras: contador.compras,
+        dataArquivo: contador.dataArquivo,
+      }
+    : null;
+
+  let extrato: TelemetriaDaOferta["extrato"] = null;
+  if (eventos.length > 0) {
+    let resgates = 0;
+    let compras = 0;
+    let naoClassificados = 0;
+    let dataUltimo = eventos[0]!.dataEvento;
+    for (const evento of eventos) {
+      const classe = classificarEvento(evento.tipoOferta);
+      if (classe === "RESGATE") resgates += 1;
+      else if (classe === "COMPRA") compras += 1;
+      else naoClassificados += 1;
+      if (evento.dataEvento > dataUltimo) dataUltimo = evento.dataEvento;
+    }
+    extrato = { resgates, compras, naoClassificados, dataUltimo };
+  }
+
+  return { catalogo, extrato };
+}
+
 /** O funil de ativação (RN63) da base vinculada a um patrocinador. */
 export interface ApuracaoDoFunil {
   cadastrados: number;

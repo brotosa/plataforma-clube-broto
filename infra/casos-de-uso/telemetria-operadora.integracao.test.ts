@@ -16,7 +16,11 @@ import {
   gerarCsvSellersSintetico,
   gerarCsvUsuariosSintetico,
 } from "@/infra/telemetria-operadora/fixtures-sinteticas";
-import { apurarExtratoNominal, usoPorAssinante } from "@/infra/consultas/telemetria-operadora";
+import {
+  apurarExtratoNominal,
+  telemetriaOperadoraDaOferta,
+  usoPorAssinante,
+} from "@/infra/consultas/telemetria-operadora";
 import { higienizarCelula } from "@/dominio/telemetria-operadora/higienes";
 import { normalizarNomeDeColuna } from "@/dominio/telemetria-operadora/layouts";
 import { lerArquivoTabular } from "@/infra/planilhas/leitor-tabular";
@@ -1413,6 +1417,69 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
       // Sem coluna Valor na fonte, valor é ausência declarada — nunca zero.
       expect(uso!.valorTotal).toBeNull();
       expect(uso!.eventosComValor).toBe(0);
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // RN68 — telemetria por oferta (card da T5): catálogo e extrato separados
+  // -------------------------------------------------------------------
+
+  describe("RN68 — telemetria por oferta no card", () => {
+    it("catálogo e extrato aparecem SEPARADOS, nunca somados", async () => {
+      const [s] = gerarAssinantesSinteticos(1, 80);
+      const assinante = await criarAssinanteSintetico(s!.cpf, "card-oferta");
+
+      // Catálogo (Lista de Ofertas): retrato 15 resgates / 4 compras.
+      await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} ofertas-card.csv`,
+        conteudo: csvOfertas("15", "4"),
+      });
+      // Extrato (Resgate e Compras) da MESMA oferta, por CPF: 1 resgate + 1 compra.
+      await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} resgate-card.csv`,
+        conteudo: Buffer.from(
+          gerarCsvResgatesRealSintetico([
+            {
+              assinante: s!,
+              dataHora: "2026-08-20 10:00:00",
+              idSeller: "48596479000105",
+              idOferta: ofertaPublicadaId,
+              idVoucher: "CB0800",
+              tipoOferta: "Recompensa gratuita",
+              valor: "0",
+              canal: "app",
+            },
+            {
+              assinante: s!,
+              dataHora: "2026-08-21 10:00:00",
+              idSeller: "48596479000105",
+              idOferta: ofertaPublicadaId,
+              idVoucher: "CB0801",
+              tipoOferta: "Checkout no clube",
+              valor: "50,00",
+              canal: "web",
+            },
+          ]),
+          "utf8",
+        ),
+      });
+
+      const tele = await telemetriaOperadoraDaOferta(ofertaPublicadaId);
+      // Catálogo: o retrato, com a data do arquivo — intacto.
+      expect(tele.catalogo?.resgates).toBe(15);
+      expect(tele.catalogo?.compras).toBe(4);
+      expect(tele.catalogo?.dataArquivo?.toISOString().slice(0, 10)).toBe("2026-07-20");
+      // Extrato: a contagem por CPF — outro número, nunca somado ao catálogo.
+      expect(tele.extrato?.resgates).toBe(1);
+      expect(tele.extrato?.compras).toBe(1);
+      expect(tele.extrato?.naoClassificados).toBe(0);
+      expect(assinante).toBeTruthy();
+    });
+
+    it("sem importação alguma, os dois blocos são null (ausência, não zero)", async () => {
+      const tele = await telemetriaOperadoraDaOferta(ofertaPublicadaId);
+      expect(tele.catalogo).toBeNull();
+      expect(tele.extrato).toBeNull();
     });
   });
 
