@@ -77,9 +77,16 @@ Cria/atualiza **ofertas** em massa na página **Ofertas** (`/ofertas` →
 
 Colunas da oferta: `ID Oferta` (vazio = nova; preenchido = enriquecer) ·
 `ID Solução` (obrigatório) · `Título` · `Natureza` · `Tipo de Benefício` ·
-`Mecânica de Resgate` · `Preço De` · `Preço Por` · `Código/Regras do Cupom`
-· `Modalidade de Pagamento` · `Instruções Pós-Voucher` · `Vigência Início` ·
-`Vigência Fim` · `Limite de Resgates`.
+`Mecânica de Resgate` · `Preço De` · `Preço Por` · `Percentual de Desconto (%)` ·
+`Código/Regras do Cupom` · `Modalidade de Pagamento` · `Instruções Pós-Voucher` ·
+`Vigência Início` · `Vigência Fim` · `Limite de Resgates` ·
+`Id Externo (Minutrade)`.
+
+`Percentual de Desconto (%)` (inteiro 1–100) vale para o Tipo "% de desconto"
+e substitui os preços. `Id Externo (Minutrade)` é a chave que liga a telemetria
+importada à oferta (a coluna `id_oferta` do arquivo casa com ela); a
+duplicidade — contra ofertas existentes e entre linhas da própria planilha — é
+detectada na conferência, antes de gravar.
 
 O modelo (`/ofertas/importar/modelo`) traz três abas: **Ofertas** (atuais +
 em branco, com menus de Natureza/Tipo/Mecânica/Modalidade), **Soluções

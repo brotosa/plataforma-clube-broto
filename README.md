@@ -1,6 +1,6 @@
 # Plataforma de Administração do Clube Broto
 
-Aplicação web administrativa do Clube Broto (Broto S.A.), em oito ondas:
+Aplicação web administrativa do Clube Broto (Broto S.A.), em catorze ondas:
 
 | Onda | Módulo | Regras | Telas |
 |---|---|---|---|
@@ -11,21 +11,28 @@ Aplicação web administrativa do Clube Broto (Broto S.A.), em oito ondas:
 | 4 | Campanhas e Cestas · público congelado, conteúdo, peças, kit de execução e medição atribuída | RN38–RN45 | T22–T25 |
 | 6 | Dashboard, Usuários e Auditoria · governança visível | RN46–RN50 | T26–T28 |
 | 7 | Cobertura do portfólio e Mapa da rede · releitura do cadastro como instrumento de decisão | RN51–RN53 | T29–T30 |
-| 8 | Marca do aliado, leitura de listas, falhas legíveis e arrasto no funil · sem tela nova | RN54–RN57 | ajustes em T1/T2/T8/T26 |
+| 8 | Marca do aliado, leitura de listas, falhas legíveis e arrasto no funil · sem tela nova | RN54–RN57 | ajustes em T2/T3/T4/T8/T26 |
+| 9 | Ajuda contextual (Guia da Plataforma) e rótulo institucional | RN58–RN59 | T31 |
+| 10 | Imagem do card da solução e posição do botão de ajuda · sem tela nova | RN60 | ajustes em T3/T5 |
+| 11 | Esteira de imagem de contêiner e rota de saúde · sem tela | RN61 | — |
+| 12 | Patrocinadores, contratos e telemetria da operadora (F19 + F20) | RN62–RN70 | T32–T34 · R1 |
+| 13 | Armazenamento persistente de arquivos derivados · corretiva, sem tela | RN71 | — |
+| 14 | Acabamento da versão 1 · sem RN nova, sem migration, sem tela nova | — | ajustes |
 
-- Fontes da verdade funcionais: as oito fichas em `docs/especificacao/`
-- Arquitetura e fases: os oito `prompt-claude-code-onda*.md`
-- Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v9.1.html`
-  (T1–T30). As versões v8.1 FINAL, v7.1, v6.1 e v2.1 permanecem apenas como histórico.
-  A Onda 8 não trouxe protótipo novo — as telas dela já existiam.
+- Fontes da verdade funcionais: as **catorze fichas** de onda em `docs/especificacao/`
+- Arquitetura e fases: os **quinze** `prompt-claude-code-onda*.md` (mais o `prompt-dossie-due-diligence.md`)
+- Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v10.1.html`
+  (T1–T31). As versões v9.1, v8.1 FINAL, v7.1, v6.1 e v2.1 permanecem apenas como
+  histórico. O **texto** do guia é o `docs/referencias/Guia_da_Plataforma_v1.html`.
 
-**Estado atual: escopo original completo (F1–F13) e as duas ondas posteriores a
-ele entregues (F14, F15) — 57 regras e 30 telas implementadas. O produto está
-em produção**, e a partir da F14 toda fase carrega o dever adicional de não
-regredir: reescrever cálculo já exibido exige teste provando que o número não
-mudou. Desde a F15 o dever se estende ao banco — a base está povoada, então
-migration que remove coluna, estreita tipo ou exige valor sobre linha
-existente não entra sem condição objetiva verificada antes.
+**Estado atual: todo o escopo até a Onda 14 / F22 — RN01–RN71 e telas T1–T34
+mais o relatório R1. O produto está em produção desde a Onda 6**, e a partir da
+F14 toda fase carrega o dever adicional de não regredir: reescrever cálculo já
+exibido exige teste provando que o número não mudou. Desde a F15 o dever se
+estende ao banco — a base está povoada (aliados e ofertas reais, 46 prospects,
+2.000 assinantes, 597 eventos de telemetria), então migration que remove
+coluna, estreita tipo ou exige valor sobre linha existente não entra sem
+condição objetiva verificada antes.
 
 A Onda 1 (F1–F5) entregou o cadastro, o motor de aprovação com segregação
 solicitante ≠ aprovador, a publicação em lote e a importação de telemetria, a

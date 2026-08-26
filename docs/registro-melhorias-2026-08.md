@@ -1,5 +1,11 @@
 # Registro de melhorias — pós-produção (06 a 20/08/2026)
 
+> **Versão completa e ilustrada (PR #1 a #28):** este arquivo é a **primeira
+> versão** do registro e cobre apenas os PRs #1–#15. O registro **atualizado
+> até o PR #28**, com telas reais, está em
+> [`docs/registro-melhorias/index.html`](./registro-melhorias/index.html) —
+> também disponível em **PDF** e **Word** na mesma pasta.
+
 Documento de referência das entregas feitas **depois** da versão 1 (Ondas 1–14 /
 F1–F22) já em produção. Cobre da **edição de contrato vigente** (PR #1) até o
 **autocomplete de `@menção`** (PR #14/#15) — quinze PRs mesclados na `main`

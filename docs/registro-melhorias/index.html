@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Registro de melhorias da Plataforma Broto — PR #1 a #28</title>
+<style>
+  @page { size: A4; margin: 2cm 1.8cm; }
+  body { font-family: "Liberation Sans", Arial, sans-serif; color: #1b1f2a; font-size: 11pt; line-height: 1.5; }
+  h1 { font-size: 22pt; color: #21306a; margin: 0 0 4px; }
+  h2 { font-size: 15pt; color: #21306a; border-bottom: 2px solid #465eff; padding-bottom: 4px; margin: 26px 0 10px; page-break-after: avoid; }
+  h3 { font-size: 12.5pt; color: #2b3557; margin: 18px 0 6px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  .lead { color: #4a5170; font-size: 11.5pt; }
+  .meta { color: #6b7288; font-size: 9.5pt; margin-top: 2px; }
+  ul { margin: 6px 0 6px 18px; padding: 0; }
+  li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 9.5pt; margin: 10px 0; }
+  th, td { border: 1px solid #cfd4e4; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #eef1fb; color: #21306a; }
+  .tag { display: inline-block; font-size: 8.5pt; padding: 1px 6px; border-radius: 8px; background: #eef1fb; color: #21306a; border: 1px solid #cfd4e4; }
+  .mig { background: #fff4e5; border-color: #f0c98a; }
+  figure { margin: 12px 0 16px; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid #cfd4e4; border-radius: 6px; }
+  figcaption { font-size: 9pt; color: #6b7288; margin-top: 4px; }
+  .box { background: #f6f8ff; border: 1px solid #d7ddf5; border-radius: 6px; padding: 8px 12px; margin: 10px 0; }
+  .box b { color: #21306a; }
+  code { background: #eef0f6; padding: 1px 4px; border-radius: 4px; font-size: 9.5pt; }
+  .sec { page-break-before: always; }
+  hr { border: none; border-top: 1px solid #d7ddf5; margin: 18px 0; }
+</style>
+</head>
+<body>
+
+<h1>Plataforma de gestão do Clube Broto</h1>
+<p class="lead">Registro de melhorias em produção — Pull Requests <b>#1 a #28</b> (agosto/2026)</p>
+<p class="meta">Documento de referência das entregas feitas <b>depois</b> da versão 1 (Ondas 1–14) já em produção. Cobre da <b>edição de contrato vigente</b> (PR #1) ao <b>Id externo (Minutrade) editável</b> que fecha o vínculo da telemetria com a oferta (PR #28). Elaborado pela TI Broto com apoio do Claude Code.</p>
+
+<div class="box">
+<b>Como ler.</b> A plataforma está <b>em produção</b>; mesclar na <code>main</code> dispara o deploy. Cada PR passou pelo CI completo (typecheck, lint, testes de unidade, integração com banco, build, e2e + acessibilidade AAA, responsividade 380px e imagem de contêiner) antes de entrar. Não há onda nova nem regra de negócio inventada — as mudanças nasceram de <b>uso real e homologação</b> e reaproveitam entidades, regras e componentes existentes.
+</div>
+
+<h2>Panorama dos 28 PRs</h2>
+<table>
+<tr><th>PR</th><th>Título</th><th>Tipo</th><th>Migração de banco</th></tr>
+<tr><td>#1</td><td>Aba Comercial: editar contrato vigente</td><td>Funcionalidade</td><td>Não</td></tr>
+<tr><td>#2</td><td>Unificação de produção + infraestrutura AWS 1.5.0</td><td>Infra</td><td>Não</td></tr>
+<tr><td>#3</td><td>Anexo do contrato em PDF, editar contato, correção do funil</td><td>Funcionalidade</td><td><span class="tag mig">Sim</span></td></tr>
+<tr><td>#4</td><td>Buildspec versionado + migrations automáticas no deploy</td><td>Infra</td><td>Não</td></tr>
+<tr><td>#5</td><td>Acabamento da ficha do aliado (anexo, botões, edição, layout)</td><td>UI</td><td>Não</td></tr>
+<tr><td>#6</td><td>Recusa de tamanho no cliente só para documento (correção)</td><td>Correção</td><td>Não</td></tr>
+<tr><td>#7</td><td>Scouting: reavaliar + histórico, pendências filtram, quarentena</td><td>Funcionalidade</td><td>Não</td></tr>
+<tr><td>#8</td><td>Scouting: recomendação na gaveta + “não se aplica” na avaliação</td><td>Funcionalidade</td><td><span class="tag mig">Sim</span></td></tr>
+<tr><td>#9</td><td>Busca global do cabeçalho passa a funcionar</td><td>Funcionalidade</td><td>Não</td></tr>
+<tr><td>#10</td><td>Painel de atividades (comentários, pendências, @menção)</td><td>Funcionalidade</td><td><span class="tag mig">Sim</span></td></tr>
+<tr><td>#11</td><td>Ficha do aliado: painel no laptop, gaveta em linha, abas em âncora</td><td>UI</td><td>Não</td></tr>
+<tr><td>#12</td><td>Painel abre sozinho só em tela grande</td><td>UI</td><td>Não</td></tr>
+<tr><td>#13</td><td>Importação de catálogo por planilha: soluções e ofertas</td><td>Funcionalidade</td><td><span class="tag mig">Sim</span></td></tr>
+<tr><td>#14</td><td>Menção por <code>@</code> inline no painel de atividades</td><td>UI/UX</td><td>Não</td></tr>
+<tr><td>#15</td><td>Correção: caixa de <code>@menção</code> fechada sobrepondo a dica</td><td>Correção</td><td>Não</td></tr>
+<tr><td>#16</td><td>Documentação das melhorias (este documento, 1ª versão)</td><td>Documentação</td><td>Não</td></tr>
+<tr><td>#17</td><td>Correção: upload da planilha de ofertas travado em “Enviando…”</td><td>Correção</td><td>Não</td></tr>
+<tr><td>#18</td><td>Dashboard, listas e funil atualizam após importar; “Corrigir” não fica em branco</td><td>Correção</td><td>Não</td></tr>
+<tr><td>#19</td><td>Pendência de “Cupom de desconto” volta a ser corrigível na conferência</td><td>Correção</td><td>Não</td></tr>
+<tr><td>#20</td><td>“Recompensa”: pendência de preço aponta o campo preenchido</td><td>Correção</td><td>Não</td></tr>
+<tr><td>#21</td><td>Correção de deploy: imagem de operação puxa do espelho AWS (429)</td><td>Infra</td><td>Não</td></tr>
+<tr><td>#22</td><td>Código/regras do cupom deixa de ser obrigatório</td><td>Ajuste de regra</td><td>Não</td></tr>
+<tr><td>#23</td><td>Tipo “% de desconto” usa campo de percentual (substitui o preço)</td><td>Funcionalidade</td><td><span class="tag mig">Sim</span></td></tr>
+<tr><td>#24</td><td>Imagem do card vira item opcional para publicar (RN09)</td><td>Ajuste de regra</td><td>Não</td></tr>
+<tr><td>#25</td><td>Natureza decide %/valor; renomeia “Benefício” e “Cupom de desconto”</td><td>Funcionalidade</td><td>Não</td></tr>
+<tr><td>#26</td><td>Régua de completude proporcional; descrição curta vira opcional; rótulos de natureza na tabela da solução</td><td>Ajuste de regra</td><td>Não</td></tr>
+<tr><td>#27</td><td>“Baixar modelo (.csv)” na importação de telemetria</td><td>Funcionalidade</td><td>Não</td></tr>
+<tr><td>#28</td><td>Id externo (Minutrade) editável no formulário e na importação (vínculo da telemetria)</td><td>Funcionalidade</td><td>Não</td></tr>
+</table>
+<p class="meta">Migrações de banco no período: cinco (PR #3, #8, #10, #13 e #23). Todas <b>aditivas</b> — nenhuma remove coluna nem exige valor sobre linha existente, respeitando a base já povoada em produção.</p>
+
+<!-- ====================== PARTE 1 ====================== -->
+<h2 class="sec">Parte 1 — Fundação e acabamento (PR #1 a #15)</h2>
+<p>Primeira rodada pós-produção: acabamento e correções nascidos de uso real e da homologação com a base povoada. Reaproveita entidades, regras e componentes existentes.</p>
+
+<h3>1. Aba Comercial — editar o contrato vigente (PR #1)</h3>
+<p>A ficha do aliado passou a permitir <b>editar o contrato vigente</b> (comissão, vigência, dados comerciais) sem ter de recriar o registro. Toda alteração é auditada (valor anterior/novo/autor) e respeita as permissões por papel.</p>
+<figure><img src="img/editar-contrato.png"><figcaption>Edição do contrato vigente na aba Comercial da ficha do aliado.</figcaption></figure>
+
+<h3>2. Produção unificada e esteira de deploy (PR #2 e #4)</h3>
+<p>Consolidação da aplicação com a infraestrutura AWS (versão 1.5.0) e transformação do <code>buildspec</code> em arquivo versionado, com <b>migrations aplicadas automaticamente</b> no deploy. Base para que cada merge na <code>main</code> chegue à produção de forma repetível.</p>
+
+<h3>3. Anexo do contrato em PDF, editar contato e correção do funil (PR #3)</h3>
+<p>O contrato ganhou <b>anexo em PDF</b> (upload validado por tipo real e tamanho, guardado pela plataforma e auditado), a lista de <b>contatos</b> passou a ser editável e uma <b>correção no funil</b> de prospecção entrou junto. Migração aditiva para a tabela do anexo.</p>
+<figure><img src="img/03-contatos.png"><figcaption>Contatos do aliado com edição ao lado de remover.</figcaption></figure>
+<figure><img src="img/05-anexo-grande.png"><figcaption>Anexo do contrato — o link não quebra o layout e abre o PDF.</figcaption></figure>
+
+<h3>4. Acabamento da ficha e correção de recusa de tamanho (PR #5 e #6)</h3>
+<p>Rodada de acabamento visual/UX (anexo clicável, botões centralizados, botão “Cancelar” na edição, correção do vão à direita em telas largas) e uma correção de regressão: a recusa de tamanho no cliente voltou a valer <b>apenas para documento</b>, não para imagens.</p>
+
+<h3>5. Scouting: reavaliar, “não se aplica” e quarentena (PR #7 e #8)</h3>
+<p>Ajustes do módulo Mercado &amp; Scout vindos da homologação: <b>reavaliar</b> um prospect mantendo o histórico, pendências que <b>filtram a lista</b>, recomendação exibida na gaveta e a opção <b>“não se aplica”</b> na avaliação (excluída do score). Migração aditiva (nota anulável + campo de “não se aplica”).</p>
+<figure><img src="img/doc-scouting-reavaliar.png"><figcaption>Scouting: reavaliação com histórico preservado.</figcaption></figure>
+<figure><img src="img/doc-radar-quarentena.png"><figcaption>Radar de prospecção com quarentena visível.</figcaption></figure>
+
+<h3>6. Busca global do cabeçalho (PR #9)</h3>
+<p>A busca do topo (aliados, soluções e ofertas) passou a funcionar de fato, com resultados agrupados e navegação direta.</p>
+<figure><img src="img/busca-global.png"><figcaption>Busca global do cabeçalho.</figcaption></figure>
+
+<h3>7. Painel de atividades da ficha do aliado (PR #10, #11, #12, #14, #15)</h3>
+<p>Um <b>painel de atividades</b> na ficha do aliado reúne comentários, pendências e <b>menções</b> por <code>@</code> — com permissões, auditoria e o “sino” de pendências. A responsividade foi ajustada (painel no laptop, gaveta em linha, abas por âncora; abertura automática só em tela grande) e a menção evoluiu para <b>autocomplete inline</b>: digitar <code>@</code> abre a lista de quem mencionar (teclado e mouse), com acessibilidade AAA. Uma correção visual fechou a sobreposição da caixa de sugestões sobre a dica.</p>
+
+<h3>8. Importação de catálogo por planilha (PR #13)</h3>
+<p>Importação self-service de <b>soluções e ofertas</b> por planilha: baixa-se o modelo, sobe-se o arquivo, e uma <b>tela de conferência</b> mostra o que será criado/atualizado e as pendências antes de efetivar. Migração aditiva para as tabelas de staging.</p>
+<figure><img src="img/34-importar-ofertas.png"><figcaption>Importação de ofertas — modelo e conferência (tela atual, já com os ajustes das PRs seguintes).</figcaption></figure>
+
+<!-- ====================== PARTE 2 ====================== -->
+<h2 class="sec">Parte 2 — Ofertas, importação e ajustes recentes (PR #16 a #25)</h2>
+<p>Segunda rodada, focada no ciclo de <b>ofertas</b> (cadastro, importação, publicação) e num conserto de deploy. Nasceu do uso real logo após a importação entrar no ar.</p>
+
+<h3>#16 — Documentação das melhorias</h3>
+<p>Primeira versão deste registro (da PR #1 à #15), em Markdown, HTML e Word. Este documento é a <b>versão atualizada</b>, estendida até a PR #28 e ilustrada com telas reais.</p>
+
+<h3>#17 — Upload da planilha de ofertas travado em “Enviando…”</h3>
+<p><b>Sintoma:</b> ao subir a planilha de ofertas, a tela ficava presa em “Enviando…”. <b>Causa:</b> um padrão do Next.js em que o redirecionamento de uma ação de servidor para a <b>mesma rota</b>, com uma resposta grande, era descartado pelo navegador. <b>Correção:</b> a conferência passou a abrir em <b>rota própria</b> (uma URL distinta por lote), eliminando o travamento.</p>
+
+<h3>#18 — Números atualizam após importar; “Corrigir” não fica em branco</h3>
+<p><b>Sintoma:</b> depois de importar, o Dashboard, as listas e o funil não refletiam a nova quantidade de soluções/ofertas; e o botão “Corrigir” de uma pendência abria uma tela em branco. <b>Correção:</b> a efetivação passou a <b>revalidar os caches</b> de navegação (os números atualizam sem recarregar), e a correção de célula deixou de usar o redirecionamento problemático — mesma causa do item anterior.</p>
+
+<h3>#19 — Pendência de “Cupom de desconto” volta a ser corrigível</h3>
+<p><b>Sintoma:</b> uma oferta “Cupom de desconto” com pendência não podia ser resolvida na conferência. <b>Causa:</b> a mensagem apontava a coluna “Natureza” (lista fechada), sem oferecer o campo certo. <b>Correção:</b> cada pendência passou a <b>apontar a coluna que se edita</b> para resolvê-la (código/regras, modalidade etc.).</p>
+
+<h3>#20 — “Recompensa”: pendência de preço aponta o campo preenchido</h3>
+<p><b>Sintoma:</b> em ofertas “Recompensa”, a pendência de “preços devem ficar zerados” sempre indicava “Preço Por”, mesmo quando o valor estava em “Preço De”. <b>Correção:</b> a pendência passou a apontar o <b>campo efetivamente preenchido</b>, dando saída à correção.</p>
+
+<h3>#21 — Correção de deploy: imagem de operação puxa do espelho AWS</h3>
+<p><b>Sintoma:</b> um deploy não chegou à produção. <b>Causa:</b> a esteira construía uma segunda imagem (a de operação/migrations) puxando a base do Docker Hub, que passou a recusar com <b>“429 — muitas requisições”</b>; a falha interrompia todo o restante do deploy. <b>Correção:</b> essa imagem passou a puxar do <b>espelho oficial da AWS</b> (sem limite por IP), como a imagem principal já fazia.</p>
+
+<h3>#22 — Código/regras do cupom deixa de ser obrigatório</h3>
+<p><b>Decisão de negócio:</b> o campo “Código/regras do cupom” pode não existir na carga e <b>nunca deve travar</b> o cadastro nem a importação. O cupom continua exigindo um desconto definido; apenas o código virou opcional.</p>
+
+<h3>#23 — Tipo “% de desconto” usa campo de percentual</h3>
+<p><b>Decisão de negócio:</b> quando o desconto é percentual, não faz sentido pedir um valor em reais. A oferta ganhou um campo de <b>percentual (inteiro de 1 a 100)</b> que <b>substitui</b> o preço de/por — some o preço, fica só o “%”. O card passa a exibir “X% de desconto”. Migração aditiva (coluna nova, anulável). Ofertas antigas permanecem intactas.</p>
+<figure><img src="img/31-oferta-desconto-percentual.png"><figcaption>Cadastro de oferta com desconto percentual: o campo “Percentual de desconto (%)” e a prévia do card com “15% de desconto”.</figcaption></figure>
+
+<h3>#24 — Imagem do card vira opcional para publicar (RN09)</h3>
+<p><b>Decisão de negócio:</b> a imagem do card deixou de ser exigida para publicar uma oferta (a descrição curta continua obrigatória). Na régua de completude ela aparece como <b>“(opcional)”</b> e não bloqueia — uma solução completa nos demais itens já chega a 100% e fica publicável mesmo sem imagem. O campo de envio continua disponível.</p>
+<figure><img src="img/33-solucao-rn09-imagem-opcional.png"><figcaption>Régua de completude do card (RN09) em 100% com “Imagem do card (opcional)”.</figcaption></figure>
+
+<h3>#25 — Natureza decide %/valor; novos nomes para as naturezas</h3>
+<p><b>Decisão de negócio.</b> O cadastro de oferta passou a decidir entre <b>percentual</b> e <b>valor</b> pela <b>natureza</b>, e duas naturezas foram renomeadas conforme o canal de checkout:</p>
+<ul>
+  <li><b>Benefício (Checkout Broto)</b> — tipos “Valor fixo” e “Condição especial”, com campos de <b>preço</b>. O tipo “% de desconto” fica desabilitado aqui.</li>
+  <li><b>Desconto (Checkout Externo)</b> — apenas “% de desconto”, com o campo de <b>percentual</b>. Sem preço e sem código na tela.</li>
+  <li><b>Recompensa</b> — inalterada (gratuita).</li>
+</ul>
+<p>Os renomes são só de exibição (o dado interno não muda, sem migração). A importação aceita <b>os nomes novos e os antigos</b>. Ofertas legadas com combinação agora inválida são toleradas; na edição, o tipo começa vazio, forçando a nova escolha.</p>
+<figure><img src="img/32-oferta-beneficio-valor.png"><figcaption>Natureza “Benefício (Checkout Broto)”: tipos de valor (Valor fixo / Condição especial) com os campos de preço.</figcaption></figure>
+<figure><img src="img/30-ofertas-lista.png"><figcaption>Lista de ofertas exibindo os novos rótulos de natureza.</figcaption></figure>
+
+<!-- ====================== PARTE 3 ====================== -->
+<h2 class="sec">Parte 3 — Régua de completude, telemetria e vínculo da oferta (PR #26 a #28)</h2>
+<p>Terceira rodada, nascida de uso e homologação: afina a régua de completude, dá ao operador um <b>modelo pronto</b> para a importação de telemetria e fecha a ponta que ligava a telemetria à oferta certa. Nenhuma migração de banco e nenhuma regra de negócio inventada.</p>
+
+<h3>#26 — Régua de completude proporcional; descrição curta opcional; rótulos de natureza na T3</h3>
+<p><b>Decisão de negócio.</b> A régua de completude do card passou a ter <b>duas medidas distintas</b>:</p>
+<ul>
+  <li><b>Percentual</b> — mede o <b>preenchimento</b> e conta <b>todos</b> os itens, inclusive os opcionais. Sem a imagem, a régua mostra <b>88%</b>; faltando os dois opcionais (imagem e descrição), <b>75%</b>; tudo preenchido, 100%.</li>
+  <li><b>Publicabilidade</b> — conta só os itens obrigatórios; a oferta é publicável mesmo abaixo de 100%.</li>
+</ul>
+<p>“Opcional” passou a significar <b>“não obrigatório para publicar”</b>, e não “fora da conta”. A <b>descrição curta</b> virou item opcional (mesmo tratamento da imagem, do PR #24) e a tabela de ofertas da solução passou a exibir os <b>novos rótulos de natureza</b> (“Benefício (Checkout Broto)”, “Desconto (Checkout Externo)”), alinhada à lista de ofertas.</p>
+<figure><img src="img/42-regua-completude.png"><figcaption>Régua de completude do card em <b>88%</b>: a imagem e a descrição aparecem como “(opcional)” e a dica confirma “Pronta para publicar — falta apenas o item opcional”.</figcaption></figure>
+
+<h3>#27 — “Baixar modelo (.csv)” na importação de telemetria</h3>
+<p>A tela de <b>Importar telemetria</b> ganhou o mesmo recurso que o importador de soluções já tinha: <b>baixar um modelo pronto</b> antes de montar o arquivo, para não errar coluna nem formato de data e cair em quarentena por engano. O modelo traz o cabeçalho na ordem certa e <b>uma linha de exemplo por evento reconhecido</b> (emissão, resgate e compra); o CPF de exemplo é sintético.</p>
+<figure><img src="img/40-telemetria-modelo.png"><figcaption>Importar telemetria em dois passos: “1. Baixe o modelo” com o botão “Baixar modelo (.csv)”, depois “2. Envie o arquivo”.</figcaption></figure>
+
+<h3>#28 — Id externo (Minutrade) editável (vínculo da telemetria)</h3>
+<p><b>Contexto.</b> A telemetria importada se liga a cada oferta pelo campo <b>Id externo (Minutrade)</b> (a coluna <code>id_oferta</code> do arquivo casa com esse campo). Antes, só a carga inicial o preenchia — ofertas criadas na plataforma nasciam sem ele, e a telemetria delas caía como <b>“sem vínculo”</b>. Não havia onde informá-lo.</p>
+<p><b>Entrega.</b> O campo passou a ser <b>editável</b> nos dois caminhos de cadastro:</p>
+<ul>
+  <li><b>Formulário da oferta</b> — novo campo, pré-preenchido na edição (não apaga o valor da carga inicial), auditado, com <b>recusa nomeada</b> se o id já for de outra oferta.</li>
+  <li><b>Importação em lote</b> — nova coluna no modelo <code>.xlsx</code>; a duplicidade é detectada já na <b>conferência</b> (contra ofertas existentes e entre linhas da mesma planilha).</li>
+</ul>
+<figure><img src="img/41-oferta-id-externo.png"><figcaption>Campo “Id externo (Minutrade)” no cadastro da oferta, com a dica explicando que é a chave do vínculo da telemetria.</figcaption></figure>
+<div class="box"><b>Pendência de integração declarada.</b> Isto dá <b>onde</b> preencher o id. Continua a confirmar com a Minutrade <b>qual</b> id ela usa na coluna <code>id_oferta</code> do arquivo de telemetria; a primeira importação real com ofertas novas é o teste desse contrato.</div>
+
+<hr>
+<h2>Notas transversais</h2>
+<ul>
+  <li><b>Base povoada, produção real.</b> Toda migração no período é aditiva; nenhuma remove coluna nem exige valor sobre linha existente.</li>
+  <li><b>Acessibilidade AAA</b> mantida em cada tela (foco visível, navegação por teclado, varredura axe-core limpa no CI).</li>
+  <li><b>Auditoria e permissões</b> em toda mutação de negócio (valor anterior/novo/autor; segregação solicitante ≠ aprovador).</li>
+  <li><b>Sem dado inventado.</b> Seeds e exemplos usam apenas dados reais ou sintéticos marcados; ausência de dado é sempre “pendente”, nunca um número plausível.</li>
+</ul>
+
+<p class="meta" style="margin-top:20px">Documento gerado em 25/08/2026 pela TI Broto com apoio do Claude Code. Fonte da verdade dos detalhes: os PRs #1–#28 na <code>main</code> e as fichas em <code>docs/especificacao/</code>. As telas “antigas” foram capturadas na homologação; as telas novas (ofertas com percentual, régua RN09 proporcional, importação de telemetria e Id externo da oferta), a partir da versão atual da aplicação.</p>
+
+</body>
+</html>
