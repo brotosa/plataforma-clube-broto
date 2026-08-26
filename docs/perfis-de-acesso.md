@@ -197,6 +197,7 @@ Fonte: `dominio/autorizacao/permissoes.ts`. "✓" = o papel pode.
 | Visualizar patrocinadores | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Gerir patrocinadores/contratos/vínculos | ✓ | | | | | | |
 | Gerar Relatório do Patrocinador (R1) | ✓ | | | | | | |
+| Comentar/pendência na ficha do aliado | ✓ | ✓ | ✓ | ✓ | | | |
 
 ## Onde isso é gerenciado
 

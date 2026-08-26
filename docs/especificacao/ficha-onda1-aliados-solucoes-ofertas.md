@@ -45,7 +45,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 | CNPJ | texto validado | ● | Único; validação de dígito (RN08) |
 | Endereço da sede | texto estruturado | ● p/ aliada ativa | Mínimo contratual; ausente no documento de pré-onboarding antigo |
 | Logo | imagem | ○¹ | Formatos e proporção definidos no Design; direito de uso confirmado no aceite |
-| Descrição institucional | texto curto | ○¹ | |
+| Descrição institucional | texto curto | ○ | **Não** entra na régua RN09 — a completude usa apenas nome de exibição e logo do aliado (mais os itens da solução). Correção de 25/08: antes marcada com ¹ por engano |
 | Site | URL | ○ | |
 | Categorias de atuação | multi-seleção (taxonomia) | ● | Lista fixa na v1; editável no Parametrizador (Onda 3) |
 | Contatos | lista (papel: comercial · técnico · financeiro; nome, cargo, e-mail, telefone) | ● ≥1 | Financeiro recomendado ao ativar (recebe o ciclo de conciliação) |
@@ -106,7 +106,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 | Status | enum: Rascunho · Publicada · Pausada · Encerrada · Expirada | ● | Porta de aprovação controlada pelo **motor de aprovação** — nasce desligada para Oferta, ligável em T7 sem código |
 | Vouchers emitidos / resgatados / Compras | números (somente leitura) | — | Telemetria; jamais editáveis (RN07). "Resgates" da base atual: **[A CONFIRMAR]** se representa emissão ou resgate efetivo |
 | Pendente de republicação | flag automática | — | Ligada quando uma oferta publicada é alterada após o último export (RN10) |
-| `id_externo_minutrade` | texto | — | Vínculo com a oferta na operacional |
+| `id_externo_minutrade` | texto | ○ | Vínculo com a oferta na operacional — **é a chave que liga a telemetria importada a esta oferta** (a coluna `id_oferta` do arquivo casa com ele). **Editável (PR #28):** campo no formulário (T5) e coluna na importação em lote, com unicidade validada e colisão detectada na conferência. A carga inicial já o traz; ofertas nascidas na plataforma o recebem aqui |
 
 A comissão **não** é campo da oferta: vem do bloco comercial do aliado e é aplicada no cálculo de receita (seção 6). Taxas transacionais do meio de pagamento (hoje: cartão 3,5% + R$0,40; PIX 1%) são parâmetros globais do Clube — entram no Parametrizador (Onda 3) para cálculo de receita líquida estimada, não no cadastro do aliado.
 
