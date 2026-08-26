@@ -159,6 +159,21 @@ export default async function PaginaTelemetriaDaOperadora() {
       {podeImportar ? (
         <div className="card" style={{ padding: "16px 18px", marginBottom: 22, maxWidth: 660 }}>
           <EnviadorDeRelatorio />
+          <p className="cap" style={{ margin: "14px 0 6px" }}>
+            Na dúvida sobre o formato do relatório de resgates/compras, baixe a referência das
+            colunas esperadas (a operadora é quem gera o arquivo — isto não é um formulário a
+            preencher):
+          </p>
+          {/* Route handler que devolve arquivo (não é página): âncora nativa,
+              nunca <Link> — prefetch de um download não faz sentido. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/ofertas/telemetria-operadora/modelo"
+            className="btn btn-ghost"
+            style={{ textDecoration: "none" }}
+          >
+            Baixar modelo de referência (.csv)
+          </a>
         </div>
       ) : (
         <p className="aviso-inline" style={{ marginBottom: 22 }}>

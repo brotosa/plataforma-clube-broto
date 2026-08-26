@@ -2,13 +2,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
+import ExcelJS from "exceljs";
 
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
 import { ErroDeArquivo } from "@/dominio/erros/falhas";
+import { completarDigitosCpf } from "@/dominio/assinantes/cpf";
 import { gerarAssinantesSinteticos } from "@/infra/assinantes/fixtures-sinteticas";
 import { cifrarCpf, hashCpf } from "@/infra/assinantes/protecao-cpf";
 import {
   gerarCsvOfertasSintetico,
+  gerarCsvResgatesRealSintetico,
   gerarCsvResgatesSintetico,
   gerarCsvSellersSintetico,
   gerarCsvUsuariosSintetico,
@@ -964,6 +967,166 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
       expect(apuracao?.compras.eventos).toBe(2);
       expect(apuracao?.resgates.eventos).toBe(1);
       expect(apuracao?.naoClassificados).toBe(1);
+    });
+
+    it("lê o formato REAL de 'Resgate e Compras' e casa a oferta pelo NOSSO id", async () => {
+      // A primeira importação real (ago/2026) veio num formato que as
+      // hipóteses `[A CONFIRMAR]` não previam: sem coluna "Produto", com a
+      // data em "Data da compra ou resgate", o CPF em "cpf" (caixa baixa),
+      // e — item 2 da requisição de 27/07 atendido — o `Id_oferta` traz o
+      // NOSSO id de plataforma, não o id externo da Minutrade.
+      const [sintetico] = gerarAssinantesSinteticos(1, 26);
+      const assinante = await criarAssinanteSintetico(sintetico!.cpf, "formato-real");
+
+      const resultado = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} Clube_Broto__Resgate_e_Compras_das_Ofertas_99.csv`,
+        conteudo: Buffer.from(
+          gerarCsvResgatesRealSintetico([
+            {
+              assinante: sintetico!,
+              dataHora: "2026-08-21 12:21:27",
+              idSeller: "48596479000105",
+              idOferta: ofertaPublicadaId, // o NOSSO id, como no arquivo real
+              idVoucher: "CB0001",
+              tipoOferta: "Recompensa gratuita",
+              valor: "0",
+              canal: "app",
+            },
+            {
+              assinante: sintetico!,
+              dataHora: "2026-08-21 12:15:28",
+              idSeller: "48596479000105",
+              idOferta: ofertaPublicadaId,
+              idVoucher: "CB0002",
+              tipoOferta: "Checkout no clube",
+              valor: "149,90",
+              canal: "web",
+            },
+          ]),
+          "utf8",
+        ),
+      });
+
+      // O cabeçalho real é reconhecido como RESGATES, e o CPF em caixa
+      // baixa é detectado.
+      expect(resultado.tipoLayout).toBe("RESGATES");
+      expect(resultado.colunaDeCpfEncontrada).toBe("cpf");
+      expect(resultado.aplicadas).toBe(2);
+      expect(resultado.recusadas).toBe(0);
+
+      const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+        where: { assinanteId: assinante.id },
+        select: { ofertaId: true, tipoOferta: true, seller: true },
+      });
+      expect(eventos).toHaveLength(2);
+      // Casou à oferta pelo NOSSO id — o item 2, atendido.
+      expect(eventos.every((evento) => evento.ofertaId === ofertaPublicadaId)).toBe(true);
+      // O `id_voucher` distingue os dois eventos do mesmo dia, mesmo sem
+      // "Produto": sem ele, a chave natural colidiria e um sumiria.
+      expect(eventos.map((e) => e.tipoOferta).sort()).toEqual([
+        "Checkout no clube",
+        "Recompensa gratuita",
+      ]);
+      expect(eventos.every((evento) => evento.seller === "48596479000105")).toBe(true);
+    });
+
+    it("no formato real, aceita o CPF COM máscara (caixa baixa) e junta igual", async () => {
+      const [sintetico] = gerarAssinantesSinteticos(1, 27);
+      const assinante = await criarAssinanteSintetico(sintetico!.cpf, "real-mascara");
+
+      const resultado = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} resgate-real-mascara.csv`,
+        conteudo: Buffer.from(
+          gerarCsvResgatesRealSintetico(
+            [
+              {
+                assinante: sintetico!,
+                dataHora: "2026-08-21 09:00:00",
+                idSeller: "48596479000105",
+                idOferta: ofertaPublicadaId,
+                idVoucher: "CB0003",
+                tipoOferta: "Checkout externo",
+                valor: "89,90",
+                canal: "app",
+              },
+            ],
+            { comMascara: true },
+          ),
+          "utf8",
+        ),
+      });
+
+      expect(resultado.tipoLayout).toBe("RESGATES");
+      expect(resultado.aplicadas).toBe(1);
+      const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+        where: { assinanteId: assinante.id },
+        select: { ofertaId: true },
+      });
+      expect(eventos).toHaveLength(1);
+      expect(eventos[0]!.ofertaId).toBe(ofertaPublicadaId);
+    });
+
+    it("XLSX real: CPF exportado como número com formato de DATA ainda junta", async () => {
+      // O defeito exato da primeira importação real: a operadora exportou a
+      // coluna `cpf` com `numFmt` de data, e o ExcelJS coage o CPF a
+      // `Invalid Date`. O leitor recupera o número cru do XML; aqui provamos
+      // o caminho inteiro — recuperação, junção por CPF-HMAC, evento gravado.
+      //
+      // Um CPF de 11 dígitos e um COM zero à esquerda (que o Excel guarda
+      // como 10 dígitos) — o segundo prova a reposição do zero.
+      const [normal] = gerarAssinantesSinteticos(1, 60);
+      const comZero = completarDigitosCpf("012345678"); // 11 díg, começa com 0
+      const aNormal = await criarAssinanteSintetico(normal!.cpf, "xlsx-normal");
+      const aZero = await criarAssinanteSintetico(comZero, "xlsx-zero");
+
+      const pasta = new ExcelJS.Workbook();
+      const aba = pasta.addWorksheet("Resgates");
+      aba.addRow([
+        "Data da compra ou resgate",
+        "cpf",
+        "Id_Seller",
+        "Id_oferta",
+        "id_voucher",
+        "Tipo de Oferta",
+        "Valor",
+        "Canal",
+      ]);
+      for (const [indice, cpf] of [normal!.cpf, comZero].entries()) {
+        const linha = aba.addRow([
+          new Date(Date.UTC(2026, 7, 21)),
+          Number(cpf), // NÚMERO — zero à esquerda some, como no arquivo real
+          "48596479000105",
+          ofertaPublicadaId,
+          `CB100${indice}`,
+          "Recompensa gratuita",
+          0,
+          "app",
+        ]);
+        // Herança de estilo de data nas duas colunas numéricas de "data".
+        linha.getCell(1).numFmt = "yyyy-mm-dd hh:mm:ss.000";
+        linha.getCell(2).numFmt = "yyyy-mm-dd hh:mm:ss.000";
+      }
+      const conteudo = Buffer.from(await pasta.xlsx.writeBuffer());
+
+      const resultado = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} resgate-real-xlsx.xlsx`,
+        conteudo,
+      });
+
+      expect(resultado.tipoLayout).toBe("RESGATES");
+      expect(resultado.colunaDeCpfEncontrada).toBe("cpf");
+      // Os dois casaram: nenhum CPF_INVALIDO, nenhum CPF_SEM_ASSINANTE.
+      expect(resultado.aplicadas).toBe(2);
+      expect(resultado.recusadas).toBe(0);
+
+      const doNormal = await prisma.eventoDeResgateTelemetria.count({
+        where: { assinanteId: aNormal.id },
+      });
+      const doZero = await prisma.eventoDeResgateTelemetria.count({
+        where: { assinanteId: aZero.id },
+      });
+      expect(doNormal).toBe(1);
+      expect(doZero).toBe(1); // o zero à esquerda foi reposto e o CPF fechou
     });
   });
 

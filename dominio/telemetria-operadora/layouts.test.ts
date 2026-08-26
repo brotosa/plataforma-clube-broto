@@ -79,6 +79,23 @@ describe("detecção de layout — nominais [A CONFIRMAR]", () => {
     expect(detectarLayout(["Produto", "Data do Evento:"]).tipo).toBe("RESGATES");
   });
 
+  it("reconhece o arquivo REAL de Resgate e Compras (sem 'Produto', com Id_oferta e id_voucher)", () => {
+    // Cabeçalho observado na primeira importação real (ago/2026): não tem
+    // coluna "Produto" — o evento é identificado por "Tipo de Oferta" e
+    // "id_voucher", e a data chama "Data da compra ou resgate".
+    const colunas = [
+      "Data da compra ou resgate",
+      "cpf",
+      "Id_Seller",
+      "Id_oferta",
+      "id_voucher",
+      "Tipo de Oferta",
+      "Valor",
+      "Canal",
+    ];
+    expect(detectarLayout(colunas).tipo).toBe("RESGATES");
+  });
+
   it("marca os dois nominais como portadores de dado pessoal", () => {
     expect(layoutENominal("USUARIOS")).toBe(true);
     expect(layoutENominal("RESGATES")).toBe(true);
