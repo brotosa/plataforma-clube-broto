@@ -141,6 +141,65 @@ export function gerarCsvResgatesSintetico(
   return [cabecalho.join(";"), ...corpo].join("\n") + "\n";
 }
 
+/**
+ * Linha do formato REAL de "Resgate e Compras das Ofertas" (primeira
+ * importação real, ago/2026).
+ *
+ * Diferente de `LinhaResgateSintetica`: o arquivo real **não traz
+ * "Produto"** — o evento é identificado por `id_voucher` e `Tipo de
+ * Oferta`, e casa à oferta pelo `Id_oferta`, que é o **nosso próprio id de
+ * plataforma** (item 2 da requisição de 27/07, agora atendido).
+ */
+export interface LinhaResgateRealSintetica {
+  assinante: AssinanteSintetico;
+  /** No formato do arquivo real: "2026-08-21 12:21:27". */
+  dataHora: string;
+  idSeller: string;
+  /** Id da oferta NA PLATAFORMA — o arquivo real manda o nosso id. */
+  idOferta: string;
+  idVoucher: string;
+  tipoOferta: TipoDeOfertaNaFonte | (string & {});
+  valor: string;
+  canal: string;
+}
+
+/**
+ * CSV de resgates no FORMATO REAL de "Resgate e Compras das Ofertas".
+ *
+ * Cabeçalho transcrito do arquivo real: sem "Produto", com "Id_oferta"
+ * (nosso id), "id_voucher" e a coluna de CPF em caixa baixa ("cpf"). A
+ * data chama "Data da compra ou resgate". Exercita o caminho que a
+ * fixture antiga (`gerarCsvResgatesSintetico`) não cobre.
+ */
+export function gerarCsvResgatesRealSintetico(
+  linhas: ReadonlyArray<LinhaResgateRealSintetica>,
+  opcoes: { comMascara?: boolean } = {},
+): string {
+  const cabecalho = [
+    "Data da compra ou resgate",
+    "cpf",
+    "Id_Seller",
+    "Id_oferta",
+    "id_voucher",
+    "Tipo de Oferta",
+    "Valor",
+    "Canal",
+  ];
+  const corpo = linhas.map((linha) =>
+    [
+      linha.dataHora,
+      opcoes.comMascara ? mascarar(linha.assinante.cpf) : linha.assinante.cpf,
+      linha.idSeller,
+      linha.idOferta,
+      linha.idVoucher,
+      linha.tipoOferta,
+      linha.valor,
+      linha.canal,
+    ].join(";"),
+  );
+  return [cabecalho.join(";"), ...corpo].join("\n") + "\n";
+}
+
 function mascarar(cpf: string): string {
   return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
 }

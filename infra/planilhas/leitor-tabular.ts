@@ -25,6 +25,7 @@
 
 import { ErroDeArquivo } from "@/dominio/erros/falhas";
 import ExcelJS from "exceljs";
+import JSZip from "jszip";
 
 export interface ArquivoTabularLido {
   colunas: string[];
@@ -119,7 +120,12 @@ function celulaComoTexto(valor: ExcelJS.CellValue): string {
     return "";
   }
   if (valor instanceof Date) {
-    return valor.toISOString().slice(0, 10);
+    // Célula de data malformada no arquivo real vira `Invalid Date`, e
+    // `toISOString()` sobre ela LANÇA — o que derrubava a importação
+    // inteira com erro genérico em vez de recusar a linha pela causa
+    // nomeada (RN55). Data ilegível é texto vazio: o parser de cada
+    // relatório então a trata como valor ausente, sem crashar o arquivo.
+    return Number.isNaN(valor.getTime()) ? "" : valor.toISOString().slice(0, 10);
   }
   if (typeof valor === "object") {
     if ("result" in valor) {
@@ -139,6 +145,67 @@ function celulaComoTexto(valor: ExcelJS.CellValue): string {
   return String(valor).trim();
 }
 
+/**
+ * Recupera do XML CRU os valores numéricos que o ExcelJS estraga na leitura.
+ *
+ * **Por que existe.** O ExcelJS decide que uma célula é data pelo formato de
+ * número (`numFmt`) e, na hora de carregar, converte o serial para `Date` —
+ * descartando o número original. Quando o serial é grande demais para uma
+ * data (um CPF de 11 dígitos, por exemplo), a conversão estoura em
+ * `Invalid Date` e o valor verdadeiro **some**. Foi exatamente o que a
+ * primeira exportação real de "Resgate e Compras" trouxe: a coluna de CPF
+ * veio com formato `yyyy-mm-dd hh:mm:ss`, herança de estilo, e todo CPF
+ * virava `Invalid Date`.
+ *
+ * O número certo continua íntegro no `<v>` do XML — é ele que este mapa
+ * resgata, chaveado por endereço de célula (ex.: "C2"), **só para células
+ * numéricas** (sem atributo `t` ou `t="n"`; nunca texto). O leitor o
+ * consulta apenas quando o ExcelJS entregou `Invalid Date`, então datas de
+ * verdade e qualquer outra célula passam intocadas.
+ *
+ * É best-effort: qualquer falha ao abrir o zip devolve mapa vazio, e o
+ * leitor cai no comportamento anterior (célula vira texto vazio) sem quebrar.
+ */
+async function seriaisNumericosBrutos(conteudo: Buffer): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  try {
+    const zip = await JSZip.loadAsync(conteudo);
+
+    // Resolve o arquivo da primeira aba pelo rel do workbook — o nome
+    // `sheet1.xml` é convenção, não garantia.
+    const workbookXml = (await zip.file("xl/workbook.xml")?.async("string")) ?? "";
+    const primeiroRid = workbookXml.match(/<sheet\b[^>]*\br:id="([^"]+)"/)?.[1];
+    const relsXml = (await zip.file("xl/_rels/workbook.xml.rels")?.async("string")) ?? "";
+    const alvoDoRel = primeiroRid
+      ? new RegExp(`Id="${primeiroRid}"[^>]*Target="([^"]+)"`).exec(relsXml)?.[1]
+      : undefined;
+    const alvo = alvoDoRel ?? relsXml.match(/Target="(worksheets\/sheet[^"]+)"/)?.[1];
+    const caminhoAba = alvo
+      ? alvo.startsWith("/")
+        ? alvo.slice(1)
+        : `xl/${alvo.replace(/^\.\//, "")}`
+      : "xl/worksheets/sheet1.xml";
+
+    const sheetXml = (await zip.file(caminhoAba)?.async("string")) ?? "";
+    // `<c r="C2" s="1"><v>123</v></c>` e a forma auto-fechada `<c .../>`.
+    const celulas = sheetXml.matchAll(/<c\b([^>]*?)(?:\/>|>(.*?)<\/c>)/gs);
+    for (const [, atributosBrutos, corpo] of celulas) {
+      const atributos = atributosBrutos ?? "";
+      const ref = atributos.match(/\br="([A-Z]+\d+)"/)?.[1];
+      if (!ref) continue;
+      const tipo = atributos.match(/\bt="([^"]+)"/)?.[1];
+      // Só numéricas: célula de texto guarda em `<v>` o índice da string
+      // compartilhada, não o dado — resgatá-lo seria corromper.
+      if (tipo && tipo !== "n") continue;
+      const valor = corpo?.match(/<v>(.*?)<\/v>/s)?.[1];
+      if (valor) mapa.set(ref, valor);
+    }
+  } catch {
+    // Best-effort: sem o resgate, o leitor mantém o comportamento anterior.
+  }
+  return mapa;
+}
+
 export async function lerXlsxTabular(conteudo: Buffer): Promise<ArquivoTabularLido> {
   const pasta = new ExcelJS.Workbook();
   await pasta.xlsx.load(conteudo as unknown as ArrayBuffer);
@@ -146,6 +213,7 @@ export async function lerXlsxTabular(conteudo: Buffer): Promise<ArquivoTabularLi
   if (!aba) {
     return { colunas: [], linhas: [] };
   }
+  const seriaisBrutos = await seriaisNumericosBrutos(conteudo);
   const colunas: string[] = [];
   const colunaPorIndice = new Map<number, string>();
   aba.getRow(1).eachCell({ includeEmpty: false }, (celula, indice) => {
@@ -162,7 +230,14 @@ export async function lerXlsxTabular(conteudo: Buffer): Promise<ArquivoTabularLi
     const registro: Record<string, string> = {};
     let temValor = false;
     for (const [indice, coluna] of colunaPorIndice) {
-      const texto = celulaComoTexto(aba.getRow(numero).getCell(indice).value);
+      const celula = aba.getRow(numero).getCell(indice);
+      let texto = celulaComoTexto(celula.value);
+      // O ExcelJS coagiu um número a `Invalid Date` (célula numérica com
+      // formato de data e serial fora de faixa): recupera o número cru do
+      // XML, que ele descartou. Ver `seriaisNumericosBrutos`.
+      if (!texto && celula.value instanceof Date && Number.isNaN(celula.value.getTime())) {
+        texto = seriaisBrutos.get(celula.address) ?? "";
+      }
       registro[coluna] = texto;
       if (texto) {
         temValor = true;

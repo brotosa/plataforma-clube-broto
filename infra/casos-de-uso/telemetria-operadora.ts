@@ -564,7 +564,13 @@ async function resolverAssinantesPorCpf(
 
   const hashPorLinha = new Map<number, string>();
   for (const linha of linhas) {
-    const cpf = normalizarValorDeCpf(linha.valores[colunaDeCpf] ?? "");
+    let cpf = normalizarValorDeCpf(linha.valores[colunaDeCpf] ?? "");
+    // Zero à esquerda perdido: quando a operadora exporta o CPF como
+    // NÚMERO — inclusive disfarçado de data, o defeito que o leitor-tabular
+    // recupera —, o zero inicial some e sobram 10 dígitos. Repô-lo restaura
+    // o MESMO dado, não deduz outro; o dígito verificador logo abaixo é
+    // quem confirma se o resultado é um CPF de verdade.
+    if (cpf.length === 10) cpf = `0${cpf}`;
     if (!cpf || !validarCpf(cpf)) {
       contarRecusa(recusas, "CPF_INVALIDO");
       continue;
@@ -754,6 +760,18 @@ export function chaveNaturalDoEvento(partes: {
     .digest("hex");
 }
 
+/**
+ * Grafias aceitas da coluna de data do evento — as hipotéticas anteriores e
+ * o nome real observado no arquivo de "Resgate e Compras" (ago/2026).
+ */
+const COLUNAS_DATA_RESGATE = [
+  "data do resgate",
+  "data do evento",
+  "data",
+  "data de resgate",
+  "data da compra ou resgate",
+] as const;
+
 async function aplicarResgates(
   ator: Ator,
   nomeArquivo: string,
@@ -768,12 +786,19 @@ async function aplicarResgates(
     recusas,
   );
 
+  // Duas formas de casar o evento à oferta: pelo id da PLATAFORMA (o arquivo
+  // real de "Resgate e Compras" manda o NOSSO próprio id na coluna Id_oferta —
+  // item 2 da requisição de 27/07, agora atendido) ou pelo id externo da
+  // Minutrade (formatos anteriores). Buscamos todas as ofertas para poder
+  // resolver pelos dois caminhos.
   const ofertas = await prisma.oferta.findMany({
-    where: { idExternoMinutrade: { not: null } },
     select: { id: true, idExternoMinutrade: true },
   });
+  const idsDaPlataforma = new Set(ofertas.map((oferta) => oferta.id));
   const ofertaPorIdExterno = new Map(
-    ofertas.map((oferta) => [oferta.idExternoMinutrade!, oferta.id]),
+    ofertas
+      .filter((oferta) => oferta.idExternoMinutrade)
+      .map((oferta) => [oferta.idExternoMinutrade!, oferta.id]),
   );
 
   const porLinha = new Map(linhas.map((linha) => [linha.numero, linha]));
@@ -790,24 +815,23 @@ async function aplicarResgates(
 
   for (const [numero, assinanteId] of assinantePorLinha) {
     const linha = porLinha.get(numero)!;
-    const dataTexto = valorDe(
-      linha,
-      "data do resgate",
-      "data do evento",
-      "data",
-      "data de resgate",
-    );
-    const dataEvento = dataOuNula(dataTexto);
-    const produto = valorDe(linha, "produto");
-    if (!dataEvento || !produto) {
+    const dataEvento = dataOuNula(valorDe(linha, ...COLUNAS_DATA_RESGATE));
+    // Só a data é exigida. "Produto" deixou de ser obrigatório: o arquivo
+    // real não o traz — traz o id do voucher e o id da oferta no lugar.
+    if (!dataEvento) {
       contarRecusa(recusas, "VALOR_ILEGIVEL");
       continue;
     }
-    const seller = valorDe(linha, "seller");
+    const produto = valorDe(linha, "produto");
+    const idVoucher = valorDe(linha, "id_voucher", "id voucher");
+    const seller = valorDe(linha, "seller", "id_seller", "id do seller");
+    // Deduplicação: o id do voucher é o identificador de evento que a
+    // operadora passou a mandar — resolve a limitação declarada da chave por
+    // (produto, seller). Quando ausente (formato antigo), cai no produto.
     const chaveNatural = chaveNaturalDoEvento({
       assinanteId,
       dataEvento: dataEvento.toISOString().slice(0, 10),
-      produto,
+      produto: produto || idVoucher,
       seller,
     });
     if (chavesNoArquivo.has(chaveNatural)) {
@@ -816,27 +840,26 @@ async function aplicarResgates(
     }
     chavesNoArquivo.add(chaveNatural);
 
-    // `ofertaId` fica nulo enquanto a operadora não enviar o id (item 2
-    // da requisição). O evento entra assim mesmo.
-    const idOfertaExterno = valorDe(linha, "id da oferta");
+    // Casa a oferta pelo NOSSO id (arquivo real de "Resgate e Compras") ou
+    // pelo id externo da Minutrade (legado). Nulo se não casar nenhum.
+    const idOferta = valorDe(linha, "id_oferta", "id da oferta");
+    const ofertaId = idOferta
+      ? idsDaPlataforma.has(idOferta)
+        ? idOferta
+        : (ofertaPorIdExterno.get(idOferta) ?? null)
+      : null;
     eventos.push({
       assinanteId,
       dataEvento,
       produto,
       tipoOferta: valorDe(linha, "tipo de oferta") || null,
       seller: seller || null,
-      ofertaId: idOfertaExterno ? (ofertaPorIdExterno.get(idOfertaExterno) ?? null) : null,
+      ofertaId,
       chaveNatural,
     });
   }
 
-  const dataGeracaoDeclarada = dataDeGeracaoDeclarada(
-    linhas,
-    "data do resgate",
-    "data do evento",
-    "data",
-    "data de resgate",
-  );
+  const dataGeracaoDeclarada = dataDeGeracaoDeclarada(linhas, ...COLUNAS_DATA_RESGATE);
 
   const resultado = await prisma.$transaction(async (tx) => {
     const criada = await registrarImportacao(tx, {

@@ -104,8 +104,20 @@ const ASSINATURAS: readonly AssinaturaDeLayout[] = [
     // tipo de defeito, porque nada no arquivo pareceria errado.
     tipo: "RESGATES",
     exigidas: [
-      ["produto"],
-      ["data do resgate", "data do evento", "data", "data de resgate"],
+      // Identifica o evento nominal. O arquivo real de "Resgate e Compras"
+      // (primeira importação real, ago/2026) NÃO traz "Produto" — traz o id
+      // do voucher e o "Tipo de Oferta"; os formatos anteriores traziam
+      // "Produto". Qualquer um serve para reconhecer o relatório.
+      ["produto", "tipo de oferta", "id_voucher", "id voucher"],
+      // Data do evento — inclui o nome real observado ("Data da compra ou
+      // resgate"), além das grafias hipotéticas anteriores.
+      [
+        "data do resgate",
+        "data do evento",
+        "data",
+        "data de resgate",
+        "data da compra ou resgate",
+      ],
     ],
     proibidas: ["resgates", "compras", "ofertas ativas"],
     nominal: true,
