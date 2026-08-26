@@ -1066,6 +1066,44 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
       expect(eventos[0]!.ofertaId).toBe(ofertaPublicadaId);
     });
 
+    it("CSV real: coluna de índice, data dd/mm/aaaa e linhas vazias não viram recusa", async () => {
+      // O CSV exportado de planilha (arquivo `basetestev01`): coluna de
+      // índice sem nome, data no formato brasileiro `dd/mm/aaaa hh:mm`, e a
+      // grade preenchida com dezenas de linhas ";;;;". Antes, as linhas
+      // vazias viravam CPF_INVALIDO e a data brasileira, VALOR_ILEGIVEL.
+      const [s] = gerarAssinantesSinteticos(1, 62);
+      const assinante = await criarAssinanteSintetico(s!.cpf, "csv-real");
+
+      const csv =
+        [
+          ";Data da compra ou resgate;cpf;Id_Seller;Id_oferta;id_voucher;Tipo de Oferta;Valor;Canal;;;",
+          `1;21/08/2026 12:21;${s!.cpf};48596479000105;${ofertaPublicadaId};CB0001;emissao_voucher;0;web;;;`,
+          ";;;;;;;;;;;",
+          ";;;;;;;;;;;",
+          ";;;;;;;;;;;",
+        ].join("\n") + "\n";
+
+      const resultado = await importarRelatorioDaOperadora(gestor, {
+        nomeArquivo: `${MARCA} baseteste-resgate.csv`,
+        conteudo: Buffer.from(csv, "utf8"),
+      });
+
+      expect(resultado.tipoLayout).toBe("RESGATES");
+      expect(resultado.colunaDeCpfEncontrada).toBe("cpf");
+      expect(resultado.lidas).toBe(1); // as linhas ";;;;" não contam
+      expect(resultado.aplicadas).toBe(1); // data dd/mm/aaaa entendida
+      expect(resultado.recusadas).toBe(0);
+      // Data de geração declarada saiu da data brasileira, não nula.
+      expect(resultado.dataGeracaoDeclarada?.toISOString().slice(0, 10)).toBe("2026-08-21");
+
+      const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+        where: { assinanteId: assinante.id },
+        select: { ofertaId: true },
+      });
+      expect(eventos).toHaveLength(1);
+      expect(eventos[0]!.ofertaId).toBe(ofertaPublicadaId);
+    });
+
     it("XLSX real: CPF exportado como número com formato de DATA ainda junta", async () => {
       // O defeito exato da primeira importação real: a operadora exportou a
       // coluna `cpf` com `numFmt` de data, e o ExcelJS coage o CPF a

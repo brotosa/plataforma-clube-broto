@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 
-import { lerArquivoTabular, lerXlsxTabular } from "./leitor-tabular";
+import { lerArquivoTabular, lerCsvTabular, lerXlsxTabular } from "./leitor-tabular";
 
 /**
  * O leitor tabular canônico já é coberto de ponta a ponta por
@@ -62,5 +62,33 @@ describe("recuperação de número estragado por formato de data", () => {
 
     const lido = await lerArquivoTabular("d.xlsx", await comoBuffer(pasta));
     expect(lido.linhas[0]!.valores.quando).toBe("2026-01-15");
+  });
+});
+
+describe("CSV exportado de planilha — coluna de índice e grade vazia", () => {
+  it("descarta coluna sem nome (higiene 1) e linha só de delimitadores", () => {
+    // O formato do CSV real de "Resgate e Compras": uma coluna de índice
+    // sem nome na frente, colunas vazias à direita e a grade preenchida
+    // com dezenas de linhas ";;;;". Sem tratar, cada linha vazia virava
+    // uma recusa de CPF fantasma — o defeito que o usuário reportou.
+    const csv =
+      [
+        ";Data;cpf;Canal;;;",
+        "1;21/08/2026;11144477735;web;;;",
+        ";;;;;;",
+        ";;;;;;",
+        ";;;;;;",
+      ].join("\n") + "\n";
+
+    const lido = lerCsvTabular(Buffer.from(csv, "utf8"));
+    // As colunas sem nome não entram.
+    expect(lido.colunas).toEqual(["Data", "cpf", "Canal"]);
+    // Só a linha com dado; as três ";;;;" ficam de fora.
+    expect(lido.linhas).toHaveLength(1);
+    expect(lido.linhas[0]!.valores).toEqual({
+      Data: "21/08/2026",
+      cpf: "11144477735",
+      Canal: "web",
+    });
   });
 });

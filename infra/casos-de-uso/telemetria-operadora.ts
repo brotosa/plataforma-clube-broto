@@ -101,9 +101,28 @@ function inteiroOuNulo(texto: string): number | null {
   return Number.isFinite(numero) ? Math.trunc(numero) : null;
 }
 
-/** Data do arquivo em ISO (o leitor já converte data de XLSX para ISO). */
+/**
+ * Data do arquivo em ISO. O leitor XLSX já entrega data como ISO; o CSV
+ * exportado de planilha traz o formato brasileiro `dd/mm/aaaa [hh:mm[:ss]]`
+ * (observado no arquivo real de "Resgate e Compras" em CSV), e o parse
+ * nativo do JS o lê errado — `new Date("21/08/2026")` é `Invalid Date`.
+ */
 function dataOuNula(texto: string): Date | null {
   if (!texto) return null;
+  const br = texto.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  const [, dd, mm, aaaa, hh = "0", min = "0", ss = "0"] = br ?? [];
+  if (dd && mm && aaaa) {
+    const data = new Date(Date.UTC(+aaaa, +mm - 1, +dd, +hh, +min, +ss));
+    // Rejeita rolagem silenciosa (dia 32, mês 13): o parser do JS "conserta"
+    // datas fora de faixa, e uma data inventada é pior que uma recusada.
+    const coerente =
+      data.getUTCFullYear() === +aaaa &&
+      data.getUTCMonth() === +mm - 1 &&
+      data.getUTCDate() === +dd;
+    return coerente ? data : null;
+  }
   const data = new Date(/^\d{4}-\d{2}-\d{2}$/.test(texto) ? `${texto}T00:00:00Z` : texto);
   return Number.isNaN(data.getTime()) ? null : data;
 }
