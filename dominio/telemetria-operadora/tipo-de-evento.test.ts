@@ -25,6 +25,14 @@ describe("classificação do evento nominal (RN65/RN69)", () => {
     expect(classificarEvento("Checkout externo")).toBe("COMPRA");
   });
 
+  it("emissao_voucher é resgate (decisão do Gestor, 26/08) — com variantes", () => {
+    // O arquivo real de "Resgate e Compras" traz `emissao_voucher` na coluna
+    // Tipo de Oferta; no contexto do relatório, representa resgate.
+    expect(classificarEvento("emissao_voucher")).toBe("RESGATE");
+    expect(classificarEvento("Emissao de Voucher")).toBe("RESGATE");
+    expect(classificarEvento("emissão voucher")).toBe("RESGATE");
+  });
+
   it("tolera caixa, acento e espaço repetido, como o resto do parser", () => {
     expect(classificarEvento("CHECKOUT NO CLUBE")).toBe("COMPRA");
     expect(classificarEvento("  recompensa   gratuita  ")).toBe("RESGATE");
@@ -47,8 +55,8 @@ describe("classificação do evento nominal (RN65/RN69)", () => {
     expect(classificarEvento("recompensa")).toBe("NAO_CLASSIFICADO");
   });
 
-  it("os três valores conhecidos classificam, e são exatamente três", () => {
-    expect(VALORES_CONHECIDOS_DE_TIPO_DE_OFERTA).toHaveLength(3);
+  it("os valores conhecidos classificam, e são exatamente quatro", () => {
+    expect(VALORES_CONHECIDOS_DE_TIPO_DE_OFERTA).toHaveLength(4);
     for (const valor of VALORES_CONHECIDOS_DE_TIPO_DE_OFERTA) {
       expect(classificarEvento(valor)).not.toBe("NAO_CLASSIFICADO");
     }
