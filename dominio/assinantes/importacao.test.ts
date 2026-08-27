@@ -9,6 +9,7 @@ import {
   montarResumoNucleo,
   normalizarLinhaNucleo,
   planejarUpsert,
+  resolverPatrocinador,
   sugerirMapeamento,
   validarLinhaNucleo,
 } from "./importacao";
@@ -259,3 +260,52 @@ describe("normalizarLinhaNucleo", () => {
     });
   });
 });
+
+describe("RN63 — resolverPatrocinador (casa por ID, tolera nome)", () => {
+  const lookup = {
+    idsValidos: new Set(["cmtal1ce404khll01v6y8fqga", "cmpatrob0000000000000002"]),
+    idPorNome: new Map([
+      ["yamer agro", "cmtal1ce404khll01v6y8fqga"],
+      ["outra empresa sa", "cmpatrob0000000000000002"],
+    ]),
+  };
+
+  it("vazio e Broto não vinculam", () => {
+    expect(resolverPatrocinador("", lookup)).toEqual({ tipo: "vazio" });
+    expect(resolverPatrocinador("   ", lookup)).toEqual({ tipo: "vazio" });
+    expect(resolverPatrocinador("Broto", lookup)).toEqual({ tipo: "broto" });
+    expect(resolverPatrocinador("broto", lookup)).toEqual({ tipo: "broto" });
+  });
+
+  it("casa pelo ID inteiro", () => {
+    expect(resolverPatrocinador("cmtal1ce404khll01v6y8fqga", lookup)).toEqual({
+      tipo: "encontrado",
+      patrocinadorId: "cmtal1ce404khll01v6y8fqga",
+    });
+  });
+
+  it("casa pelo ID no fim do rótulo do dropdown (Razão Social — <id>)", () => {
+    expect(resolverPatrocinador("Yamer Agro — cmtal1ce404khll01v6y8fqga", lookup)).toEqual({
+      tipo: "encontrado",
+      patrocinadorId: "cmtal1ce404khll01v6y8fqga",
+    });
+  });
+
+  it("casa por nome exato, tolerando acento e caixa (compat. arquivos antigos)", () => {
+    expect(resolverPatrocinador("YAMER agro", lookup)).toEqual({
+      tipo: "encontrado",
+      patrocinadorId: "cmtal1ce404khll01v6y8fqga",
+    });
+  });
+
+  it("valor sem correspondência devolve nao_encontrado com o valor (para a quarentena)", () => {
+    expect(resolverPatrocinador("Empresa Fantasma", lookup)).toEqual({
+      tipo: "nao_encontrado",
+      valor: "Empresa Fantasma",
+    });
+    // Rótulo do dropdown com ID que não existe mais também não casa.
+    expect(resolverPatrocinador("Removida — cmidnaoexiste0000000000", lookup)).toMatchObject({
+      tipo: "nao_encontrado",
+    });
+  });
+})

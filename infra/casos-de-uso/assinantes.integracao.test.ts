@@ -27,6 +27,8 @@ import {
   gerarCsvNucleoSintetico,
 } from "@/infra/assinantes/fixtures-sinteticas";
 import { hashDeSnapshot } from "@/infra/exportacoes/armazenador";
+import { gerarModeloAssinantesXlsx } from "@/infra/assinantes/modelo-importacao-xlsx";
+import ExcelJS from "exceljs";
 
 /**
  * Integração da F11 (executa apenas com banco disponível): o fluxo
@@ -536,5 +538,73 @@ describe.skipIf(!temBanco)("F11 — fluxo completo de assinantes (integração)"
         where: { patrocinadorId: patrocinador.id, fim: null },
       }),
     ).toBe(1);
+  });
+
+  it("Patrocinador informado que não existe manda a linha à quarentena com o motivo (RN63/RN55)", async () => {
+    await limparModuloAssinantes();
+    await prisma.patrocinador.create({
+      data: { razaoSocial: "[TESTE-C-A] Yamer Agro", cnpj: "11222333000181" },
+    });
+    const casa = SINTETICOS[0]!;
+    const naoCasa = SINTETICOS[1]!;
+    // Uma linha aponta patrocinador existente; a outra, um nome fantasma.
+    const csv =
+      "cpf;nome;patrocinador\r\n" +
+      `${casa.cpf};${casa.nome};[teste-c-a] yamer agro\r\n` +
+      `${naoCasa.cpf};${naoCasa.nome};Empresa Fantasma\r\n`;
+    const preparo = await prepararImportacaoAssinantes(gestor, {
+      familia: "ASSINANTES_NUCLEO",
+      nomeArquivo: "patrocinador-fantasma.csv",
+      conteudo: Buffer.from(csv, "utf8"),
+    });
+    const resumo = await aplicarMapeamentoNucleo(gestor, preparo.importacaoId, {
+      mapeamento: { cpf: "cpf", nome: "nome", patrocinador: "patrocinador" },
+      politica: "INCREMENTAL",
+    });
+
+    // A linha do patrocinador fantasma foi para a quarentena, com o motivo
+    // nomeado no detalhe do dry-run (part A) — a válida seguiu como nova.
+    expect(resumo.novos).toBe(1);
+    expect(resumo.quarentena).toBe(1);
+    const detalhe = resumo.quarentenaDetalhe ?? [];
+    expect(detalhe).toHaveLength(1);
+    expect(detalhe[0]!.motivos.join(" ")).toMatch(/Patrocinador não encontrado/);
+
+    // Efetivar só traz a linha válida; a fantasma não entra.
+    await confirmarImportacaoNucleo(gestor, preparo.importacaoId);
+    expect(await prisma.assinante.count()).toBe(1);
+    expect((await prisma.assinante.findFirstOrThrow()).nome).toBe(casa.nome);
+  });
+
+  it("o modelo .xlsx traz as abas, o cabeçalho e o dropdown de Patrocinador com o código (RN63)", async () => {
+    await limparModuloAssinantes();
+    const patrocinador = await prisma.patrocinador.create({
+      data: { razaoSocial: "[TESTE-C-A] Yamer Agro", cnpj: "11222333000181" },
+      select: { id: true, razaoSocial: true },
+    });
+
+    const buffer = await gerarModeloAssinantesXlsx();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+
+    expect(wb.getWorksheet("Assinantes")).toBeDefined();
+    expect(wb.getWorksheet("Patrocinadores (referência)")).toBeDefined();
+    const listas = wb.getWorksheet("Listas");
+    expect(listas).toBeDefined();
+
+    // O cabeçalho da aba principal traz as colunas da Onda 12.
+    const cabecalho = wb
+      .getWorksheet("Assinantes")!
+      .getRow(1)
+      .values as Array<string | undefined>;
+    expect(cabecalho).toContain("Patrocinador");
+    expect(cabecalho).toContain("Perfil de assinatura");
+
+    // A lista do dropdown de Patrocinador traz "Razão Social — <id>".
+    const opcoes: string[] = [];
+    listas!.getColumn(1).eachCell((c) => opcoes.push(String(c.value ?? "")));
+    expect(opcoes).toContain("Broto");
+    expect(opcoes.some((o) => o.includes(patrocinador.id))).toBe(true);
+    expect(opcoes.some((o) => o.startsWith(patrocinador.razaoSocial))).toBe(true);
   });
 });
