@@ -8,6 +8,7 @@ import { kpiVitrineViva, resumoTelemetriaPorOferta } from "@/infra/consultas/tel
 import { contadoresPorOferta } from "@/infra/consultas/telemetria-operadora";
 import { lerRegua } from "@/infra/configuracao/servico-configuracao";
 import { estaAVencer } from "@/dominio/ofertas/regras";
+import { PublicarTodasElegiveis } from "./publicar-todas";
 
 export const metadata: Metadata = {
   title: "Ofertas",
@@ -47,6 +48,7 @@ export default async function PaginaOfertas({
   const papel = sessao?.user?.papel ?? "LEITURA";
   const podeGerarExport = podeExecutar(papel, "GERAR_EXPORTACAO");
   const podeImportar = podeExecutar(papel, "IMPORTAR_TELEMETRIA");
+  const podePublicar = podeExecutar(papel, "PUBLICAR_PAUSAR_ENCERRAR_OFERTA");
 
   const parametros = await searchParams;
   const hoje = new Date();
@@ -64,11 +66,22 @@ export default async function PaginaOfertas({
       }
     : {};
 
-  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, ofertas, vitrine] =
-    await Promise.all([
+  const [
+    totalOfertas,
+    ofertasPublicadas,
+    pendentesRepublicacao,
+    candidatasAPublicar,
+    ofertas,
+    vitrine,
+  ] = await Promise.all([
       prisma.oferta.count(),
       prisma.oferta.count({ where: { status: "PUBLICADA" } }),
       prisma.oferta.count({ where: { pendenteRepublicacao: true } }),
+      // Elegíveis à publicação em massa: rascunho ou pausada. (A contagem é
+      // do universo; a elegibilidade fina — RN02/RN09/RN11 — é por oferta.)
+      podePublicar
+        ? prisma.oferta.count({ where: { status: { in: ["RASCUNHO", "PAUSADA"] } } })
+        : Promise.resolve(0),
       prisma.oferta.findMany({
         where: ondeOfertas,
         orderBy: { atualizadoEm: "desc" },
@@ -104,6 +117,7 @@ export default async function PaginaOfertas({
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        {podePublicar ? <PublicarTodasElegiveis candidatas={candidatasAPublicar} /> : null}
         {podeGerarExport ? (
           <Link href="/ofertas/publicacao" className="btn btn-azul" style={{ textDecoration: "none" }}>
             Publicar catálogo

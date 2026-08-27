@@ -9,7 +9,7 @@ import {
 } from "./empresas";
 import { criarContato, criarContrato } from "./contatos-contratos";
 import { criarSolucao } from "./solucoes";
-import { atualizarOferta, criarOferta, publicarOferta } from "./ofertas";
+import { atualizarOferta, criarOferta, publicarOferta, publicarTodasElegiveis } from "./ofertas";
 import { decidirSolicitacao } from "./aprovacoes";
 
 /**
@@ -249,6 +249,73 @@ describe.skipIf(!temBanco)("fluxo principal — casos de uso integrados", () => 
 
     const resultado = await publicarOferta(analista, ofertaId);
     expect(resultado.resultado).toBe("PUBLICADA");
+  });
+
+  it("publicar todas elegíveis publica os rascunhos aptos e recusa o inapto com o motivo", async () => {
+    const pctDesconto = await prisma.tipoBeneficio.findUniqueOrThrow({
+      where: { slug: "PCT_DESCONTO" },
+    });
+    const checkoutClube = await prisma.mecanica.findUniqueOrThrow({
+      where: { slug: "CHECKOUT_CLUBE" },
+    });
+    const novaOferta = async (titulo: string, solId: string) =>
+      criarOferta(analista, solId, {
+        titulo,
+        natureza: "BENEFICIO",
+        tipoBeneficioId: pctDesconto.id,
+        mecanicaId: checkoutClube.id,
+        precoDe: 100,
+        precoPor: 80,
+        modalidadePagamento: "RECORRENTE",
+        vigenciaInicio: new Date("2026-07-01T00:00:00Z"),
+      });
+
+    // Dois rascunhos aptos, na solução ATIVA do fluxo.
+    const aptaA = await novaOferta("[TESTE-F2] Massa apta A", solucaoId);
+    const aptaB = await novaOferta("[TESTE-F2] Massa apta B", solucaoId);
+
+    // Um rascunho inapto: solução própria, colocada INATIVA (impedimento RN02).
+    const categoria = await prisma.categoria.findFirstOrThrow();
+    const cultura = await prisma.cultura.findFirstOrThrow({ where: { slug: "TODAS" } });
+    const solucaoInativa = await criarSolucao(analista, empresaId, {
+      nome: "[TESTE-F2] Solução inativa (massa)",
+      descricaoCurta: "Card de teste da publicação em massa",
+      categoriaId: categoria.id,
+      coberturaNacional: true,
+      culturaIds: [cultura.id],
+      imagemCardUrl: "s3://cards/teste-f2-massa.png",
+    });
+    const inapta = await novaOferta("[TESTE-F2] Massa inapta", solucaoInativa.id);
+    await prisma.solucao.update({
+      where: { id: solucaoInativa.id },
+      data: { status: "INATIVA" },
+    });
+
+    const resumo = await publicarTodasElegiveis(gestor);
+
+    // As duas aptas foram ao ar (a regra PUBLICACAO_OFERTA nasce desligada).
+    expect((await prisma.oferta.findUniqueOrThrow({ where: { id: aptaA.id } })).status).toBe(
+      "PUBLICADA",
+    );
+    expect((await prisma.oferta.findUniqueOrThrow({ where: { id: aptaB.id } })).status).toBe(
+      "PUBLICADA",
+    );
+    expect(resumo.publicadas).toBeGreaterThanOrEqual(2);
+
+    // A inapta ficou de fora, ainda em rascunho, e com o motivo nomeado (RN02).
+    expect((await prisma.oferta.findUniqueOrThrow({ where: { id: inapta.id } })).status).toBe(
+      "RASCUNHO",
+    );
+    const registroInapto = resumo.inelegiveis.find((i) => i.id === inapta.id);
+    expect(registroInapto).toBeDefined();
+    expect(registroInapto?.motivos.join(" ")).toMatch(/RN02/);
+
+    // Higiene de teste sequencial: encerra as duas aptas para não inflar a
+    // cascata de pausas do teste de suspensão logo abaixo (que espera 1).
+    await prisma.oferta.updateMany({
+      where: { id: { in: [aptaA.id, aptaB.id] } },
+      data: { status: "ENCERRADA" },
+    });
   });
 
   it("editar campo publicável de oferta publicada liga a flag (RN10)", async () => {
