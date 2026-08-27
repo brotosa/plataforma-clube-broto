@@ -300,7 +300,6 @@ function montarPanorama(
     versaoKitVigente: number | null;
     cestasReutilizaveis: number;
     cestasComPendenciaRn41: number;
-    resgatesDeCupom: number | null;
     /**
      * F20 — o que o CATÁLOGO da operadora apurou, por natureza de oferta
      * (RN68). Nulo enquanto nenhum arquivo tiver sido importado: é
@@ -318,6 +317,8 @@ function montarPanorama(
      * benefícios", à frente do catálogo; nulo quando não há evento nominal.
      */
     extratoBeneficios: ResgatesNominaisGlobais | null;
+    /** Errata 28/08 — idem para o card de cupons (natureza CUPOM_DESCONTO). */
+    extratoCupons: ResgatesNominaisGlobais | null;
   },
 ): CelulaPanorama[] {
   const definicao = (chave: ChavePanorama) =>
@@ -428,10 +429,16 @@ function montarPanorama(
       extras.catalogoBeneficios,
       { nivelAtribuicao: "POR_OFERTA" },
     ),
+    // Errata 28/08 (RN50/RN65) — simetria com benefícios: o card mostra o
+    // total do extrato nominal de cupom; o catálogo segue como segunda
+    // opção. A regra de comissão do cupom permanece `[A CONFIRMAR]`, mas
+    // isso não impede CONTAR o resgate.
     celulaDeTelemetria(
       definicao("PAN_RESGATES_CUPONS"),
-      extras.resgatesDeCupom === 0 ? null : extras.resgatesDeCupom,
-      "regra de comissão do cupom em confirmação",
+      extras.extratoCupons?.resgates ?? null,
+      extras.extratoCupons?.dataDoRetrato
+        ? `retrato de ${FORMATO_RETRATO.format(extras.extratoCupons.dataDoRetrato)} · comissão do cupom em confirmação`
+        : "resgates no extrato · comissão do cupom em confirmação",
       extras.catalogoCupons,
     ),
   ];
@@ -545,11 +552,11 @@ async function dadosDoHero(janela: JanelaDashboard) {
     cestas,
     vitrine,
     ofertasTotal,
-    resgatesDeCupom,
     catalogoRecompensa,
     catalogoBeneficio,
     catalogoCupons,
     extratoBeneficios,
+    extratoCupons,
   ] = await Promise.all([
       apurarCobertura(),
       listarCampanhas(),
@@ -559,13 +566,6 @@ async function dadosDoHero(janela: JanelaDashboard) {
       // fora seria o começo da divergência que a RN50 existe para evitar.
       kpiVitrineViva(),
       prisma.oferta.count(),
-      prisma.telemetriaEvento.count({
-        where: {
-          tipo: "RESGATE_VOUCHER",
-          oferta: { natureza: "CUPOM_DESCONTO" },
-          dataEvento: { gte: janela.inicio, lte: janela.fim },
-        },
-      }),
       // F20 — a apuração do catálogo, pela consulta única da telemetria
       // da operadora (RN68). "Benefícios" reúne RECOMPENSA e BENEFICIO,
       // que é o que a célula sempre nomeou; cupons ficam à parte porque
@@ -578,6 +578,11 @@ async function dadosDoHero(janela: JanelaDashboard) {
       // recorte da campanha ativa. Uma contagem só, "extrato", nunca somada
       // ao catálogo (RN68).
       resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"]),
+      // Errata 28/08 (RN50/RN65) — simetria com benefícios: o card
+      // "Resgates de cupons" também passa a exibir o total do extrato
+      // nominal (natureza cupom). A regra de comissão do cupom segue
+      // `[A CONFIRMAR]`, mas contar o resgate não depende dela.
+      resgatesNominaisGlobais(["CUPOM_DESCONTO"]),
     ]);
 
   const portfolio = montarPortfolio(cobertura.fatos);
@@ -595,10 +600,10 @@ async function dadosDoHero(janela: JanelaDashboard) {
     versaoKitVigente: ativas.find((campanha) => campanha.versaoKit !== null)?.versaoKit ?? null,
     cestasReutilizaveis: cestas.length,
     cestasComPendenciaRn41: situacoes.filter((situacao) => !situacao.liberada).length,
-    resgatesDeCupom,
     catalogoBeneficios: somarApuracoes(catalogoRecompensa, catalogoBeneficio),
     catalogoCupons,
     extratoBeneficios,
+    extratoCupons,
   };
 }
 

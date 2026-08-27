@@ -459,6 +459,42 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
       const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
       expect(celula.resultado.estado).toBe("INDISPONIVEL");
     });
+
+    it("o card de cupons também sai do extrato (errata 28/08) — natureza cupom", async () => {
+      await prisma.eventoDeResgateTelemetria.createMany({
+        data: [
+          {
+            assinanteId,
+            ofertaId: ofertaCupomId,
+            dataEvento: new Date("2026-07-10T00:00:00.000Z"),
+            produto: "Desconto",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-cup1`,
+            importacaoId,
+          },
+          // Um resgate de BENEFÍCIO não deve contar no card de cupons.
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2026-07-11T00:00:00.000Z"),
+            produto: "Brinde",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-ben1`,
+            importacaoId,
+          },
+        ],
+      });
+
+      expect((await resgatesNominaisGlobais(["CUPOM_DESCONTO"]))?.resgates).toBe(1);
+
+      const painel = await montarPainel("90");
+      const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_CUPONS")!;
+      expect(celula.resultado.estado).toBe("DISPONIVEL");
+      if (celula.resultado.estado === "DISPONIVEL") {
+        expect(celula.resultado.valor).toBe(1);
+      }
+      expect(celula.nota).toContain("extrato");
+    });
   });
 
   describe("T33 — cards que a F20 não muda", () => {
@@ -642,8 +678,12 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
 
       const painel = await montarPainel("90");
       const cupons = painel.panorama.find((c) => c.chave === "PAN_RESGATES_CUPONS")!;
-      // 227 do catálogo, jamais 228: o evento nominal não entra na conta.
-      expect(cupons.resultado).toMatchObject({ estado: "DISPONIVEL", valor: 227 });
+      // Errata 28/08: o extrato é a fonte primária do card; então mostra 1
+      // (o evento nominal), com o catálogo (227) como segunda opção NÃO
+      // usada aqui. O que a RN68 proíbe segue valendo: jamais 228 (a soma),
+      // jamais 227+1 — uma contagem só, nomeada, nunca as duas juntas.
+      expect(cupons.resultado).toMatchObject({ estado: "DISPONIVEL", valor: 1 });
+      expect(cupons.nota).toContain("origem: extrato");
     });
   });
 
