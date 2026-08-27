@@ -6,7 +6,12 @@ import { cifrarCpf, hashCpf } from "@/infra/assinantes/protecao-cpf";
 import { montarCorpoDoRelatorio } from "@/infra/casos-de-uso/relatorio-patrocinador";
 import { cardsDeConsumo } from "./patrocinadores";
 import { montarPainel } from "./dashboard";
-import { apurarCatalogo, apurarExtratoNominal, apurarFunilDeAtivacao } from "./telemetria-operadora";
+import {
+  apurarCatalogo,
+  apurarExtratoNominal,
+  apurarFunilDeAtivacao,
+  resgatesNominaisGlobais,
+} from "./telemetria-operadora";
 
 /**
  * **Complemento operacional da RN65 — o selo é derivado, não escrito.**
@@ -384,6 +389,75 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
       // Sem evento nominal, o card espera — mesmo com 25 no catálogo.
       expect(compras.selo).toBe("AGUARDA_CHAVE");
       expect(JSON.stringify(compras.linhas)).not.toContain("25");
+    });
+  });
+
+  describe("Dashboard — card 'Resgates de benefícios' = total do extrato (errata 27/08)", () => {
+    it("soma os resgates do extrato por natureza e acende a célula do panorama", async () => {
+      // Dois resgates e uma compra numa oferta RECOMPENSA (conta em
+      // benefícios), mais um resgate numa oferta CUPOM (não conta aqui).
+      await prisma.eventoDeResgateTelemetria.createMany({
+        data: [
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2026-07-10T00:00:00.000Z"),
+            produto: "Brinde",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-b1`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2026-07-12T00:00:00.000Z"),
+            produto: "Brinde",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-b2`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2026-07-11T00:00:00.000Z"),
+            produto: "Curso",
+            tipoOferta: "Checkout no clube",
+            chaveNatural: `${MARCA}-compra`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            ofertaId: ofertaCupomId,
+            dataEvento: new Date("2026-07-13T00:00:00.000Z"),
+            produto: "Desconto",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-cupom`,
+            importacaoId,
+          },
+        ],
+      });
+
+      // A consulta conta só os RESGATE de RECOMPENSA/BENEFICIO: 2 (não a
+      // compra, não o cupom).
+      const global = await resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"]);
+      expect(global?.resgates).toBe(2);
+      expect(global?.dataDoRetrato).toEqual(new Date("2026-07-12T00:00:00.000Z"));
+
+      // A célula do hero acende com esse total e a origem "extrato".
+      const painel = await montarPainel("90");
+      const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
+      expect(celula.resultado.estado).toBe("DISPONIVEL");
+      if (celula.resultado.estado === "DISPONIVEL") {
+        expect(celula.resultado.valor).toBe(2);
+      }
+      expect(celula.nota).toContain("extrato");
+    });
+
+    it("sem evento nominal de benefício, a célula continua aguardando (RN53)", async () => {
+      expect(await resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"])).toBeNull();
+      const painel = await montarPainel("90");
+      const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
+      expect(celula.resultado.estado).toBe("INDISPONIVEL");
     });
   });
 

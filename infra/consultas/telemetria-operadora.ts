@@ -146,6 +146,51 @@ export async function apurarExtratoNominal(
 }
 
 /**
+ * Total GLOBAL de resgates do extrato nominal (RN68), por natureza de
+ * oferta — a soma de todos os eventos de classe RESGATE do relatório
+ * "Resgate e Compras", em toda a base (não recortado por campanha nem por
+ * patrocinador).
+ *
+ * É a fonte do card "Resgates de benefícios" do Dashboard depois da errata
+ * de 27/08 (o card passou de "resgates na campanha ativa" para o total do
+ * extrato — decisão do Administrador da Plataforma, RN50/RN65). Continua
+ * sendo UMA contagem só, nomeada como "extrato": jamais somada ao contador
+ * de catálogo (RN68).
+ *
+ * `null` quando não há evento nominal algum nessas naturezas — ausência de
+ * apuração, não zero (RN53). Havendo eventos mas nenhum de classe RESGATE,
+ * devolve `0` **medido** com a data do retrato.
+ */
+export interface ResgatesNominaisGlobais {
+  resgates: number;
+  dataDoRetrato: Date | null;
+}
+
+export async function resgatesNominaisGlobais(
+  naturezas: ReadonlyArray<"RECOMPENSA" | "BENEFICIO" | "CUPOM_DESCONTO">,
+): Promise<ResgatesNominaisGlobais | null> {
+  const eventos = await prisma.eventoDeResgateTelemetria.findMany({
+    where: { oferta: { natureza: { in: [...naturezas] } } },
+    select: { tipoOferta: true, dataEvento: true },
+  });
+  if (eventos.length === 0) {
+    return null;
+  }
+  let resgates = 0;
+  let dataDoRetrato: Date | null = null;
+  for (const evento of eventos) {
+    if (classificarEvento(evento.tipoOferta) !== "RESGATE") {
+      continue;
+    }
+    resgates += 1;
+    if (!dataDoRetrato || evento.dataEvento > dataDoRetrato) {
+      dataDoRetrato = evento.dataEvento;
+    }
+  }
+  return { resgates, dataDoRetrato };
+}
+
+/**
  * O RFV de um assinante (RN36) — recência, frequência e valor a partir dos
  * eventos nominais que casaram por CPF na importação da operadora.
  *

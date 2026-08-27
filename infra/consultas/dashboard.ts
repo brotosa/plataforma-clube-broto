@@ -1,6 +1,11 @@
 import type { EstagioEmpresa, NivelAtribuicao, Prisma } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
-import { apurarCatalogo, type ApuracaoDeCatalogo } from "@/infra/consultas/telemetria-operadora";
+import {
+  apurarCatalogo,
+  resgatesNominaisGlobais,
+  type ApuracaoDeCatalogo,
+  type ResgatesNominaisGlobais,
+} from "@/infra/consultas/telemetria-operadora";
 import {
   type BlocoDashboard,
   CATALOGO_ACAO_HOJE,
@@ -295,7 +300,6 @@ function montarPanorama(
     versaoKitVigente: number | null;
     cestasReutilizaveis: number;
     cestasComPendenciaRn41: number;
-    resgatesEmCampanhaAtiva: number | null;
     resgatesDeCupom: number | null;
     /**
      * F20 — o que o CATÁLOGO da operadora apurou, por natureza de oferta
@@ -308,6 +312,12 @@ function montarPanorama(
      */
     catalogoBeneficios: ApuracaoDeCatalogo | null;
     catalogoCupons: ApuracaoDeCatalogo | null;
+    /**
+     * Errata 27/08 (RN50/RN65) — total do extrato nominal de benefícios
+     * (RECOMPENSA + BENEFICIO). Vira a PRIMEIRA opção do card "Resgates de
+     * benefícios", à frente do catálogo; nulo quando não há evento nominal.
+     */
+    extratoBeneficios: ResgatesNominaisGlobais | null;
   },
 ): CelulaPanorama[] {
   const definicao = (chave: ChavePanorama) =>
@@ -403,10 +413,18 @@ function montarPanorama(
     // como célula fantasma, porque o fundo do grid é a cor das divisórias
     // (defeito corrigido na Onda 7, registrado no `dseed-admin.css`).
     // Célula nova no hero é troca, e é decisão de Design.
+    // Errata 27/08 (RN50/RN65) — o card mostra o TOTAL do extrato nominal de
+    // benefícios (RECOMPENSA + BENEFICIO), decisão do Administrador da
+    // Plataforma. `nominal` deixa de ser "resgates na campanha ativa" e passa
+    // a ser o total do extrato; o catálogo continua como segunda opção
+    // (RN68 — uma OU outra, nunca somadas), e a campanha ativa deixa de
+    // alimentar esta célula.
     celulaDeTelemetria(
       definicao("PAN_RESGATES_BENEFICIOS"),
-      extras.resgatesEmCampanhaAtiva,
-      "na campanha ativa",
+      extras.extratoBeneficios?.resgates ?? null,
+      extras.extratoBeneficios?.dataDoRetrato
+        ? `retrato de ${FORMATO_RETRATO.format(extras.extratoBeneficios.dataDoRetrato)}`
+        : "resgates no extrato nominal",
       extras.catalogoBeneficios,
       { nivelAtribuicao: "POR_OFERTA" },
     ),
@@ -531,6 +549,7 @@ async function dadosDoHero(janela: JanelaDashboard) {
     catalogoRecompensa,
     catalogoBeneficio,
     catalogoCupons,
+    extratoBeneficios,
   ] = await Promise.all([
       apurarCobertura(),
       listarCampanhas(),
@@ -554,6 +573,11 @@ async function dadosDoHero(janela: JanelaDashboard) {
       apurarCatalogo({ natureza: "RECOMPENSA" }),
       apurarCatalogo({ natureza: "BENEFICIO" }),
       apurarCatalogo({ natureza: "CUPOM_DESCONTO" }),
+      // Errata 27/08 (RN50/RN65) — o card "Resgates de benefícios" passa a
+      // exibir o TOTAL do extrato nominal (RECOMPENSA + BENEFICIO), não só o
+      // recorte da campanha ativa. Uma contagem só, "extrato", nunca somada
+      // ao catálogo (RN68).
+      resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"]),
     ]);
 
   const portfolio = montarPortfolio(cobertura.fatos);
@@ -571,15 +595,10 @@ async function dadosDoHero(janela: JanelaDashboard) {
     versaoKitVigente: ativas.find((campanha) => campanha.versaoKit !== null)?.versaoKit ?? null,
     cestasReutilizaveis: cestas.length,
     cestasComPendenciaRn41: situacoes.filter((situacao) => !situacao.liberada).length,
-    // Sem campanha ativa não há "resgates na campanha ativa" para apurar: é
-    // ausência de base, não zero resgates (RN53).
-    resgatesEmCampanhaAtiva:
-      ativas.length === 0
-        ? null
-        : ativas.reduce((total, campanha) => total + campanha.resgatesNaVigencia, 0),
     resgatesDeCupom,
     catalogoBeneficios: somarApuracoes(catalogoRecompensa, catalogoBeneficio),
     catalogoCupons,
+    extratoBeneficios,
   };
 }
 
