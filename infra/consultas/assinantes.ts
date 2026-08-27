@@ -111,7 +111,31 @@ export interface FiltrosCarteira {
   patrocinadorId?: string;
   /** Onda 12 (RN63) — filtro de Perfil na T18. */
   perfilAssinatura?: string;
+  /**
+   * Ordenação por coluna (T18). Allowlist fechada — a entrada do usuário
+   * nunca vira SQL: só estas chaves mapeiam para expressão. CPF fica de
+   * fora de propósito (cifrado/mascarado, RN30 — não há coluna em claro).
+   */
+  ordenarPor?: OrdenacaoCarteira;
+  direcao?: "asc" | "desc";
 }
+
+export type OrdenacaoCarteira = "nome" | "perfil" | "uf";
+
+/**
+ * Allowlist coluna→expressão SQL da ordenação (RN33/segurança): a chave vem
+ * do usuário, mas o que entra no SQL é SEMPRE um valor fixo daqui. Colunas
+ * anuláveis (uf, perfil) ordenam com NULLS LAST para o "sem dado" ficar no
+ * fim em qualquer direção. Desempate estável por id.
+ */
+const EXPRESSAO_ORDENACAO: Readonly<Record<OrdenacaoCarteira, string>> = {
+  nome: "a.nome",
+  // `::text` de propósito: o enum ordena pela ordem de DECLARAÇÃO no
+  // Postgres, que parece arbitrária na tela; como texto, ordena
+  // alfabeticamente pelo valor (Autoassinatura < Patrocinada < Promocional).
+  perfil: "a.perfil_assinatura::text",
+  uf: "a.uf",
+};
 
 /**
  * Carteira (T18): consulta paginada no servidor, filtro do construtor +
@@ -184,8 +208,16 @@ export async function listarCarteira(
     TAMANHO_PAGINA_ASSINANTES,
     (pagina - 1) * TAMANHO_PAGINA_ASSINANTES,
   ];
+  // Ordenação vinda da UI, sempre pela allowlist (nunca a entrada crua):
+  // coluna e direção mapeiam para valores fixos. Nome ASC é o padrão.
+  const coluna = EXPRESSAO_ORDENACAO[filtros.ordenarPor ?? "nome"] ?? EXPRESSAO_ORDENACAO.nome;
+  const direcao = filtros.direcao === "desc" ? "DESC" : "ASC";
+  const orderBy =
+    coluna === "a.nome"
+      ? `a.nome ${direcao}, a.id ASC`
+      : `${coluna} ${direcao} NULLS LAST, a.nome ASC, a.id ASC`;
   const ids = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-    `SELECT a.id FROM assinantes a WHERE ${baseWhere} ORDER BY a.nome ASC, a.id ASC LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
+    `SELECT a.id FROM assinantes a WHERE ${baseWhere} ORDER BY ${orderBy} LIMIT $${parametros.length + 1} OFFSET $${parametros.length + 2}`,
     ...parametrosPagina,
   );
 

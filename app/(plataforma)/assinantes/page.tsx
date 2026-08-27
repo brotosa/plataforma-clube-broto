@@ -34,6 +34,12 @@ export default async function PaginaCarteira({
   }
   const busca = typeof parametros.busca === "string" ? parametros.busca : "";
   const pagina = Number(parametros.pagina ?? 1) || 1;
+  // Ordenação (T18): validada contra a allowlist da consulta — chave fora
+  // da lista cai no padrão (nome), nunca vira SQL.
+  const ordenarPor = (["nome", "perfil", "uf"] as const).find(
+    (chave) => chave === parametros.ordenar,
+  );
+  const direcao = parametros.direcao === "desc" ? "desc" : "asc";
   const solicitouPlenos = parametros.plenos === "1";
   const segmentoEdicaoId =
     typeof parametros.segmento === "string" ? parametros.segmento : null;
@@ -53,7 +59,10 @@ export default async function PaginaCarteira({
   let carteira: Awaited<ReturnType<typeof listarCarteira>> | null = null;
   let erroConsulta = false;
   try {
-    carteira = await listarCarteira({ regras, busca, pagina }, { dadosPlenos });
+    carteira = await listarCarteira(
+      { regras, busca, pagina, ordenarPor, direcao },
+      { dadosPlenos },
+    );
   } catch {
     erroConsulta = true;
   }
@@ -79,6 +88,7 @@ export default async function PaginaCarteira({
             }
           : null
       }
+      ordenacao={{ por: ordenarPor ?? "nome", direcao }}
       erroConsulta={erroConsulta}
       temBase={temBase}
       dadosPlenos={dadosPlenos}
