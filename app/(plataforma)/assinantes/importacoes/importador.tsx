@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PoliticaImportacao } from "@prisma/client";
 import type { ResumoCargaNucleo } from "@/dominio/assinantes/importacao";
+import { CAMPOS_NUCLEO, ROTULOS_CAMPO_NUCLEO } from "@/dominio/assinantes/importacao";
 import type { ResumoCargaEnriquecimento } from "@/dominio/assinantes/enriquecimento";
 import {
   acaoConfirmarImportacao,
@@ -41,14 +42,11 @@ interface LinhaHistorico {
   temErros: boolean;
 }
 
+// Derivado do domínio (CAMPOS_NUCLEO/ROTULOS) para não divergir do
+// mapeador do servidor — inclui `Perfil de assinatura` e `Patrocinador`
+// (Onda 12), que a UI não expunha e por isso não podiam ser mapeados.
 const CAMPOS_NUCLEO_T20 = [
-  { valor: "cpf", rotulo: "CPF" },
-  { valor: "nome", rotulo: "Nome" },
-  { valor: "endereco", rotulo: "Endereço" },
-  { valor: "cep", rotulo: "CEP" },
-  { valor: "email", rotulo: "E-mail" },
-  { valor: "telefone", rotulo: "Telefone" },
-  { valor: "preferencia", rotulo: "Preferência" },
+  ...CAMPOS_NUCLEO.map((campo) => ({ valor: campo, rotulo: ROTULOS_CAMPO_NUCLEO[campo] })),
   { valor: "nao_importar", rotulo: "— não importar" },
 ];
 
@@ -334,6 +332,17 @@ export function Importador({
                 <span className="selo">a confirmar</span> — o mapeador do passo 3 absorve
                 variações de coluna.
               </p>
+              {familia === "ASSINANTES_NUCLEO" ? (
+                <p className="cap" style={{ margin: "0 0 14px" }}>
+                  Na dúvida sobre as colunas, baixe o modelo de referência (traz também
+                  Perfil de assinatura e Patrocinador):{" "}
+                  {/* Route handler que devolve arquivo: âncora nativa, não <Link>. */}
+                  {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+                  <a href="/assinantes/importacoes/modelo" style={{ fontWeight: 700 }}>
+                    Baixar modelo (.csv)
+                  </a>
+                </p>
+              ) : null}
               <div className="drop">
                 <svg
                   aria-hidden="true"

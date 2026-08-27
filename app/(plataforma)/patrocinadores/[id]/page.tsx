@@ -9,6 +9,7 @@ import {
   lerPatrocinador,
   listarCampanhasDoPatrocinador,
   listarGeracoesDeRelatorio,
+  vinculosVigentesPorAssinante,
   type CardDeConsumo,
 } from "@/infra/consultas/patrocinadores";
 import { prisma } from "@/infra/prisma/cliente";
@@ -16,6 +17,7 @@ import { CelulaDeVagas } from "../page";
 import { EditarPatrocinador } from "../formulario-patrocinador";
 import { CartaoDeMinuta } from "./cartao-minuta";
 import { FormularioDoContrato, GerarRelatorio, StatusDoPatrocinador } from "./formularios-contrato";
+import { EncerrarVinculo, VincularAssinante } from "./formularios-vinculo";
 
 /**
  * T33 — Ficha do patrocinador.
@@ -146,13 +148,16 @@ export default async function PaginaDoPatrocinador({
    * aqui — mesmo com a mesma permissão — criaria uma via de acesso a dado
    * pessoal que a trilha da T18 não enxerga.
    */
-  const base =
+  const [base, vinculosVigentes] =
     aba === "base"
-      ? await listarCarteira(
-          { regras: [], pagina: Number(parametros.pagina ?? 1) || 1, patrocinadorId: id },
-          { dadosPlenos: false },
-        )
-      : null;
+      ? await Promise.all([
+          listarCarteira(
+            { regras: [], pagina: Number(parametros.pagina ?? 1) || 1, patrocinadorId: id },
+            { dadosPlenos: false },
+          ),
+          podeGerir ? vinculosVigentesPorAssinante(id) : Promise.resolve(new Map<string, string>()),
+        ])
+      : [null, new Map<string, string>()];
 
   const contrato = patrocinador.contrato;
   const motivoDoContrato = "aguarda o dado do contrato";
@@ -356,57 +361,80 @@ export default async function PaginaDoPatrocinador({
       ) : null}
 
       {aba === "base" ? (
-        <div className="card" style={{ overflowX: "auto" }}>
-          {base === null || base.linhas.length === 0 ? (
-            <div className="vazio">
-              <h2 className="h-el">Nenhum assinante vinculado</h2>
-              <p className="cap" style={{ maxWidth: "50ch", margin: 0 }}>
-                As vagas do contrato são ocupadas por vínculo. Enquanto não houver vínculo, a base
-                do patrocinador está vazia — e o saldo é o contrato inteiro.
-              </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {podeGerir ? (
+            <div>
+              <VincularAssinante patrocinadorId={id} />
             </div>
-          ) : (
-            <>
-              <p className="cap" style={{ padding: "12px 16px 0", margin: 0 }}>
-                {base.total?.toLocaleString("pt-BR")} assinante(s) com vínculo vigente. CPF, e-mail
-                e telefone aparecem mascarados: a exibição plena é o caminho auditado da carteira
-                (T18), não desta tela.
-              </p>
-              <table className="tbl tbl-resp">
-                <caption className="sr-oculto">
-                  Assinantes vinculados ao patrocinador, com dados pessoais mascarados
-                </caption>
-                <thead>
-                  <tr>
-                    <th>Assinante</th>
-                    <th>CPF</th>
-                    <th>UF</th>
-                    <th>Município</th>
-                    <th>Perfil</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {base.linhas.map((linha) => (
-                    <tr key={linha.id}>
-                      <td data-label="Assinante">{linha.nome}</td>
-                      <td data-label="CPF" className="num">
-                        {linha.cpf}
-                      </td>
-                      <td data-label="UF">{linha.uf ?? "—"}</td>
-                      <td data-label="Município">{linha.municipio ?? "—"}</td>
-                      <td data-label="Perfil">
-                        {linha.perfilAssinatura ? (
-                          linha.perfilAssinatura
-                        ) : (
-                          <span className="cap">aguarda a fonte</span>
-                        )}
-                      </td>
+          ) : null}
+          <div className="card" style={{ overflowX: "auto" }}>
+            {base === null || base.linhas.length === 0 ? (
+              <div className="vazio">
+                <h2 className="h-el">Nenhum assinante vinculado</h2>
+                <p className="cap" style={{ maxWidth: "50ch", margin: 0 }}>
+                  As vagas do contrato são ocupadas por vínculo. Enquanto não houver vínculo, a base
+                  do patrocinador está vazia — e o saldo é o contrato inteiro.
+                  {podeGerir
+                    ? " Use “Vincular assinante” acima para ocupar uma vaga pelo CPF."
+                    : ""}
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="cap" style={{ padding: "12px 16px 0", margin: 0 }}>
+                  {base.total?.toLocaleString("pt-BR")} assinante(s) com vínculo vigente. CPF, e-mail
+                  e telefone aparecem mascarados: a exibição plena é o caminho auditado da carteira
+                  (T18), não desta tela.
+                </p>
+                <table className="tbl tbl-resp">
+                  <caption className="sr-oculto">
+                    Assinantes vinculados ao patrocinador, com dados pessoais mascarados
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th>Assinante</th>
+                      <th>CPF</th>
+                      <th>UF</th>
+                      <th>Município</th>
+                      <th>Perfil</th>
+                      {podeGerir ? <th>Vínculo</th> : null}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
+                  </thead>
+                  <tbody>
+                    {base.linhas.map((linha) => {
+                      const vinculoId = vinculosVigentes.get(linha.id);
+                      return (
+                        <tr key={linha.id}>
+                          <td data-label="Assinante">{linha.nome}</td>
+                          <td data-label="CPF" className="num">
+                            {linha.cpf}
+                          </td>
+                          <td data-label="UF">{linha.uf ?? "—"}</td>
+                          <td data-label="Município">{linha.municipio ?? "—"}</td>
+                          <td data-label="Perfil">
+                            {linha.perfilAssinatura ? (
+                              linha.perfilAssinatura
+                            ) : (
+                              <span className="cap">aguarda a fonte</span>
+                            )}
+                          </td>
+                          {podeGerir ? (
+                            <td data-label="Vínculo">
+                              {vinculoId ? (
+                                <EncerrarVinculo patrocinadorId={id} vinculoId={vinculoId} />
+                              ) : (
+                                <span className="cap">—</span>
+                              )}
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
         </div>
       ) : null}
 
