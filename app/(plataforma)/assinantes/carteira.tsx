@@ -85,11 +85,79 @@ function IconeAviso() {
   );
 }
 
+/** Colunas ordenáveis da T18 (espelha a allowlist da consulta). */
+export type OrdenarPor = "nome" | "perfil" | "uf";
+export interface Ordenacao {
+  por: OrdenarPor;
+  direcao: "asc" | "desc";
+}
+
+/**
+ * Régua de números de página com janela em torno da atual: sempre a 1ª e a
+ * última, mais as vizinhas da atual; `null` marca a elipse. Evita imprimir
+ * 137 botões quando a base é grande.
+ */
+function numerosDePagina(atual: number, total: number): Array<number | null> {
+  const paginas = new Set<number>([1, total, atual, atual - 1, atual + 1]);
+  const ordenadas = [...paginas].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const resultado: Array<number | null> = [];
+  let anterior = 0;
+  for (const numero of ordenadas) {
+    if (numero - anterior > 1) resultado.push(null);
+    resultado.push(numero);
+    anterior = numero;
+  }
+  return resultado;
+}
+
+/** `aria-sort` do `<th>` (onde o atributo é válido), a partir da ordenação. */
+function ariaSort(
+  coluna: OrdenarPor,
+  ordenacao: Ordenacao,
+): "ascending" | "descending" | "none" {
+  if (ordenacao.por !== coluna) return "none";
+  return ordenacao.direcao === "asc" ? "ascending" : "descending";
+}
+
+/**
+ * Cabeçalho de coluna ordenável (T18): um botão dentro do `<th>` que
+ * navega por query. A seta indica a direção; a coluna ativa fica em
+ * destaque. Colunas sem botão continuam sendo texto simples.
+ */
+function BotaoOrdenar({
+  coluna,
+  rotulo,
+  ordenacao,
+  aoOrdenar,
+}: {
+  coluna: OrdenarPor;
+  rotulo: string;
+  ordenacao: Ordenacao;
+  aoOrdenar: (coluna: OrdenarPor) => void;
+}) {
+  const ativo = ordenacao.por === coluna;
+  const seta = !ativo ? "↕" : ordenacao.direcao === "asc" ? "↑" : "↓";
+  return (
+    <button
+      type="button"
+      className="th-ordenar"
+      onClick={() => aoOrdenar(coluna)}
+      aria-label={`Ordenar por ${rotulo}${ativo ? (ordenacao.direcao === "asc" ? ", ascendente" : ", descendente") : ""}`}
+    >
+      <span>{rotulo}</span>
+      <span aria-hidden="true" className={ativo ? "seta-ativa" : "seta"}>
+        {seta}
+      </span>
+    </button>
+  );
+}
+
 export function CarteiraAssinantes({
   campos,
   regrasIniciais,
   busca,
   carteira,
+  ordenacao,
   erroConsulta,
   temBase,
   dadosPlenos,
@@ -102,6 +170,7 @@ export function CarteiraAssinantes({
   regrasIniciais: RegraConstrutor[];
   busca: string;
   carteira: DadosCarteira | null;
+  ordenacao: Ordenacao;
   erroConsulta: boolean;
   temBase: boolean;
   dadosPlenos: boolean;
@@ -132,21 +201,73 @@ export function CarteiraAssinantes({
       return;
     }
     const temporizador = setTimeout(() => {
-      const consulta = new URLSearchParams();
-      if (regras.length > 0) consulta.set("regras", JSON.stringify(regras));
-      if (textoBusca.trim()) consulta.set("busca", textoBusca.trim());
-      if (dadosPlenos) consulta.set("plenos", "1");
+      // Trocar filtro/busca volta para a página 1 (não preserva `pagina`),
+      // mas PRESERVA a ordenação escolhida.
       iniciarTransicao(() => {
-        roteador.replace(`${rota}${consulta.size > 0 ? `?${consulta}` : ""}`);
+        roteador.replace(consultaComoUrl({ ordenar: true }));
       });
     }, 400);
     return () => clearTimeout(temporizador);
-  }, [regras, textoBusca, dadosPlenos, rota, roteador]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regras, textoBusca, dadosPlenos, ordenacao.por, ordenacao.direcao, rota, roteador]);
+
+  /**
+   * Monta a URL da carteira a partir do estado atual (regras, busca,
+   * plenos) e, opcionalmente, da ordenação e da página. Fonte única das
+   * navegações por query desta tela — evita as três montagens repetidas que
+   * existiam nos botões de paginação.
+   */
+  function consultaComoUrl(opcoes: { ordenar?: boolean; pagina?: number } = {}): string {
+    const consulta = new URLSearchParams();
+    if (regras.length > 0) consulta.set("regras", JSON.stringify(regras));
+    if (textoBusca.trim()) consulta.set("busca", textoBusca.trim());
+    if (dadosPlenos) consulta.set("plenos", "1");
+    if (opcoes.ordenar && ordenacao.por !== "nome") consulta.set("ordenar", ordenacao.por);
+    if (opcoes.ordenar && ordenacao.direcao === "desc") consulta.set("direcao", "desc");
+    if (opcoes.pagina && opcoes.pagina > 1) consulta.set("pagina", String(opcoes.pagina));
+    return `${rota}${consulta.size > 0 ? `?${consulta}` : ""}`;
+  }
+
+  const irParaPagina = (numero: number) => {
+    roteador.replace(consultaComoUrl({ ordenar: true, pagina: numero }));
+  };
+
+  /**
+   * Clique no cabeçalho: alterna a direção se já ordena por aquela coluna,
+   * senão passa a ordenar por ela (ascendente). Sempre volta à página 1.
+   */
+  const ordenarPor = (coluna: OrdenarPor) => {
+    const proximaDirecao = ordenacao.por === coluna && ordenacao.direcao === "asc" ? "desc" : "asc";
+    const consulta = new URLSearchParams();
+    if (regras.length > 0) consulta.set("regras", JSON.stringify(regras));
+    if (textoBusca.trim()) consulta.set("busca", textoBusca.trim());
+    if (dadosPlenos) consulta.set("plenos", "1");
+    if (coluna !== "nome") consulta.set("ordenar", coluna);
+    if (proximaDirecao === "desc") consulta.set("direcao", "desc");
+    roteador.replace(`${rota}${consulta.size > 0 ? `?${consulta}` : ""}`);
+  };
+
+  /**
+   * Filtros rápidos: escrevem uma REGRA no construtor (caminho único, RN33),
+   * então a contagem viva e a exportação continuam coerentes. Só um valor
+   * por campo — selecionar troca a regra daquele campo; "todos" a remove.
+   */
+  const definirFiltroRapido = (campoSlug: string, valor: string) => {
+    setRegras((atuais) => {
+      const semCampo = atuais.filter((regra) => !(regra.campo === campoSlug && regra.operador === "e"));
+      if (valor === "") return semCampo;
+      return [...semCampo, { campo: campoSlug, operador: "e" as const, valor }];
+    });
+  };
+  const valorFiltroRapido = (campoSlug: string): string =>
+    regras.find((regra) => regra.campo === campoSlug && regra.operador === "e")?.valor ?? "";
 
   const alternarPlenos = () => {
     const consulta = new URLSearchParams();
     if (regras.length > 0) consulta.set("regras", JSON.stringify(regras));
     if (textoBusca.trim()) consulta.set("busca", textoBusca.trim());
+    if (ordenacao.por !== "nome") consulta.set("ordenar", ordenacao.por);
+    if (ordenacao.direcao === "desc") consulta.set("direcao", "desc");
     if (!dadosPlenos) consulta.set("plenos", "1");
     roteador.replace(`${rota}${consulta.size > 0 ? `?${consulta}` : ""}`);
   };
@@ -281,6 +402,70 @@ export function CarteiraAssinantes({
         )}
       </div>
 
+      {(() => {
+        const campoPerfil = campos.find((c) => c.slug === "perfil-assinatura");
+        const campoUf = campos.find((c) => c.slug === "uf");
+        const campoPatrocinador = campos.find((c) => c.slug === "patrocinador");
+        if (!campoPerfil && !campoUf && !campoPatrocinador) return null;
+        return (
+          <div className="filtros-rapidos" role="group" aria-label="Filtros rápidos">
+            <span className="cap" style={{ fontWeight: 700 }}>
+              Filtros rápidos:
+            </span>
+            {campoPerfil && campoPerfil.valores ? (
+              <div className="fr-chips" role="group" aria-label="Filtrar por perfil">
+                {campoPerfil.valores.map((opcao) => {
+                  const ativo = valorFiltroRapido("perfil-assinatura") === opcao.valor;
+                  return (
+                    <button
+                      key={opcao.valor}
+                      type="button"
+                      className={ativo ? "fr-chip on" : "fr-chip"}
+                      aria-pressed={ativo}
+                      onClick={() =>
+                        definirFiltroRapido("perfil-assinatura", ativo ? "" : opcao.valor)
+                      }
+                    >
+                      {opcao.rotulo}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {campoUf && campoUf.valores && campoUf.valores.length > 0 ? (
+              <select
+                className="select select-sm"
+                aria-label="Filtrar por UF"
+                value={valorFiltroRapido("uf")}
+                onChange={(evento) => definirFiltroRapido("uf", evento.target.value)}
+              >
+                <option value="">UF: todas</option>
+                {campoUf.valores.map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.rotulo}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {campoPatrocinador && campoPatrocinador.valores && campoPatrocinador.valores.length > 0 ? (
+              <select
+                className="select select-sm"
+                aria-label="Filtrar por patrocinador"
+                value={valorFiltroRapido("patrocinador")}
+                onChange={(evento) => definirFiltroRapido("patrocinador", evento.target.value)}
+              >
+                <option value="">Patrocinador: todos</option>
+                {campoPatrocinador.valores.map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.rotulo}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
+        );
+      })()}
+
       {erroConsulta ? (
         <div className="card">
           <div className="vazio">
@@ -349,11 +534,22 @@ export function CarteiraAssinantes({
             <table className="tbl tbl-resp">
               <thead>
                 <tr>
-                  <th style={{ width: "22%" }}>Assinante</th>
+                  <th style={{ width: "22%" }} aria-sort={ariaSort("nome", ordenacao)}>
+                    <BotaoOrdenar coluna="nome" rotulo="Assinante" ordenacao={ordenacao} aoOrdenar={ordenarPor} />
+                  </th>
                   <th>Contato</th>
-                  <th>Unidades produtivas</th>
+                  <th aria-sort={ariaSort("uf", ordenacao)}>
+                    <BotaoOrdenar
+                      coluna="uf"
+                      rotulo="Unidades produtivas"
+                      ordenacao={ordenacao}
+                      aoOrdenar={ordenarPor}
+                    />
+                  </th>
                   <th>Preferência</th>
-                  <th>Perfil</th>
+                  <th aria-sort={ariaSort("perfil", ordenacao)}>
+                    <BotaoOrdenar coluna="perfil" rotulo="Perfil" ordenacao={ordenacao} aoOrdenar={ordenarPor} />
+                  </th>
                   <th>Patrocinador</th>
                   <th>Cultura</th>
                   <th>Uso 90 d</th>
@@ -506,40 +702,48 @@ export function CarteiraAssinantes({
           {totalPaginas > 1 ? (
             <nav
               aria-label="Paginação da carteira"
-              style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}
+              style={{
+                display: "flex",
+                gap: 6,
+                justifyContent: "flex-end",
+                alignItems: "center",
+                marginTop: 8,
+                flexWrap: "wrap",
+              }}
             >
-              {carteira!.pagina > 1 ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    const consulta = new URLSearchParams();
-                    if (regras.length > 0) consulta.set("regras", JSON.stringify(regras));
-                    if (textoBusca.trim()) consulta.set("busca", textoBusca.trim());
-                    if (dadosPlenos) consulta.set("plenos", "1");
-                    consulta.set("pagina", String(carteira!.pagina - 1));
-                    roteador.replace(`${rota}?${consulta}`);
-                  }}
-                >
-                  ‹ Anterior
-                </button>
-              ) : null}
-              {carteira!.pagina < totalPaginas ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    const consulta = new URLSearchParams();
-                    if (regras.length > 0) consulta.set("regras", JSON.stringify(regras));
-                    if (textoBusca.trim()) consulta.set("busca", textoBusca.trim());
-                    if (dadosPlenos) consulta.set("plenos", "1");
-                    consulta.set("pagina", String(carteira!.pagina + 1));
-                    roteador.replace(`${rota}?${consulta}`);
-                  }}
-                >
-                  Próxima ›
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={carteira!.pagina <= 1}
+                onClick={() => irParaPagina(carteira!.pagina - 1)}
+              >
+                ‹ Anterior
+              </button>
+              {numerosDePagina(carteira!.pagina, totalPaginas).map((numero, indice) =>
+                numero === null ? (
+                  <span key={`gap-${indice}`} className="cap" aria-hidden="true">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={numero}
+                    type="button"
+                    className={numero === carteira!.pagina ? "btn btn-azul btn-sm" : "btn btn-ghost btn-sm"}
+                    aria-current={numero === carteira!.pagina ? "page" : undefined}
+                    onClick={() => irParaPagina(numero)}
+                  >
+                    {numero}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={carteira!.pagina >= totalPaginas}
+                onClick={() => irParaPagina(carteira!.pagina + 1)}
+              >
+                Próxima ›
+              </button>
             </nav>
           ) : null}
         </>

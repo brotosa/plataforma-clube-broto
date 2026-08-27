@@ -1324,6 +1324,23 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 @media print{.pa-rail,.pa-strip,.pa-gaveta,.pa-scrim{display:none}}
 @media (prefers-reduced-motion:reduce){.pa-strip-btn{transition:none}}
 
+/* ===== T18 · ordenação por coluna, filtros rápidos (Onda 15 — melhorias da carteira) ===== */
+/* Botão de ordenar dentro do <th>: herda o peso do cabeçalho, sem cara de
+   botão; a seta indica direção e a coluna ativa ganha a cor da marca. */
+.th-ordenar{display:inline-flex;align-items:center;gap:6px;border:0;background:none;cursor:pointer;
+  font:inherit;color:inherit;padding:0}
+.th-ordenar:hover{color:var(--azul-texto-aaa)}
+.th-ordenar .seta{opacity:.45;font-size:12px}
+.th-ordenar .seta-ativa{color:var(--azul);font-size:12px}
+/* Barra de filtros rápidos: chips de perfil + selects de UF/patrocinador. */
+.filtros-rapidos{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.fr-chips{display:flex;gap:6px;flex-wrap:wrap}
+.fr-chip{border:1px solid var(--borda);background:var(--branco);color:var(--preto);
+  border-radius:var(--r-pill);padding:4px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+.fr-chip:hover{border-color:var(--azul-claro);background:var(--azul-lightest)}
+.fr-chip.on{background:var(--azul);border-color:var(--azul);color:#fff}
+.select-sm{height:32px;padding:0 30px 0 12px;font-size:13px;background-position:right 10px center}
+
 </style>
 <style>
 html{scroll-behavior:smooth}
