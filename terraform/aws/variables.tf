@@ -69,3 +69,16 @@ variable "ecs_desired_count" {
   type        = number
   default     = 1
 }
+
+# Bastion de acesso ao banco privado — OPT-IN. O RDS fica em subnet privada
+# e só aceita o SG do ECS; não há rota do laptop até ele. Este bastion
+# (EC2 t4g.nano, SSM, sem SSH nem porta aberta) serve de ponto de salto
+# para túnel `aws ssm start-session` → o `psql`/DBeaver local conecta em
+# localhost. Fica DESLIGADO por padrão para não custar nada nem alterar a
+# pilha; ligue com `criar_bastion = true` quando precisar e volte a false
+# (ou pare a instância) quando terminar. Ver bastion.tf.
+variable "criar_bastion" {
+  description = "Cria o bastion EC2 (via SSM) para acesso administrativo ao RDS privado. Opt-in."
+  type        = bool
+  default     = false
+}
