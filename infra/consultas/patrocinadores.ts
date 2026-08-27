@@ -263,21 +263,19 @@ export const MOTIVO_AGUARDA_FONTE =
   "aguarda fonte — relatório ainda não fornecido; requisição enviada à operadora em 27/07";
 
 /**
- * F20 — o motivo de `Compras`, distinto no texto e **igual no selo**.
+ * O motivo do card de **modalidades**, distinto no texto e **igual no
+ * selo** ao dos resgates.
  *
- * A espera é a mesma dos resgates: falta importar o extrato nominal. O
- * texto muda porque o que se vai ver quando ele chegar é outra coisa, e
- * porque o card tem uma armadilha própria a desfazer — o contador de
- * `Compras` da lista de Ofertas existe, mas é **por oferta** e não se
- * atribui a patrocinador (RN68). Quem olhar os dois lugares precisa
- * saber que não são o mesmo número, e por quê.
- *
- * (Uma versão anterior desta fase gravou aqui `aguarda fonte`, por ler a
- * RN68 como se ela alcançasse também o evento nominal. Não alcança: o
- * evento tem CPF, e é por isso que ele chega ao patrocinador.)
+ * A espera é a mesma: falta importar o extrato nominal, de onde sai a
+ * quebra por modalidade. O texto mantém a armadilha a desfazer — o contador
+ * de `Compras` da lista de Ofertas existe, mas é **por oferta** e não se
+ * atribui a patrocinador (RN68); e, desde a decisão de 28/08, checkout
+ * (dentro ou fora do clube) é **modalidade de resgate**, não uma categoria
+ * de "compra" à parte. Quem olhar os dois lugares precisa saber que não são
+ * o mesmo número, e por quê.
  */
-export const MOTIVO_AGUARDA_CHAVE_COMPRAS =
-  "aguarda chave — as compras vêm do extrato nominal, pela coluna Tipo de Oferta (RN69), e ele ainda não foi importado; envie-o na tela de Telemetria da operadora. O contador de Compras da lista de Ofertas é outra contagem: vem do catálogo, é por oferta e não se atribui a patrocinador (RN68)."
+export const MOTIVO_AGUARDA_CHAVE_MODALIDADES =
+  "aguarda chave — a quebra por modalidade vem do extrato nominal, pela coluna Tipo de Oferta (RN69), e ele ainda não foi importado; envie-o na tela de Telemetria da operadora. O contador de Compras da lista de Ofertas é outra contagem: vem do catálogo, é por oferta e não se atribui a patrocinador (RN68)."
 
 const FORMATO_DATA_RETRATO = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
@@ -400,34 +398,26 @@ export async function cardsDeConsumo(patrocinadorId: string): Promise<CardDeCons
         : [],
     },
     {
-      // **Acende pelo MESMO extrato do card acima.** Compra e resgate
-      // vivem os dois no extrato nominal, separados pela coluna `Tipo de
-      // Oferta` — e os dois têm CPF, que é o que os leva ao patrocinador.
+      // **Acende pelo MESMO extrato do card acima.** Desde a decisão de
+      // 28/08, checkout (no clube ou externo) é modalidade de resgate, não
+      // uma "compra" à parte — então este card deixou de contar compras e
+      // passou a exibir COMO os resgates aconteceram: gratuito, checkout no
+      // clube, checkout externo. O total já está no card de resgates; aqui
+      // é só a quebra, para não perder a informação da modalidade (RN65).
       //
-      // A RN68 não se aplica aqui: ela prende o contador de CATÁLOGO, que
-      // é por oferta e não se atribui a patrocinador. Tratar o evento
-      // nominal como se fosse aquele contador foi um erro de leitura, já
-      // corrigido — e o motivo abaixo é `aguarda chave`, como o dos
-      // resgates, porque a espera é a mesma: falta importar o extrato.
-      chave: "compras",
-      titulo: "Compras",
+      // A RN68 não se aplica aqui: ela prende o contador de CATÁLOGO, que é
+      // por oferta e não se atribui a patrocinador. O evento nominal tem
+      // CPF, e é por isso que ele chega ao patrocinador. O motivo é
+      // `aguarda chave`, como o dos resgates, porque a espera é a mesma.
+      chave: "modalidades",
+      titulo: "Modalidades de resgate",
       selo: extrato ? "VIVO" : "AGUARDA_CHAVE",
-      motivo: extrato ? null : MOTIVO_AGUARDA_CHAVE_COMPRAS,
+      motivo: extrato ? null : MOTIVO_AGUARDA_CHAVE_MODALIDADES,
       linhas: extrato
-        ? [
-            {
-              rotulo: "Compras no extrato nominal",
-              valor: comDataDoRetrato(
-                String(extrato.compras.eventos),
-                extrato.compras.dataDoRetrato,
-              ),
-            },
-            {
-              rotulo: "Assinantes com ao menos uma compra",
-              valor: String(extrato.compras.assinantesComEvento),
-            },
-            ...linhaDeNaoClassificados(extrato.naoClassificados),
-          ]
+        ? extrato.porModalidade.map((m) => ({
+            rotulo: m.rotulo,
+            valor: comDataDoRetrato(String(m.eventos), m.dataDoRetrato),
+          }))
         : [],
     },
     {

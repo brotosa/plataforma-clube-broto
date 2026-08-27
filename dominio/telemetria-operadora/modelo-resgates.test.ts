@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CABECALHO_MODELO_RESGATES, gerarModeloResgatesCsv } from "./modelo-resgates";
 import { detectarLayout } from "./layouts";
-import { classificarEvento } from "./tipo-de-evento";
+import { classificarEvento, modalidadeDeResgate } from "./tipo-de-evento";
 
 describe("modelo de referência do relatório de resgates da operadora", () => {
   const csv = gerarModeloResgatesCsv();
@@ -15,12 +15,13 @@ describe("modelo de referência do relatório de resgates da operadora", () => {
     expect(detectarLayout(cabecalho).tipo).toBe("RESGATES");
   });
 
-  it("traz um exemplo de resgate e um de compra (classificação pela leitura)", () => {
+  it("traz um exemplo por modalidade de resgate (classificação pela leitura)", () => {
     const idxTipo = cabecalho.indexOf("Tipo de Oferta");
     const tipos = linhas.slice(1).map((l) => l.split(";")[idxTipo]!);
-    const classes = tipos.map(classificarEvento);
-    expect(classes).toContain("RESGATE");
-    expect(classes).toContain("COMPRA");
+    // Desde 28/08, os dois exemplos são resgate — a diferença é a modalidade.
+    expect(tipos.map(classificarEvento)).toEqual(["RESGATE", "RESGATE"]);
+    // E cada exemplo ilustra uma modalidade distinta: gratuito e checkout.
+    expect(tipos.map(modalidadeDeResgate)).toEqual(["GRATUITO", "CHECKOUT_CLUBE"]);
   });
 
   it("o CPF de exemplo é sintético (dígitos repetidos), nunca de pessoa real", () => {

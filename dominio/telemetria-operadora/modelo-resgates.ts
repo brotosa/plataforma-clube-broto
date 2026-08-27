@@ -6,8 +6,9 @@
  * os quatro relatórios da operadora são **gerados pela Minutrade**, não
  * preenchidos aqui. Este arquivo não é um formulário a preencher — é uma
  * referência para conferir se o arquivo recebido tem as colunas esperadas,
- * com o nome real de cada uma e uma linha de exemplo por tipo de evento
- * (resgate e compra).
+ * com o nome real de cada uma e uma linha de exemplo por modalidade de
+ * resgate (gratuito e checkout — desde 28/08, checkout é modalidade de
+ * resgate, não uma categoria de "compra" à parte).
  *
  * O cabeçalho é a transcrição do arquivo real observado na primeira
  * importação (ago/2026). O CPF de exemplo é **SINTÉTICO** (dígitos
@@ -29,8 +30,9 @@ export const CABECALHO_MODELO_RESGATES = [
 /**
  * CSV de referência. `Id_oferta` é o **id da oferta na nossa plataforma** (o
  * que o importador usa para casar o evento à oferta); no arquivo real ele
- * vem preenchido pela operadora. `Tipo de Oferta` separa resgate ("Recompensa
- * gratuita") de compra ("Checkout no clube"/"Checkout externo").
+ * vem preenchido pela operadora. `Tipo de Oferta` distingue as modalidades
+ * de resgate — "Recompensa gratuita" (gratuito) e "Checkout no clube"/
+ * "Checkout externo" (checkout) —, todas contadas como resgate.
  */
 export function gerarModeloResgatesCsv(): string {
   const cpf = "111.111.111-11"; // SINTÉTICO — dígitos repetidos, nunca real

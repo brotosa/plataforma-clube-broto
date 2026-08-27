@@ -488,7 +488,7 @@ describe.skipIf(!temBanco)("RN62 — patrocinadores (integração)", () => {
       expect(cards.map((card) => card.chave)).toEqual([
         "base",
         "resgates",
-        "compras",
+        "modalidades",
         "funil",
         "acessos",
         "solucoes",

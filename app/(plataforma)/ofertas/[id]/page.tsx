@@ -321,16 +321,17 @@ export default async function PaginaOferta({
                   Extrato · por CPF{" "}
                   <span style={{ fontWeight: 400 }}>· evento mais recente {dataCurta(extrato.dataUltimo)}</span>
                 </div>
-                <div className="g-resp" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 6 }}>
-                  <div>
-                    <div className="kpi-n num" style={{ fontSize: 22 }}>{extrato.resgates}</div>
-                    <div className="cap">resgates</div>
-                  </div>
-                  <div>
-                    <div className="kpi-n num" style={{ fontSize: 22 }}>{extrato.compras}</div>
-                    <div className="cap">compras</div>
-                  </div>
+                <div style={{ marginTop: 6 }}>
+                  <div className="kpi-n num" style={{ fontSize: 22 }}>{extrato.resgates}</div>
+                  <div className="cap">resgates</div>
                 </div>
+                {extrato.porModalidade.length > 0 ? (
+                  <p className="cap" style={{ margin: "6px 0 0" }}>
+                    {extrato.porModalidade
+                      .map((m) => `${m.eventos} ${m.rotulo.toLowerCase()}`)
+                      .join(" · ")}
+                  </p>
+                ) : null}
                 {extrato.naoClassificados > 0 ? (
                   <p className="cap" style={{ margin: "6px 0 0" }}>
                     {extrato.naoClassificados} evento(s) com Tipo de Oferta ainda sem de-para
