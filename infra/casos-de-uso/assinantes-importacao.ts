@@ -14,7 +14,9 @@ import {
   montarResumoNucleo,
   NAO_IMPORTAR,
   normalizarLinhaNucleo,
+  normalizarNomePatrocinador,
   planejarUpsert,
+  resolverPatrocinador,
   type ResumoCargaNucleo,
   sugerirMapeamento,
   validarLinhaNucleo,
@@ -294,7 +296,50 @@ export async function aplicarMapeamentoNucleo(
     });
   }
 
-  const hashesDoArquivo = new Set(validas.map(({ cpfHash }) => cpfHash));
+  // Onda 12 (RN63) — valida a coluna nativa `Patrocinador` contra os
+  // cadastrados. O valor casa por ID (o modelo `.xlsx` passa "Razão Social
+  // — <id>") ou por nome exato; `Broto` e vazio não vinculam. Patrocinador
+  // informado que NÃO existe é recusa nomeada (RN55), não vínculo
+  // silenciosamente ausente: a linha vai à quarentena com o motivo.
+  const precisaLookup = validas.some((v) => {
+    const valor = normalizarNomePatrocinador(v.linha.patrocinador ?? "");
+    return valor !== "" && valor !== "broto";
+  });
+  const lookupPatrocinador = precisaLookup
+    ? await (async () => {
+        const patrocinadores = await prisma.patrocinador.findMany({
+          select: { id: true, razaoSocial: true },
+        });
+        return {
+          idsValidos: new Set(patrocinadores.map((p) => p.id)),
+          idPorNome: new Map(
+            patrocinadores.map((p) => [normalizarNomePatrocinador(p.razaoSocial), p.id]),
+          ),
+        };
+      })()
+    : { idsValidos: new Set<string>(), idPorNome: new Map<string, string>() };
+
+  const atualizacaoPorId = new Map(atualizacoes.map((a) => [a.id, a]));
+  const validasComPatrocinador: typeof validas = [];
+  for (const item of validas) {
+    const resolucao = resolverPatrocinador(item.linha.patrocinador, lookupPatrocinador);
+    if (resolucao.tipo === "nao_encontrado") {
+      const motivo = `Patrocinador não encontrado: "${resolucao.valor}" — use um patrocinador cadastrado (nome exato ou código do modelo), ou "Broto".`;
+      quarentena.push({ linha: item.linha.linha, motivos: [motivo] });
+      const atualizacao = atualizacaoPorId.get(item.id);
+      if (atualizacao) {
+        atualizacao.estado = "REJEITADA";
+        atualizacao.cpfHash = null;
+        atualizacao.cpfCifrado = null;
+        atualizacao.mensagemErro = motivo;
+      }
+      continue;
+    }
+    validasComPatrocinador.push(item);
+  }
+  const validasFinais = validasComPatrocinador;
+
+  const hashesDoArquivo = new Set(validasFinais.map(({ cpfHash }) => cpfHash));
   const [existentes, ativosForaDoArquivo] = await Promise.all([
     prisma.assinante.findMany({
       where: { cpfHash: { in: [...hashesDoArquivo] } },
@@ -308,15 +353,23 @@ export async function aplicarMapeamentoNucleo(
   ]);
 
   const plano = planejarUpsert(
-    validas.map(({ linha, cpfHash }) => ({ linha, cpfHash })),
+    validasFinais.map(({ linha, cpfHash }) => ({ linha, cpfHash })),
     new Set(existentes.map(({ cpfHash }) => cpfHash)),
   );
-  const resumo = montarResumoNucleo({
+  const resumoBase = montarResumoNucleo({
     linhasLidas: staging.length,
     plano,
     quarentena,
     foraDaBase: ativosForaDoArquivo,
   });
+  // Part A — o detalhe da quarentena viaja no dry-run para a tela mostrar o
+  // motivo de cada linha já no passo 4 (o passo 5 trava quando não há
+  // nenhuma linha válida, então era a única forma de não deixar o operador
+  // sem saber o porquê).
+  const resumo: ResumoCargaNucleo = {
+    ...resumoBase,
+    quarentenaDetalhe: quarentena.slice(0, LIMITE_DETALHE_RELATORIO),
+  };
 
   await prisma.$transaction(
     async (tx) => {
@@ -472,7 +525,10 @@ async function efetivarLoteNucleo(
     const patrocinadores = await tx.patrocinador.findMany({
       select: { id: true, razaoSocial: true },
     });
-    const idPorNome = new Map(patrocinadores.map((p) => [normalizarNome(p.razaoSocial), p.id]));
+    const lookup = {
+      idsValidos: new Set(patrocinadores.map((p) => p.id)),
+      idPorNome: new Map(patrocinadores.map((p) => [normalizarNome(p.razaoSocial), p.id])),
+    };
     const alvos = await tx.assinante.findMany({
       where: { cpfHash: { in: comPatrocinador.map(({ cpfHash }) => cpfHash) } },
       select: { id: true, cpfHash: true },
@@ -482,7 +538,8 @@ async function efetivarLoteNucleo(
     const eventosVinculo: EventoAuditoria[] = [];
     for (const { cpfHash, linha } of comPatrocinador) {
       const assinanteId = idPorHash.get(cpfHash);
-      const patrocinadorId = idPorNome.get(normalizarNome(linha.patrocinador ?? ""));
+      const resolucao = resolverPatrocinador(linha.patrocinador, lookup);
+      const patrocinadorId = resolucao.tipo === "encontrado" ? resolucao.patrocinadorId : null;
       if (!assinanteId || !patrocinadorId) {
         continue;
       }

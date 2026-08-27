@@ -339,7 +339,7 @@ export function Importador({
                   {/* Route handler que devolve arquivo: âncora nativa, não <Link>. */}
                   {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                   <a href="/assinantes/importacoes/modelo" style={{ fontWeight: 700 }}>
-                    Baixar modelo (.csv)
+                    Baixar modelo (.xlsx)
                   </a>
                 </p>
               ) : null}
@@ -574,6 +574,43 @@ export function Importador({
                       {numeroBr(dryRunNucleo.atualizados)} atualizados ·{" "}
                       {numeroBr(dryRunNucleo.quarentena)} em quarentena.
                     </p>
+                  ) : null}
+                  {dryRunNucleo &&
+                  dryRunNucleo.quarentenaDetalhe &&
+                  dryRunNucleo.quarentenaDetalhe.length > 0 ? (
+                    <details
+                      open={dryRunNucleo.novos + dryRunNucleo.atualizados === 0}
+                      className="card"
+                      style={{ padding: "12px 14px", margin: "0 0 14px" }}
+                    >
+                      <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+                        Ver o motivo das {numeroBr(dryRunNucleo.quarentena)} linhas em quarentena
+                      </summary>
+                      <div style={{ overflowX: "auto", marginTop: 10 }}>
+                        <table className="tbl">
+                          <thead>
+                            <tr>
+                              <th style={{ width: 90 }}>Linha</th>
+                              <th>Motivo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dryRunNucleo.quarentenaDetalhe.map((item) => (
+                              <tr key={item.linha}>
+                                <td className="num">{item.linha}</td>
+                                <td>{item.motivos.join(" ")}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {dryRunNucleo.quarentena > dryRunNucleo.quarentenaDetalhe.length ? (
+                        <p className="cap" style={{ margin: "8px 0 0" }}>
+                          Mostrando as primeiras {dryRunNucleo.quarentenaDetalhe.length} de{" "}
+                          {numeroBr(dryRunNucleo.quarentena)}.
+                        </p>
+                      ) : null}
+                    </details>
                   ) : null}
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <label className={politica === "INCREMENTAL" ? "radio-card on" : "radio-card"}>

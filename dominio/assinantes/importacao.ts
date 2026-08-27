@@ -238,6 +238,13 @@ export interface ResumoCargaNucleo {
   repetidosNoArquivo: number;
   /** Somente foto completa; null na política incremental. */
   foraDaBase: number | null;
+  /**
+   * Detalhe da quarentena (linha + motivo), preenchido só no dry-run — é o
+   * que permite a tela mostrar POR QUÊ cada linha caiu, sem depender de
+   * chegar ao passo 5 (que trava quando não há nenhuma linha válida).
+   * Limitado a `LIMITE_DETALHE_RELATORIO` itens.
+   */
+  quarentenaDetalhe?: ItemQuarentena[];
 }
 
 export function montarResumoNucleo(parametros: {
@@ -311,6 +318,66 @@ export function interpretarEstadoDoUsuario(
   if (texto.includes("freemium")) return "FREEMIUM";
   if (texto.includes("assinatura")) return "ASSINANTE";
   return null;
+}
+
+/**
+ * Normaliza o nome de um patrocinador para casamento tolerante (sem
+ * acento, sem caixa, aparado). Fonte única usada tanto para montar o
+ * índice de nomes quanto para resolver a coluna do arquivo.
+ */
+export function normalizarNomePatrocinador(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+/** Resultado de resolver a coluna `Patrocinador` de uma linha (RN63). */
+export type ResolucaoPatrocinador =
+  | { tipo: "vazio" }
+  | { tipo: "broto" }
+  | { tipo: "encontrado"; patrocinadorId: string }
+  | { tipo: "nao_encontrado"; valor: string };
+
+/**
+ * Resolve a coluna nativa `Patrocinador` (RN63) para um patrocinador
+ * cadastrado, **preferindo o ID** — que é o que o modelo `.xlsx` passa a
+ * carregar no dropdown ("Razão Social — <id>") para não errar por nome.
+ *
+ * Ordem de tentativa, do mais robusto ao mais tolerante:
+ * 1. o valor inteiro é um ID válido;
+ * 2. o valor traz um ID no fim, após "—"/"-" (formato do dropdown);
+ * 3. o valor casa por nome exato (compat. com arquivos antigos).
+ *
+ * `Broto` (→ Promocional Broto) e vazio não vinculam. Não encontrado
+ * devolve `nao_encontrado` **com o valor**, para a quarentena nomear a
+ * causa (RN55) — nunca um vínculo silenciosamente ausente.
+ */
+export function resolverPatrocinador(
+  valorBruto: string | null | undefined,
+  lookup: { idsValidos: ReadonlySet<string>; idPorNome: ReadonlyMap<string, string> },
+): ResolucaoPatrocinador {
+  const valor = (valorBruto ?? "").trim();
+  if (valor === "") return { tipo: "vazio" };
+  if (normalizarNomePatrocinador(valor) === "broto") return { tipo: "broto" };
+
+  // 1) o valor inteiro é um ID.
+  if (lookup.idsValidos.has(valor)) {
+    return { tipo: "encontrado", patrocinadorId: valor };
+  }
+  // 2) ID no fim, após separador — o dropdown escreve "Razão Social — <id>".
+  //    O token do ID tem ≥20 caracteres, o que o distingue de hífens do nome.
+  const comId = valor.match(/[—-]\s*([A-Za-z0-9]{20,})\s*$/);
+  if (comId && lookup.idsValidos.has(comId[1]!)) {
+    return { tipo: "encontrado", patrocinadorId: comId[1]! };
+  }
+  // 3) nome exato (tolerante a acento/caixa).
+  const porNome = lookup.idPorNome.get(normalizarNomePatrocinador(valor));
+  if (porNome) {
+    return { tipo: "encontrado", patrocinadorId: porNome };
+  }
+  return { tipo: "nao_encontrado", valor };
 }
 
 /** Normaliza a linha para persistência (CPF só dígitos, textos aparados). */

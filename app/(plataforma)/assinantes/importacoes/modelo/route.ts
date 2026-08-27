@@ -1,11 +1,13 @@
 import { auth } from "@/infra/auth";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
-import { gerarModeloAssinantesCsv } from "@/dominio/assinantes/modelo-importacao";
+import { gerarModeloAssinantesXlsx } from "@/infra/assinantes/modelo-importacao-xlsx";
 
 /**
- * "Baixar modelo" da importação de Assinantes (T20): a planilha em branco
- * com as colunas que o importador reconhece, para conferir o formato antes
- * de subir. Mesma guarda de permissão do envio (IMPORTAR_ASSINANTES).
+ * "Baixar modelo" da importação de Assinantes (T20): a planilha `.xlsx` com
+ * as colunas que o importador reconhece e menus suspensos nas que
+ * referenciam dado do sistema (Patrocinador por código, Perfil, Preferência)
+ * — para escolher em vez de digitar e errar. Mesma guarda de permissão do
+ * envio (IMPORTAR_ASSINANTES).
  */
 export async function GET() {
   const sessao = await auth();
@@ -18,11 +20,12 @@ export async function GET() {
     });
   }
 
-  const csv = gerarModeloAssinantesCsv();
-  return new Response(csv, {
+  const arquivo = await gerarModeloAssinantesXlsx();
+  return new Response(new Uint8Array(arquivo), {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="modelo-importacao-assinantes.csv"',
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="modelo-importacao-assinantes.xlsx"',
       "Cache-Control": "no-store",
     },
   });
