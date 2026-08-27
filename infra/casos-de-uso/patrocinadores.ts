@@ -5,6 +5,8 @@ import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
 import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import { normalizarCnpj, validarCnpj } from "@/dominio/empresas/cnpj";
+import { normalizarCpf, validarCpf } from "@/dominio/assinantes/cpf";
+import { hashCpf } from "@/infra/assinantes/protecao-cpf";
 import { validarMinuta } from "@/dominio/patrocinio/minuta";
 import { encerrar } from "@/dominio/patrocinio/saldo";
 import { type Ator, ErroDeValidacao } from "./contexto";
@@ -525,6 +527,47 @@ export async function vincularAssinante(
     });
     return { id: criado.id };
   });
+}
+
+/**
+ * Vincula um assinante a um patrocinador **pelo CPF** — caminho manual da
+ * tela do patrocinador (aba Base), para o operador que tem o CPF em mãos e
+ * não a `id` interna do assinante.
+ *
+ * O CPF nunca é gravado nem ecoado (RN69/RN36): normaliza, confere o dígito
+ * verificador e resolve o assinante pelo **HMAC** — o mesmo caminho de
+ * junção da telemetria. Três causas de recusa distintas, nomeadas (RN55):
+ * CPF em branco, CPF inválido e CPF sem assinante correspondente. A partir
+ * daí a criação do vínculo é a de `vincularAssinante` — mesma validação de
+ * duplicidade, mesma auditoria.
+ */
+export async function vincularAssinantePorCpf(
+  ator: Ator,
+  patrocinadorId: string,
+  cpfBruto: string,
+  inicio: Date,
+): Promise<{ id: string }> {
+  exigirPermissao(ator.papel, "GERIR_PATROCINADORES");
+
+  const cpf = normalizarCpf(cpfBruto);
+  if (cpf === "") {
+    throw new ErroDeValidacao(["Informe o CPF do assinante."]);
+  }
+  if (!validarCpf(cpf)) {
+    throw new ErroDeValidacao([
+      "O CPF informado não é válido — confira os dígitos verificadores.",
+    ]);
+  }
+  const assinante = await prisma.assinante.findUnique({
+    where: { cpfHash: hashCpf(cpf) },
+    select: { id: true },
+  });
+  if (assinante === null) {
+    // Base desalinhada: o CPF é válido, mas nenhum assinante corresponde.
+    // A mensagem não repete o CPF (RN69) — só diz o que houve.
+    throw new ErroDeValidacao(["Nenhum assinante com esse CPF na base."]);
+  }
+  return vincularAssinante(ator, patrocinadorId, assinante.id, inicio);
 }
 
 /**

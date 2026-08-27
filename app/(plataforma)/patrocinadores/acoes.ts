@@ -15,6 +15,7 @@ import {
   removerMinuta,
   salvarContrato,
   vincularAssinante,
+  vincularAssinantePorCpf,
 } from "@/infra/casos-de-uso/patrocinadores";
 import { gerarRelatorio } from "@/infra/casos-de-uso/relatorio-patrocinador";
 
@@ -221,6 +222,23 @@ export async function acaoVincularAssinante(
   try {
     const ator = await atorDaSessao();
     await vincularAssinante(ator, id, assinanteId, inicio);
+  } catch (erro) {
+    return paraEstado(erro, "vincular-assinante", "vincular o assinante");
+  }
+  revalidatePath(`/patrocinadores/${id}`);
+  return { sucesso: "Assinante vinculado a uma vaga do patrocinador." };
+}
+
+export async function acaoVincularAssinantePorCpf(
+  _estado: EstadoFormulario,
+  dados: FormData,
+): Promise<EstadoFormulario> {
+  const id = obrigatorio(dados, "patrocinadorId");
+  const cpf = obrigatorio(dados, "cpf");
+  const inicio = data(dados, "inicio") ?? new Date();
+  try {
+    const ator = await atorDaSessao();
+    await vincularAssinantePorCpf(ator, id, cpf, inicio);
   } catch (erro) {
     return paraEstado(erro, "vincular-assinante", "vincular o assinante");
   }

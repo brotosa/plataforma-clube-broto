@@ -525,6 +525,23 @@ export async function listarGeracoesDeRelatorio(patrocinadorId: string) {
   });
 }
 
+/**
+ * Mapa assinanteId → id do vínculo VIGENTE deste patrocinador, para a aba
+ * Base oferecer "Encerrar" por linha sem que `listarCarteira` (consulta de
+ * segmentação, compartilhada com a T18) precise carregar o `vinculoId`.
+ * Só há um vínculo vigente por par assinante×patrocinador (RN62), então o
+ * mapa é 1:1.
+ */
+export async function vinculosVigentesPorAssinante(
+  patrocinadorId: string,
+): Promise<Map<string, string>> {
+  const vigentes = await prisma.vinculoPatrocinio.findMany({
+    where: { patrocinadorId, fim: null },
+    select: { id: true, assinanteId: true },
+  });
+  return new Map(vigentes.map((v) => [v.assinanteId, v.id]));
+}
+
 /** Patrocinadores ativos, para o filtro da T18 e a etiqueta da campanha. */
 export async function listarPatrocinadoresParaEtiqueta() {
   return prisma.patrocinador.findMany({

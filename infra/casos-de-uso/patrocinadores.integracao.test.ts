@@ -21,6 +21,7 @@ import {
   removerMinuta,
   salvarContrato,
   vincularAssinante,
+  vincularAssinantePorCpf,
 } from "./patrocinadores";
 
 /**
@@ -324,6 +325,32 @@ describe.skipIf(!temBanco)("RN62 — patrocinadores (integração)", () => {
       await expect(
         vincularAssinante(gestor, patrocinadorId, a, dia("2026-07-01")),
       ).resolves.toMatchObject({ id: expect.any(String) });
+    });
+
+    it("vincula pelo CPF (com máscara) resolvendo o assinante por HMAC", async () => {
+      const a = await criarAssinante("porCpf", "52998224725");
+      const { id } = await vincularAssinantePorCpf(
+        gestor,
+        patrocinadorId,
+        "529.982.247-25",
+        dia("2026-01-01"),
+      );
+      const vinculo = await prisma.vinculoPatrocinio.findUniqueOrThrow({ where: { id } });
+      expect(vinculo.assinanteId).toBe(a);
+      expect(vinculo.fim).toBeNull();
+    });
+
+    it("recusa CPF sem assinante correspondente nomeando a causa", async () => {
+      // CPF válido (dígitos conferem) mas sem assinante criado na base.
+      await expect(
+        vincularAssinantePorCpf(gestor, patrocinadorId, "153.509.460-56", dia("2026-01-01")),
+      ).rejects.toThrow(/Nenhum assinante com esse CPF/);
+    });
+
+    it("recusa CPF inválido antes de tocar a base", async () => {
+      await expect(
+        vincularAssinantePorCpf(gestor, patrocinadorId, "111.111.111-11", dia("2026-01-01")),
+      ).rejects.toThrow(/não é válido/);
     });
 
     it("recusa vigência com fim anterior ao início", async () => {

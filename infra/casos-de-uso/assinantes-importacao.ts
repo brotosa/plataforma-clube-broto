@@ -450,6 +450,67 @@ async function efetivarLoteNucleo(
       });
     }
   }
+  // Onda 12 (RN63) — vínculo de patrocínio a partir da coluna nativa
+  // `Patrocinador`. O valor casa por NOME com um patrocinador cadastrado;
+  // `Broto` (→ Promocional Broto) e vazio não vinculam. A criação é
+  // INDEPENDENTE de o núcleo ter mudado — a coluna pode ser nova mesmo com
+  // o cadastro idêntico —, e vínculo vigente já existente não é duplicado.
+  // Patrocinador não encontrado é ignorado em silêncio (mesmo comportamento
+  // da importação de "usuários" da operadora); o perfil, esse, já foi
+  // gravado acima.
+  const normalizarNome = (texto: string): string =>
+    texto
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+  const comPatrocinador = lote.filter(({ linha }) => {
+    const valor = normalizarNome(linha.patrocinador ?? "");
+    return valor !== "" && valor !== "broto";
+  });
+  if (comPatrocinador.length > 0) {
+    const patrocinadores = await tx.patrocinador.findMany({
+      select: { id: true, razaoSocial: true },
+    });
+    const idPorNome = new Map(patrocinadores.map((p) => [normalizarNome(p.razaoSocial), p.id]));
+    const alvos = await tx.assinante.findMany({
+      where: { cpfHash: { in: comPatrocinador.map(({ cpfHash }) => cpfHash) } },
+      select: { id: true, cpfHash: true },
+    });
+    const idPorHash = new Map(alvos.map((a) => [a.cpfHash, a.id]));
+
+    const eventosVinculo: EventoAuditoria[] = [];
+    for (const { cpfHash, linha } of comPatrocinador) {
+      const assinanteId = idPorHash.get(cpfHash);
+      const patrocinadorId = idPorNome.get(normalizarNome(linha.patrocinador ?? ""));
+      if (!assinanteId || !patrocinadorId) {
+        continue;
+      }
+      const jaVigente = await tx.vinculoPatrocinio.findFirst({
+        where: { patrocinadorId, assinanteId, fim: null },
+        select: { id: true },
+      });
+      if (jaVigente) {
+        continue;
+      }
+      const inicio = new Date();
+      const criado = await tx.vinculoPatrocinio.create({
+        data: { patrocinadorId, assinanteId, inicio },
+      });
+      eventosVinculo.push({
+        entidade: "VinculoPatrocinio",
+        entidadeId: criado.id,
+        campo: "importacao_nucleo",
+        valorAnterior: null,
+        valorNovo: JSON.stringify({ patrocinadorId, assinanteId, inicio, fim: null }),
+        autorId,
+      });
+    }
+    if (eventosVinculo.length > 0) {
+      eventos.push(...eventosVinculo);
+    }
+  }
+
   if (eventos.length > 0) {
     await criarGravadorPrisma(tx).gravar(eventos);
   }

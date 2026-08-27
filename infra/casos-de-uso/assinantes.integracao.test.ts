@@ -65,6 +65,17 @@ async function limparModuloAssinantes() {
   await prisma.exportacaoLista.deleteMany({});
   await prisma.segmento.deleteMany({});
   await prisma.stagingAssinante.deleteMany({});
+  // Vínculos de teste (RN63/C-A) referenciam assinantes por FK — removê-los
+  // antes de apagar os assinantes; o patrocinador de teste sai por marcador.
+  const patrocinadoresTeste = await prisma.patrocinador.findMany({
+    where: { razaoSocial: { startsWith: "[TESTE-C-A]" } },
+    select: { id: true },
+  });
+  await prisma.vinculoPatrocinio.deleteMany({});
+  await prisma.auditoriaEvento.deleteMany({ where: { entidade: "VinculoPatrocinio" } });
+  await prisma.patrocinador.deleteMany({
+    where: { id: { in: patrocinadoresTeste.map((p) => p.id) } },
+  });
   await prisma.assinante.deleteMany({});
   await prisma.importacao.deleteMany({
     where: { tipo: { in: ["ASSINANTES_NUCLEO", "ASSINANTES_ENRIQUECIMENTO"] } },
@@ -468,5 +479,62 @@ describe.skipIf(!temBanco)("F11 — fluxo completo de assinantes (integração)"
     });
     expect(registro.statusBase).toBe("ATIVO");
     expect(await prisma.assinante.count({ where: { statusBase: "ATIVO" } })).toBe(2);
+  });
+
+  it("a coluna Patrocinador cria o vínculo na efetivação (RN63/C-A) — e 'Broto' não vincula", async () => {
+    await limparModuloAssinantes();
+    const patrocinador = await prisma.patrocinador.create({
+      data: { razaoSocial: "[TESTE-C-A] Yamer Agro", cnpj: "11222333000181" },
+      select: { id: true },
+    });
+    const comVinculo = SINTETICOS[0]!;
+    const semVinculo = SINTETICOS[1]!;
+    // CSV com a coluna nativa Patrocinador: uma linha aponta o patrocinador
+    // cadastrado (casa por nome, com acento/caixa tolerados) e a outra traz
+    // "Broto", que vira Promocional Broto e NÃO cria vínculo.
+    const csv =
+      "cpf;nome;patrocinador\r\n" +
+      `${comVinculo.cpf};${comVinculo.nome};[teste-c-a] YAMER agro\r\n` +
+      `${semVinculo.cpf};${semVinculo.nome};Broto\r\n`;
+    const preparo = await prepararImportacaoAssinantes(gestor, {
+      familia: "ASSINANTES_NUCLEO",
+      nomeArquivo: "com-patrocinador.csv",
+      conteudo: Buffer.from(csv, "utf8"),
+    });
+    await aplicarMapeamentoNucleo(gestor, preparo.importacaoId, {
+      mapeamento: { cpf: "cpf", nome: "nome", patrocinador: "patrocinador" },
+      politica: "INCREMENTAL",
+    });
+    await confirmarImportacaoNucleo(gestor, preparo.importacaoId);
+
+    const vinculos = await prisma.vinculoPatrocinio.findMany({
+      where: { patrocinadorId: patrocinador.id, fim: null },
+      include: { assinante: { select: { nome: true } } },
+    });
+    expect(vinculos).toHaveLength(1);
+    expect(vinculos[0]!.assinante.nome).toBe(comVinculo.nome);
+
+    // O vínculo foi auditado com o campo desta origem.
+    const auditoria = await prisma.auditoriaEvento.count({
+      where: { entidade: "VinculoPatrocinio", campo: "importacao_nucleo" },
+    });
+    expect(auditoria).toBe(1);
+
+    // Idempotência: reimportar o mesmo arquivo não duplica o vínculo (RN29).
+    const preparo2 = await prepararImportacaoAssinantes(gestor, {
+      familia: "ASSINANTES_NUCLEO",
+      nomeArquivo: "com-patrocinador-2.csv",
+      conteudo: Buffer.from(csv, "utf8"),
+    });
+    await aplicarMapeamentoNucleo(gestor, preparo2.importacaoId, {
+      mapeamento: { cpf: "cpf", nome: "nome", patrocinador: "patrocinador" },
+      politica: "INCREMENTAL",
+    });
+    await confirmarImportacaoNucleo(gestor, preparo2.importacaoId);
+    expect(
+      await prisma.vinculoPatrocinio.count({
+        where: { patrocinadorId: patrocinador.id, fim: null },
+      }),
+    ).toBe(1);
   });
 });
