@@ -336,7 +336,7 @@ export const CATALOGO_PANORAMA = [
   {
     chave: "PAN_SOLUCOES",
     rotulo: "Soluções",
-    destino: "/aliados/cobertura",
+    destino: "/aliados",
     procedencia: "procedência: depende da carga inicial do portfólio",
   },
   {
@@ -366,13 +366,17 @@ export const CATALOGO_PANORAMA = [
   {
     chave: "PAN_RESGATES_BENEFICIOS",
     rotulo: "Resgates de benefícios",
-    destino: "/campanhas",
+    // A fonte do número é o contador de catálogo da operadora (RN68), então
+    // o clique leva à tela onde ele é importado/conferido — não a Campanhas.
+    destino: "/ofertas/telemetria-operadora",
     procedencia: "nível de atribuição; total da base aguarda telemetria",
   },
   {
     chave: "PAN_RESGATES_CUPONS",
     rotulo: "Resgates de cupons",
-    destino: "/ofertas/telemetria",
+    // Idem: a apuração do cupom vem da telemetria da operadora, não da
+    // telemetria de voucher clássica (/ofertas/telemetria).
+    destino: "/ofertas/telemetria-operadora",
     procedencia: "aguarda telemetria; regra de comissão do cupom em confirmação",
   },
 ] as const satisfies ReadonlyArray<{
