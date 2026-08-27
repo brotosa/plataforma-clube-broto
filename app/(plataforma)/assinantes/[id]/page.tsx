@@ -251,8 +251,13 @@ export default async function PaginaPerfilAssinante({
                 </span>
                 <span className="cap">Frequência</span>
                 <span>
-                  {uso.totalEventos} evento(s) · {uso.resgates} resgate(s) ·{" "}
-                  {uso.compras} compra(s)
+                  {uso.totalEventos} evento(s) · {uso.resgates} resgate(s)
+                  {uso.porModalidade.length > 0 ? (
+                    <span className="cap">
+                      {" "}
+                      ({uso.porModalidade.map((m) => `${m.eventos} ${m.rotulo.toLowerCase()}`).join(" · ")})
+                    </span>
+                  ) : null}
                   {uso.naoClassificados > 0 ? (
                     <span className="cap"> · {uso.naoClassificados} não classificado(s)</span>
                   ) : null}

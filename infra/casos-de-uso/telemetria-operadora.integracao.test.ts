@@ -954,8 +954,9 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
         "Recompensa gratuita",
       ]);
 
-      // E a leitura separa: dois checkouts conhecidos viram compra, a
-      // recompensa vira resgate, e o valor novo fica fora da conta.
+      // E a leitura separa: os três valores conhecidos são resgate (decisão
+      // de 28/08 — checkout é modalidade de resgate), e o valor novo fica
+      // fora da conta. A quebra por modalidade preserva o COMO.
       const patrocinador = await prisma.patrocinador.create({
         data: { razaoSocial: `${MARCA} Yamer Agro`, cnpj: "11222333000181" },
         select: { id: true },
@@ -968,9 +969,13 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
         },
       });
       const apuracao = await apurarExtratoNominal(patrocinador.id);
-      expect(apuracao?.compras.eventos).toBe(2);
-      expect(apuracao?.resgates.eventos).toBe(1);
+      expect(apuracao?.resgates.eventos).toBe(3);
       expect(apuracao?.naoClassificados).toBe(1);
+      expect(apuracao?.porModalidade.map((m) => [m.modalidade, m.eventos])).toEqual([
+        ["GRATUITO", 1],
+        ["CHECKOUT_CLUBE", 1],
+        ["CHECKOUT_EXTERNO", 1],
+      ]);
     });
 
     it("lê o formato REAL de 'Resgate e Compras' e casa a oferta pelo NOSSO id", async () => {
@@ -1374,8 +1379,13 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
       const uso = await usoPorAssinante(assinante.id);
       expect(uso).not.toBeNull();
       expect(uso!.totalEventos).toBe(3);
-      expect(uso!.resgates).toBe(1); // Recompensa gratuita
-      expect(uso!.compras).toBe(2); // os dois checkouts
+      // Decisão de 28/08: os três são resgate; a quebra preserva o COMO.
+      expect(uso!.resgates).toBe(3);
+      expect(uso!.porModalidade.map((m) => [m.modalidade, m.eventos])).toEqual([
+        ["GRATUITO", 1],
+        ["CHECKOUT_CLUBE", 1],
+        ["CHECKOUT_EXTERNO", 1],
+      ]);
       expect(uso!.naoClassificados).toBe(0);
       // Recência é o evento mais recente; o horizonte começa no mais antigo.
       expect(uso!.dataUltimoEvento.toISOString().slice(0, 10)).toBe("2026-08-22");
@@ -1434,7 +1444,8 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
         nomeArquivo: `${MARCA} ofertas-card.csv`,
         conteudo: csvOfertas("15", "4"),
       });
-      // Extrato (Resgate e Compras) da MESMA oferta, por CPF: 1 resgate + 1 compra.
+      // Extrato (Resgate e Compras) da MESMA oferta, por CPF: 2 resgates
+      // (gratuito + checkout no clube — checkout é modalidade de resgate).
       await importarRelatorioDaOperadora(gestor, {
         nomeArquivo: `${MARCA} resgate-card.csv`,
         conteudo: Buffer.from(
@@ -1470,8 +1481,12 @@ describe.skipIf(!temBanco)("RN67–RN70 — telemetria da operadora (integraçã
       expect(tele.catalogo?.compras).toBe(4);
       expect(tele.catalogo?.dataArquivo?.toISOString().slice(0, 10)).toBe("2026-07-20");
       // Extrato: a contagem por CPF — outro número, nunca somado ao catálogo.
-      expect(tele.extrato?.resgates).toBe(1);
-      expect(tele.extrato?.compras).toBe(1);
+      // Os dois são resgate (checkout é modalidade, decisão de 28/08).
+      expect(tele.extrato?.resgates).toBe(2);
+      expect(tele.extrato?.porModalidade.map((m) => [m.modalidade, m.eventos])).toEqual([
+        ["GRATUITO", 1],
+        ["CHECKOUT_CLUBE", 1],
+      ]);
       expect(tele.extrato?.naoClassificados).toBe(0);
       expect(assinante).toBeTruthy();
     });

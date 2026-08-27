@@ -259,18 +259,20 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
     });
   });
 
-  describe("T33 — card Compras", () => {
+  describe("T33 — card Modalidades de resgate", () => {
     it("SEM apuração: aguarda chave, com motivo próprio que distingue do catálogo", async () => {
       const cards = await cardsDeConsumo(patrocinadorId);
-      const compras = cards.find((card) => card.chave === "compras")!;
-      expect(compras.selo).toBe("AGUARDA_CHAVE");
-      expect(compras.linhas).toHaveLength(0);
+      const modalidades = cards.find((card) => card.chave === "modalidades")!;
+      expect(modalidades.selo).toBe("AGUARDA_CHAVE");
+      expect(modalidades.linhas).toHaveLength(0);
       // O texto avisa que o contador da lista de Ofertas é OUTRO número.
-      expect(compras.motivo).toContain("RN68");
-      expect(compras.motivo).toContain("Tipo de Oferta");
+      expect(modalidades.motivo).toContain("RN68");
+      expect(modalidades.motivo).toContain("Tipo de Oferta");
     });
 
-    it("COM apuração: vivo, contando só os dois checkouts", async () => {
+    it("COM apuração: vivo, com a quebra por modalidade — checkout é resgate", async () => {
+      // Decisão de 28/08: os três valores são resgate; a diferença entre
+      // eles é a MODALIDADE, preservada aqui. O total vai no card Resgates.
       await prisma.eventoDeResgateTelemetria.createMany({
         data: [
           {
@@ -301,44 +303,48 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
       });
 
       const cards = await cardsDeConsumo(patrocinadorId);
-      const compras = cards.find((card) => card.chave === "compras")!;
-      expect(compras.selo).toBe("VIVO");
-      expect(compras.motivo).toBeNull();
-      // Dois checkouts, e a recompensa NÃO entra aqui.
-      expect(compras.linhas[0]!.valor).toContain("2");
-      expect(compras.linhas[0]!.valor).toContain("16/07/2026");
-      expect(compras.linhas[1]!.valor).toBe("1");
+      const modalidades = cards.find((card) => card.chave === "modalidades")!;
+      expect(modalidades.selo).toBe("VIVO");
+      expect(modalidades.motivo).toBeNull();
+      // As três modalidades, na ordem de exibição, cada uma com um evento.
+      expect(modalidades.linhas.map((l) => l.rotulo)).toEqual([
+        "Gratuito",
+        "Checkout no clube",
+        "Checkout externo",
+      ]);
+      expect(modalidades.linhas[1]!.valor).toContain("1");
+      expect(modalidades.linhas[1]!.valor).toContain("10/07/2026");
 
-      // E o card de resgates conta só a recompensa — nem soma, nem repete.
+      // O card de resgates conta o TOTAL — os três, checkout incluído.
       const resgates = cards.find((card) => card.chave === "resgates")!;
       expect(resgates.selo).toBe("VIVO");
-      expect(resgates.linhas[0]!.valor).toContain("1");
+      expect(resgates.linhas[0]!.valor).toContain("3");
       expect(resgates.linhas[0]!.valor).toContain("18/07/2026");
     });
 
-    it("um zero MEDIDO é diferente de ausência de apuração (RN53)", async () => {
-      // O extrato foi importado e esta base só tem resgate: "0 compras" é
-      // um fato apurado, não uma espera. Os dois cards acendem juntos,
-      // porque as três classes vêm da mesma coluna do mesmo relatório.
+    it("mostra só as modalidades presentes — nenhuma linha zerada de palpite", async () => {
+      // Base com um único resgate gratuito: a quebra traz só "Gratuito".
+      // O total (no card Resgates) é a informação completa; a quebra não
+      // inventa linhas de checkout que ninguém usou.
       await prisma.eventoDeResgateTelemetria.create({
         data: {
           assinanteId,
           dataEvento: new Date("2026-07-10T00:00:00.000Z"),
           produto: "Brinde",
           tipoOferta: "Recompensa gratuita",
-          chaveNatural: `${MARCA}-zero`,
+          chaveNatural: `${MARCA}-so-gratuito`,
           importacaoId,
         },
       });
 
-      const compras = (await cardsDeConsumo(patrocinadorId)).find(
-        (card) => card.chave === "compras",
+      const modalidades = (await cardsDeConsumo(patrocinadorId)).find(
+        (card) => card.chave === "modalidades",
       )!;
-      expect(compras.selo).toBe("VIVO");
-      expect(compras.linhas[0]!.valor).toContain("0");
+      expect(modalidades.selo).toBe("VIVO");
+      expect(modalidades.linhas.map((l) => l.rotulo)).toEqual(["Gratuito"]);
     });
 
-    it("tipo desconhecido não vira compra nem resgate — é declarado à parte", async () => {
+    it("tipo desconhecido não vira resgate — é declarado à parte, no card Resgates", async () => {
       await prisma.eventoDeResgateTelemetria.createMany({
         data: [
           {
@@ -361,12 +367,12 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
       });
 
       const cards = await cardsDeConsumo(patrocinadorId);
-      const compras = cards.find((card) => card.chave === "compras")!;
-      expect(compras.linhas[0]!.valor).toContain("1");
-      // O volume fora da conta é DECLARADO, nos dois cards.
-      const rotulos = compras.linhas.map((linha) => linha.rotulo);
-      expect(rotulos).toContain("Eventos com tipo não reconhecido (fora da conta)");
+      // A modalidade conhecida entra; a desconhecida não vira modalidade.
+      const modalidades = cards.find((card) => card.chave === "modalidades")!;
+      expect(modalidades.linhas.map((l) => l.rotulo)).toEqual(["Checkout no clube"]);
+      // O volume fora da conta é DECLARADO no card de resgates (total).
       const resgates = cards.find((card) => card.chave === "resgates")!;
+      expect(resgates.linhas[0]!.valor).toContain("1");
       expect(resgates.linhas.map((l) => l.rotulo)).toContain(
         "Eventos com tipo não reconhecido (fora da conta)",
       );
@@ -383,19 +389,20 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
         },
       });
 
-      const compras = (await cardsDeConsumo(patrocinadorId)).find(
-        (card) => card.chave === "compras",
+      const modalidades = (await cardsDeConsumo(patrocinadorId)).find(
+        (card) => card.chave === "modalidades",
       )!;
       // Sem evento nominal, o card espera — mesmo com 25 no catálogo.
-      expect(compras.selo).toBe("AGUARDA_CHAVE");
-      expect(JSON.stringify(compras.linhas)).not.toContain("25");
+      expect(modalidades.selo).toBe("AGUARDA_CHAVE");
+      expect(JSON.stringify(modalidades.linhas)).not.toContain("25");
     });
   });
 
   describe("Dashboard — card 'Resgates de benefícios' = total do extrato (errata 27/08)", () => {
     it("soma os resgates do extrato por natureza e acende a célula do panorama", async () => {
-      // Dois resgates e uma compra numa oferta RECOMPENSA (conta em
-      // benefícios), mais um resgate numa oferta CUPOM (não conta aqui).
+      // Dois resgates gratuitos e um checkout (também resgate desde 28/08)
+      // numa oferta RECOMPENSA — os três contam em benefícios —, mais um
+      // resgate numa oferta CUPOM (não conta aqui).
       await prisma.eventoDeResgateTelemetria.createMany({
         data: [
           {
@@ -437,10 +444,11 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
         ],
       });
 
-      // A consulta conta só os RESGATE de RECOMPENSA/BENEFICIO: 2 (não a
-      // compra, não o cupom).
+      // A consulta conta todos os RESGATE de RECOMPENSA/BENEFICIO: 3 (as
+      // duas gratuitas e o checkout, que agora é resgate); o cupom fica de
+      // fora por ser outra natureza.
       const global = await resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"]);
-      expect(global?.resgates).toBe(2);
+      expect(global?.resgates).toBe(3);
       expect(global?.dataDoRetrato).toEqual(new Date("2026-07-12T00:00:00.000Z"));
 
       // A célula do hero acende com esse total e a origem "extrato".
@@ -448,7 +456,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
       const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
       expect(celula.resultado.estado).toBe("DISPONIVEL");
       if (celula.resultado.estado === "DISPONIVEL") {
-        expect(celula.resultado.valor).toBe(2);
+        expect(celula.resultado.valor).toBe(3);
       }
       expect(celula.nota).toContain("extrato");
     });
@@ -509,7 +517,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
       expect(cards.map((card) => card.chave)).toEqual([
         "base",
         "resgates",
-        "compras",
+        "modalidades",
         "funil",
         "acessos",
         "solucoes",

@@ -1,6 +1,12 @@
 import { Prisma } from "@prisma/client";
 
-import { classificarEvento } from "@/dominio/telemetria-operadora/tipo-de-evento";
+import {
+  classificarEvento,
+  modalidadeDeResgate,
+  MODALIDADES_DE_RESGATE,
+  ROTULO_MODALIDADE,
+  type ModalidadeDeResgate,
+} from "@/dominio/telemetria-operadora/tipo-de-evento";
 import { prisma } from "@/infra/prisma/cliente";
 
 /**
@@ -72,32 +78,73 @@ export interface ContagemNominal {
   dataDoRetrato: Date | null;
 }
 
+/** Uma modalidade dentro do total de resgates — o "como" (RN65). */
+export interface ContagemPorModalidade extends ContagemNominal {
+  modalidade: ModalidadeDeResgate;
+  rotulo: string;
+}
+
 /**
  * O extrato nominal — a contagem que tem CPF, e por isso chega ao
  * patrocinador. Jamais somada ao contador de catálogo (RN68).
+ *
+ * **Decisão de 28/08: checkout é modalidade de resgate.** `resgates` é o
+ * total — todas as modalidades somadas —, e `porModalidade` preserva COMO
+ * cada assinante resgatou (gratuito, checkout no clube, checkout externo).
+ * Não há mais um card de "compras" à parte: compra virou uma modalidade do
+ * resgate, e a quebra vive aqui para a tela poder exibi-la sem recontar.
  */
 export interface ApuracaoNominal {
+  /** O total de resgates — a soma de todas as modalidades. */
   resgates: ContagemNominal;
-  compras: ContagemNominal;
+  /**
+   * A quebra do total por modalidade, na ordem de exibição
+   * (`MODALIDADES_DE_RESGATE`). Só as modalidades com ao menos um evento —
+   * um zero medido não vira linha, porque o total já o cobre.
+   */
+  porModalidade: ReadonlyArray<ContagemPorModalidade>;
   /**
    * Eventos cujo `Tipo de Oferta` a fonte não trouxe ou que o de-para não
-   * reconhece. Declarado, nunca distribuído entre os dois (RN53) — e é
-   * este número que denuncia um valor novo da operadora.
+   * reconhece. Declarado, nunca encaixado no palpite mais provável (RN53) —
+   * e é este número que denuncia um valor novo da operadora.
    */
   naoClassificados: number;
 }
 
 /**
- * Resgates E compras dos assinantes com vínculo VIGENTE no patrocinador,
- * separados pelo de-para da coluna `Tipo de Oferta`.
+ * Acumulador de contagem nominal — eventos, assinantes distintos e a data
+ * do evento mais recente. Fechado em `ContagemNominal` no fim.
+ */
+function acumuladorNominal() {
+  return { eventos: 0, assinantes: new Set<string>(), data: null as Date | null };
+}
+type AcumuladorNominal = ReturnType<typeof acumuladorNominal>;
+
+function registrarEvento(alvo: AcumuladorNominal, assinanteId: string, dataEvento: Date) {
+  alvo.eventos += 1;
+  alvo.assinantes.add(assinanteId);
+  if (!alvo.data || dataEvento > alvo.data) {
+    alvo.data = dataEvento;
+  }
+}
+
+function fecharNominal(parcial: AcumuladorNominal): ContagemNominal {
+  return {
+    eventos: parcial.eventos,
+    assinantesComEvento: parcial.assinantes.size,
+    dataDoRetrato: parcial.data,
+  };
+}
+
+/**
+ * Resgates dos assinantes com vínculo VIGENTE no patrocinador, com a quebra
+ * por modalidade da coluna `Tipo de Oferta`.
  *
- * **Uma consulta só para os dois cards, e um gate só.** `null` quando a
- * base do patrocinador não tem evento nominal algum — aí os dois cards
- * voltam ao traço com motivo. Havendo qualquer evento, os DOIS acendem:
- * as três classes vêm da mesma coluna do mesmo relatório, então ter
- * evento é ter as duas contagens. Um zero em `compras`, nesse caso, é um
- * zero **medido** ("ninguém comprou") e não ausência de apuração — que é
- * exatamente a distinção que a RN53 existe para preservar.
+ * **Uma consulta só, e um gate só.** `null` quando a base do patrocinador
+ * não tem evento nominal algum — aí o card volta ao traço com motivo.
+ * Havendo qualquer evento classificado, o card acende com o total e as
+ * modalidades presentes; o volume que o de-para não reconhece fica em
+ * `naoClassificados`, declarado à parte (RN53), nunca somado ao resgate.
  */
 export async function apurarExtratoNominal(
   patrocinadorId: string,
@@ -110,37 +157,34 @@ export async function apurarExtratoNominal(
     return null;
   }
 
-  const acumular = () => ({
-    eventos: 0,
-    assinantes: new Set<string>(),
-    data: null as Date | null,
-  });
-  const porClasse = { RESGATE: acumular(), COMPRA: acumular() };
+  const total = acumuladorNominal();
+  const porModalidade = new Map<ModalidadeDeResgate, AcumuladorNominal>();
   let naoClassificados = 0;
 
   for (const evento of eventos) {
-    const classe = classificarEvento(evento.tipoOferta);
-    if (classe === "NAO_CLASSIFICADO") {
+    if (classificarEvento(evento.tipoOferta) !== "RESGATE") {
       naoClassificados += 1;
       continue;
     }
-    const alvo = porClasse[classe];
-    alvo.eventos += 1;
-    alvo.assinantes.add(evento.assinanteId);
-    if (!alvo.data || evento.dataEvento > alvo.data) {
-      alvo.data = evento.dataEvento;
+    registrarEvento(total, evento.assinanteId, evento.dataEvento);
+    const modalidade = modalidadeDeResgate(evento.tipoOferta);
+    if (modalidade) {
+      const alvo = porModalidade.get(modalidade) ?? acumuladorNominal();
+      registrarEvento(alvo, evento.assinanteId, evento.dataEvento);
+      porModalidade.set(modalidade, alvo);
     }
   }
 
-  const fechar = (parcial: ReturnType<typeof acumular>): ContagemNominal => ({
-    eventos: parcial.eventos,
-    assinantesComEvento: parcial.assinantes.size,
-    dataDoRetrato: parcial.data,
-  });
+  const quebra: ContagemPorModalidade[] = [];
+  for (const modalidade of MODALIDADES_DE_RESGATE) {
+    const parcial = porModalidade.get(modalidade);
+    if (!parcial) continue;
+    quebra.push({ modalidade, rotulo: ROTULO_MODALIDADE[modalidade], ...fecharNominal(parcial) });
+  }
 
   return {
-    resgates: fechar(porClasse.RESGATE),
-    compras: fechar(porClasse.COMPRA),
+    resgates: fecharNominal(total),
+    porModalidade: quebra,
     naoClassificados,
   };
 }
@@ -199,10 +243,19 @@ export async function resgatesNominaisGlobais(
  * é ausência declarada, não zero: a coluna `Valor` nem sempre veio, e um
  * "0" só entra quando foi medido.
  */
+/** Quantos resgates de cada modalidade, para a linha de uso do assinante. */
+export interface UsoPorModalidade {
+  modalidade: ModalidadeDeResgate;
+  rotulo: string;
+  eventos: number;
+}
+
 export interface UsoDoAssinante {
   totalEventos: number;
+  /** O total de resgates — todas as modalidades somadas. */
   resgates: number;
-  compras: number;
+  /** A quebra do total por modalidade (RN65), só as com evento. */
+  porModalidade: ReadonlyArray<UsoPorModalidade>;
   naoClassificados: number;
   /** Recência — a data do evento mais recente. */
   dataUltimoEvento: Date;
@@ -224,18 +277,21 @@ export async function usoPorAssinante(assinanteId: string): Promise<UsoDoAssinan
   }
 
   let resgates = 0;
-  let compras = 0;
   let naoClassificados = 0;
+  const porModalidade = new Map<ModalidadeDeResgate, number>();
   let dataUltimoEvento = eventos[0]!.dataEvento;
   let dataPrimeiroEvento = eventos[0]!.dataEvento;
   let valorTotal: Prisma.Decimal | null = null;
   let eventosComValor = 0;
 
   for (const evento of eventos) {
-    const classe = classificarEvento(evento.tipoOferta);
-    if (classe === "RESGATE") resgates += 1;
-    else if (classe === "COMPRA") compras += 1;
-    else naoClassificados += 1;
+    if (classificarEvento(evento.tipoOferta) === "RESGATE") {
+      resgates += 1;
+      const modalidade = modalidadeDeResgate(evento.tipoOferta);
+      if (modalidade) porModalidade.set(modalidade, (porModalidade.get(modalidade) ?? 0) + 1);
+    } else {
+      naoClassificados += 1;
+    }
 
     if (evento.dataEvento > dataUltimoEvento) dataUltimoEvento = evento.dataEvento;
     if (evento.dataEvento < dataPrimeiroEvento) dataPrimeiroEvento = evento.dataEvento;
@@ -246,10 +302,18 @@ export async function usoPorAssinante(assinanteId: string): Promise<UsoDoAssinan
     }
   }
 
+  const quebra: UsoPorModalidade[] = MODALIDADES_DE_RESGATE.filter((m) =>
+    porModalidade.has(m),
+  ).map((modalidade) => ({
+    modalidade,
+    rotulo: ROTULO_MODALIDADE[modalidade],
+    eventos: porModalidade.get(modalidade)!,
+  }));
+
   return {
     totalEventos: eventos.length,
     resgates,
-    compras,
+    porModalidade: quebra,
     naoClassificados,
     dataUltimoEvento,
     dataPrimeiroEvento,
@@ -271,8 +335,10 @@ export async function usoPorAssinante(assinanteId: string): Promise<UsoDoAssinan
 export interface TelemetriaDaOferta {
   catalogo: { resgates: number; compras: number; dataArquivo: Date | null } | null;
   extrato: {
+    /** Total de resgates da oferta no extrato nominal (todas as modalidades). */
     resgates: number;
-    compras: number;
+    /** A quebra por modalidade (RN65), só as com evento. */
+    porModalidade: ReadonlyArray<{ modalidade: ModalidadeDeResgate; rotulo: string; eventos: number }>;
     naoClassificados: number;
     dataUltimo: Date;
   } | null;
@@ -303,17 +369,27 @@ export async function telemetriaOperadoraDaOferta(
   let extrato: TelemetriaDaOferta["extrato"] = null;
   if (eventos.length > 0) {
     let resgates = 0;
-    let compras = 0;
     let naoClassificados = 0;
+    const porModalidade = new Map<ModalidadeDeResgate, number>();
     let dataUltimo = eventos[0]!.dataEvento;
     for (const evento of eventos) {
-      const classe = classificarEvento(evento.tipoOferta);
-      if (classe === "RESGATE") resgates += 1;
-      else if (classe === "COMPRA") compras += 1;
-      else naoClassificados += 1;
+      if (classificarEvento(evento.tipoOferta) === "RESGATE") {
+        resgates += 1;
+        const modalidade = modalidadeDeResgate(evento.tipoOferta);
+        if (modalidade) porModalidade.set(modalidade, (porModalidade.get(modalidade) ?? 0) + 1);
+      } else {
+        naoClassificados += 1;
+      }
       if (evento.dataEvento > dataUltimo) dataUltimo = evento.dataEvento;
     }
-    extrato = { resgates, compras, naoClassificados, dataUltimo };
+    const quebra = MODALIDADES_DE_RESGATE.filter((m) => porModalidade.has(m)).map(
+      (modalidade) => ({
+        modalidade,
+        rotulo: ROTULO_MODALIDADE[modalidade],
+        eventos: porModalidade.get(modalidade)!,
+      }),
+    );
+    extrato = { resgates, porModalidade: quebra, naoClassificados, dataUltimo };
   }
 
   return { catalogo, extrato };
