@@ -428,6 +428,72 @@ export async function publicarOferta(ator: Ator, ofertaId: string) {
   });
 }
 
+export interface ResumoPublicacaoEmMassa {
+  /** Ofertas que estavam em rascunho/pausada — universo considerado. */
+  candidatas: number;
+  /** Foram ao ar direto (regra de aprovação desligada). */
+  publicadas: number;
+  /** Entraram na fila de aprovação (RN06 — regra ligada). */
+  solicitadas: number;
+  /** Recusadas com a causa nomeada (RN02/RN09/RN11 ou já pendente). */
+  inelegiveis: Array<{ id: string; titulo: string; motivos: string[] }>;
+}
+
+/**
+ * Publica em massa todas as ofertas elegíveis (rascunho ou pausada).
+ *
+ * **Não duplica nenhuma regra**: chama `publicarOferta` para cada oferta,
+ * então cada uma passa exatamente pelas mesmas verificações (RN02/RN09/
+ * RN11), pelo mesmo roteamento da porta de aprovação (PUBLICACAO_OFERTA) e
+ * pela mesma auditoria — é o padrão da RN57 (o caminho em massa reusa o
+ * caso de uso único, não reescreve a validação).
+ *
+ * Cada oferta é sua própria transação: uma inelegível **não derruba** as
+ * demais. O resultado é um resumo — publicadas, enfileiradas e as recusadas
+ * com o motivo nomeado —, no mesmo espírito da quarentena da importação:
+ * o que não entrou aparece com a causa, nunca em silêncio.
+ */
+export async function publicarTodasElegiveis(ator: Ator): Promise<ResumoPublicacaoEmMassa> {
+  exigirPermissao(ator.papel, "PUBLICAR_PAUSAR_ENCERRAR_OFERTA");
+
+  const candidatas = await prisma.oferta.findMany({
+    where: { status: { in: ["RASCUNHO", "PAUSADA"] } },
+    select: { id: true, titulo: true },
+    orderBy: { criadoEm: "asc" },
+  });
+
+  const resumo: ResumoPublicacaoEmMassa = {
+    candidatas: candidatas.length,
+    publicadas: 0,
+    solicitadas: 0,
+    inelegiveis: [],
+  };
+
+  for (const candidata of candidatas) {
+    try {
+      const resultado = await publicarOferta(ator, candidata.id);
+      if (resultado.resultado === "PUBLICADA") {
+        resumo.publicadas += 1;
+      } else {
+        resumo.solicitadas += 1;
+      }
+    } catch (erro) {
+      if (erro instanceof ErroDeValidacao) {
+        // Causa nomeada (RN55): os impedimentos sobem inteiros ao resumo.
+        resumo.inelegiveis.push({
+          id: candidata.id,
+          titulo: candidata.titulo,
+          motivos: [...erro.erros],
+        });
+      } else {
+        throw erro;
+      }
+    }
+  }
+
+  return resumo;
+}
+
 /** Pausa manual de oferta publicada. */
 export async function pausarOferta(ator: Ator, ofertaId: string) {
   exigirPermissao(ator.papel, "PUBLICAR_PAUSAR_ENCERRAR_OFERTA");

@@ -11,6 +11,8 @@ import {
   encerrarOferta,
   pausarOferta,
   publicarOferta,
+  publicarTodasElegiveis,
+  type ResumoPublicacaoEmMassa,
 } from "@/infra/casos-de-uso/ofertas";
 import type { EstadoFormulario } from "../aliados/acoes";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
@@ -135,6 +137,34 @@ export async function acaoPublicarOferta(
     };
   } catch (erro) {
     return paraEstado(erro);
+  }
+}
+
+/** Estado do formulário de publicação em massa — carrega o resumo da corrida. */
+export interface EstadoPublicacaoEmMassa {
+  erros?: string[];
+  resumo?: ResumoPublicacaoEmMassa;
+}
+
+export async function acaoPublicarTodasElegiveis(
+  _anterior: EstadoPublicacaoEmMassa,
+  _dados: FormData,
+): Promise<EstadoPublicacaoEmMassa> {
+  const ator = await atorDaSessao();
+  try {
+    const resumo = await publicarTodasElegiveis(ator);
+    revalidatePath("/ofertas");
+    revalidatePath("/ofertas/publicacao");
+    revalidatePath("/aprovacoes");
+    return { resumo };
+  } catch (erro) {
+    return {
+      erros: mensagensDeFalha(erro, {
+        operacao: "publicar as ofertas elegíveis",
+        semPermissao: "Seu papel não tem permissão para publicar ofertas (ficha §2).",
+        contexto: "publicar-todas-elegiveis",
+      }),
+    };
   }
 }
 
