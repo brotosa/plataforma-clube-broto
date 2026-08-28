@@ -51,7 +51,7 @@ export default async function PaginaManual() {
 
   return (
     <div className="tela" style={{ padding: "26px 32px 48px", maxWidth: 980 }}>
-      <header style={{ marginBottom: 22 }}>
+      <header id="topo" style={{ marginBottom: 22, scrollMarginTop: 16 }}>
         <h1 className="h-page">Manual do usuário</h1>
         <p className="cap" style={{ marginTop: 6, maxWidth: "70ch" }}>
           O que cada papel pode fazer na plataforma, com o passo a passo de cada ação. A lista
@@ -66,11 +66,24 @@ export default async function PaginaManual() {
         </p>
       </header>
 
-      {/* Saltos por papel */}
+      {/* Saltos por papel — fixo no topo ao rolar, para que qualquer papel
+          (e o topo) fique alcançável de qualquer ponto do manual, sem ter de
+          rolar de volta. `top: 0` fixa na borda do contêiner de rolagem (o
+          <main>); o fundo do .card cobre o conteúdo que passa por baixo. */}
       <nav
         aria-label="Papéis"
         className="card"
-        style={{ padding: "14px 18px", marginBottom: 22, display: "flex", flexWrap: "wrap", gap: 10 }}
+        style={{
+          padding: "14px 18px",
+          marginBottom: 22,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 10,
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+          boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+        }}
       >
         {ORDEM_PAPEIS.map((papel) => (
           <a
@@ -108,7 +121,9 @@ export default async function PaginaManual() {
           <section
             key={papel}
             id={ancoraDoPapel(papel)}
-            style={{ marginBottom: 28, scrollMarginTop: 16 }}
+            // Folga maior que o menu fixo (~56px), para o título da seção
+            // parar abaixo dele ao saltar, e não escondido por trás.
+            style={{ marginBottom: 28, scrollMarginTop: 76 }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
               <h2 className="h-page" style={{ fontSize: 22 }}>
@@ -160,6 +175,14 @@ export default async function PaginaManual() {
                 ))}
               </div>
             )}
+
+            {/* Volta explícita ao topo — para não precisar rolar de volta
+                até o menu de papéis no fim de uma seção longa. */}
+            <div style={{ marginTop: 12 }}>
+              <a href="#topo" className="cap" style={{ textDecoration: "none" }}>
+                ↑ Voltar ao topo
+              </a>
+            </div>
           </section>
         );
       })}
