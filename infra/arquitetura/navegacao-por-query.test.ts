@@ -202,6 +202,18 @@ describe("navegação por query string usa âncora nativa, não <Link>", () => {
     expect(texto).toMatch(/<a\b/);
   });
 
+  it("o seletor de período do dashboard navega por window.location, não por router", () => {
+    // Mesmo defeito do <Link>, por outra porta: o seletor da HOME é um
+    // <select> (não dá para ser âncora), e `router.push`/`router.replace`
+    // para mudar só a query cai no mesmo Router Cache — o período mudava na
+    // URL e não nos números. A correção é navegação real por window.location.
+    const texto = conteudo("app/(plataforma)/painel-dashboard.tsx");
+    expect(texto).toMatch(/window\.location\.assign\(`\/\?periodo=/);
+    expect(texto, "o seletor de período não pode voltar a usar router.push/replace").not.toMatch(
+      /router\.(push|replace)\(`?\/\?periodo=/,
+    );
+  });
+
   it("a convenção está escrita no CLAUDE.md, com a hipótese declarada como hipótese", () => {
     // Cerca sem regra escrita é armadilha: quem tropeça nela precisa achar o
     // porquê sem arqueologia de git.
