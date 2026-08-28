@@ -83,6 +83,14 @@ const TELAS_COM_CONTROLE_DE_QUERY: ReadonlyArray<{ arquivo: string; rota: string
    */
   { arquivo: "app/(plataforma)/patrocinadores/page.tsx", rota: "/patrocinadores" },
   { arquivo: "app/(plataforma)/patrocinadores/[id]/page.tsx", rota: "/patrocinadores" },
+  /**
+   * Melhoria de 28/08. A T4 (Ofertas) ganhou cabeçalhos ordenáveis e um
+   * filtro por vigência/telemetria, todos por querystring da própria rota:
+   * a ordenação é âncora nativa (`href={urlDeOrdem(...)}`) e o filtro é
+   * `<form method="get">`. Entra aqui para que a próxima mão não converta um
+   * cabeçalho em `<Link>` por hábito — o `urlDeOrdem` está nos construtores.
+   */
+  { arquivo: "app/(plataforma)/ofertas/page.tsx", rota: "/ofertas" },
 ];
 
 /**
@@ -111,7 +119,7 @@ const QUERY_LITERAL_COM_CAMINHO = /(\/[\w/[\]-]*)\?[A-Za-z_][\w-]*=/;
  *
  * Construtor novo entra aqui junto com a tela.
  */
-const CONSTRUTORES_DE_URL = ["comUrl", "comFiltro", "urlCom"];
+const CONSTRUTORES_DE_URL = ["comUrl", "comFiltro", "urlCom", "urlDeOrdem"];
 
 /**
  * O href muda apenas a query da PRÓPRIA rota?
@@ -169,6 +177,7 @@ describe("navegação por query string usa âncora nativa, não <Link>", () => {
       ["app/(plataforma)/mercado/mapa-cobertura.tsx", /\/mercado\?categoria=/],
       ["app/(plataforma)/aliados/cobertura/painel-cobertura.tsx", /\/mercado\?categoria=/],
       ["app/(plataforma)/segmentado-secao.tsx", /VISOES_DE_MERCADO/],
+      ["app/(plataforma)/ofertas/page.tsx", /href=\{urlDeOrdem\(coluna\)\}/],
     ];
     const ausentes = esperados
       .filter(([arquivo, marca]) => !marca.test(conteudo(arquivo)))
@@ -184,6 +193,7 @@ describe("navegação por query string usa âncora nativa, não <Link>", () => {
     expect(mudaApenasAQuery("{comUrl({ modo: opcao })}", "/aliados/mapa")).toBe(true);
     expect(mudaApenasAQuery("{comFiltro({ visao: undefined })}", "/aliados/cobertura")).toBe(true);
     expect(mudaApenasAQuery('{urlCom({ visao: "tabela" })}', "/mercado")).toBe(true);
+    expect(mudaApenasAQuery('{urlDeOrdem("emitidos")}', "/ofertas")).toBe(true);
 
     // Troca de ROTA com query sempre funcionou — e o
     // `@next/next/no-html-link-for-pages` exige <Link> nela.

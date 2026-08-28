@@ -8,6 +8,15 @@ import { kpiVitrineViva, resumoTelemetriaPorOferta } from "@/infra/consultas/tel
 import { contadoresPorOferta } from "@/infra/consultas/telemetria-operadora";
 import { lerRegua } from "@/infra/configuracao/servico-configuracao";
 import { estaAVencer } from "@/dominio/ofertas/regras";
+import {
+  FILTROS_TELEMETRIA,
+  ORDENS_LISTA,
+  ordenarLista,
+  passaFiltroTelemetria,
+  type FiltroTelemetria,
+  type LinhaOrdenavel,
+  type OrdemLista,
+} from "@/dominio/ofertas/ordenacao-lista";
 import { PublicarTodasElegiveis } from "./publicar-todas";
 
 export const metadata: Metadata = {
@@ -28,6 +37,25 @@ const ROTULO_STATUS: Record<string, string> = {
   EXPIRADA: "Expirada",
 };
 
+/** Recorte por vigência — todos por querystring, validados contra esta lista. */
+const VIGENCIAS = ["a-vencer", "vigente", "encerrada", "indeterminada"] as const;
+type Vigencia = (typeof VIGENCIAS)[number];
+const ROTULO_VIGENCIA: Record<Vigencia, string> = {
+  "a-vencer": "A vencer",
+  vigente: "Vigente",
+  encerrada: "Encerrada",
+  indeterminada: "Sem prazo (indeterminada)",
+};
+
+const ROTULO_TELEMETRIA: Record<FiltroTelemetria, string> = {
+  "com-emissao": "Com emissão",
+  "com-resg-extrato": "Com resgate (extrato)",
+  "com-compra-extrato": "Com compra (extrato)",
+  "com-resg-catalogo": "Com resgate (catálogo)",
+  "com-compra-catalogo": "Com compra (catálogo)",
+  "sem-telemetria": "Sem telemetria",
+};
+
 function formatarData(data: Date | null): string {
   if (!data) return "—";
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(data);
@@ -38,6 +66,15 @@ function formatarData(data: Date | null): string {
  * emitidos/resgatados, compras confirmadas, KPI "vitrine viva" (resgate em
  * 90 d) e a distinção fora-da-Plataforma (resgate aguardando conciliação) ×
  * compra confirmada. Ações de publicação e importação no topo (por papel).
+ *
+ * **Filtro e ordenação por TODAS as colunas.** As colunas de negócio
+ * (título, aliado, natureza, status, vigência) filtram no banco; as de
+ * telemetria vivem em outras tabelas (RN68), então o conjunto é anotado em
+ * memória e o filtro "com/sem telemetria" e a ordenação por qualquer coluna
+ * numérica acontecem sobre ele, pela lógica pura de `ordenacao-lista.ts`. O
+ * catálogo de ofertas é conjunto contido (196 na base) — anotar o conjunto
+ * inteiro é barato e mantém a ordenação correta; a lista exibe as 50
+ * primeiras e a contagem filtrada acompanha.
  */
 export default async function PaginaOfertas({
   searchParams,
@@ -57,14 +94,11 @@ export default async function PaginaOfertas({
   // da lista porque o filtro do cartão de pendência do Dashboard usa a mesma
   // janela — a lista recortada bate com a contagem que levou o usuário aqui.
   const janelaVigencia = await lerRegua("OFERTA_VIGENCIA_A_VENCER_DIAS");
-  const filtrarAVencer = parametros.vigencia === "a-vencer";
   const limiteVigencia = new Date(hoje.getTime() + janelaVigencia * 24 * 60 * 60 * 1000);
 
   // Filtros da lista, todos por querystring (entrada de usuário → validada
   // contra a allowlist de cada enum; lixo cai no "sem filtro"). A busca casa
-  // título OU nome do aliado. O preset "a-vencer" vem do painel de
-  // pendências e compõe com os demais: um status explícito do filtro
-  // sobrepõe o `in` do preset; a janela de vigência do preset permanece.
+  // título OU nome do aliado.
   const NATUREZAS: ReadonlyArray<NaturezaOferta> = ["RECOMPENSA", "BENEFICIO", "CUPOM_DESCONTO"];
   const STATUSES: ReadonlyArray<StatusOferta> = [
     "RASCUNHO",
@@ -78,7 +112,34 @@ export default async function PaginaOfertas({
   const busca = paramTexto(parametros.busca);
   const naturezaSel = NATUREZAS.find((n) => n === parametros.natureza) ?? null;
   const statusSel = STATUSES.find((s) => s === parametros.status) ?? null;
-  const temFiltro = busca !== "" || naturezaSel !== null || statusSel !== null;
+  const vigenciaSel = VIGENCIAS.find((v) => v === parametros.vigencia) ?? null;
+  const telemetriaSel = FILTROS_TELEMETRIA.find((t) => t === parametros.tel) ?? null;
+  const ordemSel = ORDENS_LISTA.find((o) => o === parametros.ordem) ?? null;
+  const direcao: "asc" | "desc" = parametros.dir === "desc" ? "desc" : "asc";
+  const filtrarAVencer = vigenciaSel === "a-vencer";
+  const temFiltro =
+    busca !== "" ||
+    naturezaSel !== null ||
+    statusSel !== null ||
+    vigenciaSel !== null ||
+    telemetriaSel !== null;
+
+  // O recorte por vigência entra num AND próprio para conviver com o filtro
+  // de status sem se sobrepor. O preset "a-vencer" vem do painel de
+  // pendências e restringe status quando o usuário não escolheu um.
+  const clausulasVigencia: Prisma.OfertaWhereInput[] = [];
+  if (vigenciaSel === "a-vencer") {
+    if (!statusSel) clausulasVigencia.push({ status: { in: ["RASCUNHO", "PUBLICADA", "PAUSADA"] } });
+    clausulasVigencia.push({ vigenciaFim: { not: null, gte: hoje, lte: limiteVigencia } });
+  } else if (vigenciaSel === "vigente") {
+    // Início sempre existe (coluna obrigatória); só o fim pode ser nulo.
+    clausulasVigencia.push({ vigenciaInicio: { lte: hoje } });
+    clausulasVigencia.push({ OR: [{ vigenciaFim: null }, { vigenciaFim: { gte: hoje } }] });
+  } else if (vigenciaSel === "encerrada") {
+    clausulasVigencia.push({ vigenciaFim: { not: null, lt: hoje } });
+  } else if (vigenciaSel === "indeterminada") {
+    clausulasVigencia.push({ vigenciaFim: null });
+  }
 
   const ondeOfertas: Prisma.OfertaWhereInput = {
     ...(busca === ""
@@ -94,23 +155,12 @@ export default async function PaginaOfertas({
           ],
         }),
     ...(naturezaSel ? { natureza: naturezaSel } : {}),
-    ...(statusSel
-      ? { status: statusSel }
-      : filtrarAVencer
-        ? { status: { in: ["RASCUNHO", "PUBLICADA", "PAUSADA"] } }
-        : {}),
-    ...(filtrarAVencer ? { vigenciaFim: { not: null, gte: hoje, lte: limiteVigencia } } : {}),
+    ...(statusSel ? { status: statusSel } : {}),
+    ...(clausulasVigencia.length ? { AND: clausulasVigencia } : {}),
   };
 
-  const [
-    totalOfertas,
-    ofertasPublicadas,
-    pendentesRepublicacao,
-    candidatasAPublicar,
-    totalFiltrado,
-    ofertas,
-    vitrine,
-  ] = await Promise.all([
+  const [totalOfertas, ofertasPublicadas, pendentesRepublicacao, candidatasAPublicar, ofertasTodas, vitrine] =
+    await Promise.all([
       prisma.oferta.count(),
       prisma.oferta.count({ where: { status: "PUBLICADA" } }),
       prisma.oferta.count({ where: { pendenteRepublicacao: true } }),
@@ -119,11 +169,12 @@ export default async function PaginaOfertas({
       podePublicar
         ? prisma.oferta.count({ where: { status: { in: ["RASCUNHO", "PAUSADA"] } } })
         : Promise.resolve(0),
-      prisma.oferta.count({ where: ondeOfertas }),
+      // Conjunto contido: buscamos TODAS as ofertas que casam o filtro de
+      // banco (busca/natureza/status/vigência) para poder ordenar e filtrar
+      // por telemetria em memória. A lista exibe só as 50 primeiras.
       prisma.oferta.findMany({
         where: ondeOfertas,
         orderBy: { atualizadoEm: "desc" },
-        take: 50,
         include: {
           tipoBeneficio: true,
           mecanica: true,
@@ -133,17 +184,127 @@ export default async function PaginaOfertas({
       kpiVitrineViva(),
     ]);
 
+  const idsTodas = ofertasTodas.map((oferta) => oferta.id);
   const [telemetria, contadoresDeCatalogo] = await Promise.all([
-    resumoTelemetriaPorOferta(ofertas.map((oferta) => oferta.id)),
+    resumoTelemetriaPorOferta(idsTodas),
     // F20 (RN68) — a OUTRA contagem, pela consulta única da telemetria da
     // operadora. Fica em coluna própria, com a data do retrato no título:
     // as duas nunca se somam nem se apresentam como o mesmo número.
-    contadoresPorOferta(ofertas.map((oferta) => oferta.id)),
+    contadoresPorOferta(idsTodas),
   ]);
+
+  // Conjunto anotado: cada oferta com as cinco medidas de telemetria já
+  // resolvidas. O catálogo distingue ausência (sem import) de zero medido —
+  // `resgCatalogo`/`comprasCatalogo` são `null` na ausência, e ordenam/filtram
+  // como tal (RN53).
+  type Linha = {
+    oferta: (typeof ofertasTodas)[number];
+    emitidos: number;
+    resgExtrato: number;
+    comprasExtrato: number;
+    resgCatalogo: number | null;
+    comprasCatalogo: number | null;
+    temCatalogo: boolean;
+    catalogoData: Date | null;
+    resgateRecente: boolean;
+  };
+  const linhas: Linha[] = ofertasTodas.map((oferta) => {
+    const resumo = telemetria.get(oferta.id);
+    const catalogo = contadoresDeCatalogo.get(oferta.id);
+    return {
+      oferta,
+      emitidos: resumo?.emitidos ?? 0,
+      resgExtrato: resumo?.resgatados ?? 0,
+      comprasExtrato: resumo?.comprasConfirmadas ?? 0,
+      resgCatalogo: catalogo ? catalogo.resgates : null,
+      comprasCatalogo: catalogo ? catalogo.compras : null,
+      temCatalogo: Boolean(catalogo),
+      catalogoData: catalogo?.dataArquivo ?? null,
+      resgateRecente: resumo?.resgateRecente ?? false,
+    };
+  });
+
+  // Projeção para a lógica pura de ordenação/filtro (desacoplada do Prisma).
+  const projetar = (linha: Linha): LinhaOrdenavel => ({
+    titulo: linha.oferta.titulo,
+    aliadoNome: linha.oferta.solucao.empresa.nomeFantasia,
+    naturezaRotulo: ROTULO_NATUREZA[linha.oferta.natureza] ?? "",
+    statusRotulo: ROTULO_STATUS[linha.oferta.status] ?? "",
+    emitidos: linha.emitidos,
+    resgExtrato: linha.resgExtrato,
+    comprasExtrato: linha.comprasExtrato,
+    resgCatalogo: linha.resgCatalogo,
+    comprasCatalogo: linha.comprasCatalogo,
+    temCatalogo: linha.temCatalogo,
+    vigenciaFimMs: linha.oferta.vigenciaFim?.getTime() ?? null,
+    atualizadoEmMs: linha.oferta.atualizadoEm.getTime(),
+  });
+
+  const linhasFiltradas =
+    telemetriaSel === null
+      ? linhas
+      : linhas.filter((linha) => passaFiltroTelemetria(projetar(linha), telemetriaSel));
+  // Sem `ordem` explícita mantém a ordem do banco (mais recentes primeiro).
+  const ordenadas =
+    ordemSel === null
+      ? linhasFiltradas
+      : ordenarLista(linhasFiltradas, projetar, ordemSel, direcao);
+
+  const totalFiltrado = ordenadas.length;
+  const exibidas = ordenadas.slice(0, 50);
+
   const percentualVivo =
     vitrine.totalPublicadas > 0
       ? Math.round((vitrine.publicadasComResgate / vitrine.totalPublicadas) * 100)
       : null;
+
+  // Base de parâmetros preservada nas âncoras de ordenação (só a query muda).
+  const filtrosBase: Record<string, string> = {};
+  if (busca) filtrosBase.busca = busca;
+  if (naturezaSel) filtrosBase.natureza = naturezaSel;
+  if (statusSel) filtrosBase.status = statusSel;
+  if (vigenciaSel) filtrosBase.vigencia = vigenciaSel;
+  if (telemetriaSel) filtrosBase.tel = telemetriaSel;
+
+  function urlDeOrdem(coluna: OrdemLista): string {
+    // Clicar na coluna ativa inverte a direção; nas demais começa ascendente.
+    const proximaDir = ordemSel === coluna && direcao === "asc" ? "desc" : "asc";
+    const query = new URLSearchParams(filtrosBase);
+    query.set("ordem", coluna);
+    query.set("dir", proximaDir);
+    return `/ofertas?${query.toString()}`;
+  }
+
+  function cabecalhoOrdenavel(
+    coluna: OrdemLista,
+    rotulo: string,
+    opcoes: { largura?: string; direita?: boolean } = {},
+  ) {
+    const ativo = ordemSel === coluna;
+    const seta = !ativo ? "↕" : direcao === "asc" ? "↑" : "↓";
+    return (
+      <th
+        style={{ width: opcoes.largura, textAlign: opcoes.direita ? "right" : undefined }}
+        aria-sort={ativo ? (direcao === "asc" ? "ascending" : "descending") : "none"}
+      >
+        {/* Âncora nativa: navegação que só troca a query (convenção do
+            CLAUDE.md — o Router Cache descartava o payload RSC com <Link>). */}
+        <a
+          href={urlDeOrdem(coluna)}
+          className="th-ordenar"
+          style={{ textDecoration: "none" }}
+          aria-label={`Ordenar por ${rotulo}${
+            ativo ? (direcao === "asc" ? ", ascendente" : ", descendente") : ""
+          }`}
+        >
+          <span>{rotulo}</span>
+          <span aria-hidden="true" className={ativo ? "seta-ativa" : "seta"}>
+            {seta}
+          </span>
+        </a>
+      </th>
+    );
+  }
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
@@ -227,8 +388,7 @@ export default async function PaginaOfertas({
           style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}
         >
           <span>
-            Mostrando <b>ofertas com vigência a vencer</b> (nos próximos {janelaVigencia} dias) —
-            filtro vindo do painel de pendências.
+            Mostrando <b>ofertas com vigência a vencer</b> (nos próximos {janelaVigencia} dias).
           </span>
           {/* Âncora nativa: navegação que só limpa a query (convenção do
               CLAUDE.md). O lint pede <Link> para páginas internas; a convenção
@@ -242,14 +402,15 @@ export default async function PaginaOfertas({
 
       {/* Filtros por querystring: um <form method="get"> é navegação nativa
           (full navigation), então não esbarra no Router Cache que a cerca
-          `navegacao-por-query.test.ts` documenta — nem precisa de <Link>. */}
+          `navegacao-por-query.test.ts` documenta — nem precisa de <Link>. Os
+          campos ocultos preservam a ordenação ao reenviar o filtro. */}
       <form
         method="get"
         action="/ofertas"
         className="g-resp"
         style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 12 }}
       >
-        <div className="field" style={{ flex: "1 1 260px", margin: 0 }}>
+        <div className="field" style={{ flex: "1 1 240px", margin: 0 }}>
           <label htmlFor="filtro-oferta-busca">Buscar por título ou aliado</label>
           <input
             id="filtro-oferta-busca"
@@ -292,6 +453,40 @@ export default async function PaginaOfertas({
             ))}
           </select>
         </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label htmlFor="filtro-oferta-vigencia">Vigência</label>
+          <select
+            id="filtro-oferta-vigencia"
+            name="vigencia"
+            className="select"
+            defaultValue={vigenciaSel ?? ""}
+          >
+            <option value="">Todas</option>
+            {VIGENCIAS.map((vigencia) => (
+              <option key={vigencia} value={vigencia}>
+                {ROTULO_VIGENCIA[vigencia]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label htmlFor="filtro-oferta-telemetria">Telemetria</label>
+          <select
+            id="filtro-oferta-telemetria"
+            name="tel"
+            className="select"
+            defaultValue={telemetriaSel ?? ""}
+          >
+            <option value="">Qualquer</option>
+            {FILTROS_TELEMETRIA.map((tel) => (
+              <option key={tel} value={tel}>
+                {ROTULO_TELEMETRIA[tel]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {ordemSel ? <input type="hidden" name="ordem" value={ordemSel} /> : null}
+        {ordemSel ? <input type="hidden" name="dir" value={direcao} /> : null}
         <button type="submit" className="btn btn-azul">
           Filtrar
         </button>
@@ -308,10 +503,10 @@ export default async function PaginaOfertas({
         {temFiltro
           ? `${totalFiltrado} oferta(s) no filtro`
           : `${totalFiltrado} oferta(s)`}
-        {totalFiltrado > 50 ? " · mostrando as 50 mais recentes" : ""}
+        {totalFiltrado > 50 ? " · mostrando as 50 primeiras" : ""}
       </div>
 
-      {ofertas.length === 0 ? (
+      {exibidas.length === 0 ? (
         <div className="card">
           <div className="vazio">
             <span className="ic" aria-hidden="true">
@@ -322,13 +517,11 @@ export default async function PaginaOfertas({
             <h2 className="h-el">
               {temFiltro
                 ? "Nenhuma oferta corresponde aos filtros"
-                : filtrarAVencer
-                  ? "Nenhuma oferta a vencer na janela"
-                  : "Nenhuma oferta cadastrada"}
+                : "Nenhuma oferta cadastrada"}
             </h2>
             <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
               {temFiltro
-                ? "Ajuste a busca, a natureza ou o status para ver mais ofertas."
+                ? "Ajuste a busca, a natureza, o status, a vigência ou a telemetria para ver mais ofertas."
                 : "Ofertas nascem dentro de uma solução, na ficha do aliado. A carga inicial também povoa esta lista."}
             </p>
             <Link href="/aliados" className="btn btn-ghost" style={{ marginTop: 8, textDecoration: "none" }}>
@@ -341,36 +534,35 @@ export default async function PaginaOfertas({
           <table className="tbl tbl-resp">
             <thead>
               <tr>
-                <th style={{ width: "24%" }}>Título</th>
-                <th>Aliado</th>
-                <th>Natureza</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Emitidos</th>
+                {cabecalhoOrdenavel("titulo", "Título", { largura: "24%" })}
+                {cabecalhoOrdenavel("aliado", "Aliado")}
+                {cabecalhoOrdenavel("natureza", "Natureza")}
+                {cabecalhoOrdenavel("status", "Status")}
+                {cabecalhoOrdenavel("emitidos", "Emitidos", { direita: true })}
                 {/*
-                  F20 (RN68) — a origem de cada contagem passa a ficar NO
-                  cabeçalho. O extrato (evento nominal, telemetria da F4) e
-                  o catálogo (contador acumulado da operadora) medem coisas
-                  diferentes e divergem hoje; sem o rótulo, duas colunas de
-                  "resgates" com números distintos pareceriam defeito.
+                  F20 (RN68) — a origem de cada contagem fica NO cabeçalho. O
+                  extrato (evento nominal, telemetria da F4) e o catálogo
+                  (contador acumulado da operadora) medem coisas diferentes e
+                  divergem hoje; sem o rótulo, duas colunas de "resgates" com
+                  números distintos pareceriam defeito.
                 */}
-                <th style={{ textAlign: "right" }}>Resgatados (extrato)</th>
-                <th style={{ textAlign: "right" }}>Compras (extrato)</th>
-                <th style={{ textAlign: "right" }}>Resgates (catálogo)</th>
-                <th style={{ textAlign: "right" }}>Compras (catálogo)</th>
-                <th>Vigência</th>
+                {cabecalhoOrdenavel("resg-extrato", "Resgatados (extrato)", { direita: true })}
+                {cabecalhoOrdenavel("compra-extrato", "Compras (extrato)", { direita: true })}
+                {cabecalhoOrdenavel("resg-catalogo", "Resgates (catálogo)", { direita: true })}
+                {cabecalhoOrdenavel("compra-catalogo", "Compras (catálogo)", { direita: true })}
+                {cabecalhoOrdenavel("vigencia", "Vigência")}
               </tr>
             </thead>
             <tbody>
-              {ofertas.map((oferta) => {
-                const resumo = telemetria.get(oferta.id);
-                const catalogo = contadoresDeCatalogo.get(oferta.id);
-                const retrato = catalogo
-                  ? catalogo.dataArquivo
-                    ? `Contador acumulado do catálogo da operadora · retrato de ${new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(catalogo.dataArquivo)}. Nunca somado ao extrato (RN68).`
+              {exibidas.map((linha) => {
+                const { oferta } = linha;
+                const retrato = linha.temCatalogo
+                  ? linha.catalogoData
+                    ? `Contador acumulado do catálogo da operadora · retrato de ${new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(linha.catalogoData)}. Nunca somado ao extrato (RN68).`
                     : "Contador acumulado do catálogo da operadora · o arquivo não declarou a data do retrato. Nunca somado ao extrato (RN68)."
                   : "Sem contador do catálogo: nenhum relatório da operadora importado para esta oferta.";
                 const foraDaPlataforma = oferta.mecanica.slug === "CHECKOUT_EXTERNO";
-                const numero = (valor: number | undefined) =>
+                const numero = (valor: number | null | undefined) =>
                   valor && valor > 0 ? valor.toLocaleString("pt-BR") : "—";
                 return (
                   <tr key={oferta.id} className="click">
@@ -384,7 +576,7 @@ export default async function PaginaOfertas({
                           republicar
                         </span>
                       ) : null}
-                      {resumo?.resgateRecente ? (
+                      {linha.resgateRecente ? (
                         <span className="pill pill-ok" style={{ marginLeft: 8 }}>
                           <i aria-hidden="true" />
                           viva
@@ -406,27 +598,27 @@ export default async function PaginaOfertas({
                       </span>
                     </td>
                     <td data-label="Emitidos" className="num" style={{ textAlign: "right" }}>
-                      {numero(resumo?.emitidos)}
+                      {numero(linha.emitidos)}
                     </td>
                     <td
                       data-label="Resgatados (extrato)"
                       className="num"
                       style={{ textAlign: "right" }}
                       title={
-                        foraDaPlataforma && (resumo?.resgatados ?? 0) > 0
+                        foraDaPlataforma && linha.resgExtrato > 0
                           ? "Fora da Plataforma: resgate aguardando conciliação mensal (ficha §6)."
                           : undefined
                       }
                     >
-                      {numero(resumo?.resgatados)}
-                      {foraDaPlataforma && (resumo?.resgatados ?? 0) > 0 ? (
+                      {numero(linha.resgExtrato)}
+                      {foraDaPlataforma && linha.resgExtrato > 0 ? (
                         <span className="cap" style={{ marginLeft: 4 }}>
                           *
                         </span>
                       ) : null}
                     </td>
                     <td data-label="Compras (extrato)" className="num" style={{ textAlign: "right" }}>
-                      {numero(resumo?.comprasConfirmadas)}
+                      {numero(linha.comprasExtrato)}
                     </td>
                     <td
                       data-label="Resgates (catálogo)"
@@ -434,7 +626,7 @@ export default async function PaginaOfertas({
                       style={{ textAlign: "right" }}
                       title={retrato}
                     >
-                      {catalogo ? catalogo.resgates.toLocaleString("pt-BR") : "—"}
+                      {linha.temCatalogo ? numero(linha.resgCatalogo) : "—"}
                     </td>
                     <td
                       data-label="Compras (catálogo)"
@@ -442,7 +634,7 @@ export default async function PaginaOfertas({
                       style={{ textAlign: "right" }}
                       title={retrato}
                     >
-                      {catalogo ? catalogo.compras.toLocaleString("pt-BR") : "—"}
+                      {linha.temCatalogo ? numero(linha.comprasCatalogo) : "—"}
                     </td>
                     <td data-label="Vigência" className="num cap">
                       {formatarData(oferta.vigenciaInicio)} –{" "}
