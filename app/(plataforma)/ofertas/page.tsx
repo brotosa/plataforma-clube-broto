@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { Prisma } from "@prisma/client";
+import type { NaturezaOferta, Prisma, StatusOferta } from "@prisma/client";
 import Link from "next/link";
 import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
@@ -59,18 +59,55 @@ export default async function PaginaOfertas({
   const janelaVigencia = await lerRegua("OFERTA_VIGENCIA_A_VENCER_DIAS");
   const filtrarAVencer = parametros.vigencia === "a-vencer";
   const limiteVigencia = new Date(hoje.getTime() + janelaVigencia * 24 * 60 * 60 * 1000);
-  const ondeOfertas: Prisma.OfertaWhereInput = filtrarAVencer
-    ? {
-        status: { in: ["RASCUNHO", "PUBLICADA", "PAUSADA"] },
-        vigenciaFim: { not: null, gte: hoje, lte: limiteVigencia },
-      }
-    : {};
+
+  // Filtros da lista, todos por querystring (entrada de usuário → validada
+  // contra a allowlist de cada enum; lixo cai no "sem filtro"). A busca casa
+  // título OU nome do aliado. O preset "a-vencer" vem do painel de
+  // pendências e compõe com os demais: um status explícito do filtro
+  // sobrepõe o `in` do preset; a janela de vigência do preset permanece.
+  const NATUREZAS: ReadonlyArray<NaturezaOferta> = ["RECOMPENSA", "BENEFICIO", "CUPOM_DESCONTO"];
+  const STATUSES: ReadonlyArray<StatusOferta> = [
+    "RASCUNHO",
+    "PUBLICADA",
+    "PAUSADA",
+    "ENCERRADA",
+    "EXPIRADA",
+  ];
+  const paramTexto = (valor: string | string[] | undefined) =>
+    typeof valor === "string" ? valor.trim() : "";
+  const busca = paramTexto(parametros.busca);
+  const naturezaSel = NATUREZAS.find((n) => n === parametros.natureza) ?? null;
+  const statusSel = STATUSES.find((s) => s === parametros.status) ?? null;
+  const temFiltro = busca !== "" || naturezaSel !== null || statusSel !== null;
+
+  const ondeOfertas: Prisma.OfertaWhereInput = {
+    ...(busca === ""
+      ? {}
+      : {
+          OR: [
+            { titulo: { contains: busca, mode: "insensitive" as const } },
+            {
+              solucao: {
+                empresa: { nomeFantasia: { contains: busca, mode: "insensitive" as const } },
+              },
+            },
+          ],
+        }),
+    ...(naturezaSel ? { natureza: naturezaSel } : {}),
+    ...(statusSel
+      ? { status: statusSel }
+      : filtrarAVencer
+        ? { status: { in: ["RASCUNHO", "PUBLICADA", "PAUSADA"] } }
+        : {}),
+    ...(filtrarAVencer ? { vigenciaFim: { not: null, gte: hoje, lte: limiteVigencia } } : {}),
+  };
 
   const [
     totalOfertas,
     ofertasPublicadas,
     pendentesRepublicacao,
     candidatasAPublicar,
+    totalFiltrado,
     ofertas,
     vitrine,
   ] = await Promise.all([
@@ -82,6 +119,7 @@ export default async function PaginaOfertas({
       podePublicar
         ? prisma.oferta.count({ where: { status: { in: ["RASCUNHO", "PAUSADA"] } } })
         : Promise.resolve(0),
+      prisma.oferta.count({ where: ondeOfertas }),
       prisma.oferta.findMany({
         where: ondeOfertas,
         orderBy: { atualizadoEm: "desc" },
@@ -202,6 +240,77 @@ export default async function PaginaOfertas({
         </div>
       ) : null}
 
+      {/* Filtros por querystring: um <form method="get"> é navegação nativa
+          (full navigation), então não esbarra no Router Cache que a cerca
+          `navegacao-por-query.test.ts` documenta — nem precisa de <Link>. */}
+      <form
+        method="get"
+        action="/ofertas"
+        className="g-resp"
+        style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 12 }}
+      >
+        <div className="field" style={{ flex: "1 1 260px", margin: 0 }}>
+          <label htmlFor="filtro-oferta-busca">Buscar por título ou aliado</label>
+          <input
+            id="filtro-oferta-busca"
+            name="busca"
+            className="input"
+            type="search"
+            placeholder="Título da oferta ou nome do aliado…"
+            defaultValue={busca}
+          />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label htmlFor="filtro-oferta-natureza">Natureza</label>
+          <select
+            id="filtro-oferta-natureza"
+            name="natureza"
+            className="select"
+            defaultValue={naturezaSel ?? ""}
+          >
+            <option value="">Todas</option>
+            {NATUREZAS.map((natureza) => (
+              <option key={natureza} value={natureza}>
+                {ROTULO_NATUREZA[natureza]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label htmlFor="filtro-oferta-status">Status</label>
+          <select
+            id="filtro-oferta-status"
+            name="status"
+            className="select"
+            defaultValue={statusSel ?? ""}
+          >
+            <option value="">Todos</option>
+            {STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {ROTULO_STATUS[status]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="btn btn-azul">
+          Filtrar
+        </button>
+        {temFiltro ? (
+          // Âncora nativa: só limpa a query (convenção do CLAUDE.md).
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          <a href="/ofertas" className="btn btn-ghost" style={{ textDecoration: "none" }}>
+            Limpar filtros
+          </a>
+        ) : null}
+      </form>
+
+      <div className="cap" style={{ marginBottom: 10 }} aria-live="polite">
+        {temFiltro
+          ? `${totalFiltrado} oferta(s) no filtro`
+          : `${totalFiltrado} oferta(s)`}
+        {totalFiltrado > 50 ? " · mostrando as 50 mais recentes" : ""}
+      </div>
+
       {ofertas.length === 0 ? (
         <div className="card">
           <div className="vazio">
@@ -211,11 +320,16 @@ export default async function PaginaOfertas({
               </svg>
             </span>
             <h2 className="h-el">
-              {filtrarAVencer ? "Nenhuma oferta a vencer na janela" : "Nenhuma oferta cadastrada"}
+              {temFiltro
+                ? "Nenhuma oferta corresponde aos filtros"
+                : filtrarAVencer
+                  ? "Nenhuma oferta a vencer na janela"
+                  : "Nenhuma oferta cadastrada"}
             </h2>
             <p className="cap" style={{ maxWidth: "48ch", margin: 0 }}>
-              Ofertas nascem dentro de uma solução, na ficha do aliado. A carga inicial
-              também povoa esta lista.
+              {temFiltro
+                ? "Ajuste a busca, a natureza ou o status para ver mais ofertas."
+                : "Ofertas nascem dentro de uma solução, na ficha do aliado. A carga inicial também povoa esta lista."}
             </p>
             <Link href="/aliados" className="btn btn-ghost" style={{ marginTop: 8, textDecoration: "none" }}>
               Ir para Aliados
