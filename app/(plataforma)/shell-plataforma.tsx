@@ -315,6 +315,21 @@ export function ShellPlataforma({
         </nav>
 
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Manual do usuário no menu lateral — só no modo mobile
+              (`.manual-no-menu`), porque a 380px o botão do cabeçalho é
+              escondido para o "?" caber na ponta direita (RN da Onda 10). No
+              desktop o acesso continua sendo o botão do cabeçalho, ao lado do
+              "?". */}
+          <Link
+            href="/manual"
+            className="sidebar-it manual-no-menu"
+            title="Manual do usuário — o que cada papel pode fazer"
+            style={{ textDecoration: "none" }}
+            onClick={() => setMenuAberto(false)}
+          >
+            <Icone path="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            <span className="sit-label">Manual do usuário</span>
+          </Link>
           {/* fix AAA: no protótipo esta legenda usa --azul-claro (3,7:1 sobre
               o azul); branco é o maior contraste possível neste fundo */}
           {!recolhida ? (
@@ -450,9 +465,15 @@ export function ShellPlataforma({
           */}
           {/* Manual do usuário — ao lado do "?", antes dele para o "?" seguir
               sendo o último item da barra (decisão F17). Rota fixa, sem query
-              e sem contexto: `<Link>` é o padrão para troca de rota. */}
+              e sem contexto: `<Link>` é o padrão para troca de rota.
+
+              `btn-manual-topo`: a 380px o cabeçalho não comporta mais um
+              botão sem empurrar o "?" para fora da tela — e a RN da Onda 10
+              exige o "?" alcançável na ponta direita a 380px. No modo mobile
+              (≤760px, onde o hambúrguer assume) este botão some do cabeçalho
+              e reaparece como item do menu lateral (`.manual-no-menu`). */}
           <Link
-            className="btn btn-ghost"
+            className="btn btn-ghost btn-manual-topo"
             style={{ width: 38, height: 38, padding: 0, borderRadius: "50%", flex: "none" }}
             href="/manual"
             aria-label="Manual do usuário — o que cada papel pode fazer"
