@@ -321,7 +321,10 @@ export function ShellPlataforma({
             <div style={{ paddingLeft: 20, color: "var(--branco)" }} className="cap">
               Elaborado por Broto S.A. · v{versao}
               {ambienteVisivel ? (
-                <span style={{ display: "block", opacity: 0.8 }}>{ambienteVisivel}</span>
+                /* fix AAA: opacity 0.8 sobre o branco resultava em ~#dadfff
+                   sobre o azul da lateral (3,71:1). Branco pleno herdado do
+                   div acima mede 4,5:1+ — mesma decisão das legendas acima */
+                <span style={{ display: "block" }}>{ambienteVisivel}</span>
               ) : null}
             </div>
           ) : null}
