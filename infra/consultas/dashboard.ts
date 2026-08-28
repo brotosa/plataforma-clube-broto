@@ -296,6 +296,19 @@ function montarPanorama(
      */
     ofertasComResgate: number | null;
     janelaVitrineEmDias: number;
+    /**
+     * Aliados cujo contrato foi assinado na janela (a base inteira em
+     * "Todos") — a célula Aliados passou a obedecer a DATA DE ASSINATURA
+     * (decisão de 28/08), não a contagem de estado da rede.
+     */
+    aliadosNoPeriodo: number;
+    /**
+     * Ofertas publicadas cujo início de vigência caiu na janela (todas as
+     * publicadas em "Todos") — a célula Ofertas passou a obedecer a DATA DA
+     * OFERTA (início da vigência). Deixa de ser o numerador da vitrine viva
+     * (a F15 acoplava as duas); a vitrine viva segue como destaque próprio.
+     */
+    ofertasNoPeriodo: number;
     campanhasAtivas: number;
     versaoKitVigente: number | null;
     cestasReutilizaveis: number;
@@ -338,11 +351,15 @@ function montarPanorama(
 
   const celulas: CelulaPanorama[] = [
     {
+      // Aliados pela DATA DE ASSINATURA do contrato (decisão de 28/08). A
+      // completude média do cadastro segue como nota — é qualidade da base,
+      // não recorte de período; `aliadosNaRede` continua sendo o denominador
+      // dela. Sem base de cadastro alguma, a célula fica indisponível.
       ...definicao("PAN_ALIADOS"),
       resultado:
         aliadosNaRede === null
           ? indisponivel("SEM_BASE_DE_CALCULO")
-          : disponivel(aliadosNaRede),
+          : disponivel(extras.aliadosNoPeriodo),
       nota:
         completude?.estado === "DISPONIVEL"
           ? `completude média do cadastro: ${FORMATO_PANORAMA.format(completude.valor)}%`
@@ -357,27 +374,21 @@ function montarPanorama(
           : "publicadas na vitrine · depende da carga inicial do portfólio",
     },
     {
-      // F15 — o destaque era "148 de 192", dois números disputando a
-      // leitura. Passa a ser o ABSOLUTO de ofertas ativas publicadas com
-      // resgate no período: mesma base da vitrine viva, mesmo serviço
-      // (`kpiVitrineViva`), com teste provando que os dois números
-      // concordam. "de N ativas" desce para a nota de procedência.
+      // Ofertas pela DATA DA OFERTA — início da vigência — dentro do período
+      // (decisão de 28/08). Deixa de ser o numerador da vitrine viva (a F15
+      // acoplava as duas): a vitrine viva continua sendo o destaque próprio
+      // do hero, com a sua janela parametrizada; esta célula responde ao
+      // seletor de período. Sem oferta publicada alguma, é ausência de base
+      // (RN50/RN53); com base, um período sem vigência nova é zero medido.
       ...definicao("PAN_OFERTAS"),
       resultado:
-        // Sem oferta publicada não há vitrine a medir: é ausência de base
-        // de cálculo, não zero resgates (RN50/RN53).
-        extras.ofertasAtivas === 0 || extras.ofertasComResgate === null
+        extras.ofertasAtivas === 0
           ? indisponivel("SEM_BASE_DE_CALCULO")
-          : // SEM `base`, de propósito: era ela que fazia a tela imprimir
-            // "148 de 192" — dois números disputando a leitura. O
-            // denominador não sumiu, desceu para a nota. Esta era a única
-            // célula do panorama com base, então o renderizador genérico
-            // passa a mostrar um número em todas as oito.
-            disponivel(extras.ofertasComResgate),
+          : disponivel(extras.ofertasNoPeriodo),
       nota:
-        extras.ofertasAtivas === 0 || extras.ofertasComResgate === null
-          ? `${FORMATO_PANORAMA.format(extras.ofertasAtivas)} de ${FORMATO_PANORAMA.format(extras.ofertasTotal)} ativas · ${TEXTOS_INDISPONIBILIDADE.SEM_BASE_DE_CALCULO} para a vitrine viva`
-          : `com resgate em ${extras.janelaVitrineEmDias} dias · de ${FORMATO_PANORAMA.format(extras.ofertasAtivas)} ativas (${FORMATO_PANORAMA.format(extras.ofertasTotal)} no total)`,
+        extras.ofertasAtivas === 0
+          ? `${FORMATO_PANORAMA.format(extras.ofertasTotal)} oferta(s) no total · ${TEXTOS_INDISPONIBILIDADE.SEM_BASE_DE_CALCULO}`
+          : `vigência iniciada no período · de ${FORMATO_PANORAMA.format(extras.ofertasAtivas)} publicadas (${FORMATO_PANORAMA.format(extras.ofertasTotal)} no total)`,
     },
     {
       ...definicao("PAN_CAMPANHAS"),
@@ -545,13 +556,31 @@ export async function montarPainel(
  * (o denominador de "ativas de N", que a ficha §6 contrata) e resgates de
  * cupom na janela. Nenhuma delas reinterpreta métrica de ficha.
  */
+/**
+ * O filtro de intervalo de uma janela — ou `undefined` quando o período é
+ * "Todos". O `undefined` é o que faz o recorte DESAPARECER em "Todos": a
+ * consulta então omite a cláusula de data e conta a base inteira, inclusive
+ * os registros que não têm aquela data (ex.: aliado sem contrato assinado).
+ * As consultas por intervalo puro não precisam disto — o `inicio`/`fim` de
+ * "Todos" já cobre do epoch a um futuro distante.
+ */
+function filtroDeIntervalo(janela: JanelaDashboard): { gte: Date; lte: Date } | undefined {
+  return janela.dias === null ? undefined : { gte: janela.inicio, lte: janela.fim };
+}
+
 async function dadosDoHero(janela: JanelaDashboard) {
+  // O recorte por data das células de fluxo do hero. Cada uma usa a SUA data
+  // de negócio (decisão do Administrador, 28/08): aliados pela assinatura do
+  // contrato, ofertas pelo início da vigência, resgates pela data do evento.
+  const filtro = filtroDeIntervalo(janela);
   const [
     cobertura,
     campanhas,
     cestas,
     vitrine,
     ofertasTotal,
+    aliadosNoPeriodo,
+    ofertasNoPeriodo,
     catalogoRecompensa,
     catalogoBeneficio,
     catalogoCupons,
@@ -566,6 +595,23 @@ async function dadosDoHero(janela: JanelaDashboard) {
       // fora seria o começo da divergência que a RN50 existe para evitar.
       kpiVitrineViva(),
       prisma.oferta.count(),
+      // Aliados pela DATA DE ASSINATURA do contrato. Em "Todos" (filtro
+      // undefined) conta a rede inteira, inclusive quem ainda não tem
+      // contrato assinado; num período, só quem assinou dentro dele.
+      prisma.empresa.count({
+        where: {
+          estagio: ESTAGIO_ALIADA,
+          ...(filtro ? { contratos: { some: { dataAssinatura: filtro } } } : {}),
+        },
+      }),
+      // Ofertas pelo INÍCIO DA VIGÊNCIA. Em "Todos" conta todas as
+      // publicadas; num período, só as que entraram em vigência dentro dele.
+      prisma.oferta.count({
+        where: {
+          status: "PUBLICADA",
+          ...(filtro ? { vigenciaInicio: filtro } : {}),
+        },
+      }),
       // F20 — a apuração do catálogo, pela consulta única da telemetria
       // da operadora (RN68). "Benefícios" reúne RECOMPENSA e BENEFICIO,
       // que é o que a célula sempre nomeou; cupons ficam à parte porque
@@ -598,6 +644,8 @@ async function dadosDoHero(janela: JanelaDashboard) {
     ofertasAtivas: vitrine.totalPublicadas,
     ofertasComResgate: vitrine.publicadasComResgate,
     ofertasTotal,
+    aliadosNoPeriodo,
+    ofertasNoPeriodo,
     campanhasAtivas: ativas.length,
     versaoKitVigente: ativas.find((campanha) => campanha.versaoKit !== null)?.versaoKit ?? null,
     cestasReutilizaveis: cestas.length,
