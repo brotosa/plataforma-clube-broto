@@ -26,7 +26,11 @@ export interface LinhaUsuario {
 
 export async function listarUsuarios(): Promise<LinhaUsuario[]> {
   const usuarios = await prisma.usuario.findMany({
-    orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+    // Ordem alfabética por nome, com o e-mail como desempate — assim os
+    // registros de mesma pessoa (ex.: conta ativa nova + conta antiga
+    // inativada de outro domínio) ficam LADO A LADO, e não separados em
+    // blocos de ativo/inativo. A situação vira coluna e filtro, não ordem.
+    orderBy: [{ nome: "asc" }, { email: "asc" }],
     select: {
       id: true,
       nome: true,

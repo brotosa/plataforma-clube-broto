@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import type { Papel } from "@prisma/client";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import { MENSAGEM_ULTIMO_ADMINISTRADOR } from "@/dominio/usuarios/regras";
@@ -199,6 +199,31 @@ export function TabelaUsuarios({
   const [emEdicao, setEmEdicao] = useState<LinhaUsuario | null>(null);
   const [criando, setCriando] = useState(false);
 
+  // Filtros da tela — o conjunto é contido (usuários internos), então a
+  // filtragem é no cliente, sobre a lista que já veio ordenada do servidor.
+  const [busca, setBusca] = useState("");
+  const [papelFiltro, setPapelFiltro] = useState<Papel | "TODOS">("TODOS");
+  const [situacaoFiltro, setSituacaoFiltro] = useState<"TODOS" | "ATIVO" | "INATIVO">("TODOS");
+
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return usuarios.filter((usuario) => {
+      if (papelFiltro !== "TODOS" && usuario.papel !== papelFiltro) return false;
+      if (situacaoFiltro === "ATIVO" && !usuario.ativo) return false;
+      if (situacaoFiltro === "INATIVO" && usuario.ativo) return false;
+      if (
+        termo !== "" &&
+        !usuario.nome.toLowerCase().includes(termo) &&
+        !usuario.email.toLowerCase().includes(termo)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [usuarios, busca, papelFiltro, situacaoFiltro]);
+
+  const temFiltro = busca.trim() !== "" || papelFiltro !== "TODOS" || situacaoFiltro !== "TODOS";
+
   return (
     <>
       <div
@@ -252,6 +277,73 @@ export function TabelaUsuarios({
         />
       ) : null}
 
+      <div
+        className="g-resp"
+        style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14 }}
+      >
+        <div className="field" style={{ flex: "1 1 260px", margin: 0 }}>
+          <label htmlFor="filtro-usuario-busca">Buscar por nome ou e-mail</label>
+          <input
+            id="filtro-usuario-busca"
+            className="input"
+            type="search"
+            placeholder="Nome ou e-mail…"
+            value={busca}
+            onChange={(evento) => setBusca(evento.target.value)}
+          />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label htmlFor="filtro-usuario-papel">Filtrar por papel</label>
+          <select
+            id="filtro-usuario-papel"
+            className="select"
+            value={papelFiltro}
+            onChange={(evento) => setPapelFiltro(evento.target.value as Papel | "TODOS")}
+          >
+            <option value="TODOS">Todos os papéis</option>
+            {PAPEIS.map((papel) => (
+              <option key={papel} value={papel}>
+                {ROTULOS_PAPEL[papel]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label htmlFor="filtro-usuario-situacao">Filtrar por situação</label>
+          <select
+            id="filtro-usuario-situacao"
+            className="select"
+            value={situacaoFiltro}
+            onChange={(evento) =>
+              setSituacaoFiltro(evento.target.value as "TODOS" | "ATIVO" | "INATIVO")
+            }
+          >
+            <option value="TODOS">Todas</option>
+            <option value="ATIVO">Ativos</option>
+            <option value="INATIVO">Inativos</option>
+          </select>
+        </div>
+        {temFiltro ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              setBusca("");
+              setPapelFiltro("TODOS");
+              setSituacaoFiltro("TODOS");
+            }}
+          >
+            Limpar filtros
+          </button>
+        ) : null}
+      </div>
+
+      <div className="cap" style={{ marginBottom: 8 }} role="status" aria-live="polite">
+        {temFiltro
+          ? `${filtrados.length} de ${usuarios.length} usuário(s)`
+          : `${usuarios.length} usuário(s), em ordem alfabética`}
+      </div>
+
       <div className="card" style={{ overflowX: "auto" }}>
         <table className="tbl tbl-resp">
           <caption className="sr-oculto">Usuários internos da plataforma</caption>
@@ -265,7 +357,14 @@ export function TabelaUsuarios({
             </tr>
           </thead>
           <tbody>
-            {usuarios.map((usuario) => (
+            {filtrados.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="cap" style={{ textAlign: "center", padding: "22px 14px" }}>
+                  Nenhum usuário corresponde aos filtros.
+                </td>
+              </tr>
+            ) : (
+              filtrados.map((usuario) => (
               <tr key={usuario.id}>
                 <td data-label="Usuário">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -322,7 +421,8 @@ export function TabelaUsuarios({
                   )}
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
