@@ -134,7 +134,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -194,7 +194,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -233,7 +233,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -270,7 +270,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -299,7 +299,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -322,7 +322,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -348,7 +348,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -381,7 +381,7 @@ test.describe("RN60 — imagem do card da solução", () => {
     const { aliado, solucao } = await prepararSolucao(nome);
     try {
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
@@ -414,7 +414,7 @@ test.describe("RN60 — imagem do card da solução", () => {
       });
 
       await entrar(page, "gestor@dev.clubebroto.local");
-      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+      await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
       // Assentamento barato da navegação. NÃO é a proteção da hidratação —
       // essa é o `escolherArquivo`, que reenvia até o React aceitar.
       await page.waitForLoadState("networkidle");
