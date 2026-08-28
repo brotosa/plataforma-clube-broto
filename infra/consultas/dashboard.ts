@@ -576,13 +576,15 @@ async function dadosDoHero(janela: JanelaDashboard) {
       // Errata 27/08 (RN50/RN65) — o card "Resgates de benefícios" passa a
       // exibir o TOTAL do extrato nominal (RECOMPENSA + BENEFICIO), não só o
       // recorte da campanha ativa. Uma contagem só, "extrato", nunca somada
-      // ao catálogo (RN68).
-      resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"]),
+      // ao catálogo (RN68). Recortado pela JANELA do seletor de período, pela
+      // data do resgate (`dataEvento`) — decisão do Administrador (28/08).
+      resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"], janela),
       // Errata 28/08 (RN50/RN65) — simetria com benefícios: o card
       // "Resgates de cupons" também passa a exibir o total do extrato
-      // nominal (natureza cupom). A regra de comissão do cupom segue
-      // `[A CONFIRMAR]`, mas contar o resgate não depende dela.
-      resgatesNominaisGlobais(["CUPOM_DESCONTO"]),
+      // nominal (natureza cupom), também recortado pela janela pela data do
+      // resgate. A regra de comissão do cupom segue `[A CONFIRMAR]`, mas
+      // contar o resgate não depende dela.
+      resgatesNominaisGlobais(["CUPOM_DESCONTO"], janela),
     ]);
 
   const portfolio = montarPortfolio(cobertura.fatos);
