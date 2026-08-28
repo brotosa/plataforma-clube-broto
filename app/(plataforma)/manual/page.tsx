@@ -5,11 +5,13 @@ import { auth } from "@/infra/auth";
 import { ACOES, podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import {
+  arquivoDaTela,
   INTRODUCAO,
   MANUAL_ACOES,
   ORDEM_MODULOS,
   ORDEM_PAPEIS,
   RESUMO_PAPEL,
+  ROTA_DO_MODULO,
   ROTULO_MODULO,
   type ModuloManual,
 } from "@/conteudo/manual-usuario/conteudo";
@@ -111,6 +113,62 @@ export default async function PaginaManual() {
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Telas do produto — uma captura por módulo, para reconhecer cada
+          tela de relance. As imagens são geradas com dados do ambiente de
+          demonstração (pessoa física é sempre sintética); a legenda leva à
+          tela real, sempre atualizada. */}
+      <section id="telas" style={{ marginBottom: 28, scrollMarginTop: 76 }}>
+        <h2 className="h-el" style={{ marginBottom: 4 }}>
+          Telas do produto
+        </h2>
+        <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
+          Uma imagem de cada módulo, para você reconhecer a tela. Clique no nome para abrir a
+          tela de verdade — o que você vê nela depende do seu papel.
+        </p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {ORDEM_MODULOS.map((modulo) => (
+            <figure key={modulo} className="card" style={{ margin: 0, padding: 12 }}>
+              {/* Captura estática já dimensionada (1280×800), com lazy-load
+                  e dimensões declaradas — não vale acionar o otimizador de
+                  imagem do Next (custo por request) para uma galeria de
+                  manual. `<img>` é a escolha certa aqui. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={arquivoDaTela(modulo)}
+                alt={`Captura da tela do módulo ${ROTULO_MODULO[modulo]}`}
+                width={1280}
+                height={800}
+                loading="lazy"
+                decoding="async"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                  borderRadius: 8,
+                  border: "1px solid var(--borda)",
+                }}
+              />
+              <figcaption style={{ marginTop: 10, fontWeight: 600 }}>
+                <Link href={ROTA_DO_MODULO[modulo]} style={{ textDecoration: "none" }}>
+                  {ROTULO_MODULO[modulo]}
+                </Link>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <a href="#topo" className="cap" style={{ textDecoration: "none" }}>
+            ↑ Voltar ao topo
+          </a>
         </div>
       </section>
 
