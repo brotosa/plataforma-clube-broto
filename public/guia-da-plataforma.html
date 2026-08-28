@@ -426,6 +426,10 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .sidebar-it.on{font-weight:700;color:var(--azul);background:var(--branco);border-left-color:var(--amarelo)}
 .sidebar-it.off{color:var(--azul-claro);opacity:.75;cursor:default}
 .sidebar-it.off:hover{background:transparent}
+/* Manual do usuário no menu lateral: só no modo mobile (≤760px). No desktop
+   o acesso é o botão do cabeçalho, ao lado do "?"; aqui fica escondido para
+   não duplicar. A regra mobile que o reexibe está no bloco @media abaixo. */
+.manual-no-menu{display:none}
 .tab-it{border:0;background:transparent;font:var(--font-body-label-regular);color:var(--paragrafo-aaa);
   padding:12px 2px;margin-right:22px;cursor:pointer;position:relative;white-space:nowrap;
   transition:color var(--dur-1) var(--ease)}
@@ -510,6 +514,12 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 
   .menu-btn{display:inline-flex!important}
   .user-meta{display:none}
+  /* Manual do usuário: no cabeçalho a 380px não sobra espaço sem empurrar o
+     "?" para fora da tela (a Onda 10 exige o "?" alcançável na ponta
+     direita a 380px). No modo mobile o botão do cabeçalho some e o link
+     reaparece no menu lateral, que é a navegação de mobile. */
+  .btn-manual-topo{display:none}
+  .manual-no-menu{display:flex}
   .aviso-mob{display:flex}
   .aside{position:fixed;left:0;top:0;bottom:0;width:min(280px,84vw);z-index:90;transform:translateX(-100%);
     transition:transform var(--dur-1) var(--ease);box-shadow:var(--shadow-lg)}

@@ -398,6 +398,7 @@ test("axe-core (AAA) sem violações nas telas da Onda 1", async ({ page }) => {
     "/ofertas", // T4
     "/aprovacoes", // T6
     "/aprovacoes/regras", // T7
+    "/manual", // Manual do usuário (por papel)
   ];
 
   for (const rota of rotas) {
