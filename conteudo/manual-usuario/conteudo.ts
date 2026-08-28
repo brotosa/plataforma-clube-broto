@@ -45,6 +45,34 @@ export const ROTULO_MODULO: Readonly<Record<ModuloManual, string>> = {
   AUDITORIA: "Auditoria",
 };
 
+/**
+ * Rota representativa de cada módulo — usada pela galeria "Telas do produto"
+ * do manual (link "abrir a tela") e pelo gerador de capturas
+ * (`e2e/capturar-telas-manual.spec.ts`), fonte única para os dois.
+ */
+export const ROTA_DO_MODULO: Readonly<Record<ModuloManual, string>> = {
+  DASHBOARD: "/",
+  ALIADOS: "/aliados",
+  OFERTAS: "/ofertas",
+  MERCADO: "/mercado",
+  ASSINANTES: "/assinantes",
+  CAMPANHAS: "/campanhas",
+  PATROCINADORES: "/patrocinadores",
+  APROVACOES: "/aprovacoes",
+  PARAMETRIZADOR: "/parametrizador",
+  USUARIOS: "/usuarios",
+  AUDITORIA: "/auditoria",
+};
+
+/**
+ * Nome do arquivo da captura de cada módulo, em `public/manual/`. É a chave
+ * do módulo em minúsculas — mantido como função para o vínculo ficar
+ * explícito e não se perder num `toLowerCase()` espalhado.
+ */
+export function arquivoDaTela(modulo: ModuloManual): string {
+  return `/manual/${modulo.toLowerCase()}.png`;
+}
+
 /** Ordem em que os módulos aparecem dentro da seção de cada papel. */
 export const ORDEM_MODULOS: ReadonlyArray<ModuloManual> = [
   "DASHBOARD",
