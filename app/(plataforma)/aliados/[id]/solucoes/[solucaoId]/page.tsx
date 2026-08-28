@@ -4,10 +4,9 @@ import { notFound } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { prisma } from "@/infra/prisma/cliente";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { calcularCompletudeCard } from "@/dominio/ofertas/regras";
 import { FormularioComEstado } from "../../../formularios";
-import { FormularioSolucao } from "../formulario-solucao";
 import { acaoMudarStatusSolucao } from "../acoes";
-import { CartaoImagemSolucao } from "../cartao-imagem-solucao";
 
 export const metadata: Metadata = {
   title: "Solução",
@@ -65,6 +64,32 @@ export default async function PaginaSolucao({
   if (!solucao || solucao.empresaId !== id) {
     notFound();
   }
+
+  // Leitura da ficha (somente leitura): mapeia os vínculos para nomes.
+  const nomeCategoria = categorias.find((c) => c.id === solucao.categoriaId)?.nome ?? null;
+  const idsCulturas = new Set(solucao.culturas.map((v) => v.culturaId));
+  const nomesCulturas = culturas.filter((c) => idsCulturas.has(c.id)).map((c) => c.nome);
+  const idsUfs = new Set(solucao.ufs.map((v) => v.ufId));
+  const siglasUfs = ufs.filter((u) => idsUfs.has(u.id)).map((u) => u.sigla);
+  const ROTULO_PORTE: Record<string, string> = { PEQUENO: "Pequeno", MEDIO: "Médio", GRANDE: "Grande" };
+  const rotulosPerfil = solucao.perfilCliente.map((p) => ROTULO_PORTE[p] ?? p);
+  const completude = calcularCompletudeCard({
+    aliado: {
+      nomeFantasia: solucao.empresa.nomeFantasia,
+      temMarca: solucao.empresa.marca !== null,
+      logoUrl: solucao.empresa.logoUrl,
+    },
+    solucao: {
+      nome: solucao.nome,
+      descricaoCurta: solucao.descricaoCurta ?? "",
+      temCategoria: Boolean(solucao.categoriaId),
+      quantidadeCulturas: nomesCulturas.length,
+      coberturaNacional: solucao.coberturaNacional,
+      quantidadeUfs: siglasUfs.length,
+      temImagem: solucao.imagemCard !== null,
+      imagemCardUrl: solucao.imagemCardUrl,
+    },
+  });
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
@@ -159,49 +184,65 @@ export default async function PaginaSolucao({
         </table>
       </div>
 
-      {podeEditar ? (
-        <>
-          <h2 className="h-el" style={{ marginBottom: 14 }}>
-            Editar solução
+      {/* Ficha da solução — SOMENTE LEITURA. A edição vive em rota própria
+          (`/editar`), como no aliado e na oferta: assim "Salvar alterações"
+          leva de volta a esta ficha em vez de deixar um formulário aberto
+          para sempre aqui (defeito relatado em 28/08). */}
+      <div className="card" style={{ padding: "20px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+          <h2 className="h-el" style={{ margin: 0 }}>
+            Dados da solução
           </h2>
-          <FormularioSolucao
-            empresaId={id}
-            aliado={{
-              nomeFantasia: solucao.empresa.nomeFantasia,
-              temMarca: solucao.empresa.marca !== null,
-              logoUrl: solucao.empresa.logoUrl,
-            }}
-            categorias={categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))}
-            culturas={culturas.map((cultura) => ({ id: cultura.id, nome: cultura.nome }))}
-            ufs={ufs.map((uf) => ({ id: uf.id, sigla: uf.sigla }))}
-            temImagem={solucao.imagemCard !== null}
-            hashDaImagem={solucao.imagemCard?.hash ?? null}
-            valores={{
-              solucaoId: solucao.id,
-              nome: solucao.nome,
-              descricaoCurta: solucao.descricaoCurta,
-              descricaoCompleta: solucao.descricaoCompleta,
-              categoriaId: solucao.categoriaId,
-              imagemCardUrl: solucao.imagemCardUrl,
-              linkExterno: solucao.linkExterno,
-              coberturaNacional: solucao.coberturaNacional,
-              perfilCliente: solucao.perfilCliente,
-              tecnologias: solucao.tecnologias,
-              culturaIds: solucao.culturas.map((vinculo) => vinculo.culturaId),
-              ufIds: solucao.ufs.map((vinculo) => vinculo.ufId),
-            }}
-          />
-
-          <div style={{ marginTop: 18 }}>
-            <CartaoImagemSolucao
-              empresaId={id}
-              solucaoId={solucao.id}
-              nomeDaSolucao={solucao.nome}
-              imagem={solucao.imagemCard}
-            />
-          </div>
-        </>
-      ) : null}
+          <span className="cap">· régua de completude do card (RN09): {completude.percentual}%</span>
+          <div style={{ flex: 1 }} />
+          {podeEditar ? (
+            <Link
+              href={`/aliados/${id}/solucoes/${solucao.id}/editar`}
+              className="btn btn-azul"
+              style={{ textDecoration: "none" }}
+            >
+              Editar solução
+            </Link>
+          ) : null}
+        </div>
+        <div
+          className="g-resp"
+          style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: "12px 16px", fontSize: 14 }}
+        >
+          <span className="cap">Categoria</span>
+          <span>{nomeCategoria ?? "—"}</span>
+          <span className="cap">Descrição curta</span>
+          <span>{solucao.descricaoCurta || "—"}</span>
+          <span className="cap">Descrição completa</span>
+          <span style={{ whiteSpace: "pre-wrap" }}>{solucao.descricaoCompleta || "—"}</span>
+          <span className="cap">Link externo</span>
+          <span>
+            {solucao.linkExterno ? (
+              <a href={solucao.linkExterno} target="_blank" rel="noreferrer">
+                {solucao.linkExterno}
+              </a>
+            ) : (
+              "—"
+            )}
+          </span>
+          <span className="cap">Cobertura</span>
+          <span>
+            {solucao.coberturaNacional
+              ? "Nacional"
+              : siglasUfs.length > 0
+                ? siglasUfs.join(", ")
+                : "—"}
+          </span>
+          <span className="cap">Culturas atendidas</span>
+          <span>{nomesCulturas.length > 0 ? nomesCulturas.join(", ") : "—"}</span>
+          <span className="cap">Perfil de cliente-alvo</span>
+          <span>{rotulosPerfil.length > 0 ? rotulosPerfil.join(", ") : "—"}</span>
+          <span className="cap">Tecnologia/diferenciais</span>
+          <span>{solucao.tecnologias.length > 0 ? solucao.tecnologias.join(", ") : "—"}</span>
+          <span className="cap">Imagem do card</span>
+          <span>{solucao.imagemCard !== null ? "Definida" : "Pendente (opcional — RN09)"}</span>
+        </div>
+      </div>
     </div>
   );
 }

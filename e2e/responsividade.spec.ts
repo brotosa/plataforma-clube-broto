@@ -542,7 +542,9 @@ test.describe("Onda 10 — Imagem do card a 380px", () => {
     const solucao = await semearSolucaoCompleta(aliado.id, `Solução ${nome}`);
 
     await entrar(page, "gestor@dev.clubebroto.local");
-    await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}`);
+    // O cartão de imagem vive na rota de edição da solução (como a marca do
+    // aliado vive em /editar); a ficha é somente leitura.
+    await page.goto(`/aliados/${aliado.id}/solucoes/${solucao.id}/editar`);
     await expect(page.getByRole("heading", { name: "Imagem do card" })).toBeVisible();
 
     const campo = page.getByLabel("Enviar a imagem do card");

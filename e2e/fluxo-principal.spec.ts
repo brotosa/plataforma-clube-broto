@@ -220,6 +220,13 @@ test.describe("fluxo principal — testes isolados (F2)", () => {
       timeout: 30_000,
     });
 
+    // A ficha da solução é somente leitura; a imagem do card (e o resto da
+    // edição) vive na rota /editar, como a marca do aliado. Entra por ela
+    // para enviar a imagem.
+    await page.getByRole("link", { name: "Editar solução" }).click();
+    await page.waitForURL(/\/solucoes\/[a-z0-9]+\/editar/);
+    await page.waitForLoadState("networkidle");
+
     // A imagem preenche o item opcional da régua (que estava em 88%): o
     // envio funciona e a régua sobe a 100%, seguindo publicável (RN02).
     /**
@@ -383,7 +390,8 @@ test("axe-core (AAA) sem violações nas telas da Onda 1", async ({ page }) => {
     ...ABAS_DA_FICHA.map((aba) => `/aliados/${aliado.id}?aba=${aba}`), // T2
     `/aliados/${aliado.id}/editar`,
     `/aliados/${aliado.id}/solucoes/nova`, // T3 (formulário)
-    `/aliados/${aliado.id}/solucoes/${solucao.id}`, // T3 (ficha)
+    `/aliados/${aliado.id}/solucoes/${solucao.id}`, // T3 (ficha, somente leitura)
+    `/aliados/${aliado.id}/solucoes/${solucao.id}/editar`, // T3 (edição)
     `/aliados/${aliado.id}/solucoes/${solucao.id}/ofertas/nova`, // T5 (formulário)
     `/ofertas/${oferta.id}`, // T5 (ficha)
     `/ofertas/${oferta.id}/editar`,
