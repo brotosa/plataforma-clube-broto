@@ -165,7 +165,7 @@ test("T27 — o Administrador cria usuário e recebe a senha provisória uma vez
   await page.getByRole("button", { name: "+ Novo usuário" }).click();
   await page.getByLabel("Nome completo").fill(`Pessoa E2E ${marca}`);
   await page.getByLabel("E-mail corporativo").fill(`pessoa-${marca}@e2e.local`);
-  await page.getByLabel("Papel").selectOption("LEITURA");
+  await page.getByLabel("Papel", { exact: true }).selectOption("LEITURA");
   await page.getByRole("button", { name: "Criar usuário" }).click();
 
   await expect(page.getByText("Senha provisória:")).toBeVisible();
@@ -282,7 +282,7 @@ test("RN47 — trocar o papel também derruba a sessão aberta", async ({ browse
     await paginaAdmin.goto("/usuarios");
     const linha = paginaAdmin.getByRole("row").filter({ hasText: alvo.email });
     await linha.getByRole("button", { name: "Editar" }).click();
-    await paginaAdmin.getByLabel("Papel").selectOption("APROVADOR");
+    await paginaAdmin.getByLabel("Papel", { exact: true }).selectOption("APROVADOR");
     await paginaAdmin.getByRole("button", { name: "Gravar alterações" }).click();
     await expect(paginaAdmin.getByText("Usuário atualizado.")).toBeVisible();
 
