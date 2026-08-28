@@ -107,8 +107,12 @@ describe.skipIf(!temBanco)("T26 · panorama do hero (Onda 7 §6)", () => {
     }
   });
 
-  it("a célula de Aliados usa a MESMA base do bloco de Rede — não uma consulta paralela", async () => {
-    const painel = await montarPainel("90");
+  it("em TODOS, a célula de Aliados é a rede inteira — a MESMA base do bloco de Rede", async () => {
+    // A célula passou a obedecer a DATA DE ASSINATURA (28/08); em "Todos"
+    // (sem recorte) ela volta a ser a rede inteira, que é o denominador da
+    // completude do bloco de Rede. Assim provamos que não há consulta
+    // paralela: o total bate com a base do bloco.
+    const painel = await montarPainel("TODOS");
     const completude = painel.blocos
       .flatMap((bloco) => bloco.indicadores)
       .find((indicador) => indicador.chave === "ALIADOS_CADASTRO_COMPLETO_PCT");
@@ -220,73 +224,53 @@ describe.skipIf(!temBanco)("T26 × sino · o mesmo número nos dois lugares (Ond
 // F15 — a célula Ofertas passa a mostrar o absoluto da vitrine viva
 // ---------------------------------------------------------------------
 
-describe.skipIf(!temBanco)("T26 · célula Ofertas — mesma base da vitrine viva (F15)", () => {
-  it("o destaque é o número de ofertas ativas COM RESGATE, do mesmo serviço", async () => {
-    // A concordância que o prompt da Onda 8 exige provar: o número da
-    // célula e o numerador da vitrine viva saem da mesma chamada. Se
-    // alguém trocar um dos dois por uma contagem própria, isto fica
-    // vermelho — que é exatamente a divergência que a RN50 impede.
-    const [painel, vitrine] = await Promise.all([montarPainel("90"), kpiVitrineViva()]);
-    const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS");
-    expect(celula).toBeDefined();
+describe.skipIf(!temBanco)("T26 · célula Ofertas — pela DATA DA OFERTA (início da vigência, 28/08)", () => {
+  const valorDaCelula = (painel: Awaited<ReturnType<typeof montarPainel>>): number | null => {
+    const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
+    return celula.resultado.estado === "DISPONIVEL" ? celula.resultado.valor : null;
+  };
 
+  it("em TODOS, conta TODAS as publicadas (não só as com resgate)", async () => {
+    // A célula deixou de ser o numerador da vitrine viva: agora conta
+    // ofertas pela vigência. Em "Todos" isso é o total de publicadas —
+    // inclusive as que nunca tiveram resgate.
+    const [painel, vitrine] = await Promise.all([montarPainel("TODOS"), kpiVitrineViva()]);
     if (vitrine.totalPublicadas === 0) {
-      // Sem oferta publicada não há vitrine a medir: ausência de base,
-      // com motivo — nunca um zero que passaria por resultado (RN50).
-      expect(celula!.resultado.estado).toBe("INDISPONIVEL");
-      expect(celula!.nota).toContain("vitrine viva");
+      expect(painel.panorama.find((c) => c.chave === "PAN_OFERTAS")!.resultado.estado).toBe(
+        "INDISPONIVEL",
+      );
       return;
     }
-
-    expect(celula!.resultado.estado).toBe("DISPONIVEL");
-    if (celula!.resultado.estado === "DISPONIVEL") {
-      expect(celula!.resultado.valor).toBe(vitrine.publicadasComResgate);
-    }
+    expect(valorDaCelula(painel)).toBe(vitrine.totalPublicadas);
   });
 
-  it('"de N ativas" desceu para a nota — o destaque tem um número só', async () => {
-    const [painel, vitrine] = await Promise.all([montarPainel("90"), kpiVitrineViva()]);
+  it("a nota fala de vigência no período, não mais de 'com resgate'", async () => {
+    const painel = await montarPainel("TODOS");
     const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
-    if (vitrine.totalPublicadas === 0) return;
-    expect(celula.nota).toContain(`de ${vitrine.totalPublicadas} ativas`);
-    expect(celula.nota).toContain("com resgate em");
+    if (celula.resultado.estado !== "DISPONIVEL") return;
+    expect(celula.nota).toContain("vigência iniciada no período");
+    expect(celula.nota).not.toContain("com resgate em");
   });
 
-  it("o percentual do hero continua sendo o mesmo par de números", async () => {
-    // A célula mostra o numerador; o hero, o percentual. Os dois vindos da
-    // mesma apuração é o que faz "148" e "77%" contarem a mesma história.
-    const [painel, vitrine] = await Promise.all([montarPainel("90"), kpiVitrineViva()]);
-    const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
-    if (vitrine.totalPublicadas === 0 || celula.resultado.estado !== "DISPONIVEL") return;
-
-    const esperado = Math.round((vitrine.publicadasComResgate / vitrine.totalPublicadas) * 100);
-    expect(painel.destaque.resultado.estado).toBe("DISPONIVEL");
-    if (painel.destaque.resultado.estado === "DISPONIVEL") {
-      expect(painel.destaque.resultado.valor).toBe(esperado);
-    }
-    // O denominador vive no hero (o percentual) e na nota da célula — o
-    // destaque da célula não o carrega mais.
-    expect(painel.destaque.resultado.estado === "DISPONIVEL" && painel.destaque.resultado.base).toEqual({
-      parte: vitrine.publicadasComResgate,
-      total: vitrine.totalPublicadas,
-    });
-    expect(celula.resultado.estado === "DISPONIVEL" && celula.resultado.base).toBeUndefined();
+  it("as janelas encaixam: 30 ≤ 90 ≤ 12m ≤ TODOS", async () => {
+    const [c30, c90, c12m, cTodos] = await Promise.all([
+      montarPainel("30").then(valorDaCelula),
+      montarPainel("90").then(valorDaCelula),
+      montarPainel("12m").then(valorDaCelula),
+      montarPainel("TODOS").then(valorDaCelula),
+    ]);
+    // Célula indisponível (base zero) não entra na comparação.
+    if (c30 === null || c90 === null || c12m === null || cTodos === null) return;
+    expect(c30).toBeLessThanOrEqual(c90);
+    expect(c90).toBeLessThanOrEqual(c12m);
+    expect(c12m).toBeLessThanOrEqual(cTodos);
   });
 
-  it("sem oferta publicada, traço com motivo — jamais zero (RN50)", async () => {
-    const painel = await montarPainel("90");
-    const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
-    if (celula.resultado.estado === "INDISPONIVEL") {
-      expect(celula.resultado.motivo).toBeTruthy();
-      expect(celula.nota).toBeTruthy();
-    }
-  });
-
-  // As asserções acima valem sobre a base que existir. Estas semeiam a
-  // situação de propósito, para que a concordância seja provada com
-  // NÚMERO, e não apenas no ramo de ausência de base.
-  describe("com ofertas e resgates semeados", () => {
-    const SUFIXO = " [TESTE-F15-OFERTAS]";
+  // Semeia ofertas com vigência ANTIGA (fora de 12 meses) para provar, com
+  // número, que a janela recorta pela data da oferta — elas entram em
+  // "Todos" e ficam de fora de "12 meses".
+  describe("com ofertas de vigência antiga semeadas", () => {
+    const SUFIXO = " [TESTE-OFERTAS-VIGENCIA]";
     let empresaId = "";
 
     beforeAll(async () => {
@@ -307,110 +291,97 @@ describe.skipIf(!temBanco)("T26 · célula Ofertas — mesma base da vitrine viv
       });
       empresaId = empresa.id;
       const solucaoId = empresa.solucoes[0]!.id;
-
-      // Três publicadas; só duas recebem resgate na janela. A terceira é o
-      // que separa "ativas" de "ativas com resgate" — se a célula voltar a
-      // mostrar o total de ativas, o teste fica vermelho.
-      const ofertas = [];
-      for (const indice of [1, 2, 3]) {
-        ofertas.push(
-          await prisma.oferta.create({
-            data: {
-              solucaoId,
-              titulo: `Oferta ${indice}${SUFIXO}`,
-              natureza: "BENEFICIO",
-              tipoBeneficioId: tipo.id,
-              mecanicaId: mecanica.id,
-              vigenciaInicio: new Date("2026-01-01T00:00:00Z"),
-              status: "PUBLICADA",
-            },
-          }),
-        );
-      }
-      // A vitrine viva passou a contar pelo EXTRATO NOMINAL da operadora
-      // (RN68/RN50), não mais pelo voucher clássico. Semeamos, então, um
-      // evento de resgate nominal ("Recompensa gratuita") para duas das três
-      // publicadas — o que faz `publicadasComResgate` valer 2.
-      const autor = await prisma.usuario.findFirstOrThrow();
-      const assinante = await prisma.assinante.create({
-        data: {
-          nome: `Assinante${SUFIXO}`,
-          cpfHash: `hash-sintetico${SUFIXO}`,
-          cpfCifrado: `cif-sintetico${SUFIXO}`,
-          marcaSintetico: true,
-        },
-        select: { id: true },
-      });
-      const importacao = await prisma.importacaoTelemetria.create({
-        data: {
-          tipoLayout: "RESGATES",
-          nomeArquivo: `arquivo${SUFIXO}`,
-          hashConteudo: `hash-conteudo${SUFIXO}`,
-          autorId: autor.id,
-          lidas: 2,
-          aplicadas: 2,
-          recusadas: 0,
-          recusasPorCausa: {},
-        },
-        select: { id: true },
-      });
-      for (const oferta of ofertas.slice(0, 2)) {
-        await prisma.eventoDeResgateTelemetria.create({
+      // Duas publicadas com vigência em 2020 — bem antes de qualquer janela
+      // de 12 meses —, e SEM resgate, de propósito.
+      for (const indice of [1, 2]) {
+        await prisma.oferta.create({
           data: {
-            assinanteId: assinante.id,
-            dataEvento: new Date(),
-            produto: `Produto${SUFIXO}`,
-            tipoOferta: "Recompensa gratuita", // classifica como RESGATE
-            ofertaId: oferta.id,
-            chaveNatural: `chave-sintetica-${oferta.id}`,
-            importacaoId: importacao.id,
+            solucaoId,
+            titulo: `Oferta antiga ${indice}${SUFIXO}`,
+            natureza: "BENEFICIO",
+            tipoBeneficioId: tipo.id,
+            mecanicaId: mecanica.id,
+            vigenciaInicio: new Date("2020-01-01T00:00:00Z"),
+            status: "PUBLICADA",
           },
         });
       }
     });
 
     afterAll(async () => {
-      const ofertas = await prisma.oferta.findMany({
-        where: { titulo: { contains: SUFIXO } },
-        select: { id: true },
-      });
-      const ids = ofertas.map((oferta) => oferta.id);
-      await prisma.eventoDeResgateTelemetria.deleteMany({ where: { ofertaId: { in: ids } } });
-      await prisma.importacaoTelemetria.deleteMany({
-        where: { nomeArquivo: { contains: SUFIXO } },
-      });
-      await prisma.assinante.deleteMany({ where: { nome: { contains: SUFIXO } } });
-      await prisma.oferta.deleteMany({ where: { id: { in: ids } } });
+      await prisma.oferta.deleteMany({ where: { titulo: { contains: SUFIXO } } });
       await prisma.solucao.deleteMany({ where: { nome: { contains: SUFIXO } } });
-      await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: empresaId } });
       await prisma.empresa.deleteMany({ where: { id: empresaId } });
     });
 
-    it("o número da célula é exatamente o numerador da vitrine viva", async () => {
-      const [painel, vitrine] = await Promise.all([montarPainel("90"), kpiVitrineViva()]);
-      const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
-      expect(vitrine.publicadasComResgate).toBeGreaterThanOrEqual(2);
-      expect(celula.resultado.estado).toBe("DISPONIVEL");
-      if (celula.resultado.estado === "DISPONIVEL") {
-        expect(celula.resultado.valor).toBe(vitrine.publicadasComResgate);
-      }
+    it("as 2 ofertas de 2020 entram em TODOS e ficam fora de 12 meses", async () => {
+      const [cTodos, c12m] = await Promise.all([
+        montarPainel("TODOS").then(valorDaCelula),
+        montarPainel("12m").then(valorDaCelula),
+      ]);
+      expect(cTodos).not.toBeNull();
+      expect(c12m).not.toBeNull();
+      // Elas estão em TODOS e não em 12m — logo a diferença as inclui.
+      expect((cTodos ?? 0) - (c12m ?? 0)).toBeGreaterThanOrEqual(2);
     });
+  });
+});
 
-    it("o destaque NÃO é mais o total de ofertas ativas", async () => {
-      const [painel, vitrine] = await Promise.all([montarPainel("90"), kpiVitrineViva()]);
-      const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
-      // A terceira oferta publicada sem resgate garante a diferença.
-      expect(vitrine.totalPublicadas).toBeGreaterThan(vitrine.publicadasComResgate);
-      if (celula.resultado.estado === "DISPONIVEL") {
-        expect(celula.resultado.valor).not.toBe(vitrine.totalPublicadas);
-      }
-    });
+describe.skipIf(!temBanco)("T26 · célula Aliados — pela DATA DE ASSINATURA do contrato (28/08)", () => {
+  const valorDaCelula = (painel: Awaited<ReturnType<typeof montarPainel>>): number | null => {
+    const celula = painel.panorama.find((item) => item.chave === "PAN_ALIADOS")!;
+    return celula.resultado.estado === "DISPONIVEL" ? celula.resultado.valor : null;
+  };
 
-    it("a nota carrega a procedência: janela, ativas e total", async () => {
-      const [painel, vitrine] = await Promise.all([montarPainel("90"), kpiVitrineViva()]);
-      const celula = painel.panorama.find((item) => item.chave === "PAN_OFERTAS")!;
-      expect(celula.nota).toContain("com resgate em");
-      expect(celula.nota).toContain(`de ${vitrine.totalPublicadas} ativas`);
+  // Um aliado com contrato assinado em 2020 (fora de qualquer janela de 12
+  // meses): entra em "Todos", fica de fora dos períodos datados.
+  const SUFIXO = " [TESTE-ALIADOS-ASSINATURA]";
+  let empresaId = "";
+
+  beforeAll(async () => {
+    const empresa = await prisma.empresa.create({
+      data: {
+        nomeFantasia: `Aliado${SUFIXO}`,
+        estagio: "ALIADA_ATIVA",
+        contratos: {
+          create: {
+            vigenciaBase: new Date("2020-01-01T00:00:00Z"),
+            dataAssinatura: new Date("2020-01-01T00:00:00Z"),
+            ambientesPagamento: "FORA_PLATAFORMA",
+          },
+        },
+      },
+      select: { id: true },
     });
+    empresaId = empresa.id;
+  });
+
+  afterAll(async () => {
+    await prisma.contratoComercial.deleteMany({ where: { empresaId } });
+    await prisma.empresa.deleteMany({ where: { id: empresaId } });
+  });
+
+  it("o aliado de 2020 entra em TODOS e fica fora de 12 meses", async () => {
+    const [cTodos, c12m] = await Promise.all([
+      montarPainel("TODOS").then(valorDaCelula),
+      montarPainel("12m").then(valorDaCelula),
+    ]);
+    expect(cTodos).not.toBeNull();
+    expect(c12m).not.toBeNull();
+    // O aliado assinado em 2020 está em TODOS e não em 12m: a diferença o inclui.
+    expect((cTodos ?? 0) - (c12m ?? 0)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("as janelas encaixam: 30 ≤ 90 ≤ 12m ≤ TODOS", async () => {
+    const [c30, c90, c12m, cTodos] = await Promise.all([
+      montarPainel("30").then(valorDaCelula),
+      montarPainel("90").then(valorDaCelula),
+      montarPainel("12m").then(valorDaCelula),
+      montarPainel("TODOS").then(valorDaCelula),
+    ]);
+    if (c30 === null || c90 === null || c12m === null || cTodos === null) return;
+    expect(c30).toBeLessThanOrEqual(c90);
+    expect(c90).toBeLessThanOrEqual(c12m);
+    expect(c12m).toBeLessThanOrEqual(cTodos);
   });
 });

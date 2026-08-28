@@ -157,20 +157,26 @@ describe.skipIf(!temBanco)("T26 — painel do Dashboard (RN50)", () => {
     }
   });
 
-  it("aceita os três períodos e cai no padrão diante de lixo", () => {
+  it("aceita os períodos conhecidos (inclusive Todos) e cai no padrão diante de lixo", () => {
     for (const periodo of PERIODOS_DASHBOARD) {
       expect(periodoValido(periodo)).toBe(periodo);
     }
+    expect(PERIODOS_DASHBOARD).toContain("TODOS");
     expect(periodoValido("safra")).toBe("90");
     expect(periodoValido(undefined)).toBe("90");
   });
 
-  it("a janela do período é fechada para trás a partir de agora", () => {
+  it("a janela do período é fechada para trás a partir de agora; Todos é sem recorte", () => {
     const agora = new Date("2026-07-26T00:00:00.000Z");
     expect(janelaDoDashboard("30", agora).inicio.toISOString()).toBe(
       "2026-06-26T00:00:00.000Z",
     );
     expect(janelaDoDashboard("12m", agora).dias).toBe(365);
+    // "Todos": dias null (sinal de sem recorte) e intervalo que engloba tudo.
+    const todos = janelaDoDashboard("TODOS", agora);
+    expect(todos.dias).toBeNull();
+    expect(todos.inicio.getTime()).toBeLessThan(new Date("2000-01-01").getTime());
+    expect(todos.fim.getTime()).toBeGreaterThan(new Date("3000-01-01").getTime());
   });
 
   it("a HOME inteira responde em menos de 1s com os volumes de projeto", async () => {
