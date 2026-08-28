@@ -448,6 +448,31 @@ export function ShellPlataforma({
             que a query participa da navegação. A navegação de documento
             também é o que faz o navegador posicionar a seção sozinho.
           */}
+          {/* Manual do usuário — ao lado do "?", antes dele para o "?" seguir
+              sendo o último item da barra (decisão F17). Rota fixa, sem query
+              e sem contexto: `<Link>` é o padrão para troca de rota. */}
+          <Link
+            className="btn btn-ghost"
+            style={{ width: 38, height: 38, padding: 0, borderRadius: "50%", flex: "none" }}
+            href="/manual"
+            aria-label="Manual do usuário — o que cada papel pode fazer"
+            title="Manual do usuário — o que cada papel pode fazer"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+          </Link>
           <a
             className="btn btn-ghost"
             style={{ width: 38, height: 38, padding: 0, borderRadius: "50%", flex: "none" }}
