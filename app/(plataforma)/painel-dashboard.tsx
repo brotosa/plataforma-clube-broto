@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   type CelulaPanorama,
   FAIXA_SEM_PENDENCIA,
@@ -30,6 +29,13 @@ import {
  *
  * Componente de cliente só por causa do seletor de período (navegação por
  * querystring); todo número chega pronto do servidor.
+ *
+ * **O seletor navega por `window.location`, não por `router.push`.** Mudar
+ * só a query com a navegação do App Router é o mesmo defeito medido na cerca
+ * `navegacao-por-query.test.ts`: o Router Cache serve a rota sem round-trip
+ * e a página, que lê `searchParams` no servidor, não repinta — o período
+ * mudava na URL mas não nos números. `window.location` força a navegação
+ * real, que é a âncora nativa da convenção aplicada a um `<select>`.
  */
 
 const FORMATO_NUMERO = new Intl.NumberFormat("pt-BR");
@@ -142,7 +148,6 @@ export function PainelDashboard({
   meta: { alvo: number; realizado: number; rotuloPeriodo: string | null } | null;
   janelaVitrineEmDias: number;
 }) {
-  const router = useRouter();
   const emDia = faixaEstaZerada(pendencias);
   // Mesma função que o sino usa para montar suas linhas: cartões e sino não
   // podem discordar sobre o que é pendência (Onda 7 §7).
@@ -227,7 +232,9 @@ export function PainelDashboard({
               className="select"
               style={{ width: 172, borderColor: "transparent" }}
               value={periodo}
-              onChange={(evento) => router.push(`/?periodo=${evento.target.value}`)}
+              onChange={(evento) => {
+                window.location.assign(`/?periodo=${evento.target.value}`);
+              }}
             >
               {PERIODOS_DASHBOARD.map((opcao) => (
                 <option key={opcao} value={opcao}>
