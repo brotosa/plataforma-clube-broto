@@ -446,13 +446,15 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
 
       // A consulta conta todos os RESGATE de RECOMPENSA/BENEFICIO: 3 (as
       // duas gratuitas e o checkout, que agora é resgate); o cupom fica de
-      // fora por ser outra natureza.
+      // fora por ser outra natureza. Sem janela, conta o extrato inteiro.
       const global = await resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"]);
       expect(global?.resgates).toBe(3);
       expect(global?.dataDoRetrato).toEqual(new Date("2026-07-12T00:00:00.000Z"));
 
-      // A célula do hero acende com esse total e a origem "extrato".
-      const painel = await montarPainel("90");
+      // A célula do hero acende com esse total e a origem "extrato". `agora`
+      // fixo em 01/08 põe os eventos de 07/2026 dentro da janela de 90 dias
+      // (senão o teste dependeria da data em que roda).
+      const painel = await montarPainel("90", new Date("2026-08-01T00:00:00.000Z"));
       const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
       expect(celula.resultado.estado).toBe("DISPONIVEL");
       if (celula.resultado.estado === "DISPONIVEL") {
@@ -463,7 +465,7 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
 
     it("sem evento nominal de benefício, a célula continua aguardando (RN53)", async () => {
       expect(await resgatesNominaisGlobais(["RECOMPENSA", "BENEFICIO"])).toBeNull();
-      const painel = await montarPainel("90");
+      const painel = await montarPainel("90", new Date("2026-08-01T00:00:00.000Z"));
       const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
       expect(celula.resultado.estado).toBe("INDISPONIVEL");
     });
@@ -495,13 +497,98 @@ describe.skipIf(!temBanco)("RN65 — selos derivados do dado (integração)", ()
 
       expect((await resgatesNominaisGlobais(["CUPOM_DESCONTO"]))?.resgates).toBe(1);
 
-      const painel = await montarPainel("90");
+      const painel = await montarPainel("90", new Date("2026-08-01T00:00:00.000Z"));
       const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_CUPONS")!;
       expect(celula.resultado.estado).toBe("DISPONIVEL");
       if (celula.resultado.estado === "DISPONIVEL") {
         expect(celula.resultado.valor).toBe(1);
       }
       expect(celula.nota).toContain("extrato");
+    });
+
+    it("o card recorta pela JANELA do período, pela data do resgate (dataEvento)", async () => {
+      // Três resgates de benefício em datas distintas: um recente, um de ~2
+      // meses atrás e um de ~10 meses atrás. O período do seletor decide
+      // quais entram — pela data do RESGATE, não a do arquivo nem a da carga.
+      const agora = new Date("2026-08-01T00:00:00.000Z");
+      await prisma.eventoDeResgateTelemetria.createMany({
+        data: [
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2026-07-25T00:00:00.000Z"), // dentro de 30d
+            produto: "Brinde",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-jan-recente`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2026-06-01T00:00:00.000Z"), // fora de 30d, dentro de 90d
+            produto: "Brinde",
+            tipoOferta: "Checkout no clube",
+            chaveNatural: `${MARCA}-jan-medio`,
+            importacaoId,
+          },
+          {
+            assinanteId,
+            ofertaId: ofertaRecompensaId,
+            dataEvento: new Date("2025-10-01T00:00:00.000Z"), // fora de 90d, dentro de 12m
+            produto: "Brinde",
+            tipoOferta: "Recompensa gratuita",
+            chaveNatural: `${MARCA}-jan-antigo`,
+            importacaoId,
+          },
+        ],
+      });
+
+      const valorNaJanela = async (periodo: "30" | "90" | "12m") => {
+        const painel = await montarPainel(periodo, agora);
+        const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
+        return celula.resultado.estado === "DISPONIVEL" ? celula.resultado.valor : null;
+      };
+
+      expect(await valorNaJanela("30")).toBe(1); // só o de 25/07
+      expect(await valorNaJanela("90")).toBe(2); // + o de 01/06
+      expect(await valorNaJanela("12m")).toBe(3); // + o de 01/10/2025
+    });
+
+    it("janela sem resgate é ZERO medido, não salta para o catálogo (RN53)", async () => {
+      // Há telemetria (um resgate antigo) e um contador de catálogo — mas a
+      // janela de 30 dias não pega o resgate. O card mostra 0 medido pela
+      // origem "extrato", jamais o número acumulado do catálogo.
+      await prisma.contadorDeOfertaTelemetria.create({
+        data: {
+          ofertaId: ofertaRecompensaId,
+          resgates: 99,
+          compras: 0,
+          dataArquivo: new Date("2026-07-20T00:00:00.000Z"),
+          importacaoId,
+        },
+      });
+      await prisma.eventoDeResgateTelemetria.create({
+        data: {
+          assinanteId,
+          ofertaId: ofertaRecompensaId,
+          dataEvento: new Date("2025-10-01T00:00:00.000Z"), // fora de 30d
+          produto: "Brinde",
+          tipoOferta: "Recompensa gratuita",
+          chaveNatural: `${MARCA}-fora-da-janela`,
+          importacaoId,
+        },
+      });
+
+      const painel = await montarPainel("30", new Date("2026-08-01T00:00:00.000Z"));
+      const celula = painel.panorama.find((c) => c.chave === "PAN_RESGATES_BENEFICIOS")!;
+      expect(celula.resultado.estado).toBe("DISPONIVEL");
+      if (celula.resultado.estado === "DISPONIVEL") {
+        expect(celula.resultado.valor).toBe(0);
+      }
+      // Origem extrato (o zero medido), nunca o catálogo com seus 99.
+      expect(celula.nota).toContain("extrato");
+      expect(celula.nota).not.toContain("catálogo");
+      expect(JSON.stringify(celula)).not.toContain("99");
     });
   });
 

@@ -201,9 +201,18 @@ export async function apurarExtratoNominal(
  * sendo UMA contagem só, nomeada como "extrato": jamais somada ao contador
  * de catálogo (RN68).
  *
+ * **A janela é pela data do resgate (`dataEvento`).** O Dashboard filtra os
+ * cards de resgate pelo período selecionado (30/90/365 dias), e a data que
+ * decide se um resgate entra é a do próprio evento — não a do arquivo nem a
+ * da importação. Sem janela, conta o extrato inteiro (é assim que a T33/R1,
+ * que não têm seletor de período, continuam lendo).
+ *
  * `null` quando não há evento nominal algum nessas naturezas — ausência de
- * apuração, não zero (RN53). Havendo eventos mas nenhum de classe RESGATE,
- * devolve `0` **medido** com a data do retrato.
+ * apuração, não zero (RN53), e é só nesse caso que o card cai para o
+ * catálogo. Havendo eventos mas nenhum de classe RESGATE **na janela**,
+ * devolve `0` **medido**: a janela é bem definida e a base está carregada,
+ * então "nenhum resgate no período" é um fato, não uma espera — e não faz o
+ * card saltar para o número acumulado do catálogo.
  */
 export interface ResgatesNominaisGlobais {
   resgates: number;
@@ -212,11 +221,16 @@ export interface ResgatesNominaisGlobais {
 
 export async function resgatesNominaisGlobais(
   naturezas: ReadonlyArray<"RECOMPENSA" | "BENEFICIO" | "CUPOM_DESCONTO">,
+  janela?: { inicio: Date; fim: Date },
 ): Promise<ResgatesNominaisGlobais | null> {
   const eventos = await prisma.eventoDeResgateTelemetria.findMany({
     where: { oferta: { natureza: { in: [...naturezas] } } },
     select: { tipoOferta: true, dataEvento: true },
   });
+  // Ausência de telemetria (nenhum evento importado nessas naturezas) é
+  // diferente de "nenhum resgate na janela": a primeira é traço/catálogo, a
+  // segunda é zero medido. Este gate distingue as duas — o filtro por janela
+  // vem depois, no laço.
   if (eventos.length === 0) {
     return null;
   }
@@ -224,6 +238,9 @@ export async function resgatesNominaisGlobais(
   let dataDoRetrato: Date | null = null;
   for (const evento of eventos) {
     if (classificarEvento(evento.tipoOferta) !== "RESGATE") {
+      continue;
+    }
+    if (janela && (evento.dataEvento < janela.inicio || evento.dataEvento > janela.fim)) {
       continue;
     }
     resgates += 1;
