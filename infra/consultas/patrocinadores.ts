@@ -1,4 +1,5 @@
 import type { PerfilAssinatura, StatusPatrocinador } from "@prisma/client";
+import { normalizarCnpj } from "@/dominio/empresas/cnpj";
 import { prisma } from "@/infra/prisma/cliente";
 import {
   apurarExtratoNominal,
@@ -94,11 +95,12 @@ export async function listarPatrocinadores(
   hoje: Date = new Date(),
 ): Promise<LeituraDoPatrocinador[]> {
   const busca = filtros.busca?.trim() ?? "";
-  // O CNPJ é guardado só com dígitos: buscar por "11.222.333/0001-81"
+  // O CNPJ é guardado sem máscara e em maiúsculas (pode ter letras — CNPJ
+  // alfanumérico, IN RFB nº 2.229/2024): buscar por "11.222.333/0001-81"
   // precisa perder a pontuação antes, senão nunca casa. E a cláusula do
-  // CNPJ só entra quando SOBRA dígito — `contains: ""` casa com todas as
+  // CNPJ só entra quando SOBRA caractere — `contains: ""` casa com todas as
   // linhas, e uma busca por "inexistente" devolveria a lista inteira.
-  const digitosDaBusca = busca.replace(/\D/g, "");
+  const cnpjDaBusca = normalizarCnpj(busca);
   const registros = await prisma.patrocinador.findMany({
     where: {
       ...(filtros.status && filtros.status !== "TODOS" ? { status: filtros.status } : {}),
@@ -107,7 +109,7 @@ export async function listarPatrocinadores(
         : {
             OR: [
               { razaoSocial: { contains: busca, mode: "insensitive" as const } },
-              ...(digitosDaBusca === "" ? [] : [{ cnpj: { contains: digitosDaBusca } }]),
+              ...(cnpjDaBusca === "" ? [] : [{ cnpj: { contains: cnpjDaBusca } }]),
             ],
           }),
     },

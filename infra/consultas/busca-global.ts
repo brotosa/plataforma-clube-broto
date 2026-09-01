@@ -1,4 +1,5 @@
 import { Prisma, type EstagioEmpresa, type StatusOferta } from "@prisma/client";
+import { normalizarCnpj } from "@/dominio/empresas/cnpj";
 import { prisma } from "@/infra/prisma/cliente";
 
 /**
@@ -48,16 +49,18 @@ export async function buscaGlobal(termoBruto: string): Promise<ResultadoBuscaGlo
     return { termo: "", aliados: [], solucoes: [], ofertas: [], total: 0 };
   }
   const contem = { contains: termo, mode: "insensitive" as const };
-  const somenteDigitos = termo.replace(/\D/g, "");
+  // O CNPJ é gravado sem máscara e em maiúsculas (pode ter letras — CNPJ
+  // alfanumérico, IN RFB nº 2.229/2024); normalizamos o termo do mesmo jeito
+  // para casar. Só entra na busca com massa suficiente para não casar o mundo
+  // inteiro num "1".
+  const cnpjBusca = normalizarCnpj(termo);
 
-  // O CNPJ é gravado só com dígitos; só entra na busca com massa suficiente
-  // para não casar o mundo inteiro num "1".
   const orEmpresa: Prisma.EmpresaWhereInput[] = [
     { nomeFantasia: contem },
     { razaoSocial: contem },
   ];
-  if (somenteDigitos.length >= 3) {
-    orEmpresa.push({ cnpj: { contains: somenteDigitos } });
+  if (cnpjBusca.length >= 3) {
+    orEmpresa.push({ cnpj: { contains: cnpjBusca } });
   }
 
   const [aliados, solucoes, ofertas] = await Promise.all([

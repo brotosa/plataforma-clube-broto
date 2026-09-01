@@ -79,15 +79,24 @@ export function FormularioAliado({
           </div>
           <div className="field">
             <label htmlFor="campo-cnpj">CNPJ</label>
+            {/* CNPJ alfanumérico (IN RFB nº 2.229/2024): a raiz pode ter
+                letras, então nada de `inputMode="numeric"` (esconderia as
+                letras no teclado do celular). O texto é normalizado para
+                maiúsculas na validação; `textTransform` só antecipa isso na
+                tela. */}
             <input
               id="campo-cnpj"
               className="input"
               name="cnpj"
-              inputMode="numeric"
-              placeholder="00.000.000/0000-00"
+              autoCapitalize="characters"
+              autoComplete="off"
+              placeholder="00.000.000/0000-00 ou 12.ABC.345/01DE-35"
               defaultValue={valores?.cnpj ?? ""}
+              style={{ textTransform: "uppercase" }}
             />
-            <span className="hint">Único e validado (RN08); obrigatório na promoção.</span>
+            <span className="hint">
+              Único e validado (RN08); aceita CNPJ numérico ou alfanumérico; obrigatório na promoção.
+            </span>
           </div>
           <div className="field">
             <label htmlFor="campo-site">Site</label>

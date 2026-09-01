@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { rotularVigencia } from "@/dominio/patrocinio/saldo";
 import { listarCarteira } from "@/infra/consultas/assinantes";
 import {
@@ -47,11 +48,6 @@ const ABAS = [
 ] as const;
 
 type AbaId = (typeof ABAS)[number]["id"];
-
-function formatarCnpj(cnpj: string): string {
-  if (cnpj.length !== 14) return cnpj;
-  return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
-}
 
 function formatarData(data: Date | null): string | null {
   return data ? data.toISOString().slice(0, 10).split("-").reverse().join("/") : null;

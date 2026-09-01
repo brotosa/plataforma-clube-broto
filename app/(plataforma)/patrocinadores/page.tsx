@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { formatarCnpj } from "@/dominio/empresas/cnpj";
 import { rotularVigencia, type SaldoDePatrocinio } from "@/dominio/patrocinio/saldo";
 import {
   listarPatrocinadores,
@@ -28,11 +29,6 @@ import { NovoPatrocinador } from "./formulario-patrocinador";
  */
 
 export const dynamic = "force-dynamic";
-
-function formatarCnpj(cnpj: string): string {
-  if (cnpj.length !== 14) return cnpj;
-  return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
-}
 
 function classeDaVigencia(estado: string): string {
   if (estado === "VENCIDA") return "pill pill-erro";

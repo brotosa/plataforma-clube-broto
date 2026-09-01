@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  chaveCnpj,
   extrairCampos,
   normalizarComparavel,
   separarCategorias,
-  somenteDigitos,
   sugerirMapeamento,
   validarMapeamento,
 } from "./mapeamento";
@@ -77,8 +77,11 @@ describe("chaves de deduplicação (CNPJ/nome)", () => {
     expect(normalizarComparavel("Órbita Serviços")).toBe("orbita servicos");
   });
 
-  it("CNPJ compara apenas por dígitos", () => {
-    expect(somenteDigitos("11.222.333/0001-81")).toBe("11222333000181");
+  it("chave de CNPJ tira a máscara e preserva letras (CNPJ alfanumérico)", () => {
+    expect(chaveCnpj("11.222.333/0001-81")).toBe("11222333000181");
+    // Alfanumérico: as letras NÃO podem cair (senão duas empresas colidiriam).
+    expect(chaveCnpj("12.abc.345/01de-35")).toBe("12ABC34501DE35");
+    expect(chaveCnpj(null)).toBe("");
   });
 
   it("separa múltiplas categorias por ; , / ou |", () => {
