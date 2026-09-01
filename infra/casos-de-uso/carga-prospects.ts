@@ -7,9 +7,9 @@ import { normalizarCnpj, validarCnpj } from "@/dominio/empresas/cnpj";
 import {
   extrairCampos,
   type MapeamentoColunas,
+  chaveCnpj,
   normalizarComparavel,
   separarCategorias,
-  somenteDigitos,
   sugerirMapeamento,
   validarMapeamento,
 } from "@/dominio/carga-prospects/mapeamento";
@@ -114,7 +114,7 @@ export async function aplicarMapeamentoProspects(
   }
 
   const porCnpj = new Map(
-    empresas.filter((e) => e.cnpj).map((e) => [somenteDigitos(e.cnpj), e]),
+    empresas.filter((e) => e.cnpj).map((e) => [chaveCnpj(e.cnpj), e]),
   );
   const porNome = new Map(
     empresas.map((e) => [normalizarComparavel(e.nomeFantasia), e]),
@@ -154,7 +154,7 @@ export async function aplicarMapeamentoProspects(
       let duplicataDeEmpresaId: string | null = null;
 
       const nomeComparavel = normalizarComparavel(campos.nomeFantasia);
-      const cnpjDigitos = somenteDigitos(campos.cnpj);
+      const cnpjChave = chaveCnpj(campos.cnpj);
       const categoriasReconhecidas = separarCategorias(campos.categoriasTexto)
         .map((texto) => categoriaPorNome.get(normalizarComparavel(texto)))
         .filter(Boolean);
@@ -171,9 +171,9 @@ export async function aplicarMapeamentoProspects(
           "Categoria-alvo ausente ou fora da taxonomia da vitrine (RN13) — ajuste o mapeamento ou a lista.";
       } else {
         const duplicata =
-          (cnpjDigitos ? porCnpj.get(cnpjDigitos) : undefined) ??
+          (cnpjChave ? porCnpj.get(cnpjChave) : undefined) ??
           porNome.get(nomeComparavel);
-        const chaveNaLista = cnpjDigitos || nomeComparavel;
+        const chaveNaLista = cnpjChave || nomeComparavel;
         if (duplicata) {
           estado = "REJEITADA";
           duplicataDeEmpresaId = duplicata.id;

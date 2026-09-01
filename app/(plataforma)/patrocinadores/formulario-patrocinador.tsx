@@ -48,17 +48,22 @@ function Campos({
       </div>
       <div className="field">
         <label htmlFor="pt-cnpj">CNPJ</label>
+        {/* CNPJ alfanumérico (IN RFB nº 2.229/2024): sem `inputMode="numeric"`,
+            que esconderia as letras da raiz no teclado do celular. */}
         <input
           id="pt-cnpj"
           className="input"
           name="cnpj"
           required
-          inputMode="numeric"
+          autoCapitalize="characters"
+          autoComplete="off"
           defaultValue={valores.cnpj ?? ""}
           aria-describedby="pt-cnpj-ajuda"
+          style={{ textTransform: "uppercase" }}
         />
         <span className="hint" id="pt-cnpj-ajuda">
-          Com ou sem pontuação — a plataforma confere os dígitos verificadores.
+          Numérico ou alfanumérico, com ou sem pontuação — a plataforma confere os dígitos
+          verificadores.
         </span>
       </div>
       <div className="field">

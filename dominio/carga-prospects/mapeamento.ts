@@ -6,6 +6,8 @@
  * gravada na importação. Funções puras, sem banco.
  */
 
+import { normalizarCnpj } from "@/dominio/empresas/cnpj";
+
 /** Destinos possíveis de uma coluna da lista. */
 export const ALVOS_MAPEAMENTO = [
   "NOME",
@@ -37,9 +39,14 @@ export function normalizarComparavel(valor: unknown): string {
     .trim();
 }
 
-/** Dígitos do CNPJ (chave de deduplicação por CNPJ). */
-export function somenteDigitos(valor: unknown): string {
-  return String(valor ?? "").replace(/\D/g, "");
+/**
+ * Chave de deduplicação por CNPJ — sem máscara e em maiúsculas. Usa o
+ * normalizador do domínio porque o CNPJ pode ser **alfanumérico** (IN RFB
+ * nº 2.229/2024): remover as letras (o antigo "só dígitos") colapsaria CNPJs
+ * distintos na mesma chave e casaria duplicatas que não existem.
+ */
+export function chaveCnpj(valor: unknown): string {
+  return normalizarCnpj(String(valor ?? ""));
 }
 
 /**
