@@ -1,12 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
+import { ErroDeEnvioDeArquivo } from "@/dominio/arquivos/arquivo-enviado";
 import { ErroDeValidacao } from "./contexto";
 import {
   adicionarComentario,
   editarComentario,
   removerComentario,
   definirResolucaoPendencia,
+  lerAnexoDoComentario,
 } from "./comentarios";
 import {
   contarPendenciasQueMencionam,
@@ -107,6 +109,51 @@ describe.skipIf(!temBanco)("comentários do aliado — casos de uso integrados",
     // Quem não foi mencionado não recebe nada por esta.
     const antesGestor = await contarPendenciasQueMencionam(gestor.id);
     expect(antesGestor).toBe(0);
+  });
+
+  it("anexa um PDF ao comentário: grava 1:1, some por rota e recusa SVG", async () => {
+    // Fixture sintética — bytes de um PDF mínimo, nunca arquivo real.
+    const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, ...new Array(64).fill(0x20)]);
+    const nota = await adicionarComentario(gestor, { tipo: "aliado", id: empresaId }, {
+      texto: "Segue o contrato assinado em anexo.",
+      anexo: { nome: "contrato.pdf", conteudo: pdf },
+    });
+
+    // A linha 1:1 nasceu com o tipo REAL e o tamanho do que foi gravado.
+    const anexo = await prisma.notaRapidaAnexo.findUniqueOrThrow({
+      where: { notaRapidaId: nota.id },
+    });
+    expect(anexo.tipoMime).toBe("application/pdf");
+    expect(anexo.nomeArquivo).toBe("contrato.pdf");
+    expect(anexo.bytes).toBe(pdf.length);
+    expect(anexo.autorId).toBe(gestor.id);
+
+    // O feed traz os METADADOS (nunca o binário).
+    const feed = await feedDoAliado(empresaId);
+    const linha = feed.find((c) => c.id === nota.id);
+    expect(linha?.anexo).toEqual({
+      nomeArquivo: "contrato.pdf",
+      tipoMime: "application/pdf",
+      bytes: pdf.length,
+    });
+
+    // A leitura de serviço (a rota) devolve o conteúdo íntegro.
+    const servido = await lerAnexoDoComentario(scout, nota.id);
+    expect(servido?.tipoMime).toBe("application/pdf");
+    expect(Array.from(servido?.conteudo ?? [])).toEqual(Array.from(pdf));
+
+    // SVG é recusado nomeando o formato (RN60): nada foi gravado.
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+    await expect(
+      adicionarComentario(gestor, { tipo: "aliado", id: empresaId }, {
+        texto: "tentativa com vetor",
+        anexo: { nome: "x.svg", conteudo: svg },
+      }),
+    ).rejects.toThrow(ErroDeEnvioDeArquivo);
+
+    // Soft-delete da nota tira o anexo do serviço; a linha cai por cascade.
+    await removerComentario(gestor, nota.id);
+    expect(await lerAnexoDoComentario(scout, nota.id)).toBeNull();
   });
 
   it("só o autor edita; edição marca editadoEm e re-sincroniza menções", async () => {

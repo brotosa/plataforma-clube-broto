@@ -17,6 +17,18 @@ export interface MencaoDoFeed {
   nome: string;
 }
 
+/**
+ * Metadados do anexo do comentário — só o que a tela precisa para o link.
+ * O binário (`conteudo`) NUNCA entra aqui: sai só pela rota que o serve, com
+ * ETag e cabeçalhos de contenção. Selecionar escalares por engano carregaria
+ * o arquivo em todo feed (o mesmo cuidado da RN54 para a marca do aliado).
+ */
+export interface AnexoDoFeed {
+  nomeArquivo: string;
+  tipoMime: string;
+  bytes: number;
+}
+
 export interface ComentarioDoFeed {
   id: string;
   texto: string;
@@ -27,6 +39,8 @@ export interface ComentarioDoFeed {
   ehPendencia: boolean;
   pendenciaResolvidaEm: Date | null;
   mencoes: MencaoDoFeed[];
+  /** Anexo do comentário, ou null quando não há. Um por comentário. */
+  anexo: AnexoDoFeed | null;
 }
 
 /** Feed vivo de uma ficha (aliado ou patrocinador), o mais recente primeiro. */
@@ -39,6 +53,9 @@ async function feedPorFicha(
     include: {
       autor: { select: { nome: true } },
       mencoes: { include: { usuario: { select: { id: true, nome: true } } } },
+      // Só metadados do anexo — o `conteudo` (Bytes) fica de fora de
+      // propósito: ele sai apenas pela rota que o serve.
+      anexo: { select: { nomeArquivo: true, tipoMime: true, bytes: true } },
     },
   });
   return notas.map((nota) => ({
@@ -54,6 +71,13 @@ async function feedPorFicha(
       usuarioId: mencao.usuario.id,
       nome: mencao.usuario.nome,
     })),
+    anexo: nota.anexo
+      ? {
+          nomeArquivo: nota.anexo.nomeArquivo,
+          tipoMime: nota.anexo.tipoMime,
+          bytes: nota.anexo.bytes,
+        }
+      : null,
   }));
 }
 

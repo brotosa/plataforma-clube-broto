@@ -2,6 +2,12 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type { ComentarioDoFeed, UsuarioMencionavel } from "@/infra/consultas/comentarios";
+import { formatarTamanho } from "@/dominio/arquivos/arquivo-enviado";
+import {
+  FORMATOS_ACEITOS_ROTULO,
+  PERFIL_ANEXO_COMENTARIO,
+  TIPOS_ACEITOS,
+} from "@/dominio/comentarios/anexo";
 import {
   acaoAdicionarComentario,
   acaoEditarComentario,
@@ -10,6 +16,9 @@ import {
   type AlvoComentario,
   type EstadoAcaoComentario,
 } from "./acoes";
+
+/** Atributo `accept` do seletor de arquivo, a partir dos tipos aceitos. */
+const ACCEPT_ANEXO = TIPOS_ACEITOS.join(",");
 
 /**
  * Painel de atividades de uma ficha — o mesmo componente serve o aliado e o
@@ -382,6 +391,7 @@ function EditorComentario({
   usuarioAtualId,
   rotuloEnviar,
   pendente,
+  permitirAnexo,
   aoEnviar,
   aoCancelar,
 }: {
@@ -392,12 +402,22 @@ function EditorComentario({
   usuarioAtualId: string;
   rotuloEnviar: string;
   pendente: boolean;
-  aoEnviar: (dados: { texto: string; ehPendencia: boolean; mencionados: string[] }) => void;
+  /** Só o composer (comentário novo) anexa; a edição não mexe no anexo. */
+  permitirAnexo?: boolean;
+  aoEnviar: (dados: {
+    texto: string;
+    ehPendencia: boolean;
+    mencionados: string[];
+    arquivo: File | null;
+  }) => void;
   aoCancelar?: () => void;
 }) {
   const [texto, setTexto] = useState(textoInicial);
   const [ehPendencia, setEhPendencia] = useState(pendenciaInicial);
   const [mencionados, setMencionados] = useState<string[]>(mencionadosIniciais);
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [erroArquivo, setErroArquivo] = useState<string | null>(null);
+  const arquivoRef = useRef<HTMLInputElement | null>(null);
   const idBase = useId();
   const idTa = `ta-${idBase}`;
   const idLista = `lb-${idBase}`;
@@ -555,6 +575,69 @@ function EditorComentario({
           Marcar como pendência
         </label>
       </div>
+      {permitirAnexo ? (
+        <div className="pa-anexo-linha">
+          <input
+            ref={arquivoRef}
+            type="file"
+            accept={ACCEPT_ANEXO}
+            className="sr-oculto"
+            aria-label="Anexar arquivo ao comentário"
+            onChange={(evento) => {
+              const escolhido = evento.target.files?.[0] ?? null;
+              // Pré-conferência de tamanho no cliente — o servidor revalida
+              // tipo real e teto de todo jeito (RN55). Aqui é só evitar o
+              // envio óbvio grande demais.
+              if (escolhido && escolhido.size > PERFIL_ANEXO_COMENTARIO.tamanhoMaximoEmBytes) {
+                setErroArquivo(
+                  `O anexo tem ${formatarTamanho(escolhido.size)} e o limite é ${formatarTamanho(
+                    PERFIL_ANEXO_COMENTARIO.tamanhoMaximoEmBytes,
+                  )}. Comprima o arquivo antes de anexar.`,
+                );
+                setArquivo(null);
+                evento.target.value = "";
+                return;
+              }
+              setErroArquivo(null);
+              setArquivo(escolhido);
+            }}
+          />
+          {arquivo ? (
+            <span className="pa-chip pa-anexo-chip">
+              <IconeClipe />
+              {arquivo.name} · {formatarTamanho(arquivo.size)}
+              <button
+                type="button"
+                aria-label="Remover anexo"
+                onClick={() => {
+                  setArquivo(null);
+                  setErroArquivo(null);
+                  if (arquivoRef.current) arquivoRef.current.value = "";
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm pa-anexo-btn"
+              onClick={() => arquivoRef.current?.click()}
+            >
+              <IconeClipe />
+              Anexar arquivo
+            </button>
+          )}
+          <span className="cap pa-anexo-dica">
+            {FORMATOS_ACEITOS_ROTULO} · até {formatarTamanho(PERFIL_ANEXO_COMENTARIO.tamanhoMaximoEmBytes)}
+          </span>
+        </div>
+      ) : null}
+      {erroArquivo ? (
+        <p className="pa-anexo-erro" role="alert">
+          {erroArquivo}
+        </p>
+      ) : null}
       {selecionados.length > 0 ? (
         <div className="pa-chips">
           {selecionados.map((usuario) => (
@@ -581,7 +664,9 @@ function EditorComentario({
           type="button"
           className="btn btn-azul btn-sm"
           disabled={pendente || texto.trim().length === 0}
-          onClick={() => aoEnviar({ texto, ehPendencia, mencionados })}
+          onClick={() =>
+            aoEnviar({ texto, ehPendencia, mencionados, arquivo: permitirAnexo ? arquivo : null })
+          }
         >
           {rotuloEnviar}
         </button>
@@ -614,13 +699,15 @@ function Composer({
       usuarioAtualId={usuarioAtualId}
       rotuloEnviar="Comentar"
       pendente={pendente}
-      aoEnviar={({ texto, ehPendencia, mencionados }) =>
+      permitirAnexo
+      aoEnviar={({ texto, ehPendencia, mencionados, arquivo }) =>
         iniciar(async () => {
           const resultado = await acaoAdicionarComentario({
             alvo,
             texto,
             ehPendencia,
             mencionados,
+            anexo: arquivo ?? undefined,
           });
           aoResultado(resultado);
           if (!resultado.erros) setChave((c) => c + 1);
@@ -698,6 +785,19 @@ function ItemComentario({
         ) : null}
       </div>
       <p className="pa-texto">{comentario.texto}</p>
+      {comentario.anexo ? (
+        <a
+          className="pa-anexo-link"
+          href={`/api/notas/${comentario.id}/anexo`}
+          // A rota já força `attachment`; o hint dá o nome ao download e não
+          // navega para fora do painel. O link quebra em linha, não o layout.
+          download={comentario.anexo.nomeArquivo}
+        >
+          <IconeClipe />
+          <span className="pa-anexo-nome">{comentario.anexo.nomeArquivo}</span>
+          <span className="cap pa-anexo-tam">{formatarTamanho(comentario.anexo.bytes)}</span>
+        </a>
+      ) : null}
       {comentario.mencoes.length > 0 ? (
         <div className="pa-mencoes-lidas">
           {comentario.mencoes.map((mencao) => (
@@ -759,6 +859,14 @@ function IconeBalao() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function IconeClipe() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}>
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
     </svg>
   );
 }

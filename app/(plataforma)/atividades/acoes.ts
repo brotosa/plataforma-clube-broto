@@ -56,16 +56,27 @@ export async function acaoAdicionarComentario(dados: {
   texto: string;
   ehPendencia?: boolean;
   mencionados?: string[];
+  /**
+   * Anexo opcional (PDF ou imagem), enviado junto. Chega como `File` — a
+   * conversão para bytes acontece no servidor, e a validação (tipo real,
+   * teto) vive no caso de uso.
+   */
+  anexo?: File;
 }): Promise<EstadoAcaoComentario> {
   const ator = await atorDaSessao();
   try {
+    const anexo =
+      dados.anexo && dados.anexo.size > 0
+        ? { nome: dados.anexo.name, conteudo: new Uint8Array(await dados.anexo.arrayBuffer()) }
+        : undefined;
     await adicionarComentario(ator, dados.alvo, {
       texto: dados.texto,
       ehPendencia: dados.ehPendencia,
       mencionados: dados.mencionados,
+      anexo,
     });
     revalidatePath(rotaDaFicha(dados.alvo));
-    return { sucesso: "Comentário registrado." };
+    return { sucesso: anexo ? "Comentário e anexo registrados." : "Comentário registrado." };
   } catch (erro) {
     return paraEstado(erro);
   }

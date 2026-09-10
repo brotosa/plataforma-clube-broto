@@ -1320,6 +1320,23 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pa-chip button{border:0;background:none;cursor:pointer;color:inherit;font-size:15px;line-height:1;padding:0 4px}
 .pa-editor-acoes{display:flex;justify-content:flex-end;gap:8px}
 
+/* anexo do comentário (melhoria pós-homologação): PDF ou print junto do
+   comentário. Reusa .pa-chip para o arquivo escolhido; a dica e o erro
+   nomeiam formato/teto e a causa (RN55). */
+.pa-anexo-linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pa-anexo-btn{display:inline-flex;align-items:center;gap:6px}
+.pa-anexo-chip{max-width:100%}
+.pa-anexo-chip>svg{margin-right:1px}
+.pa-anexo-dica{flex:1 1 auto;min-width:0;text-align:right}
+.pa-anexo-erro{margin:2px 0 0;font-size:12.5px;color:var(--erro-texto-aaa);font-weight:600}
+/* link do anexo no feed: quebra em linha, nunca estoura o rail. */
+.pa-anexo-link{display:inline-flex;align-items:center;gap:6px;max-width:100%;margin-top:2px;
+  padding:4px 9px;border:1px solid var(--borda);border-radius:var(--r-sm);background:var(--off);
+  font-size:12.5px;font-weight:600;color:var(--azul-texto-aaa)}
+.pa-anexo-link:hover{background:var(--azul-lightest);border-color:var(--azul-claro);text-decoration:none}
+.pa-anexo-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pa-anexo-tam{flex:none;font-weight:400}
+
 /* item do feed */
 .pa-item{border:1px solid var(--borda);border-radius:var(--r-sm);padding:10px 11px;background:var(--branco);
   display:flex;flex-direction:column;gap:6px}

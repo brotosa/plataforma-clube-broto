@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
 import { type Acao, exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import { validarTextoComentario } from "@/dominio/comentarios/regras";
+import { validarAnexoComentario } from "@/dominio/comentarios/anexo";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -44,6 +46,17 @@ export interface DadosComentario {
   ehPendencia?: boolean;
   /** Ids de usuários mencionados (o próprio autor é ignorado). */
   mencionados?: ReadonlyArray<string>;
+  /**
+   * Anexo opcional (PDF ou imagem), enviado JUNTO com o comentário. Um por
+   * comentário (RN54/RN60 — binário em tabela própria 1:1). Validado e
+   * higienizado no servidor; some com o comentário.
+   */
+  anexo?: { nome: string; conteudo: Uint8Array };
+}
+
+/** SHA-256 do conteúdo — identidade de versão do anexo para o ETag da rota. */
+function hashDoAnexo(conteudo: Uint8Array): string {
+  return createHash("sha256").update(conteudo).digest("hex");
 }
 
 /** Confere que os ids mencionados são usuários ativos; devolve o conjunto. */
@@ -80,6 +93,21 @@ export async function adicionarComentario(
   const texto = dados.texto.trim();
   const ehPendencia = dados.ehPendencia === true;
 
+  // O anexo é validado FORA da transação — tipo real pelo conteúdo, teto e
+  // higienização são domínio puro e não tocam o banco. Recusa aqui nomeia a
+  // causa (RN55) e nada foi gravado.
+  const anexoValidado = dados.anexo
+    ? validarAnexoComentario(dados.anexo.conteudo, dados.anexo.nome)
+    : null;
+  const anexoMeta = anexoValidado
+    ? {
+        nomeArquivo: dados.anexo!.nome,
+        tipoMime: anexoValidado.tipoMime,
+        bytes: anexoValidado.bytes,
+        hash: hashDoAnexo(anexoValidado.conteudo),
+      }
+    : null;
+
   return prisma.$transaction(async (tx) => {
     // A ficha alvo tem de existir; e a nota pousa na coluna do seu tipo (a
     // outra fica nula — o XOR do banco garante que é exatamente uma).
@@ -99,6 +127,21 @@ export async function adicionarComentario(
         texto,
         ehPendencia,
         mencoes: { create: mencionados.map((usuarioId) => ({ usuarioId })) },
+        // Anexo nasce junto: 1:1, mesmo autor, dentro da mesma transação.
+        ...(anexoValidado && anexoMeta
+          ? {
+              anexo: {
+                create: {
+                  conteudo: Buffer.from(anexoValidado.conteudo),
+                  tipoMime: anexoMeta.tipoMime,
+                  bytes: anexoMeta.bytes,
+                  hash: anexoMeta.hash,
+                  nomeArquivo: anexoMeta.nomeArquivo,
+                  autorId: ator.id,
+                },
+              },
+            }
+          : {}),
       },
     });
     await registrarMutacao(criarGravadorPrisma(tx), {
@@ -106,10 +149,44 @@ export async function adicionarComentario(
       entidadeId: nota.id,
       autorId: ator.id,
       anterior: null,
-      novo: { ...vinculo, texto, ehPendencia, mencionados },
+      novo: {
+        ...vinculo,
+        texto,
+        ehPendencia,
+        mencionados,
+        // Só metadados na trilha — nunca o conteúdo do arquivo.
+        anexo: anexoMeta,
+      },
     });
     return nota;
   });
+}
+
+/**
+ * Lê o anexo de um comentário para a rota que o serve — o ÚNICO lugar em que
+ * o binário deixa o banco. Exige apenas ver a ficha (o feed é visível a todos
+ * os papéis que operam), e devolve `null` quando a nota foi removida
+ * (soft-delete) ou não tem anexo, para a rota responder 404.
+ */
+export async function lerAnexoDoComentario(
+  ator: Ator,
+  comentarioId: string,
+): Promise<{ conteudo: Uint8Array; tipoMime: string; hash: string; nomeArquivo: string } | null> {
+  exigirPermissao(ator.papel, "VISUALIZAR");
+  const nota = await prisma.notaRapida.findUnique({
+    where: { id: comentarioId },
+    select: {
+      removidoEm: true,
+      anexo: { select: { conteudo: true, tipoMime: true, hash: true, nomeArquivo: true } },
+    },
+  });
+  if (nota === null || nota.removidoEm !== null || nota.anexo === null) return null;
+  return {
+    conteudo: new Uint8Array(nota.anexo.conteudo),
+    tipoMime: nota.anexo.tipoMime,
+    hash: nota.anexo.hash,
+    nomeArquivo: nota.anexo.nomeArquivo,
+  };
 }
 
 /** Editar o próprio comentário (texto, pendência, menções). */
