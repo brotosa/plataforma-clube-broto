@@ -51,6 +51,54 @@ function formatarQuando(valor: Date | string): string {
   });
 }
 
+/**
+ * Filtros do feed (melhoria pós-homologação): "só pendências abertas", "que me
+ * mencionam" e "resolvidas". O feed inteiro já chega ao cliente de uma vez
+ * (conjunto contido por ficha, RN56), então o recorte é em memória — sem
+ * querystring, sem novo round-trip e sem tocar a consulta do servidor. É um
+ * estado de conveniência por visualização, não um recorte de URL.
+ */
+type FiltroAtividades = "TUDO" | "PENDENCIAS" | "MENCIONAM" | "RESOLVIDAS";
+
+const ORDEM_FILTRO: ReadonlyArray<FiltroAtividades> = [
+  "TUDO",
+  "PENDENCIAS",
+  "MENCIONAM",
+  "RESOLVIDAS",
+];
+
+const ROTULO_FILTRO: Record<FiltroAtividades, string> = {
+  TUDO: "Todas as atividades",
+  PENDENCIAS: "Só pendências abertas",
+  MENCIONAM: "Que me mencionam",
+  RESOLVIDAS: "Pendências resolvidas",
+};
+
+/** Texto de vazio por filtro — específico, nunca o genérico do feed cheio. */
+const VAZIO_FILTRO: Record<FiltroAtividades, string> = {
+  TUDO: "Nenhum comentário ainda. O que a equipe registrar aqui fica visível em todas as abas da ficha.",
+  PENDENCIAS: "Nenhuma pendência aberta neste momento.",
+  MENCIONAM: "Nenhum comentário desta ficha menciona você.",
+  RESOLVIDAS: "Nenhuma pendência resolvida ainda.",
+};
+
+function casaFiltro(
+  comentario: ComentarioDoFeed,
+  filtro: FiltroAtividades,
+  usuarioAtualId: string,
+): boolean {
+  switch (filtro) {
+    case "PENDENCIAS":
+      return comentario.ehPendencia && comentario.pendenciaResolvidaEm === null;
+    case "MENCIONAM":
+      return comentario.mencoes.some((mencao) => mencao.usuarioId === usuarioAtualId);
+    case "RESOLVIDAS":
+      return comentario.ehPendencia && comentario.pendenciaResolvidaEm !== null;
+    default:
+      return true;
+  }
+}
+
 /** Acompanha uma media query (após montar, para não divergir do SSR). */
 function useMediaQuery(query: string): boolean {
   const [combina, setCombina] = useState(false);
@@ -198,6 +246,13 @@ function CorpoPainel({
   aoRecolher: () => void;
 }) {
   const [toast, setToast] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [filtro, setFiltro] = useState<FiltroAtividades>("TUDO");
+  const idFiltro = useId();
+
+  const visiveis =
+    filtro === "TUDO"
+      ? comentarios
+      : comentarios.filter((comentario) => casaFiltro(comentario, filtro, usuarioAtualId));
 
   useEffect(() => {
     if (!toast) return;
@@ -242,14 +297,42 @@ function CorpoPainel({
         </p>
       )}
 
+      {comentarios.length > 0 ? (
+        <div className="pa-filtros">
+          <label className="sr-oculto" htmlFor={idFiltro}>
+            Filtrar atividades
+          </label>
+          <select
+            id={idFiltro}
+            className="select pa-filtro-sel"
+            value={filtro}
+            onChange={(evento) => setFiltro(evento.target.value as FiltroAtividades)}
+          >
+            {ORDEM_FILTRO.map((opcao) => (
+              <option key={opcao} value={opcao}>
+                {ROTULO_FILTRO[opcao]}
+              </option>
+            ))}
+          </select>
+          {filtro !== "TUDO" ? (
+            <span className="cap pa-filtro-conta" role="status">
+              {visiveis.length} de {comentarios.length}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="pa-feed">
         {comentarios.length === 0 ? (
           <p className="cap" style={{ margin: "14px 2px" }}>
-            Nenhum comentário ainda. O que a equipe registrar aqui fica visível em todas as abas
-            da ficha.
+            {VAZIO_FILTRO.TUDO}
+          </p>
+        ) : visiveis.length === 0 ? (
+          <p className="cap" style={{ margin: "14px 2px" }}>
+            {VAZIO_FILTRO[filtro]}
           </p>
         ) : (
-          comentarios.map((comentario) => (
+          visiveis.map((comentario) => (
             <ItemComentario
               key={comentario.id}
               alvo={alvo}
