@@ -246,9 +246,19 @@ export function PainelDashboard({
         </div>
 
         <div className="dash-main">
+          {/* A vitrine viva mede "% das ofertas PUBLICADAS com resgate na
+              janela", então o clique leva à lista já filtrada por essas mesmas
+              ofertas — `/ofertas?status=PUBLICADA` devolve exatamente o
+              `base.total` do destaque (ambos `count(status = PUBLICADA)`), sem
+              descasar o número da tela de origem. As células do panorama
+              seguem apontando para a raiz do módulo: os números delas são
+              recortados pelo período do seletor, e a lista de destino não tem
+              filtro equivalente — deep-link ali mostraria uma contagem
+              diferente da célula. Deep-link só onde há lista-alvo que preserva
+              a contagem (as pendências já o fazem, cada uma com o seu filtro). */}
           <Link
             className="dash-star"
-            href="/ofertas"
+            href="/ofertas?status=PUBLICADA"
             style={{ textDecoration: "none" }}
           >
             <span className="dash-lab">Vitrine viva</span>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrar, prisma, runId } from "./ajudantes";
+import { entrar, prisma, runId, semViolacoesAxe } from "./ajudantes";
 
 /**
  * Painel de atividades da ficha do PATROCINADOR: o mesmo componente e as
@@ -56,6 +56,9 @@ test.describe("painel de atividades do patrocinador", () => {
       name: /Painel de atividades do patrocinador/,
     });
     await expect(painel.getByRole("heading", { name: "Atividades" })).toBeVisible();
+
+    // A ficha do patrocinador (com o painel) passa na varredura AAA.
+    await semViolacoesAxe(page);
 
     // Comentar como pendência.
     const texto = `Confirmar a minuta ${runId()}`;

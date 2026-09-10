@@ -331,12 +331,15 @@ export function ShellPlataforma({
             <span className="sit-label">Manual do usuário</span>
           </Link>
           {/* fix AAA: no protótipo esta legenda usa --azul-claro (3,7:1 sobre
-              o azul); branco é o maior contraste possível neste fundo */}
+              o azul); branco é o maior contraste possível neste fundo. O selo
+              de ambiente vinha com `opacity: 0.8`, que rebaixava o branco a
+              ~#dadfff e media 3,71:1 (reprova AAA — só aparecia fora de
+              produção, por isso passou). Branco pleno mede 4,87:1 e passa. */}
           {!recolhida ? (
             <div style={{ paddingLeft: 20, color: "var(--branco)" }} className="cap">
               Elaborado por Broto S.A. · v{versao}
               {ambienteVisivel ? (
-                <span style={{ display: "block", opacity: 0.8 }}>{ambienteVisivel}</span>
+                <span style={{ display: "block" }}>{ambienteVisivel}</span>
               ) : null}
             </div>
           ) : null}

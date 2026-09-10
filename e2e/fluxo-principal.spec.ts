@@ -399,6 +399,13 @@ test("axe-core (AAA) sem violações nas telas da Onda 1", async ({ page }) => {
     "/aprovacoes", // T6
     "/aprovacoes/regras", // T7
     "/manual", // Manual do usuário (por papel)
+    // Ampliação da cobertura AAA para além da Onda 1 — telas que o Gestor
+    // alcança e que ainda não passavam pela varredura.
+    "/", // Dashboard (T26)
+    "/patrocinadores", // T32
+    "/campanhas", // T22
+    "/mercado", // Mercado & Scout (T8)
+    "/assinantes", // Carteira de assinantes (T18)
   ];
 
   for (const rota of rotas) {
