@@ -71,6 +71,17 @@ test.describe("painel de atividades do patrocinador", () => {
     const item = painel.locator(".pa-item", { hasText: texto });
     await expect(item.getByText("pendência", { exact: true })).toBeVisible();
 
+    // Filtro do feed (recorte em memória): "que me mencionam" esconde o
+    // comentário (que não menciona ninguém) e mostra o vazio próprio; "só
+    // pendências abertas" o traz de volta.
+    const filtro = painel.getByLabel("Filtrar atividades");
+    await filtro.selectOption("MENCIONAM");
+    await expect(painel.getByText("Nenhum comentário desta ficha menciona você.")).toBeVisible();
+    await expect(painel.getByText(texto)).toHaveCount(0);
+    await filtro.selectOption("PENDENCIAS");
+    await expect(painel.getByText(texto)).toBeVisible();
+    await filtro.selectOption("TUDO");
+
     // Resolver a pendência.
     await item.getByRole("button", { name: "Resolver" }).click();
     await expect(item.getByText("resolvida", { exact: true })).toBeVisible();
