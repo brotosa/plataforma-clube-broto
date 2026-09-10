@@ -2,13 +2,14 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
-import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
+import { type Acao, exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import { validarTextoComentario } from "@/dominio/comentarios/regras";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
- * Casos de uso do painel de atividades da ficha do aliado. O comentário
- * nasceu como "nota rápida" (dormante) e aqui ganha ciclo de vida:
+ * Casos de uso do painel de atividades — o mesmo painel serve a ficha do
+ * aliado e a do patrocinador. O comentário nasceu como "nota rápida"
+ * (dormante) e aqui ganha ciclo de vida:
  *
  * - comentar (com pendência e menções opcionais) — quem opera a ficha;
  * - editar / apagar — **só o próprio autor**, apagar é soft-delete;
@@ -17,7 +18,26 @@ import { type Ator, ErroDeValidacao } from "./contexto";
  * Tudo auditado (RN49): apagar some da vista, a trilha permanece. As menções
  * só destacam o nome no painel; quando a pendência está aberta, a consulta do
  * sino conta "pendências que mencionam você" — sem fila nem lido/não-lido.
+ *
+ * O alvo (aliado ou patrocinador) decide QUAL permissão vale e em qual coluna
+ * a nota pousa — um só caminho, parametrizado, em vez de duas cópias.
  */
+
+/** Em que ficha o comentário vive. */
+export type AlvoComentario = { tipo: "aliado" | "patrocinador"; id: string };
+
+/** A permissão de comentar correspondente ao tipo de ficha. */
+function permissaoDoTipo(tipo: AlvoComentario["tipo"]): Acao {
+  return tipo === "patrocinador" ? "COMENTAR_FICHA_PATROCINADOR" : "COMENTAR_FICHA_ALIADO";
+}
+
+/**
+ * A permissão de uma nota já gravada, deduzida de qual ficha a possui — para
+ * editar/apagar/resolver checarem a permissão da própria ficha.
+ */
+function permissaoDaNota(nota: { patrocinadorId: string | null }): Acao {
+  return nota.patrocinadorId ? "COMENTAR_FICHA_PATROCINADOR" : "COMENTAR_FICHA_ALIADO";
+}
 
 export interface DadosComentario {
   texto: string;
@@ -49,10 +69,10 @@ async function mencionadosValidos(
 /** Comentar na ficha (opcionalmente como pendência e com menções). */
 export async function adicionarComentario(
   ator: Ator,
-  empresaId: string,
+  alvo: AlvoComentario,
   dados: DadosComentario,
 ) {
-  exigirPermissao(ator.papel, "COMENTAR_FICHA_ALIADO");
+  exigirPermissao(ator.papel, permissaoDoTipo(alvo.tipo));
   const erros = validarTextoComentario(dados.texto);
   if (erros.length > 0) {
     throw new ErroDeValidacao(erros);
@@ -61,12 +81,20 @@ export async function adicionarComentario(
   const ehPendencia = dados.ehPendencia === true;
 
   return prisma.$transaction(async (tx) => {
-    await tx.empresa.findUniqueOrThrow({ where: { id: empresaId } });
+    // A ficha alvo tem de existir; e a nota pousa na coluna do seu tipo (a
+    // outra fica nula — o XOR do banco garante que é exatamente uma).
+    if (alvo.tipo === "patrocinador") {
+      await tx.patrocinador.findUniqueOrThrow({ where: { id: alvo.id } });
+    } else {
+      await tx.empresa.findUniqueOrThrow({ where: { id: alvo.id } });
+    }
+    const vinculo =
+      alvo.tipo === "patrocinador" ? { patrocinadorId: alvo.id } : { empresaId: alvo.id };
     const mencionados = await mencionadosValidos(tx, ator.id, dados.mencionados);
 
     const nota = await tx.notaRapida.create({
       data: {
-        empresaId,
+        ...vinculo,
         autorId: ator.id,
         texto,
         ehPendencia,
@@ -78,7 +106,7 @@ export async function adicionarComentario(
       entidadeId: nota.id,
       autorId: ator.id,
       anterior: null,
-      novo: { empresaId, texto, ehPendencia, mencionados },
+      novo: { ...vinculo, texto, ehPendencia, mencionados },
     });
     return nota;
   });
@@ -90,7 +118,6 @@ export async function editarComentario(
   comentarioId: string,
   dados: DadosComentario,
 ) {
-  exigirPermissao(ator.papel, "COMENTAR_FICHA_ALIADO");
   const erros = validarTextoComentario(dados.texto);
   if (erros.length > 0) {
     throw new ErroDeValidacao(erros);
@@ -103,6 +130,8 @@ export async function editarComentario(
       where: { id: comentarioId },
       include: { mencoes: true },
     });
+    // A permissão é a da ficha que possui a nota (aliado ou patrocinador).
+    exigirPermissao(ator.papel, permissaoDaNota(atual));
     if (atual.removidoEm) {
       throw new ErroDeValidacao(["Comentário removido não pode ser editado."]);
     }
@@ -141,10 +170,9 @@ export async function editarComentario(
 
 /** Apagar o próprio comentário — soft-delete (a trilha permanece). */
 export async function removerComentario(ator: Ator, comentarioId: string) {
-  exigirPermissao(ator.papel, "COMENTAR_FICHA_ALIADO");
-
   return prisma.$transaction(async (tx) => {
     const atual = await tx.notaRapida.findUniqueOrThrow({ where: { id: comentarioId } });
+    exigirPermissao(ator.papel, permissaoDaNota(atual));
     if (atual.removidoEm) {
       return atual; // idempotente: já removido
     }
@@ -175,10 +203,9 @@ export async function definirResolucaoPendencia(
   comentarioId: string,
   resolvida: boolean,
 ) {
-  exigirPermissao(ator.papel, "COMENTAR_FICHA_ALIADO");
-
   return prisma.$transaction(async (tx) => {
     const atual = await tx.notaRapida.findUniqueOrThrow({ where: { id: comentarioId } });
+    exigirPermissao(ator.papel, permissaoDaNota(atual));
     if (atual.removidoEm) {
       throw new ErroDeValidacao(["Comentário removido não tem pendência a alterar."]);
     }

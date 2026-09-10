@@ -143,6 +143,18 @@ export const MANUAL_ACOES: Readonly<Record<Acao, AcaoManual>> = {
       "Marque como pendência quando algo precisa de ação.",
     ],
   },
+  COMENTAR_FICHA_PATROCINADOR: {
+    modulo: "PATROCINADORES",
+    titulo: "Comentar e mencionar na ficha do patrocinador",
+    oQueE:
+      "Registrar comentários, abrir pendências e mencionar colegas (@) no painel de atividades do patrocinador — o mesmo histórico de conversa que a ficha do aliado tem, agora para quem opera o patrocinador.",
+    onde: "Ficha do patrocinador → painel de atividades.",
+    passos: [
+      "Abra a ficha do patrocinador e o painel de atividades.",
+      "Escreva o comentário; use @ para mencionar um colega (ele vê no sino).",
+      "Marque como pendência quando algo precisa de ação.",
+    ],
+  },
   SOLICITAR_PROMOCAO: {
     modulo: "MERCADO",
     titulo: "Solicitar promoção a Aliada ativa",

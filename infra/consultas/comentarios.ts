@@ -29,9 +29,12 @@ export interface ComentarioDoFeed {
   mencoes: MencaoDoFeed[];
 }
 
-export async function feedDoAliado(empresaId: string): Promise<ComentarioDoFeed[]> {
+/** Feed vivo de uma ficha (aliado ou patrocinador), o mais recente primeiro. */
+async function feedPorFicha(
+  where: { empresaId: string } | { patrocinadorId: string },
+): Promise<ComentarioDoFeed[]> {
   const notas = await prisma.notaRapida.findMany({
-    where: { empresaId, removidoEm: null },
+    where: { ...where, removidoEm: null },
     orderBy: { criadoEm: "desc" },
     include: {
       autor: { select: { nome: true } },
@@ -52,6 +55,14 @@ export async function feedDoAliado(empresaId: string): Promise<ComentarioDoFeed[
       nome: mencao.usuario.nome,
     })),
   }));
+}
+
+export function feedDoAliado(empresaId: string): Promise<ComentarioDoFeed[]> {
+  return feedPorFicha({ empresaId });
+}
+
+export function feedDoPatrocinador(patrocinadorId: string): Promise<ComentarioDoFeed[]> {
+  return feedPorFicha({ patrocinadorId });
 }
 
 export interface UsuarioMencionavel {

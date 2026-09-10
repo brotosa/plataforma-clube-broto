@@ -326,9 +326,16 @@ model Empresa {
 /// do feed: o próprio autor edita/apaga (soft-delete via `removidoEm`), pode
 /// marcar como pendência (aberta/resolvida) e mencionar outros usuários. Tudo
 /// auditado — apagar some da vista, a trilha permanece (RN49).
+///
+/// A nota pertence a UMA ficha — de aliado (`empresaId`) OU de patrocinador
+/// (`patrocinadorId`), nunca às duas nem a nenhuma (constraint XOR na
+/// migration). As duas colunas são anuláveis porque o vínculo é exclusivo; a
+/// origem histórica é o aliado, então `empresaId` deixou de ser obrigatório
+/// para o patrocinador entrar sem reescrever as linhas existentes.
 model NotaRapida {
   id                   String    @id @default(cuid())
-  empresaId            String    @map("empresa_id")
+  empresaId            String?   @map("empresa_id")
+  patrocinadorId       String?   @map("patrocinador_id")
   autorId              String    @map("autor_id")
   texto                String
   criadoEm             DateTime  @default(now()) @map("criado_em")
@@ -341,13 +348,17 @@ model NotaRapida {
   /// Quando a pendência foi resolvida (null = aberta, enquanto ehPendencia).
   pendenciaResolvidaEm DateTime? @map("pendencia_resolvida_em")
 
-  empresa Empresa            @relation(fields: [empresaId], references: [id])
-  autor   Usuario            @relation(fields: [autorId], references: [id])
-  mencoes NotaRapidaMencao[]
+  empresa      Empresa?          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  patrocinador Patrocinador?     @relation(fields: [patrocinadorId], references: [id], onDelete: Restrict)
+  autor        Usuario           @relation(fields: [autorId], references: [id])
+  mencoes      NotaRapidaMencao[]
 
   @@index([empresaId])
   /// Feed do painel: ordena por data dentro do aliado.
   @@index([empresaId, criadoEm])
+  @@index([patrocinadorId])
+  /// Feed do painel: ordena por data dentro do patrocinador.
+  @@index([patrocinadorId, criadoEm])
   @@map("notas_rapidas")
 }
 
@@ -2161,10 +2172,11 @@ model Patrocinador {
 
   responsavelComercial Usuario? @relation("responsavelComercialPatrocinio", fields: [responsavelComercialId], references: [id])
 
-  contrato   ContratoPatrocinio?
-  vinculos   VinculoPatrocinio[]
-  campanhas  Campanha[]
-  relatorios RelatorioPatrocinador[]
+  contrato     ContratoPatrocinio?
+  vinculos     VinculoPatrocinio[]
+  campanhas    Campanha[]
+  relatorios   RelatorioPatrocinador[]
+  notasRapidas NotaRapida[]
 
   @@index([status])
   @@map("patrocinadores")
