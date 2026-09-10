@@ -17,7 +17,7 @@ import { GestaoContatos } from "./gestao-contatos";
 import { CartaoDeAnexoContrato } from "./cartao-anexo-contrato";
 import { AbaDossie, AbaScouting } from "./abas-scout";
 import { FormularioM1 } from "./formulario-m1";
-import { PainelAtividades } from "./painel-atividades";
+import { PainelAtividades } from "@/app/(plataforma)/atividades/painel-atividades";
 
 export const metadata: Metadata = {
   title: "Ficha do aliado",
@@ -826,7 +826,7 @@ export default async function PaginaFichaAliado({
       </div>
 
       <PainelAtividades
-        empresaId={empresa.id}
+        alvo={{ tipo: "aliado", id: empresa.id }}
         comentarios={comentarios}
         usuarios={usuariosParaMencao}
         usuarioAtualId={usuarioAtualId}

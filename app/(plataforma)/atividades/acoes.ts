@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import type { Ator } from "@/infra/casos-de-uso/contexto";
 import {
+  type AlvoComentario,
   adicionarComentario,
   editarComentario,
   removerComentario,
@@ -13,10 +14,14 @@ import {
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /**
- * Ações do painel de atividades da ficha do aliado. Cada ação revalida a
- * rota da ficha para o feed refletir a mudança na próxima renderização.
- * A distinção por classe de erro (RN55) vive em `mensagensDeFalha`.
+ * Ações do painel de atividades — o mesmo painel serve a ficha do aliado e a
+ * do patrocinador. Cada ação revalida a rota da ficha (`/aliados/:id` ou
+ * `/patrocinadores/:id`) para o feed refletir a mudança na próxima
+ * renderização. A distinção por classe de erro (RN55) vive em
+ * `mensagensDeFalha`. O `alvo` diz em qual ficha o comentário vive.
  */
+
+export type { AlvoComentario };
 
 export interface EstadoAcaoComentario {
   erros?: string[];
@@ -36,25 +41,30 @@ function paraEstado(erro: unknown): EstadoAcaoComentario {
     erros: mensagensDeFalha(erro, {
       operacao: "registrar o comentário",
       semPermissao: "Seu papel não tem permissão para comentar nesta ficha.",
-      contexto: "acao-comentario-aliado",
+      contexto: "acao-comentario",
     }),
   };
 }
 
+/** Rota da ficha a revalidar, conforme o tipo do alvo. */
+function rotaDaFicha(alvo: AlvoComentario): string {
+  return alvo.tipo === "patrocinador" ? `/patrocinadores/${alvo.id}` : `/aliados/${alvo.id}`;
+}
+
 export async function acaoAdicionarComentario(dados: {
-  empresaId: string;
+  alvo: AlvoComentario;
   texto: string;
   ehPendencia?: boolean;
   mencionados?: string[];
 }): Promise<EstadoAcaoComentario> {
   const ator = await atorDaSessao();
   try {
-    await adicionarComentario(ator, dados.empresaId, {
+    await adicionarComentario(ator, dados.alvo, {
       texto: dados.texto,
       ehPendencia: dados.ehPendencia,
       mencionados: dados.mencionados,
     });
-    revalidatePath(`/aliados/${dados.empresaId}`);
+    revalidatePath(rotaDaFicha(dados.alvo));
     return { sucesso: "Comentário registrado." };
   } catch (erro) {
     return paraEstado(erro);
@@ -62,7 +72,7 @@ export async function acaoAdicionarComentario(dados: {
 }
 
 export async function acaoEditarComentario(dados: {
-  empresaId: string;
+  alvo: AlvoComentario;
   comentarioId: string;
   texto: string;
   ehPendencia?: boolean;
@@ -75,7 +85,7 @@ export async function acaoEditarComentario(dados: {
       ehPendencia: dados.ehPendencia,
       mencionados: dados.mencionados,
     });
-    revalidatePath(`/aliados/${dados.empresaId}`);
+    revalidatePath(rotaDaFicha(dados.alvo));
     return { sucesso: "Comentário atualizado." };
   } catch (erro) {
     return paraEstado(erro);
@@ -83,13 +93,13 @@ export async function acaoEditarComentario(dados: {
 }
 
 export async function acaoRemoverComentario(dados: {
-  empresaId: string;
+  alvo: AlvoComentario;
   comentarioId: string;
 }): Promise<EstadoAcaoComentario> {
   const ator = await atorDaSessao();
   try {
     await removerComentario(ator, dados.comentarioId);
-    revalidatePath(`/aliados/${dados.empresaId}`);
+    revalidatePath(rotaDaFicha(dados.alvo));
     return { sucesso: "Comentário removido." };
   } catch (erro) {
     return paraEstado(erro);
@@ -97,14 +107,14 @@ export async function acaoRemoverComentario(dados: {
 }
 
 export async function acaoResolverPendencia(dados: {
-  empresaId: string;
+  alvo: AlvoComentario;
   comentarioId: string;
   resolvida: boolean;
 }): Promise<EstadoAcaoComentario> {
   const ator = await atorDaSessao();
   try {
     await definirResolucaoPendencia(ator, dados.comentarioId, dados.resolvida);
-    revalidatePath(`/aliados/${dados.empresaId}`);
+    revalidatePath(rotaDaFicha(dados.alvo));
     return { sucesso: dados.resolvida ? "Pendência resolvida." : "Pendência reaberta." };
   } catch (erro) {
     return paraEstado(erro);

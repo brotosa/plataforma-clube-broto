@@ -55,7 +55,10 @@ export type Acao =
   // Pós-homologação — painel de atividades da ficha do aliado. Comentar é
   // ato de quem opera a ficha; Leitura só lê (e Aprovador/Administrador,
   // que observam, não comentam). Ler o feed é VISUALIZAR (todos).
-  | "COMENTAR_FICHA_ALIADO";
+  | "COMENTAR_FICHA_ALIADO"
+  // Mesmo painel na ficha do patrocinador — os mesmos papéis do aliado, por
+  // decisão registrada ("igual ao aliado"); ler o feed é VISUALIZAR (todos).
+  | "COMENTAR_FICHA_PATROCINADOR";
 
 /**
  * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
@@ -205,6 +208,10 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Analista de Scout e Comercial. Leitura, Aprovador e Administrador da
   // Plataforma leem o feed (VISUALIZAR), mas não escrevem.
   COMENTAR_FICHA_ALIADO: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
+  // Comentar na ficha do patrocinador — os MESMOS papéis do aliado, por
+  // decisão explícita ("igual ao aliado"). A célula está aqui na matriz de
+  // propósito, não herdada por omissão, como a ficha da Onda 12 exige.
+  COMENTAR_FICHA_PATROCINADOR: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
 };
 
 /**

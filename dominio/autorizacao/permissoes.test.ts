@@ -333,6 +333,13 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
     negados: ["APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
   },
+  {
+    // Comentar na ficha do patrocinador — os mesmos papéis do aliado
+    // ("igual ao aliado"); os demais leem o feed, mas não escrevem.
+    acao: "COMENTAR_FICHA_PATROCINADOR",
+    permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
+    negados: ["APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+  },
 ];
 
 describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {

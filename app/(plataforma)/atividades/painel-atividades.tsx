@@ -7,12 +7,14 @@ import {
   acaoEditarComentario,
   acaoRemoverComentario,
   acaoResolverPendencia,
+  type AlvoComentario,
   type EstadoAcaoComentario,
-} from "./acoes-comentarios";
+} from "./acoes";
 
 /**
- * Painel de atividades da ficha do aliado (pós-homologação). Coluna recuável
- * à direita, persistente em todas as abas porque vive no shell da ficha.
+ * Painel de atividades de uma ficha — o mesmo componente serve o aliado e o
+ * patrocinador (o `alvo` diz qual). Coluna recuável à direita, persistente em
+ * todas as abas porque vive no shell da ficha.
  *
  * - Larga (≥1100px): rail fixo ao lado do conteúdo, recolhível numa faixa
  *   fina com o contador; o estado é lembrado por usuário (localStorage).
@@ -63,13 +65,13 @@ function useMediaQuery(query: string): boolean {
 }
 
 export function PainelAtividades({
-  empresaId,
+  alvo,
   comentarios,
   usuarios,
   usuarioAtualId,
   podeComentar,
 }: {
-  empresaId: string;
+  alvo: AlvoComentario;
   comentarios: ComentarioDoFeed[];
   usuarios: UsuarioMencionavel[];
   usuarioAtualId: string;
@@ -110,6 +112,12 @@ export function PainelAtividades({
     (comentario) => comentario.ehPendencia && comentario.pendenciaResolvidaEm === null,
   ).length;
 
+  // Rótulo da região conforme a ficha — o e2e do aliado casa "…do aliado".
+  const rotuloRegiao =
+    alvo.tipo === "patrocinador"
+      ? "Painel de atividades do patrocinador"
+      : "Painel de atividades do aliado";
+
   // Recolhido: faixa fina com o gatilho e os contadores.
   if (!aberto) {
     return (
@@ -136,7 +144,7 @@ export function PainelAtividades({
 
   const corpo = (
     <CorpoPainel
-      empresaId={empresaId}
+      alvo={alvo}
       comentarios={comentarios}
       usuarios={usuarios}
       usuarioAtualId={usuarioAtualId}
@@ -158,7 +166,7 @@ export function PainelAtividades({
           ref={gavetaRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Painel de atividades do aliado"
+          aria-label={rotuloRegiao}
           tabIndex={-1}
           className="pa-gaveta"
         >
@@ -169,11 +177,11 @@ export function PainelAtividades({
   }
 
   // Largo: rail fixo ao lado do conteúdo.
-  return <aside className="pa-rail" aria-label="Painel de atividades do aliado">{corpo}</aside>;
+  return <aside className="pa-rail" aria-label={rotuloRegiao}>{corpo}</aside>;
 }
 
 function CorpoPainel({
-  empresaId,
+  alvo,
   comentarios,
   usuarios,
   usuarioAtualId,
@@ -181,7 +189,7 @@ function CorpoPainel({
   abertas,
   aoRecolher,
 }: {
-  empresaId: string;
+  alvo: AlvoComentario;
   comentarios: ComentarioDoFeed[];
   usuarios: UsuarioMencionavel[];
   usuarioAtualId: string;
@@ -227,7 +235,7 @@ function CorpoPainel({
       </header>
 
       {podeComentar ? (
-        <Composer empresaId={empresaId} usuarios={usuarios} usuarioAtualId={usuarioAtualId} aoResultado={aplicar} />
+        <Composer alvo={alvo} usuarios={usuarios} usuarioAtualId={usuarioAtualId} aoResultado={aplicar} />
       ) : (
         <p className="cap" style={{ margin: "0 0 10px" }}>
           Seu papel acompanha o histórico da ficha, mas não registra comentários.
@@ -244,7 +252,7 @@ function CorpoPainel({
           comentarios.map((comentario) => (
             <ItemComentario
               key={comentario.id}
-              empresaId={empresaId}
+              alvo={alvo}
               comentario={comentario}
               usuarios={usuarios}
               usuarioAtualId={usuarioAtualId}
@@ -500,12 +508,12 @@ function EditorComentario({
 }
 
 function Composer({
-  empresaId,
+  alvo,
   usuarios,
   usuarioAtualId,
   aoResultado,
 }: {
-  empresaId: string;
+  alvo: AlvoComentario;
   usuarios: UsuarioMencionavel[];
   usuarioAtualId: string;
   aoResultado: (resultado: EstadoAcaoComentario) => void;
@@ -526,7 +534,7 @@ function Composer({
       aoEnviar={({ texto, ehPendencia, mencionados }) =>
         iniciar(async () => {
           const resultado = await acaoAdicionarComentario({
-            empresaId,
+            alvo,
             texto,
             ehPendencia,
             mencionados,
@@ -540,14 +548,14 @@ function Composer({
 }
 
 function ItemComentario({
-  empresaId,
+  alvo,
   comentario,
   usuarios,
   usuarioAtualId,
   podeComentar,
   aoResultado,
 }: {
-  empresaId: string;
+  alvo: AlvoComentario;
   comentario: ComentarioDoFeed;
   usuarios: UsuarioMencionavel[];
   usuarioAtualId: string;
@@ -575,7 +583,7 @@ function ItemComentario({
           aoEnviar={({ texto, ehPendencia, mencionados }) =>
             iniciar(async () => {
               const resultado = await acaoEditarComentario({
-                empresaId,
+                alvo,
                 comentarioId: comentario.id,
                 texto,
                 ehPendencia,
@@ -627,7 +635,7 @@ function ItemComentario({
                 iniciar(async () =>
                   aoResultado(
                     await acaoResolverPendencia({
-                      empresaId,
+                      alvo,
                       comentarioId: comentario.id,
                       resolvida: pendenciaAberta,
                     }),
@@ -650,7 +658,7 @@ function ItemComentario({
                 onClick={() => {
                   if (!window.confirm("Apagar este comentário? Ele some do painel, mas fica na auditoria.")) return;
                   iniciar(async () =>
-                    aoResultado(await acaoRemoverComentario({ empresaId, comentarioId: comentario.id })),
+                    aoResultado(await acaoRemoverComentario({ alvo, comentarioId: comentario.id })),
                   );
                 }}
               >

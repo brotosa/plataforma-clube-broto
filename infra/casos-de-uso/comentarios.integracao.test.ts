@@ -8,7 +8,11 @@ import {
   removerComentario,
   definirResolucaoPendencia,
 } from "./comentarios";
-import { contarPendenciasQueMencionam, feedDoAliado } from "@/infra/consultas/comentarios";
+import {
+  contarPendenciasQueMencionam,
+  feedDoAliado,
+  feedDoPatrocinador,
+} from "@/infra/consultas/comentarios";
 
 /**
  * Painel de atividades em nível de serviço: comentar com pendência e menção,
@@ -71,19 +75,19 @@ describe.skipIf(!temBanco)("comentários do aliado — casos de uso integrados",
 
   it("Leitura não comenta (RBAC COMENTAR_FICHA_ALIADO)", async () => {
     await expect(
-      adicionarComentario(leitura, empresaId, { texto: "não deveria" }),
+      adicionarComentario(leitura, { tipo: "aliado", id: empresaId }, { texto: "não deveria" }),
     ).rejects.toThrow(ErroDeAutorizacao);
   });
 
   it("comentário vazio é recusado", async () => {
     await expect(
-      adicionarComentario(gestor, empresaId, { texto: "   " }),
+      adicionarComentario(gestor, { tipo: "aliado", id: empresaId }, { texto: "   " }),
     ).rejects.toThrow(ErroDeValidacao);
   });
 
   let comentarioId = "";
   it("comenta como pendência mencionando outro, e a menção alimenta o sino", async () => {
-    const nota = await adicionarComentario(gestor, empresaId, {
+    const nota = await adicionarComentario(gestor, { tipo: "aliado", id: empresaId }, {
       texto: "Cadastrar o Fernando para seguir com as configurações.",
       ehPendencia: true,
       mencionados: [scout.id, gestor.id], // o próprio autor é ignorado
@@ -149,5 +153,90 @@ describe.skipIf(!temBanco)("comentários do aliado — casos de uso integrados",
     // A linha continua no banco (soft-delete) e a auditoria registrou a remoção.
     const nota = await prisma.notaRapida.findUniqueOrThrow({ where: { id: comentarioId } });
     expect(nota.removidoEm).not.toBeNull();
+  });
+});
+
+describe.skipIf(!temBanco)("comentários do patrocinador — mesmo painel, permissão própria", () => {
+  const prisma = new PrismaClient();
+  let gestor: { id: string; papel: "GESTOR" };
+  let scout: { id: string; papel: "ANALISTA_SCOUT" };
+  let leitura: { id: string; papel: "LEITURA" };
+  let patrocinadorId = "";
+  // CNPJ alfanumérico válido (exemplo oficial) — único, e o prefixo na razão
+  // social permite a limpeza.
+  const CNPJ = "12ABC34501DE35";
+
+  async function limpar() {
+    const patrocinadores = await prisma.patrocinador.findMany({
+      where: { razaoSocial: { startsWith: PREFIXO } },
+      select: { id: true },
+    });
+    const ids = patrocinadores.map((p) => p.id);
+    const notas = await prisma.notaRapida.findMany({
+      where: { patrocinadorId: { in: ids } },
+      select: { id: true },
+    });
+    const notaIds = notas.map((n) => n.id);
+    await prisma.notaRapidaMencao.deleteMany({ where: { notaRapidaId: { in: notaIds } } });
+    await prisma.auditoriaEvento.deleteMany({
+      where: { entidade: "nota_rapida", entidadeId: { in: notaIds } },
+    });
+    await prisma.notaRapida.deleteMany({ where: { id: { in: notaIds } } });
+    await prisma.patrocinador.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  beforeAll(async () => {
+    const usuarios = await prisma.usuario.findMany({
+      where: { email: { endsWith: "@dev.clubebroto.local" } },
+    });
+    const porPapel = (papel: string) => {
+      const u = usuarios.find((x) => x.papel === papel);
+      if (!u) throw new Error(`Seed ausente: ${papel}`);
+      return u.id;
+    };
+    gestor = { id: porPapel("GESTOR"), papel: "GESTOR" };
+    scout = { id: porPapel("ANALISTA_SCOUT"), papel: "ANALISTA_SCOUT" };
+    leitura = { id: porPapel("LEITURA"), papel: "LEITURA" };
+
+    await limpar();
+    const patrocinador = await prisma.patrocinador.create({
+      data: { razaoSocial: `${PREFIXO} Patrocinador`, cnpj: CNPJ },
+    });
+    patrocinadorId = patrocinador.id;
+  });
+
+  afterAll(async () => {
+    await limpar();
+    await prisma.$disconnect();
+  });
+
+  it("Leitura não comenta no patrocinador (RBAC COMENTAR_FICHA_PATROCINADOR)", async () => {
+    await expect(
+      adicionarComentario(leitura, { tipo: "patrocinador", id: patrocinadorId }, {
+        texto: "não deveria",
+      }),
+    ).rejects.toThrow(ErroDeAutorizacao);
+  });
+
+  it("Gestor comenta: a nota pousa em patrocinador_id (XOR), entra no feed e no sino", async () => {
+    const nota = await adicionarComentario(
+      gestor,
+      { tipo: "patrocinador", id: patrocinadorId },
+      { texto: "Confirmar a minuta com o jurídico.", ehPendencia: true, mencionados: [scout.id] },
+    );
+    // XOR: dono é o patrocinador; a coluna do aliado fica nula.
+    expect(nota.patrocinadorId).toBe(patrocinadorId);
+    expect(nota.empresaId).toBeNull();
+
+    const feed = await feedDoPatrocinador(patrocinadorId);
+    expect(feed.some((c) => c.id === nota.id)).toBe(true);
+
+    // O mesmo sino conta a menção do patrocinador (contagem cross-ficha).
+    expect(await contarPendenciasQueMencionam(scout.id)).toBeGreaterThanOrEqual(1);
+
+    // Editar/resolver funcionam pela permissão da própria ficha.
+    await definirResolucaoPendencia(scout, nota.id, true);
+    const feedResolvido = await feedDoPatrocinador(patrocinadorId);
+    expect(feedResolvido.find((c) => c.id === nota.id)?.pendenciaResolvidaEm).not.toBeNull();
   });
 });

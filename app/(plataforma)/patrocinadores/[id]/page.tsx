@@ -13,7 +13,9 @@ import {
   vinculosVigentesPorAssinante,
   type CardDeConsumo,
 } from "@/infra/consultas/patrocinadores";
+import { feedDoPatrocinador, usuariosMencionaveis } from "@/infra/consultas/comentarios";
 import { prisma } from "@/infra/prisma/cliente";
+import { PainelAtividades } from "@/app/(plataforma)/atividades/painel-atividades";
 import { CelulaDeVagas } from "../page";
 import { EditarPatrocinador } from "../formulario-patrocinador";
 import { CartaoDeMinuta } from "./cartao-minuta";
@@ -121,17 +123,22 @@ export default async function PaginaDoPatrocinador({
   const ator = { id: sessao.user.id, papel: sessao.user.papel };
   const podeGerir = podeExecutar(ator.papel, "GERIR_PATROCINADORES");
   const podeGerarRelatorio = podeExecutar(ator.papel, "GERAR_RELATORIO_PATROCINADOR");
+  // Painel de atividades — mesmo componente e regras da ficha do aliado.
+  const podeComentar = podeExecutar(ator.papel, "COMENTAR_FICHA_PATROCINADOR");
 
-  const [responsaveis, campanhas, consumo, geracoes] = await Promise.all([
-    prisma.usuario.findMany({
-      where: { ativo: true },
-      select: { id: true, nome: true },
-      orderBy: [{ nome: "asc" }],
-    }),
-    aba === "campanhas" ? listarCampanhasDoPatrocinador(id) : Promise.resolve([]),
-    aba === "consumo" ? cardsDeConsumo(id) : Promise.resolve([]),
-    listarGeracoesDeRelatorio(id),
-  ]);
+  const [responsaveis, campanhas, consumo, geracoes, comentarios, usuariosParaMencao] =
+    await Promise.all([
+      prisma.usuario.findMany({
+        where: { ativo: true },
+        select: { id: true, nome: true },
+        orderBy: [{ nome: "asc" }],
+      }),
+      aba === "campanhas" ? listarCampanhasDoPatrocinador(id) : Promise.resolve([]),
+      aba === "consumo" ? cardsDeConsumo(id) : Promise.resolve([]),
+      listarGeracoesDeRelatorio(id),
+      feedDoPatrocinador(id),
+      usuariosMencionaveis(),
+    ]);
 
   /**
    * Aba Base: a tabela de assinantes REUSADA, com o recorte do
@@ -159,7 +166,8 @@ export default async function PaginaDoPatrocinador({
   const motivoDoContrato = "aguarda o dado do contrato";
 
   return (
-    <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+    <div className="tela pa-layout" style={{ padding: "26px 32px 40px", maxWidth: 1600 }}>
+      <div className="pa-conteudo">
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div className="cap">
@@ -543,6 +551,15 @@ export default async function PaginaDoPatrocinador({
           )}
         </div>
       ) : null}
+      </div>
+
+      <PainelAtividades
+        alvo={{ tipo: "patrocinador", id }}
+        comentarios={comentarios}
+        usuarios={usuariosParaMencao}
+        usuarioAtualId={ator.id}
+        podeComentar={podeComentar}
+      />
     </div>
   );
 }
