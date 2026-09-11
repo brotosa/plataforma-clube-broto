@@ -125,8 +125,9 @@ export default async function PaginaManual() {
           Telas do produto
         </h2>
         <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
-          Uma imagem de cada módulo, para você reconhecer a tela. Clique no nome para abrir a
-          tela de verdade — o que você vê nela depende do seu papel.
+          Uma imagem de cada módulo, para você reconhecer a tela — e, na seção do seu papel, a
+          mesma captura aparece ao lado das ações que acontecem nela. Clique no nome para abrir a
+          tela de verdade; o que você vê depende do seu papel.
         </p>
         <div
           style={{
@@ -210,24 +211,47 @@ export default async function PaginaManual() {
                     >
                       {ROTULO_MODULO[modulo]}
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                      {acoes.map((acao) => {
-                        const item = MANUAL_ACOES[acao];
-                        return (
-                          <div key={acao}>
-                            <div style={{ fontWeight: 600 }}>{item.titulo}</div>
-                            <p style={{ margin: "2px 0 4px", maxWidth: "74ch" }}>{item.oQueE}</p>
-                            <p className="cap" style={{ margin: "0 0 6px" }}>
-                              <b>Onde:</b> {item.onde}
-                            </p>
-                            <ol className="cap" style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
-                              {item.passos.map((passo, indice) => (
-                                <li key={indice}>{passo}</li>
-                              ))}
-                            </ol>
-                          </div>
-                        );
-                      })}
+                    {/* A captura da tela do módulo desce da galeria para junto
+                        das ações que acontecem nela: quem lê o passo a passo vê,
+                        ao lado, a tela onde ele ocorre. Reaproveita a mesma
+                        imagem do gerador (uma por módulo), agora no contexto de
+                        cada papel. Em tela estreita, a imagem desce para baixo
+                        dos passos (o texto vem primeiro no DOM). */}
+                    <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: "1 1 340px", minWidth: 0 }}>
+                        {acoes.map((acao) => {
+                          const item = MANUAL_ACOES[acao];
+                          return (
+                            <div key={acao}>
+                              <div style={{ fontWeight: 600 }}>{item.titulo}</div>
+                              <p style={{ margin: "2px 0 4px", maxWidth: "74ch" }}>{item.oQueE}</p>
+                              <p className="cap" style={{ margin: "0 0 6px" }}>
+                                <b>Onde:</b> {item.onde}
+                              </p>
+                              <ol className="cap" style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
+                                {item.passos.map((passo, indice) => (
+                                  <li key={indice}>{passo}</li>
+                                ))}
+                              </ol>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <figure style={{ margin: 0, flex: "0 1 260px", minWidth: 200, maxWidth: "100%" }}>
+                        <Link href={ROTA_DO_MODULO[modulo]} style={{ display: "block", textDecoration: "none" }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={arquivoDaTela(modulo)}
+                            alt={`Tela do módulo ${ROTULO_MODULO[modulo]}, onde estas ações acontecem`}
+                            width={1280}
+                            height={800}
+                            loading="lazy"
+                            decoding="async"
+                            style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, border: "1px solid var(--borda)" }}
+                          />
+                          <figcaption className="cap" style={{ marginTop: 6 }}>Abrir {ROTULO_MODULO[modulo]} →</figcaption>
+                        </Link>
+                      </figure>
                     </div>
                   </div>
                 ))}
