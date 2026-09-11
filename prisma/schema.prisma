@@ -75,6 +75,7 @@ model Usuario {
   empresasComoComercial    Empresa[]                 @relation("responsavelComercial")
   notasRapidas             NotaRapida[]
   mencoesRecebidas         NotaRapidaMencao[]        @relation("mencionadoEm")
+  anexosDeNotaEnviados     NotaRapidaAnexo[]
   registrosNegociacao      RegistroNegociacao[]
   avaliacoesScout          AvaliacaoScout[]
   segmentos                Segmento[]
@@ -348,10 +349,11 @@ model NotaRapida {
   /// Quando a pendência foi resolvida (null = aberta, enquanto ehPendencia).
   pendenciaResolvidaEm DateTime? @map("pendencia_resolvida_em")
 
-  empresa      Empresa?          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  patrocinador Patrocinador?     @relation(fields: [patrocinadorId], references: [id], onDelete: Restrict)
-  autor        Usuario           @relation(fields: [autorId], references: [id])
+  empresa      Empresa?           @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  patrocinador Patrocinador?      @relation(fields: [patrocinadorId], references: [id], onDelete: Restrict)
+  autor        Usuario            @relation(fields: [autorId], references: [id])
   mencoes      NotaRapidaMencao[]
+  anexo        NotaRapidaAnexo?
 
   @@index([empresaId])
   /// Feed do painel: ordena por data dentro do aliado.
@@ -377,6 +379,35 @@ model NotaRapidaMencao {
   @@unique([notaRapidaId, usuarioId])
   @@index([usuarioId])
   @@map("nota_rapida_mencoes")
+}
+
+/// Anexo (PDF ou imagem) de um comentário do painel de atividades. Mesmo
+/// desenho do anexo do contrato (RN54/RN60): binário em tabela própria 1:1
+/// com a nota — nunca coluna da nota, porque o Prisma seleciona escalares por
+/// padrão e o feed passaria a carregar o arquivo em toda consulta. Um anexo
+/// por comentário; some com o comentário (cascade), e o soft-delete da nota
+/// já o tira do feed.
+model NotaRapidaAnexo {
+  /// A própria chave da nota: 1:1 sem coluna de id redundante.
+  notaRapidaId String @id @map("nota_rapida_id")
+  /// O arquivo já validado — nunca o que chegou cru.
+  conteudo     Bytes
+  /// Tipo REAL, apurado pela assinatura do conteúdo, nunca pela extensão.
+  tipoMime     String @map("tipo_mime")
+  bytes        Int
+  /// SHA-256 do conteúdo — identidade de versão para o ETag da rota.
+  hash         String
+  /// Nome do arquivo enviado, preservado para a auditoria. É dado do
+  /// usuário: nunca compõe caminho de arquivo nem URL.
+  nomeArquivo  String @map("nome_arquivo")
+
+  autorId  String   @map("autor_id")
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  nota  NotaRapida @relation(fields: [notaRapidaId], references: [id], onDelete: Cascade)
+  autor Usuario    @relation(fields: [autorId], references: [id])
+
+  @@map("nota_rapida_anexos")
 }
 
 enum TipoRegistroNegociacao {

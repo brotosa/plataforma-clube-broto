@@ -60,16 +60,26 @@ test.describe("painel de atividades do patrocinador", () => {
     // A ficha do patrocinador (com o painel) passa na varredura AAA.
     await semViolacoesAxe(page);
 
-    // Comentar como pendência.
+    // Comentar como pendência, com um PDF sintético anexado.
     const texto = `Confirmar a minuta ${runId()}`;
     await painel.getByPlaceholder("Escreva um comentário para a equipe…").fill(texto);
     await painel.getByRole("checkbox", { name: "Marcar como pendência" }).check();
+    await painel.getByLabel("Anexar arquivo ao comentário").setInputFiles({
+      name: "minuta.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\nconteudo sintetico de teste\n%%EOF"),
+    });
+    // O arquivo escolhido aparece como chip antes de enviar.
+    await expect(painel.getByText("minuta.pdf")).toBeVisible();
     await painel.getByRole("button", { name: "Comentar" }).click();
 
     // Aparece no feed com o selo de pendência.
     await expect(painel.getByText(texto)).toBeVisible();
     const item = painel.locator(".pa-item", { hasText: texto });
     await expect(item.getByText("pendência", { exact: true })).toBeVisible();
+
+    // O anexo vira link clicável de download no próprio item do feed.
+    await expect(item.getByRole("link", { name: /minuta\.pdf/ })).toBeVisible();
 
     // Filtro do feed (recorte em memória): "que me mencionam" esconde o
     // comentário (que não menciona ninguém) e mostra o vazio próprio; "só
