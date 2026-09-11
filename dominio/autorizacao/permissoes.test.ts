@@ -157,6 +157,13 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     permitidos: ["ADMINISTRADOR_PLATAFORMA"],
     negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
+  // Configurações do portal (segurança) — só o Administrador da Plataforma,
+  // no mesmo desenho de CONFIGURAR_PARAMETROS (o irmão de negócio).
+  {
+    acao: "CONFIGURAR_PORTAL",
+    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
+  },
   // Onda 5 — ficha §2. As duas primeiras são de "Gestor e Administrador":
   // a F11 as deixou só com o Gestor porque o papel ainda não existia e
   // anotou que incluí-lo seria a única mudança quando a trilha da Onda 3
