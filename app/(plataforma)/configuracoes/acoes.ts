@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { type Ator } from "@/infra/casos-de-uso/contexto";
-import { alterarPoliticaDeSenha, alterarPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
+import { alterarPoliticaDeSenha, alterarPoliticaDeSessao, alterarPoliticaDeLogin } from "@/infra/casos-de-uso/configuracoes";
+import { desbloquearLogin } from "@/infra/casos-de-uso/bloqueio-login";
 import type { PoliticaDeSenha } from "@/dominio/usuarios/politica-senha";
 import type { PoliticaDeSessao } from "@/dominio/usuarios/politica-sessao";
+import type { PoliticaDeLogin } from "@/dominio/usuarios/politica-login";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /** Estado da ação de salvar a política — erros nomeados ou sucesso. */
@@ -37,6 +39,44 @@ export async function acaoSalvarPoliticaSenha(
       erros: mensagensDeFalha(erro, {
         operacao: "salvar a política de senha",
         semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        contexto: "acao-configuracoes",
+      }),
+    };
+  }
+}
+
+/** Salva a política de bloqueio por login. Só Administrador; auditado. */
+export async function acaoSalvarBloqueioLogin(
+  politica: PoliticaDeLogin,
+): Promise<EstadoConfiguracoes> {
+  const ator = await atorDaSessao();
+  try {
+    await alterarPoliticaDeLogin(ator, politica);
+    revalidatePath("/configuracoes");
+    return { ok: true };
+  } catch (erro) {
+    return {
+      erros: mensagensDeFalha(erro, {
+        operacao: "salvar o bloqueio por tentativas de login",
+        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        contexto: "acao-configuracoes",
+      }),
+    };
+  }
+}
+
+/** Desbloqueia manualmente uma conta. Só Administrador; auditado. */
+export async function acaoDesbloquearLogin(usuarioId: string): Promise<EstadoConfiguracoes> {
+  const ator = await atorDaSessao();
+  try {
+    await desbloquearLogin(ator, usuarioId);
+    revalidatePath("/configuracoes");
+    return { ok: true };
+  } catch (erro) {
+    return {
+      erros: mensagensDeFalha(erro, {
+        operacao: "desbloquear a conta",
+        semPermissao: "Só o Administrador da Plataforma desbloqueia contas.",
         contexto: "acao-configuracoes",
       }),
     };

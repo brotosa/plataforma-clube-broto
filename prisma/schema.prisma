@@ -62,6 +62,14 @@ model Usuario {
   /// credenciais na T27, mas nunca conhece a senha final de ninguém.
   trocaSenhaObrigatoria Boolean @default(true) @map("troca_senha_obrigatoria")
 
+  /// Configurações (bloqueio por tentativas de login). Contador de falhas
+  /// consecutivas e, quando estoura o limite, o instante até quando o acesso
+  /// fica bloqueado (nulo = não bloqueado). Zeram no login bem-sucedido e no
+  /// desbloqueio manual. O Administrador da Plataforma nunca é bloqueado —
+  /// estas colunas ficam intocadas para ele.
+  loginTentativas   Int       @default(0) @map("login_tentativas")
+  loginBloqueadoAte DateTime? @map("login_bloqueado_ate")
+
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
@@ -152,6 +160,12 @@ model ConfiguracaoPortal {
   /// atividade, a sessão expira (janela deslizante — cada atividade reinicia a
   /// contagem). Default 30. A cerca de faixa vive no domínio.
   tempoSessaoMin      Int     @default(30) @map("tempo_sessao_min")
+
+  /// Bloqueio por tentativas de login: quantas falhas consecutivas bloqueiam
+  /// a conta (default 5) e por quantos minutos (default 15). O Administrador
+  /// da Plataforma nunca é bloqueado. Faixas no domínio.
+  loginMaxTentativas  Int     @default(5) @map("login_max_tentativas")
+  loginBloqueioMin    Int     @default(15) @map("login_bloqueio_min")
 
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 

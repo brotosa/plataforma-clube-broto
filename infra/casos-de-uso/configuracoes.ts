@@ -12,6 +12,11 @@ import {
   POLITICA_SESSAO_PADRAO,
   validarPoliticaDeSessao,
 } from "@/dominio/usuarios/politica-sessao";
+import {
+  type PoliticaDeLogin,
+  POLITICA_LOGIN_PADRAO,
+  validarPoliticaDeLogin,
+} from "@/dominio/usuarios/politica-login";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -89,6 +94,52 @@ export async function alterarPoliticaDeSessao(ator: Ator, nova: PoliticaDeSessao
       anterior: anterior
         ? paraAuditavelSessao({ tempoSessaoMin: anterior.tempoSessaoMin })
         : paraAuditavelSessao(POLITICA_SESSAO_PADRAO),
+      novo: dados,
+    });
+  });
+}
+
+/** Só os campos da política de bloqueio, para a trilha de auditoria. */
+function paraAuditavelLogin(politica: PoliticaDeLogin): Record<string, unknown> {
+  return {
+    loginMaxTentativas: politica.maxTentativas,
+    loginBloqueioMin: politica.bloqueioMin,
+  };
+}
+
+/** Política de bloqueio por login vigente — o padrão do domínio se não há linha. */
+export async function lerPoliticaDeLogin(): Promise<PoliticaDeLogin> {
+  const linha = await prisma.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
+  if (!linha) return POLITICA_LOGIN_PADRAO;
+  return { maxTentativas: linha.loginMaxTentativas, bloqueioMin: linha.loginBloqueioMin };
+}
+
+/** Salva a política de bloqueio por login — só Administrador, validada e auditada. */
+export async function alterarPoliticaDeLogin(ator: Ator, nova: PoliticaDeLogin): Promise<void> {
+  exigirPermissao(ator.papel, "CONFIGURAR_PORTAL");
+  const erros = validarPoliticaDeLogin(nova);
+  if (erros.length > 0) {
+    throw new ErroDeValidacao(erros);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const anterior = await tx.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
+    const dados = paraAuditavelLogin(nova);
+    await tx.configuracaoPortal.upsert({
+      where: { id: ID_SINGLETON },
+      create: { id: ID_SINGLETON, ...dados },
+      update: dados,
+    });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: ENTIDADE,
+      entidadeId: ID_SINGLETON,
+      autorId: ator.id,
+      anterior: anterior
+        ? paraAuditavelLogin({
+            maxTentativas: anterior.loginMaxTentativas,
+            bloqueioMin: anterior.loginBloqueioMin,
+          })
+        : paraAuditavelLogin(POLITICA_LOGIN_PADRAO),
       novo: dados,
     });
   });
