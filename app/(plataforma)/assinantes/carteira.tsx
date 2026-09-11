@@ -344,6 +344,11 @@ export function CarteiraAssinantes({
           <Link className="btn btn-ghost" href="/assinantes/importacoes">
             Importar lista
           </Link>
+          {podeExportar ? (
+            <Link className="btn btn-ghost" href="/assinantes/exportacoes">
+              Minhas exportações
+            </Link>
+          ) : null}
         </div>
         {podeExportar ? (
           <button

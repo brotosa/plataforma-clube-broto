@@ -339,6 +339,34 @@ export async function exportarLista(
   return exportacao;
 }
 
+/**
+ * Reexecuta uma exportação anterior com a MESMA finalidade e a MESMA regra.
+ *
+ * **É o mesmo caminho de `exportarLista`, nunca uma reemissão do CSV antigo.**
+ * A regra é declarativa (RN34), não uma foto: o snapshot é recalculado sobre
+ * a base ATIVA de agora, então a contagem pode diferir da original — e isso é
+ * o correto. Reemitir o arquivo guardado burlaria a auditoria e a RN36; aqui
+ * nasce uma exportação nova, com evento próprio, hash próprio e data de hoje.
+ *
+ * Só o próprio autor reexecuta a sua exportação. A recusa é validação de
+ * causa conhecida (RN55) — nomeia o motivo, não vaza detalhe.
+ */
+export async function reexecutarExportacao(ator: Ator, exportacaoId: string) {
+  exigirPermissao(ator.papel, "EXPORTAR_LISTAS_CONTATO");
+  const anterior = await prisma.exportacaoLista.findUniqueOrThrow({
+    where: { id: exportacaoId },
+    select: { autorId: true, finalidade: true, regras: true, segmentoId: true },
+  });
+  if (anterior.autorId !== ator.id) {
+    throw new ErroDeValidacao(["Só o autor pode reexecutar a própria exportação."]);
+  }
+  return exportarLista(ator, {
+    regras: anterior.regras,
+    finalidade: anterior.finalidade,
+    segmentoId: anterior.segmentoId,
+  });
+}
+
 /** Snapshot para download (re-verificação de permissão na rota). */
 export async function lerSnapshotExportacao(ator: Ator, exportacaoId: string) {
   exigirPermissao(ator.papel, "EXPORTAR_LISTAS_CONTATO");

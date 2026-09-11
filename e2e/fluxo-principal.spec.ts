@@ -406,6 +406,7 @@ test("axe-core (AAA) sem violações nas telas da Onda 1", async ({ page }) => {
     "/campanhas", // T22
     "/mercado", // Mercado & Scout (T8)
     "/assinantes", // Carteira de assinantes (T18)
+    "/assinantes/exportacoes", // T18 — minhas exportações recentes (histórico)
   ];
 
   for (const rota of rotas) {
