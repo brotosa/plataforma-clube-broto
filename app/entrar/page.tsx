@@ -28,13 +28,13 @@ async function autenticar(dados: FormData) {
 export default async function PaginaEntrar({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; expirada?: string }>;
 }) {
   const sessao = await auth();
   if (sessao?.user) {
     redirect("/");
   }
-  const { erro } = await searchParams;
+  const { erro, expirada } = await searchParams;
 
   return (
     <main
@@ -96,6 +96,23 @@ export default async function PaginaEntrar({
             }}
           >
             E-mail ou senha inválidos. Verifique os dados e tente novamente.
+          </p>
+        ) : null}
+
+        {expirada ? (
+          <p
+            role="status"
+            className="cap"
+            style={{
+              color: "var(--paragrafo)",
+              background: "var(--amarelo-claro)",
+              border: "1px solid var(--amarelo)",
+              borderRadius: "var(--r-sm)",
+              padding: "10px 12px",
+              margin: "0 0 16px",
+            }}
+          >
+            Sua sessão expirou por inatividade. Entre novamente para continuar.
           </p>
         ) : null}
 

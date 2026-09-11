@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { type Ator } from "@/infra/casos-de-uso/contexto";
-import { alterarPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
+import { alterarPoliticaDeSenha, alterarPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
 import type { PoliticaDeSenha } from "@/dominio/usuarios/politica-senha";
+import type { PoliticaDeSessao } from "@/dominio/usuarios/politica-sessao";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
 /** Estado da ação de salvar a política — erros nomeados ou sucesso. */
@@ -35,6 +36,29 @@ export async function acaoSalvarPoliticaSenha(
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "salvar a política de senha",
+        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        contexto: "acao-configuracoes",
+      }),
+    };
+  }
+}
+
+/** Salva a política de sessão (tempo de inatividade). Só Administrador; auditado. */
+export async function acaoSalvarTempoSessao(
+  politica: PoliticaDeSessao,
+): Promise<EstadoConfiguracoes> {
+  const ator = await atorDaSessao();
+  try {
+    await alterarPoliticaDeSessao(ator, politica);
+    // A camada de sessão lê a política a cada requisição, mas revalidar mantém
+    // o contador do cabeçalho coerente na navegação seguinte.
+    revalidatePath("/configuracoes");
+    revalidatePath("/", "layout");
+    return { ok: true };
+  } catch (erro) {
+    return {
+      erros: mensagensDeFalha(erro, {
+        operacao: "salvar o tempo de sessão",
         semPermissao: "Só o Administrador da Plataforma configura o portal.",
         contexto: "acao-configuracoes",
       }),

@@ -39,5 +39,13 @@ declare module "next-auth/jwt" {
     papel: Papel;
     sessaoEpoca: number;
     trocaSenhaObrigatoria: boolean;
+    /**
+     * Marca da última atividade (epoch ms). Reiniciada a cada requisição
+     * autenticada e a cada heartbeat de atividade do cliente — é o relógio da
+     * expiração por inatividade (PoliticaDeSessao). Ausente em tokens emitidos
+     * antes desta fase; nesse caso a primeira atividade a grava, e a sessão não
+     * expira por falta do campo.
+     */
+    ultimaAtividade?: number;
   }
 }

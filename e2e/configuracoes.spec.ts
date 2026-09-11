@@ -62,6 +62,35 @@ test("Administrador abre /configuracoes, edita e salva a política — axe limpo
   await expect(page.getByLabel("Exigir letra maiúscula")).toBeChecked();
 });
 
+test("contador de sessão aparece ao lado do sino e conta em mm:ss", async ({ page }) => {
+  await entrar(page, ADMIN);
+  const contador = page.locator(".sessao-contador");
+  await expect(contador).toBeVisible();
+  await expect(contador).toHaveAttribute("role", "timer");
+  // Mostra mm:ss (padrão 30 min → começa perto de 29:xx/30:00).
+  await expect(contador).toHaveText(/\d\d:\d\d/);
+  // Fica ao lado do sino de pendências, à esquerda dele no cabeçalho.
+  const sino = page.getByRole("button", { name: /abrir o painel/i }).first();
+  await expect(sino).toBeVisible();
+  const cx = await contador.boundingBox();
+  const sx = await sino.boundingBox();
+  expect(cx!.x).toBeLessThan(sx!.x);
+});
+
+test("Administrador ajusta o tempo de sessão e salva", async ({ page }) => {
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes");
+  await expect(page.getByRole("heading", { name: "Tempo de sessão" })).toBeVisible();
+
+  const campo = page.getByLabel("Tempo de sessão (minutos)");
+  await campo.fill("20");
+  await page.getByRole("button", { name: "Salvar tempo de sessão" }).click();
+  await expect(page.getByText("Tempo de sessão salvo")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel("Tempo de sessão (minutos)")).toHaveValue("20");
+});
+
 test("Gestor não vê 'Configurações' e é redirecionado se tentar a rota", async ({ page }) => {
   await entrar(page, GESTOR);
   const nav = page.getByRole("navigation", { name: "Módulos" });

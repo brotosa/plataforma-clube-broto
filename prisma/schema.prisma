@@ -148,6 +148,11 @@ model ConfiguracaoPortal {
   /// Quantas senhas anteriores não podem repetir (0 = sem histórico).
   senhaHistoricoN     Int     @default(5) @map("senha_historico_n")
 
+  /// Tempo de sessão por inatividade, em minutos: passado esse intervalo sem
+  /// atividade, a sessão expira (janela deslizante — cada atividade reinicia a
+  /// contagem). Default 30. A cerca de faixa vive no domínio.
+  tempoSessaoMin      Int     @default(30) @map("tempo_sessao_min")
+
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   @@map("configuracao_portal")
