@@ -101,10 +101,56 @@ model Usuario {
   // Onda 12 (F20)
   importacoesDeTelemetria ImportacaoTelemetria[]
 
+  // Configurações (política de senha) — histórico de hashes anteriores.
+  historicoSenhas SenhaHistorico[]
+
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
   /// cada troca de papel, para provar que não é o último.
   @@index([papel, ativo])
   @@map("usuarios")
+}
+
+/// Histórico de hashes de senha anteriores de um usuário, append-only, para a
+/// regra "não repetir as últimas N senhas" da política de senha
+/// (Configurações). Guarda o HASH bcrypt, nunca o texto — o mesmo cuidado do
+/// `senhaHash` do usuário. Cai junto com o usuário (cascade). A comparação com
+/// N é feita na troca de senha: confere a nova contra as últimas N e, ao
+/// gravar, poda o excedente.
+model SenhaHistorico {
+  id        String   @id @default(cuid())
+  usuarioId String   @map("usuario_id")
+  senhaHash String   @map("senha_hash")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, criadoEm])
+  @@map("senhas_historico")
+}
+
+/// Configurações do portal — singleton (uma linha só, id fixo). É o irmão
+/// técnico/de segurança do Parametrizador (que cuida das regras de negócio):
+/// aqui vivem a política de senha e, nas próximas fases, o tempo de sessão e
+/// o bloqueio por tentativas. Escrita só pelo Administrador da Plataforma
+/// (CONFIGURAR_PORTAL), sempre auditada. Ausência de linha = os padrões do
+/// domínio, que preservam o comportamento anterior (mínimo de 10, sem
+/// exigência de classe de caractere).
+model ConfiguracaoPortal {
+  /// Id fixo do singleton — sempre "portal".
+  id String @id
+
+  /// Política de senha.
+  senhaComprimentoMin Int     @default(10) @map("senha_comprimento_min")
+  senhaExigeMaiuscula Boolean @default(false) @map("senha_exige_maiuscula")
+  senhaExigeMinuscula Boolean @default(false) @map("senha_exige_minuscula")
+  senhaExigeNumero    Boolean @default(false) @map("senha_exige_numero")
+  senhaExigeSimbolo   Boolean @default(false) @map("senha_exige_simbolo")
+  /// Quantas senhas anteriores não podem repetir (0 = sem histórico).
+  senhaHistoricoN     Int     @default(5) @map("senha_historico_n")
+
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracao_portal")
 }
 
 // ---------------------------------------------------------------------

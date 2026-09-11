@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
+import { lerPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
+import { descreverPolitica } from "@/dominio/usuarios/politica-senha";
 import { FormularioTroca } from "./formulario-troca";
 
 export const metadata: Metadata = {
@@ -28,6 +30,8 @@ export default async function PaginaTrocarSenha() {
     redirect("/");
   }
 
+  const politica = await lerPoliticaDeSenha();
+
   return (
     <main className="tela" style={{ padding: "26px 32px 40px", maxWidth: 560, margin: "0 auto" }}>
       <h1 className="h-page">Defina sua senha</h1>
@@ -37,7 +41,10 @@ export default async function PaginaTrocarSenha() {
         esta tela.
       </p>
       <div className="card" style={{ padding: "20px 22px", marginTop: 16 }}>
-        <FormularioTroca />
+        <FormularioTroca
+          descricao={descreverPolitica(politica)}
+          comprimentoMin={politica.comprimentoMin}
+        />
       </div>
     </main>
   );

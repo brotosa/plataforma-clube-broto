@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import type { Papel, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/infra/prisma/cliente";
@@ -11,6 +11,8 @@ import {
   exigeNovaEpocaDeSessao,
   type MudancaDeUsuario,
 } from "@/dominio/usuarios/regras";
+import { validarSenhaContraPolitica } from "@/dominio/usuarios/politica-senha";
+import { lerPoliticaDeSenha } from "./configuracoes";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -324,17 +326,14 @@ export async function redefinirCredencial(
   return { senhaProvisoria };
 }
 
-const ESQUEMA_TROCA = z
-  .object({
-    nova: z.string().min(10, "A nova senha precisa de ao menos 10 caracteres."),
-    confirmacao: z.string(),
-  })
-  .refine((dados) => dados.nova === dados.confirmacao, {
-    message: "A confirmação não confere com a nova senha.",
-  });
-
 /**
  * Troca da própria senha — encerra a obrigatoriedade do primeiro acesso.
+ *
+ * A senha é validada contra a POLÍTICA vigente (Configurações): comprimento,
+ * classes de caractere e o histórico das últimas N. O histórico guarda só o
+ * HASH das senhas anteriores, nunca o texto (RN55/segurança); a comparação
+ * usa bcrypt, e por isso roda FORA da transação — hashear dezenas de
+ * milissegundos segurando a conexão do banco é o que esta ordem evita.
  *
  * Aqui a época NÃO avança, de propósito. Ela derruba TODAS as sessões do
  * usuário, inclusive a que está trocando a senha: a pessoa seria expulsa no
@@ -345,12 +344,46 @@ export async function trocarPropriaSenha(
   ator: Ator,
   dados: { nova: string; confirmacao: string },
 ): Promise<void> {
-  const analise = ESQUEMA_TROCA.safeParse(dados);
-  if (!analise.success) {
-    throw new ErroDeValidacao(analise.error.issues.map((problema) => problema.message));
+  const politica = await lerPoliticaDeSenha();
+  const erros = validarSenhaContraPolitica(dados.nova, politica);
+  if (dados.nova !== dados.confirmacao) {
+    erros.push("A confirmação não confere com a nova senha.");
+  }
+  if (erros.length > 0) {
+    throw new ErroDeValidacao(erros);
   }
 
-  const senhaHash = await hash(analise.data.nova, 10);
+  const usuarioAtual = await prisma.usuario.findUnique({
+    where: { id: ator.id },
+    select: { senhaHash: true },
+  });
+  if (!usuarioAtual) {
+    throw new ErroDeValidacao(["Usuário não encontrado."]);
+  }
+
+  // Histórico: a nova não pode ser uma das últimas N — a senha ATUAL conta
+  // como a 1ª dessas N, e as demais vêm do histórico, da mais recente.
+  if (politica.historicoN > 0) {
+    const hashesRecentes = [usuarioAtual.senhaHash];
+    if (politica.historicoN > 1) {
+      const anteriores = await prisma.senhaHistorico.findMany({
+        where: { usuarioId: ator.id },
+        orderBy: { criadoEm: "desc" },
+        take: politica.historicoN - 1,
+        select: { senhaHash: true },
+      });
+      hashesRecentes.push(...anteriores.map((linha) => linha.senhaHash));
+    }
+    for (const hashAntigo of hashesRecentes) {
+      if (await compare(dados.nova, hashAntigo)) {
+        throw new ErroDeValidacao([
+          `A nova senha não pode repetir uma das últimas ${politica.historicoN} senhas.`,
+        ]);
+      }
+    }
+  }
+
+  const senhaHash = await hash(dados.nova, 10);
 
   await prisma.$transaction(async (tx) => {
     const anterior = await tx.usuario.findUnique({ where: { id: ator.id } });
@@ -361,6 +394,28 @@ export async function trocarPropriaSenha(
       where: { id: ator.id },
       data: { senhaHash, trocaSenhaObrigatoria: false },
     });
+
+    // Registra a senha ANTERIOR no histórico (só o hash) e poda para o
+    // necessário: as N-1 mais recentes + a nova (agora atual) formam as N que
+    // a próxima troca vai conferir.
+    if (politica.historicoN > 0) {
+      await tx.senhaHistorico.create({
+        data: { usuarioId: ator.id, senhaHash: anterior.senhaHash },
+      });
+      const manter = Math.max(politica.historicoN - 1, 0);
+      const excedentes = await tx.senhaHistorico.findMany({
+        where: { usuarioId: ator.id },
+        orderBy: { criadoEm: "desc" },
+        skip: manter,
+        select: { id: true },
+      });
+      if (excedentes.length > 0) {
+        await tx.senhaHistorico.deleteMany({
+          where: { id: { in: excedentes.map((linha) => linha.id) } },
+        });
+      }
+    }
+
     await registrarMutacao(criarGravadorPrisma(tx), {
       entidade: ENTIDADE,
       entidadeId: ator.id,

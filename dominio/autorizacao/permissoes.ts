@@ -35,6 +35,8 @@ export type Acao =
   // Onda 3 — Parametrizador (ficha §2, RN23).
   | "VISUALIZAR_PARAMETROS"
   | "CONFIGURAR_PARAMETROS"
+  // Configurações do portal (segurança) — só o Administrador da Plataforma.
+  | "CONFIGURAR_PORTAL"
   // Onda 5 — Assinantes (ficha §2). Contagens e agregados são VISUALIZAR.
   | "VISUALIZAR_DADOS_PESSOAIS_PLENOS"
   | "EXPORTAR_LISTAS_CONTATO"
@@ -129,6 +131,7 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
     "ADMINISTRADOR_PLATAFORMA",
   ],
   CONFIGURAR_PARAMETROS: ["ADMINISTRADOR_PLATAFORMA"],
+  CONFIGURAR_PORTAL: ["ADMINISTRADOR_PLATAFORMA"],
   // Onda 5 — os papéis do funil (Onda 2) não operam dados de PF.
   VISUALIZAR_DADOS_PESSOAIS_PLENOS: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
   EXPORTAR_LISTAS_CONTATO: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
