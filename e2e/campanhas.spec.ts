@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import {
@@ -265,6 +266,27 @@ test.describe.serial("F12 — ciclo completo da campanha (T22 → T23 → T25)",
     await expect(page.getByRole("link", { name: "Baixar kit" })).toBeVisible();
     await expect(page.getByText("v1").first()).toBeVisible();
     await axeComUiAssentada(page);
+  });
+
+  test("baixar o kit serve o pacote do armazenamento — não do disco (RN71)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/campanhas");
+    await page.getByRole("link", { name: NOME_CAMPANHA }).click();
+    await expect(page).toHaveURL(/\/painel$/);
+
+    // A ativação gravou o kit v1 no banco (ArmazenadorSnapshots). O link
+    // "Baixar kit" tem de servir esse pacote de verdade — a asserção anterior
+    // só via o link; aqui o download acontece e o conteúdo é conferido.
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("link", { name: "Baixar kit" }).click(),
+    ]);
+    const caminho = await download.path();
+    const conteudo = readFileSync(caminho);
+    // Pacote não-vazio e com a assinatura de ZIP ("PK\x03\x04") — prova de
+    // que o artefato veio íntegro do armazenamento, não uma página de erro.
+    expect(conteudo.length).toBeGreaterThan(0);
+    expect(conteudo.subarray(0, 2).toString("latin1")).toBe("PK");
   });
 
   test("painel declara o nível de cada número e a conversão aguarda telemetria por CPF", async ({

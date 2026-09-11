@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { entrar, prisma, runId, semViolacoesAxe } from "./ajudantes";
+import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sinteticas";
+import { gerarCsvUsuariosSintetico } from "../infra/telemetria-operadora/fixtures-sinteticas";
 
 /**
  * Onda 12 (F20) — T34 fim a fim.
@@ -171,6 +173,54 @@ test("T34 — a divergência aparece como relato, e a tela diz que não corrige"
   const linha = page.getByRole("row").filter({ hasText: `oferta-${sufixo}` });
   await expect(linha).toBeVisible();
   await expect(linha).toContainText("existe lá, desconhecida aqui");
+});
+
+test("T34 — o relatório NOMINAL de usuários sem coluna de CPF chega à tela e recusa cada linha nomeando a causa (RN69)", async ({
+  page,
+}) => {
+  // O caminho nominal (RN69) era exercitado só na integração — arquivo real
+  // nunca entra no repositório (ficha §7). Aqui a fixture é SINTÉTICA (CPFs
+  // algorítmicos, nunca de pessoa real) e prova que a esteira nominal chega
+  // à TELA: um arquivo histórico, sem a coluna de CPF, é ACEITO e cada linha
+  // é recusada com a causa nomeada — "layout incompleto", que a operadora
+  // resolve. Nada é aplicado e nenhum assinante muda.
+  await limpar();
+  await entrar(page, "gestor@dev.clubebroto.local");
+  await page.goto("/ofertas/telemetria-operadora");
+
+  const linhas = gerarAssinantesSinteticos(3, 91).map((assinante) => ({
+    assinante,
+    perfil: "Assinatura Paga" as const,
+    patrocinador: "",
+    estado: "Assinante" as const,
+    plano: "Mensal" as const,
+    periodicidade: "1 mês",
+    metodoPagamento: "Cartão",
+    preco: "49,90",
+  }));
+  const csv = gerarCsvUsuariosSintetico(linhas, { comColunaDeCpf: false });
+
+  await page.setInputFiles("#arquivo-telemetria-operadora", {
+    name: `${MARCA} usuarios-historico.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv, "utf8"),
+  });
+  await page.getByRole("button", { name: "Enviar relatório" }).click();
+
+  // Reconhecido pelo cabeçalho como o relatório nominal de usuários; as três
+  // linhas recusadas (arquivo sem a chave de junção).
+  await expect(page.getByRole("status")).toContainText("base de usuários");
+  await expect(page.getByRole("status")).toContainText("3 recusada(s)");
+
+  // O histórico (renderizado no servidor) mostra a importação com a causa
+  // nomeada — mesma razão da recarga dos testes de catálogo acima.
+  await page.reload();
+  const linhaImport = page.getByRole("row").filter({ hasText: "usuarios-historico.csv" });
+  await expect(linhaImport).toBeVisible();
+  await expect(linhaImport).toContainText("Base de usuários");
+  await expect(linhaImport).toContainText(
+    "o arquivo não traz a chave que liga a linha ao assinante",
+  );
 });
 
 test("T34 — arquivo com cabeçalho estranho é recusado nomeando a causa, sem mandar repetir", async ({
