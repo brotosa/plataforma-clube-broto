@@ -431,6 +431,47 @@ export async function listarSegmentosComContagem() {
   return resultado;
 }
 
+export interface ExportacaoRecente {
+  id: string;
+  finalidade: string;
+  contagem: number;
+  criadoEm: Date;
+  /** Nome do segmento de origem, quando a exportação nasceu de um segmento. */
+  segmentoNome: string | null;
+}
+
+/**
+ * "Minhas exportações recentes" (T18 → histórico): as últimas exportações de
+ * lista DO PRÓPRIO autor, da mais recente para a mais antiga. Só metadados —
+ * finalidade, contagem, data e o segmento de origem; nunca a regra completa
+ * nem o binário do CSV (que sai só pela rota de download, autenticada).
+ *
+ * Filtra por `autorId` de propósito: a exportação carrega PII plena (RN34) e
+ * cada autor vê a sua trilha — quem baixa o snapshot de outro é decisão de
+ * auditoria, não deste histórico pessoal.
+ */
+export async function listarExportacoesRecentes(autorId: string): Promise<ExportacaoRecente[]> {
+  const linhas = await prisma.exportacaoLista.findMany({
+    where: { autorId },
+    select: {
+      id: true,
+      finalidade: true,
+      contagem: true,
+      criadoEm: true,
+      segmento: { select: { nome: true } },
+    },
+    orderBy: { criadoEm: "desc" },
+    take: 20,
+  });
+  return linhas.map((linha) => ({
+    id: linha.id,
+    finalidade: linha.finalidade,
+    contagem: linha.contagem,
+    criadoEm: linha.criadoEm,
+    segmentoNome: linha.segmento?.nome ?? null,
+  }));
+}
+
 /** Rótulo institucional por slug (núcleo em código + catálogo em dados). */
 export async function construirRotuloPorSlug(): Promise<(slug: string) => string> {
   const catalogo = await prisma.catalogoAtributo.findMany({

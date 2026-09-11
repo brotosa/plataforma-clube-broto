@@ -13,11 +13,13 @@ import {
   decidirExibicaoPlena,
   exportarLista,
   lerSnapshotExportacao,
+  reexecutarExportacao,
   salvarSegmento,
 } from "./assinantes-segmentos";
 import {
   contarAssinantes,
   listarCarteira,
+  listarExportacoesRecentes,
   listarSegmentosComContagem,
   perfilAssinante,
 } from "@/infra/consultas/assinantes";
@@ -414,6 +416,41 @@ describe.skipIf(!temBanco)("F11 — fluxo completo de assinantes (integração)"
     await expect(lerSnapshotExportacao(leitura, exportacao.id)).rejects.toThrow(
       ErroDeAutorizacao,
     );
+  });
+
+  it("histórico + reexecução: minhas exportações recentes, e só o autor reexecuta (RN34)", async () => {
+    const regras = [{ campo: "uf", operador: "e", valor: "MT" }];
+    const original = await exportarLista(gestor, { regras, finalidade: "Reexecução — teste" });
+
+    // Aparece no histórico DO AUTOR, com finalidade e contagem.
+    const minhas = await listarExportacoesRecentes(gestor.id);
+    const achou = minhas.find((e) => e.id === original.id);
+    expect(achou?.finalidade).toBe("Reexecução — teste");
+    expect(achou?.contagem).toBe(original.contagem);
+
+    // Outro exportador NÃO reexecuta exportação alheia (dono ≠ ator).
+    const gestor2 = await upsertUsuario("gestor2.assinantes@dev.clubebroto.local", "GESTOR");
+    await expect(reexecutarExportacao(gestor2, original.id)).rejects.toThrow("Só o autor");
+    // Quem não tem a permissão é barrado antes, pela cerca de RBAC.
+    await expect(reexecutarExportacao(analista, original.id)).rejects.toThrow(ErroDeAutorizacao);
+
+    // O autor reexecuta: nasce um snapshot NOVO (id novo), mesma finalidade e
+    // mesma regra, com auditoria própria — nunca reemissão do arquivo antigo.
+    const nova = await reexecutarExportacao(gestor, original.id);
+    expect(nova.id).not.toBe(original.id);
+    expect(nova.finalidade).toBe(original.finalidade);
+    expect(nova.contagem).toBe(original.contagem);
+    const evento = await prisma.auditoriaEvento.findFirst({
+      where: { entidade: "exportacao_lista", entidadeId: nova.id },
+    });
+    expect(evento).not.toBeNull();
+
+    // As duas gerações aparecem no histórico, a mais nova primeiro.
+    const depois = await listarExportacoesRecentes(gestor.id);
+    const ids = depois.map((e) => e.id);
+    expect(ids).toContain(original.id);
+    expect(ids).toContain(nova.id);
+    expect(ids.indexOf(nova.id)).toBeLessThan(ids.indexOf(original.id));
   });
 
   it("cenário do desastre (RN29): arquivo parcial como foto completa exige confirmação mostrando quantos sairiam", async () => {

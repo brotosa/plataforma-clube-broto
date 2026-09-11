@@ -17,6 +17,7 @@ import {
   atualizarSegmento,
   duplicarSegmento,
   exportarLista,
+  reexecutarExportacao,
   salvarSegmento,
 } from "@/infra/casos-de-uso/assinantes-segmentos";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
@@ -174,6 +175,25 @@ export async function acaoExportarLista(parametros: {
   const ator = await atorDaSessao();
   try {
     const exportacao = await exportarLista(ator, parametros);
+    return {
+      ok: true as const,
+      exportacaoId: exportacao.id,
+      contagem: exportacao.contagem,
+    };
+  } catch (erro) {
+    return { ok: false as const, erros: mensagensDe(erro) };
+  }
+}
+
+/**
+ * T18 (histórico) → reexecutar uma exportação anterior com a mesma finalidade.
+ * Gera um snapshot NOVO, recalculado sobre a base ativa de agora (a regra é
+ * declarativa) — o autor recebe o id do novo para baixar.
+ */
+export async function acaoReexecutarExportacao(exportacaoId: string) {
+  const ator = await atorDaSessao();
+  try {
+    const exportacao = await reexecutarExportacao(ator, exportacaoId);
     return {
       ok: true as const,
       exportacaoId: exportacao.id,
