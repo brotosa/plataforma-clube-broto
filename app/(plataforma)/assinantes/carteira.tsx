@@ -299,7 +299,15 @@ export function CarteiraAssinantes({
   };
 
   const exportarLista = async () => {
-    const resultado = await acaoExportarLista({ regras, finalidade });
+    // RN34 — quando a carteira está carregada a partir de um segmento salvo
+    // (`?segmento=<id>`, o mesmo estado que a T21 usa para editar), a
+    // exportação nasce daquele segmento e carimba a origem na linha
+    // auditável; exportação ad-hoc segue sem vínculo (`segmentoId` nulo).
+    const resultado = await acaoExportarLista({
+      regras,
+      finalidade,
+      segmentoId: segmentoEdicaoId,
+    });
     if (resultado.ok) {
       setModalExportar(false);
       setFinalidade("");

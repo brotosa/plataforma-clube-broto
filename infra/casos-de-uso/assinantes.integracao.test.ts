@@ -416,6 +416,35 @@ describe.skipIf(!temBanco)("F11 — fluxo completo de assinantes (integração)"
     );
   });
 
+  it("exportação nascida de um segmento salvo carimba a origem; ad-hoc fica sem vínculo (RN34)", async () => {
+    const segmento = await salvarSegmento(gestor, {
+      nome: "Origem da exportação — MT",
+      regras: [{ campo: "uf", operador: "e", valor: "MT" }],
+    });
+
+    // Origem = segmento salvo: a linha auditável guarda o segmentoId.
+    const comSegmento = await exportarLista(gestor, {
+      regras: [{ campo: "uf", operador: "e", valor: "MT" }],
+      finalidade: "Exportação a partir do segmento salvo",
+      segmentoId: segmento.id,
+    });
+    const linhaComSegmento = await prisma.exportacaoLista.findUniqueOrThrow({
+      where: { id: comSegmento.id },
+    });
+    expect(linhaComSegmento.segmentoId).toBe(segmento.id);
+
+    // Exportação ad-hoc (sem segmento): segmentoId permanece nulo — nada
+    // de vínculo inventado.
+    const adHoc = await exportarLista(gestor, {
+      regras: [{ campo: "uf", operador: "e", valor: "MT" }],
+      finalidade: "Exportação ad-hoc, sem segmento de origem",
+    });
+    const linhaAdHoc = await prisma.exportacaoLista.findUniqueOrThrow({
+      where: { id: adHoc.id },
+    });
+    expect(linhaAdHoc.segmentoId).toBeNull();
+  });
+
   it("cenário do desastre (RN29): arquivo parcial como foto completa exige confirmação mostrando quantos sairiam", async () => {
     const parcial = gerarCsvNucleoSintetico(SINTETICOS.slice(0, 1));
     const preparo = await prepararImportacaoAssinantes(gestor, {
