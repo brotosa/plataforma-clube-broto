@@ -92,6 +92,50 @@ export function classificarChave(chave: string): ArtefatoDerivado | null {
 }
 
 // ---------------------------------------------------------------------
+// Condição objetiva de saída — quando o adapter de objeto entra (RN71)
+// ---------------------------------------------------------------------
+
+/**
+ * Limite do TOTAL armazenado. Cruzado ele, guardar binário no banco deixa de
+ * ser a decisão pequena-e-defensável que a RN71 assume: 5 GB é a ordem de
+ * grandeza em que o custo e o risco de manter tudo no banco passam a pesar
+ * mais que o de provisionar armazenamento de objetos.
+ */
+export const LIMITE_TOTAL_ARMAZENADO = 5 * 1024 * 1024 * 1024; // 5 GB
+
+/**
+ * Limite do MAIOR kit. É o próprio teto do kit (50 MB): um kit acima disso é
+ * o sinal que `excessoDeTeto` já emite ao gravar — aqui ele vira parte da
+ * condição de saída medida sobre o que está guardado.
+ */
+export const LIMITE_MAIOR_KIT = TETO_POR_ARTEFATO.KIT_DE_EXECUCAO; // 50 MB
+
+export interface CondicaoDeSaida {
+  /** Alguma das duas condições foi satisfeita. */
+  satisfeita: boolean;
+  /** O total armazenado passou de 5 GB. */
+  porTotal: boolean;
+  /** O maior kit passou de 50 MB. */
+  porKit: boolean;
+}
+
+/**
+ * Avalia a condição objetiva da RN71 sobre uma MEDIDA do armazenamento —
+ * pura, sem tocar banco. Satisfeita **qualquer uma** das duas (total acima de
+ * 5 GB **ou** maior kit acima de 50 MB), o adapter de armazenamento de
+ * objetos precisa entrar em fase própria. É a mesma frase do fim de
+ * `excessoDeTeto`, agora medida sobre o conjunto e não sobre uma gravação.
+ */
+export function condicaoDeSaidaRn71(medida: {
+  totalBytes: number;
+  maiorKitBytes: number;
+}): CondicaoDeSaida {
+  const porTotal = medida.totalBytes > LIMITE_TOTAL_ARMAZENADO;
+  const porKit = medida.maiorKitBytes > LIMITE_MAIOR_KIT;
+  return { satisfeita: porTotal || porKit, porTotal, porKit };
+}
+
+// ---------------------------------------------------------------------
 // Chave órfã — RN55
 // ---------------------------------------------------------------------
 

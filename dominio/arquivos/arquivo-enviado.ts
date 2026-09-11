@@ -240,6 +240,9 @@ export interface ArquivoValidado {
 
 /** Tamanho legível: KB até 1 MB, MB acima — nunca "2048 KB". */
 export function formatarTamanho(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${Math.round((bytes / (1024 * 1024 * 1024)) * 10) / 10} GB`.replace(".", ",");
+  }
   if (bytes >= 1024 * 1024) {
     return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`.replace(".", ",");
   }
