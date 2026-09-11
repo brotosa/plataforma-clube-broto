@@ -168,8 +168,11 @@ export function PainelArmazenamento({ medida }: { medida: MedidaDeArmazenamento 
           />
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table className="tbl">
+        {/* `.tbl-resp`: a 380px a tabela colapsa em cards rotulados pelo
+            `data-label` de cada célula, em vez de virar uma região rolável —
+            que o axe (AAA) reprova por não ser alcançável por teclado. */}
+        <div>
+          <table className="tbl tbl-resp">
             <thead>
               <tr>
                 <th>Artefato</th>
