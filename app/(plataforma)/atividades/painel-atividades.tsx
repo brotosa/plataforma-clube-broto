@@ -542,6 +542,13 @@ function EditorComentario({
           aria-label="Mencionar alguém da equipe"
           className="pa-mencao-lista pa-sug-lista"
           hidden={!mostrando}
+          // A lista tem `max-height` + `overflow:auto`: quando há muitos
+          // usuários mencionáveis ela rola, e o axe (AAA) exige que região
+          // rolável seja alcançável por teclado (scrollable-region-focusable).
+          // A navegação real é pelas setas no textarea (aria-activedescendant)
+          // e o Tab é interceptado enquanto a lista está aberta, então este
+          // tabindex satisfaz a regra sem alterar o fluxo de teclado.
+          tabIndex={0}
         >
           {opcoes.map((usuario, indice) => (
             <li
