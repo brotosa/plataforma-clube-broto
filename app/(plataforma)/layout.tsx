@@ -4,6 +4,8 @@ import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { pendenciasDeHoje } from "@/infra/consultas/dashboard";
 import { contarPendenciasQueMencionam } from "@/infra/consultas/comentarios";
+import { lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
+import { tempoSessaoEmMs } from "@/dominio/usuarios/politica-sessao";
 import { ShellPlataforma } from "./shell-plataforma";
 
 async function sair() {
@@ -33,9 +35,10 @@ export default async function LayoutPlataforma({
   // As pendências operacionais (== HOME) e, à parte, as pendências pessoais
   // que mencionam quem está logado — esta última é derivada e some sozinha
   // quando a pendência é resolvida (não é fila nem lido/não-lido).
-  const [pendencias, mencoesAbertas] = await Promise.all([
+  const [pendencias, mencoesAbertas, politicaSessao] = await Promise.all([
     pendenciasDeHoje(),
     contarPendenciasQueMencionam(sessao.user.id),
+    lerPoliticaDeSessao(),
   ]);
 
   return (
@@ -50,6 +53,7 @@ export default async function LayoutPlataforma({
       sair={sair}
       pendencias={pendencias}
       mencoesAbertas={mencoesAbertas}
+      tempoSessaoMs={tempoSessaoEmMs(politicaSessao)}
     >
       {children}
     </ShellPlataforma>

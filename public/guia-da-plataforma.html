@@ -430,6 +430,16 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
    o acesso é o botão do cabeçalho, ao lado do "?"; aqui fica escondido para
    não duplicar. A regra mobile que o reexibe está no bloco @media abaixo. */
 .manual-no-menu{display:none}
+/* PR B — contador de sessão por inatividade, ao lado do sino. A GEOMETRIA
+   (inclusive o display) mora aqui, não em estilo inline, justamente para que
+   a regra de ocultar no mobile (@media ≤760px) possa vencê-la: inline
+   ganharia da classe e o distintivo ficaria visível a 380px, empurrando o "?"
+   para fora da tela (RN da Onda 10). O estado .avisar (âmbar, perto do fim) só
+   troca as cores; a caixa não muda de tamanho. */
+.sessao-contador{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px;
+  border-radius:var(--r-pill);border:1px solid var(--borda);background:transparent;
+  color:var(--paragrafo-aaa);font:var(--font-body-label-bold);white-space:nowrap}
+.sessao-contador.avisar{border-color:var(--amarelo);background:var(--amarelo-claro);color:var(--paragrafo)}
 .tab-it{border:0;background:transparent;font:var(--font-body-label-regular);color:var(--paragrafo-aaa);
   padding:12px 2px;margin-right:22px;cursor:pointer;position:relative;white-space:nowrap;
   transition:color var(--dur-1) var(--ease)}
@@ -520,6 +530,11 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
      reaparece no menu lateral, que é a navegação de mobile. */
   .btn-manual-topo{display:none}
   .manual-no-menu{display:flex}
+  /* PR B — o contador de sessão some do cabeçalho apertado de mobile (mesma
+     razão do botão do manual: preservar o "?" alcançável na ponta a 380px).
+     A SentinelaDeSessao segue montada e enforçando a inatividade; só o
+     distintivo visual é ocultado. */
+  .sessao-contador{display:none}
   .aviso-mob{display:flex}
   .aside{position:fixed;left:0;top:0;bottom:0;width:min(280px,84vw);z-index:90;transform:translateX(-100%);
     transition:transform var(--dur-1) var(--ease);box-shadow:var(--shadow-lg)}

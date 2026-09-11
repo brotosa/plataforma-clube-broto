@@ -7,6 +7,11 @@ import {
   POLITICA_SENHA_PADRAO,
   validarPoliticaDeSenha,
 } from "@/dominio/usuarios/politica-senha";
+import {
+  type PoliticaDeSessao,
+  POLITICA_SESSAO_PADRAO,
+  validarPoliticaDeSessao,
+} from "@/dominio/usuarios/politica-sessao";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -47,6 +52,46 @@ export async function lerPoliticaDeSenha(): Promise<PoliticaDeSenha> {
     exigeSimbolo: linha.senhaExigeSimbolo,
     historicoN: linha.senhaHistoricoN,
   };
+}
+
+/** Só o campo da política de sessão, para a trilha de auditoria. */
+function paraAuditavelSessao(politica: PoliticaDeSessao): Record<string, unknown> {
+  return { tempoSessaoMin: politica.tempoSessaoMin };
+}
+
+/** Política de sessão vigente — o padrão do domínio quando não há linha. */
+export async function lerPoliticaDeSessao(): Promise<PoliticaDeSessao> {
+  const linha = await prisma.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
+  if (!linha) return POLITICA_SESSAO_PADRAO;
+  return { tempoSessaoMin: linha.tempoSessaoMin };
+}
+
+/** Salva a política de sessão — só Administrador, valores validados e auditados. */
+export async function alterarPoliticaDeSessao(ator: Ator, nova: PoliticaDeSessao): Promise<void> {
+  exigirPermissao(ator.papel, "CONFIGURAR_PORTAL");
+  const erros = validarPoliticaDeSessao(nova);
+  if (erros.length > 0) {
+    throw new ErroDeValidacao(erros);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const anterior = await tx.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
+    const dados = paraAuditavelSessao(nova);
+    await tx.configuracaoPortal.upsert({
+      where: { id: ID_SINGLETON },
+      create: { id: ID_SINGLETON, ...dados },
+      update: dados,
+    });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: ENTIDADE,
+      entidadeId: ID_SINGLETON,
+      autorId: ator.id,
+      anterior: anterior
+        ? paraAuditavelSessao({ tempoSessaoMin: anterior.tempoSessaoMin })
+        : paraAuditavelSessao(POLITICA_SESSAO_PADRAO),
+      novo: dados,
+    });
+  });
 }
 
 /** Salva a política de senha — só Administrador, valores validados e auditados. */

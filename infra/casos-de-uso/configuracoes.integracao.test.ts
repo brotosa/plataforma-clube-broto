@@ -4,7 +4,13 @@ import { compare, hash } from "bcryptjs";
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
 import { POLITICA_SENHA_PADRAO } from "@/dominio/usuarios/politica-senha";
 import { ErroDeValidacao, type Ator } from "./contexto";
-import { alterarPoliticaDeSenha, lerPoliticaDeSenha } from "./configuracoes";
+import { POLITICA_SESSAO_PADRAO } from "@/dominio/usuarios/politica-sessao";
+import {
+  alterarPoliticaDeSenha,
+  alterarPoliticaDeSessao,
+  lerPoliticaDeSenha,
+  lerPoliticaDeSessao,
+} from "./configuracoes";
 import { trocarPropriaSenha } from "./usuarios";
 
 /**
@@ -179,6 +185,49 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
     await expect(
       trocarPropriaSenha(ator, { nova: "primeira-senha-1", confirmacao: "primeira-senha-1" }),
     ).rejects.toBeInstanceOf(ErroDeValidacao);
+  });
+
+  // ---- política de sessão (tempo de inatividade) ----
+  it("recusa a escrita do tempo de sessão a quem não é Administrador", async () => {
+    const gestor = await criarDireto("Gestor Sessao", "GESTOR");
+    await expect(
+      alterarPoliticaDeSessao({ id: gestor.id, papel: "GESTOR" }, { tempoSessaoMin: 20 }),
+    ).rejects.toBeInstanceOf(ErroDeAutorizacao);
+  });
+
+  it("recusa tempo de sessão fora da faixa", async () => {
+    await expect(alterarPoliticaDeSessao(admin, { tempoSessaoMin: 1 })).rejects.toBeInstanceOf(
+      ErroDeValidacao,
+    );
+    await expect(alterarPoliticaDeSessao(admin, { tempoSessaoMin: 10_000 })).rejects.toBeInstanceOf(
+      ErroDeValidacao,
+    );
+  });
+
+  it("lê o padrão do domínio quando não há linha e passa a ler o que foi salvo, auditando", async () => {
+    expect(await lerPoliticaDeSessao()).toEqual(POLITICA_SESSAO_PADRAO);
+
+    await alterarPoliticaDeSessao(admin, { tempoSessaoMin: 45 });
+    expect((await lerPoliticaDeSessao()).tempoSessaoMin).toBe(45);
+
+    const evento = await prisma.auditoriaEvento.findFirst({
+      where: {
+        entidade: "configuracao_portal",
+        entidadeId: ID_SINGLETON,
+        campo: "tempoSessaoMin",
+      },
+    });
+    expect(evento?.valorAnterior).toBe(String(POLITICA_SESSAO_PADRAO.tempoSessaoMin));
+    expect(evento?.valorNovo).toBe("45");
+    expect(evento?.autorId).toBe(admin.id);
+  });
+
+  it("tempo de sessão e política de senha convivem na mesma linha singleton", async () => {
+    await alterarPoliticaDeSenha(admin, { ...POLITICA_SENHA_PADRAO, comprimentoMin: 11 });
+    await alterarPoliticaDeSessao(admin, { tempoSessaoMin: 22 });
+    // Nenhuma das duas escritas apaga a outra.
+    expect((await lerPoliticaDeSenha()).comprimentoMin).toBe(11);
+    expect((await lerPoliticaDeSessao()).tempoSessaoMin).toBe(22);
   });
 
   it("poda o histórico para no máximo N-1 linhas", async () => {

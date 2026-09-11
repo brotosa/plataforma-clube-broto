@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
-import { lerPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
+import { lerPoliticaDeSenha, lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
 import { FormularioPoliticaSenha } from "./formulario-politica-senha";
+import { FormularioTempoSessao } from "./formulario-tempo-sessao";
 
 export const metadata: Metadata = {
   title: "Configurações",
@@ -25,7 +26,10 @@ export default async function PaginaConfiguracoes() {
     redirect("/");
   }
 
-  const politica = await lerPoliticaDeSenha();
+  const [politica, politicaSessao] = await Promise.all([
+    lerPoliticaDeSenha(),
+    lerPoliticaDeSessao(),
+  ]);
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
@@ -46,6 +50,16 @@ export default async function PaginaConfiguracoes() {
       </p>
 
       <FormularioPoliticaSenha inicial={politica} />
+
+      <h2 className="h-el" style={{ margin: "28px 0 4px" }}>
+        Tempo de sessão
+      </h2>
+      <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
+        Por quanto tempo sem atividade a sessão permanece aberta. Cada ação reinicia a contagem, e o
+        contador ao lado do sino mostra quanto falta. Vale para todos os papéis.
+      </p>
+
+      <FormularioTempoSessao inicial={politicaSessao} />
     </div>
   );
 }

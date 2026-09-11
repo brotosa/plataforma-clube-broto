@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { PendenciaApurada } from "@/dominio/dashboard/indicadores";
 import { secaoParaOrigem } from "@/dominio/ajuda/mapa-contextual";
 import { SinoPendencias } from "./sino-pendencias";
+import { SentinelaDeSessao } from "./sentinela-de-sessao";
 
 /**
  * Shell da plataforma — reprodução fiel do protótipo: sidebar azul
@@ -168,11 +169,14 @@ export function ShellPlataforma({
   sair,
   pendencias,
   mencoesAbertas = 0,
+  tempoSessaoMs,
   children,
 }: {
   usuario: { nome: string; rotuloPapel: string; podeConfigurarPortal?: boolean };
   /** Server action de logout (Auth.js). */
   sair: () => Promise<void>;
+  /** Tempo de inatividade (ms) da política de sessão vigente — para o contador. */
+  tempoSessaoMs: number;
   /**
    * As mesmas seis contagens que a HOME exibe como cartões — apuradas no
    * layout e passadas prontas. O sino não consulta nada por conta própria:
@@ -445,6 +449,11 @@ export function ShellPlataforma({
 
           <div style={{ flex: 1 }} />
 
+
+          {/* PR B — contador de sessão por inatividade, ao lado do sino.
+              Reinicia com a atividade; a autoridade da expiração é o
+              servidor (callback `jwt`). */}
+          <SentinelaDeSessao tempoSessaoMs={tempoSessaoMs} />
 
           {/* F14: o `title` antigo prometia "alertas de vigência e janela
               contratual chegam com a carga de dados" — alertas que nunca

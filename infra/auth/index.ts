@@ -6,6 +6,8 @@ import { prisma } from "@/infra/prisma/cliente";
 import { provedorCredenciaisPrisma } from "@/infra/identidade/provedor-credenciais-prisma";
 import type { ProvedorIdentidade } from "@/dominio/identidade/provedor-identidade";
 import { sessaoContinuaValida } from "@/dominio/usuarios/regras";
+import { sessaoExpirouPorInatividade } from "@/dominio/usuarios/politica-sessao";
+import { lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
 import { logger } from "@/infra/log/logger";
 
 const esquemaCredenciais = z.object({
@@ -16,7 +18,7 @@ const esquemaCredenciais = z.object({
 /** Provedor de identidade em uso (troca única quando o Entra ID entrar). */
 const provedorIdentidade: ProvedorIdentidade = provedorCredenciaisPrisma;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...configBase,
   providers: [
     Credentials({
@@ -79,6 +81,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.nome = user.nome;
         token.sessaoEpoca = user.sessaoEpoca;
         token.trocaSenhaObrigatoria = user.trocaSenhaObrigatoria;
+        // Nasce com a atividade zerada em "agora" — o relógio da inatividade
+        // (PoliticaDeSessao) começa a contar do login.
+        token.ultimaAtividade = Date.now();
         return token;
       }
 
@@ -86,16 +91,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return token;
       }
 
-      const atual = await prisma.usuario.findUnique({
-        where: { id: token.id },
-        select: {
-          ativo: true,
-          papel: true,
-          nome: true,
-          sessaoEpoca: true,
-          trocaSenhaObrigatoria: true,
-        },
-      });
+      // Uma leitura por requisição autenticada, como a RN47 já cobra: o
+      // usuário (época/papel/nome) e a política de sessão vigente. A política
+      // é lida aqui, e não gravada no token, para que apertar o tempo em
+      // Configurações valha para as sessões abertas na requisição seguinte.
+      const [atual, politicaSessao] = await Promise.all([
+        prisma.usuario.findUnique({
+          where: { id: token.id },
+          select: {
+            ativo: true,
+            papel: true,
+            nome: true,
+            sessaoEpoca: true,
+            trocaSenhaObrigatoria: true,
+          },
+        }),
+        lerPoliticaDeSessao(),
+      ]);
 
       if (!atual || !sessaoContinuaValida(token.sessaoEpoca, atual)) {
         logger.info(
@@ -104,6 +116,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
         return null;
       }
+
+      // Expiração por inatividade (janela deslizante). Cada chamada deste
+      // callback nasce de atividade real — navegação, server action ou o
+      // heartbeat do cliente, que só dispara com atividade —, então usar a
+      // marca ANTERIOR para decidir e, se válida, reiniciá-la para "agora"
+      // implementa a janela sem keep-alive: sem atividade, sem chamada, e a
+      // requisição seguinte encontra o intervalo estourado.
+      const agora = Date.now();
+      if (sessaoExpirouPorInatividade(token.ultimaAtividade, agora, politicaSessao)) {
+        logger.info(
+          { usuarioId: token.id, inativoMs: agora - (token.ultimaAtividade ?? agora) },
+          "sessão expirada por inatividade",
+        );
+        return null;
+      }
+      token.ultimaAtividade = agora;
 
       // O usuário segue válido: papel, nome e a marca de credencial
       // provisória são relidos, para que a UI nunca fique com um retrato
