@@ -29,7 +29,8 @@ export type ModuloManual =
   | "APROVACOES"
   | "PARAMETRIZADOR"
   | "USUARIOS"
-  | "AUDITORIA";
+  | "AUDITORIA"
+  | "CONFIGURACOES";
 
 export const ROTULO_MODULO: Readonly<Record<ModuloManual, string>> = {
   DASHBOARD: "Dashboard",
@@ -43,6 +44,7 @@ export const ROTULO_MODULO: Readonly<Record<ModuloManual, string>> = {
   PARAMETRIZADOR: "Parametrizador",
   USUARIOS: "Usuários",
   AUDITORIA: "Auditoria",
+  CONFIGURACOES: "Configurações",
 };
 
 /**
@@ -62,6 +64,7 @@ export const ROTA_DO_MODULO: Readonly<Record<ModuloManual, string>> = {
   PARAMETRIZADOR: "/parametrizador",
   USUARIOS: "/usuarios",
   AUDITORIA: "/auditoria",
+  CONFIGURACOES: "/configuracoes",
 };
 
 /**
@@ -86,6 +89,7 @@ export const ORDEM_MODULOS: ReadonlyArray<ModuloManual> = [
   "PARAMETRIZADOR",
   "USUARIOS",
   "AUDITORIA",
+  "CONFIGURACOES",
 ];
 
 export interface AcaoManual {
@@ -476,6 +480,18 @@ export const MANUAL_ACOES: Readonly<Record<Acao, AcaoManual>> = {
       "Gerar o extrato da trilha em CSV para auditoria externa. A própria exportação vira um evento de auditoria (meta-trilha, RN48).",
     onde: "Auditoria → exportar.",
     passos: ["Aplique os filtros do recorte.", "Exporte o extrato em CSV.", "A exportação fica registrada na trilha."],
+  },
+  CONFIGURAR_PORTAL: {
+    modulo: "CONFIGURACOES",
+    titulo: "Configurar o portal",
+    oQueE:
+      "Ajustar as configurações técnicas e de segurança do portal — hoje, a política de senha (comprimento, classes de caractere exigidas e quantas senhas anteriores não podem repetir). Toda mudança é auditada.",
+    onde: "Configurações.",
+    passos: [
+      "Abra Configurações na lateral.",
+      "Ajuste a política de senha e salve.",
+      "A nova política passa a valer na próxima troca de senha.",
+    ],
   },
 };
 

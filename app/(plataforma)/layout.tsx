@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/infra/auth";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
+import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { pendenciasDeHoje } from "@/infra/consultas/dashboard";
 import { contarPendenciasQueMencionam } from "@/infra/consultas/comentarios";
 import { ShellPlataforma } from "./shell-plataforma";
@@ -42,6 +43,9 @@ export default async function LayoutPlataforma({
       usuario={{
         nome: sessao.user.nome,
         rotuloPapel: ROTULOS_PAPEL[sessao.user.papel],
+        // O item "Configurações" na lateral só aparece para quem pode
+        // configurar o portal (Administrador da Plataforma).
+        podeConfigurarPortal: podeExecutar(sessao.user.papel, "CONFIGURAR_PORTAL"),
       }}
       sair={sair}
       pendencias={pendencias}

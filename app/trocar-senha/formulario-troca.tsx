@@ -13,8 +13,19 @@ const ESTADO_INICIAL: EstadoUsuarios = {};
  * Troca obrigatória no primeiro acesso (ficha §3). Em caso de sucesso a
  * ação redireciona para a HOME — não há mensagem de sucesso aqui porque o
  * usuário simplesmente entra na plataforma.
+ *
+ * `descricao` e `comprimentoMin` vêm da política de senha vigente
+ * (Configurações), lida no servidor — a dica e o `minLength` refletem a
+ * regra que a ação de fato aplica, em vez de um texto fixo que envelhece
+ * quando o Administrador aperta a política.
  */
-export function FormularioTroca() {
+export function FormularioTroca({
+  descricao,
+  comprimentoMin,
+}: {
+  descricao: string;
+  comprimentoMin: number;
+}) {
   const [estado, despachar, pendente] = useActionState<EstadoUsuarios, FormData>(
     acaoTrocarPropriaSenha,
     ESTADO_INICIAL,
@@ -31,12 +42,12 @@ export function FormularioTroca() {
           type="password"
           className="input"
           autoComplete="new-password"
-          minLength={10}
+          minLength={comprimentoMin}
           required
           aria-describedby="senha-nota"
         />
         <span id="senha-nota" className="cap">
-          Ao menos 10 caracteres.
+          {descricao}
         </span>
       </div>
       <div className="field">
@@ -47,7 +58,7 @@ export function FormularioTroca() {
           type="password"
           className="input"
           autoComplete="new-password"
-          minLength={10}
+          minLength={comprimentoMin}
           required
         />
       </div>

@@ -86,6 +86,17 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
   { rotulo: "Auditoria", href: "/auditoria", icone: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" },
 ];
 
+/**
+ * Configurações do portal — item extra, exibido só ao Administrador da
+ * Plataforma (CONFIGURAR_PORTAL). Fica abaixo de Auditoria. Ícone de engrenagem.
+ */
+const ITEM_CONFIGURACOES: ItemNavegacao = {
+  rotulo: "Configurações",
+  href: "/configuracoes",
+  icone:
+    "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
+};
+
 function Icone({ path }: { path: string }) {
   return (
     <svg
@@ -159,7 +170,7 @@ export function ShellPlataforma({
   mencoesAbertas = 0,
   children,
 }: {
-  usuario: { nome: string; rotuloPapel: string };
+  usuario: { nome: string; rotuloPapel: string; podeConfigurarPortal?: boolean };
   /** Server action de logout (Auth.js). */
   sair: () => Promise<void>;
   /**
@@ -285,7 +296,10 @@ export function ShellPlataforma({
         )}
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 2 }} aria-label="Módulos">
-          {ITENS_NAVEGACAO.map((item) =>
+          {(usuario.podeConfigurarPortal
+            ? [...ITENS_NAVEGACAO, ITEM_CONFIGURACOES]
+            : ITENS_NAVEGACAO
+          ).map((item) =>
             item.href ? (
               <Link
                 key={item.rotulo}

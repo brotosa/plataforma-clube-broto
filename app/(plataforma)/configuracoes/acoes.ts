@@ -1,0 +1,43 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { auth } from "@/infra/auth";
+import { type Ator } from "@/infra/casos-de-uso/contexto";
+import { alterarPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
+import type { PoliticaDeSenha } from "@/dominio/usuarios/politica-senha";
+import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
+
+/** Estado da ação de salvar a política — erros nomeados ou sucesso. */
+export interface EstadoConfiguracoes {
+  ok?: boolean;
+  erros?: string[];
+}
+
+async function atorDaSessao(): Promise<Ator> {
+  const sessao = await auth();
+  if (!sessao?.user) {
+    redirect("/entrar");
+  }
+  return { id: sessao.user.id, papel: sessao.user.papel };
+}
+
+/** Salva a política de senha (Configurações). Só Administrador; auditado. */
+export async function acaoSalvarPoliticaSenha(
+  politica: PoliticaDeSenha,
+): Promise<EstadoConfiguracoes> {
+  const ator = await atorDaSessao();
+  try {
+    await alterarPoliticaDeSenha(ator, politica);
+    revalidatePath("/configuracoes");
+    return { ok: true };
+  } catch (erro) {
+    return {
+      erros: mensagensDeFalha(erro, {
+        operacao: "salvar a política de senha",
+        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        contexto: "acao-configuracoes",
+      }),
+    };
+  }
+}
