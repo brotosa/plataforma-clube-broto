@@ -32,6 +32,15 @@ test("T15 — hub do Administrador: famílias, estruturais e taxas em standby", 
   await expect(page.getByText("em standby — edição não habilitada")).toBeVisible();
   await expect(page.getByRole("link", { name: "Abrir regras de aprovação" })).toBeVisible();
 
+  // Painel de armazenamento (RN71): mede os artefatos guardados e, com a
+  // base de demonstração dentro dos limites, avisa que nenhuma ação é
+  // necessária. Os dois medidores e a quebra por artefato aparecem.
+  await expect(page.getByRole("heading", { name: "Armazenamento de artefatos" })).toBeVisible();
+  await expect(page.getByText(/maior kit passar de 50 MB/)).toBeVisible();
+  await expect(page.getByText(/Dentro dos limites/)).toBeVisible();
+  await expect(page.getByText("Total armazenado")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Kits de execução" })).toBeVisible();
+
   await semViolacoesAxe(page);
 });
 

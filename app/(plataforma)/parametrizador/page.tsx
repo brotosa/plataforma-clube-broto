@@ -10,7 +10,9 @@ import {
   estruturaisDoHub,
   regraSensivelExigida,
 } from "@/infra/consultas/parametrizador";
+import { medirArmazenamento } from "@/infra/consultas/armazenamento";
 import { AvisoDeLeitura, IconeCadeado } from "./componentes";
+import { PainelArmazenamento } from "./painel-armazenamento";
 
 export const metadata: Metadata = {
   title: "Parametrizador",
@@ -31,10 +33,11 @@ export default async function PaginaParametrizador() {
   }
   const ehAdmin = podeExecutar(papel, "CONFIGURAR_PARAMETROS");
 
-  const [familias, estruturais, sensivelLigada] = await Promise.all([
+  const [familias, estruturais, sensivelLigada, medida] = await Promise.all([
     cartoesDasFamilias(),
     estruturaisDoHub(),
     regraSensivelExigida(),
+    medirArmazenamento(),
   ]);
 
   return (
@@ -195,6 +198,8 @@ export default async function PaginaParametrizador() {
           <span className="pill pill-pendente">{TAXAS_EM_STANDBY.etiqueta}</span>
         </div>
       </div>
+
+      <PainelArmazenamento medida={medida} />
     </div>
   );
 }
