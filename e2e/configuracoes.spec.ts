@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrar, prisma, semViolacoesAxe } from "./ajudantes";
+import { entrar, prisma, runId, SENHA, semViolacoesAxe } from "./ajudantes";
 
 /**
  * E2E das Configurações (PR A — item na lateral + política de senha).
@@ -18,9 +18,39 @@ import { entrar, prisma, semViolacoesAxe } from "./ajudantes";
 const ADMIN = "administrador@dev.clubebroto.local";
 const GESTOR = "gestor@dev.clubebroto.local";
 
+const SUFIXO_E2E = "@cfg-e2e.local";
+
 async function restaurarPadrao() {
   await prisma.auditoriaEvento.deleteMany({ where: { entidade: "configuracao_portal" } });
   await prisma.configuracaoPortal.deleteMany({ where: { id: "portal" } });
+  const usuarios = await prisma.usuario.findMany({
+    where: { email: { endsWith: SUFIXO_E2E } },
+    select: { id: true },
+  });
+  const ids = usuarios.map((u) => u.id);
+  if (ids.length > 0) {
+    await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: { in: ids } } });
+    await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
+  }
+}
+
+/** Usuário LEITURA descartável com a senha de dev (copia o hash do seed). */
+async function semearUsuario(sufixo: string) {
+  const modelo = await prisma.usuario.findUniqueOrThrow({
+    where: { email: "leitura@dev.clubebroto.local" },
+    select: { senhaHash: true },
+  });
+  const email = `bloqueio-${sufixo}${SUFIXO_E2E}`;
+  return prisma.usuario.create({
+    data: {
+      nome: `Bloqueio ${sufixo}`,
+      email,
+      senhaHash: modelo.senhaHash,
+      papel: "LEITURA",
+      ativo: true,
+      trocaSenhaObrigatoria: false,
+    },
+  });
 }
 
 test.beforeEach(restaurarPadrao);
@@ -89,6 +119,75 @@ test("Administrador ajusta o tempo de sessão e salva", async ({ page }) => {
 
   await page.reload();
   await expect(page.getByLabel("Tempo de sessão (minutos)")).toHaveValue("20");
+});
+
+test("Administrador ajusta o bloqueio por login e vê a lista de bloqueados vazia", async ({ page }) => {
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes");
+  await expect(page.getByRole("heading", { name: "Bloqueio por tentativas de login" })).toBeVisible();
+  await expect(page.getByText("Nenhuma conta bloqueada no momento.")).toBeVisible();
+
+  await page.getByLabel("Tentativas antes de bloquear").fill("4");
+  await page.getByLabel("Tempo de bloqueio (minutos)").fill("20");
+  await page.getByRole("button", { name: "Salvar bloqueio" }).click();
+  await expect(page.getByText("Bloqueio por login salvo")).toBeVisible();
+});
+
+test("bloqueio por tentativas: erra a senha, é barrado e o Administrador desbloqueia", async ({
+  browser,
+}) => {
+  const marca = runId();
+  const alvo = await semearUsuario(`${marca}`);
+  // Política curta para o teste: bloqueia em 3 falhas.
+  await prisma.configuracaoPortal.upsert({
+    where: { id: "portal" },
+    update: { loginMaxTentativas: 3 },
+    create: { id: "portal", loginMaxTentativas: 3 },
+  });
+
+  // A vítima erra a senha 3 vezes e passa a ver o aviso de bloqueio.
+  const ctx = await browser.newContext();
+  try {
+    const pagina = await ctx.newPage();
+    for (let i = 1; i <= 3; i += 1) {
+      await pagina.goto("/entrar");
+      await pagina.getByLabel("E-mail").fill(alvo.email);
+      await pagina.getByLabel("Senha").fill("senha-errada");
+      await pagina.getByRole("button", { name: "Entrar" }).click();
+      await pagina.waitForURL(/\/entrar\?erro=/);
+    }
+    await expect(pagina.getByText(/Acesso bloqueado por tentativas/)).toBeVisible();
+
+    // Mesmo com a senha CERTA, segue barrada enquanto bloqueada.
+    await pagina.goto("/entrar");
+    await pagina.getByLabel("E-mail").fill(alvo.email);
+    await pagina.getByLabel("Senha").fill(SENHA);
+    await pagina.getByRole("button", { name: "Entrar" }).click();
+    await pagina.waitForURL(/\/entrar\?erro=bloqueado/);
+
+    // O Administrador desbloqueia pela tela de Configurações.
+    const adminCtx = await browser.newContext();
+    try {
+      const paginaAdmin = await adminCtx.newPage();
+      await entrar(paginaAdmin, ADMIN);
+      await paginaAdmin.goto("/configuracoes");
+      const linha = paginaAdmin.getByRole("row", { name: new RegExp(alvo.email) });
+      await expect(linha).toBeVisible();
+      await linha.getByRole("button", { name: "Desbloquear" }).click();
+      await expect(paginaAdmin.getByText(new RegExp(alvo.email))).toHaveCount(0);
+    } finally {
+      await adminCtx.close();
+    }
+
+    // Agora a vítima entra normalmente.
+    await pagina.goto("/entrar");
+    await pagina.getByLabel("E-mail").fill(alvo.email);
+    await pagina.getByLabel("Senha").fill(SENHA);
+    await pagina.getByRole("button", { name: "Entrar" }).click();
+    await pagina.waitForURL((url) => new URL(url).pathname === "/");
+  } finally {
+    await ctx.close();
+  }
 });
 
 test("Gestor não vê 'Configurações' e é redirecionado se tentar a rota", async ({ page }) => {
