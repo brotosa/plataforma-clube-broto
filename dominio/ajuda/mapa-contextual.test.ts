@@ -137,11 +137,13 @@ describe("RN59 — a volta devolve à tela exata de origem", () => {
    * perdia a barra de volta. É o mesmo motivo pelo qual a carga inicial está
    * no mapa. Sem a entrada, este teste falha com `null`.
    */
-  it("Configurações é tela real e por isso tem volta", () => {
+  it("Configurações é tela real e por isso tem volta — e agora abre na 4.9", () => {
     expect(resolverOrigem("/configuracoes")).toEqual({
       destino: "/configuracoes",
       rotulo: "Configurações",
-      secao: SECAO_DE_ABERTURA,
+      // Nasceu em SECAO_DE_ABERTURA por falta de seção no guia (RN59). Com a
+      // 4.9 publicada, o destino é a seção do próprio módulo.
+      secao: "j9",
     });
   });
 });
