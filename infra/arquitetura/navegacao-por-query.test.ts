@@ -91,6 +91,15 @@ const TELAS_COM_CONTROLE_DE_QUERY: ReadonlyArray<{ arquivo: string; rota: string
    * cabeçalho em `<Link>` por hábito — o `urlDeOrdem` está nos construtores.
    */
   { arquivo: "app/(plataforma)/ofertas/page.tsx", rota: "/ofertas" },
+  /**
+   * Onda 15. A T35 cresceu de um bloco para quatro e ganhou abas (`?aba=`),
+   * no mesmo desenho da T33 — âncora nativa sobre `.tab-it`, query da própria
+   * rota. Entra aqui pelo que o cabeçalho desta cerca pede de tela nova com
+   * controle de query, e porque é uma tela de segurança: um alternador que
+   * não navega deixaria o Administrador vendo a aba errada e concluindo que a
+   * proteção está como não está.
+   */
+  { arquivo: "app/(plataforma)/configuracoes/page.tsx", rota: "/configuracoes" },
 ];
 
 /**

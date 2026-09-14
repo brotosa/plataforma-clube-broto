@@ -724,3 +724,52 @@ test.describe("responsividade a 380px — Onda 14", () => {
     await semViolacoesAxe(page);
   });
 });
+
+/**
+ * T35 — Configurações a 380px.
+ *
+ * A tela nunca teve cobertura a 380px, nem quando nasceu: as entregas dela
+ * conferiram AAA no desktop e pararam aí. A rodada das abas é a ocasião de
+ * fechar isso, porque acrescenta justamente os dois elementos que a largura
+ * estreita castiga — a faixa de quatro células e a tira de abas.
+ */
+test.describe("responsividade a 380px — Onda 15", () => {
+  const ADMIN = "administrador@dev.clubebroto.local";
+
+  test("T35: a faixa de panorama empilha e as abas continuam alcançáveis", async ({ page }) => {
+    await entrar(page, ADMIN);
+    await page.goto("/configuracoes");
+
+    // O `.kpi-row` colapsa para uma coluna abaixo de 560px — as quatro células
+    // continuam presentes, empilhadas, e nenhuma delas vaza a largura.
+    const faixa = page.getByRole("group", { name: "Panorama das configurações de segurança" });
+    await expect(faixa).toBeVisible();
+    const celulas = faixa.locator(".kpi-cel");
+    await expect(celulas).toHaveCount(4);
+    for (const celula of await celulas.all()) {
+      const caixa = await celula.boundingBox();
+      expect((caixa?.x ?? 0) + (caixa?.width ?? 0), "borda direita da célula").toBeLessThanOrEqual(
+        380,
+      );
+    }
+
+    const abas = page.getByRole("navigation", { name: "Seções das configurações" });
+    for (const rotulo of ["Senha", "Sessão", "Bloqueios"]) {
+      await expect(abas.getByRole("link", { name: rotulo, exact: true })).toBeVisible();
+    }
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T35: navegar entre as abas a 380px não quebra nenhuma delas", async ({ page }) => {
+    await entrar(page, ADMIN);
+
+    for (const aba of ["senha", "sessao", "bloqueios"]) {
+      await page.goto(`/configuracoes?aba=${aba}`);
+      await expect(page.getByRole("heading", { level: 1, name: "Configurações" })).toBeVisible();
+      await semRolagemHorizontal(page);
+      await semViolacoesAxe(page);
+    }
+  });
+});

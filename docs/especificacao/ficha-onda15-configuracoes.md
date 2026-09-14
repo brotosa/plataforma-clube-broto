@@ -1,5 +1,5 @@
 # Ficha de Módulo — Onda 15: Configurações do portal
-**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 14/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.3 para validação · 14/09/2026
 
 Fase **F23**, única da onda. Módulo novo (**T35**), exclusivo do Administrador da Plataforma: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
 
@@ -14,6 +14,8 @@ Fase **F23**, única da onda. Módulo novo (**T35**), exclusivo do Administrador
 > A v0.1 foi escrita depois dos PRs #59, #60 e #61 e listava no §6 três lacunas conscientes: sem vencimento periódico de senha, sem teto absoluto de sessão e sem bloqueio por origem. As três foram **pedidas e implementadas na sequência** (PRs #65 e #66), sob a diretriz adicional de que *"tudo precisa ser configurado e possível desativar caso necessário"*. Esta versão incorpora as três ao corpo da ficha, fecha a pendência §6.1 (o guia ganhou a seção 4.9) e registra a lacuna que **permanece** — proteção por taxa na borda, que não é da aplicação.
 >
 > Nenhuma RN nova foi criada: as três funcionalidades cabem dentro de RN72, RN73 e RN74, porque são a mesma regra com um eixo a mais. Criar RN75–RN77 inflaria a numeração sem separar assunto algum.
+
+> **O que a v0.3 muda.** Só a **§4**: a tela ganhou **abas** e a **faixa de panorama**, depois de a própria tela ficar longa demais para rolar. **Nenhuma regra mudou**, nenhum parâmetro novo, nenhuma migration — as quatro proteções, seus valores, suas faixas e seu comportamento são exatamente os da v0.2. A rodada também fechou uma lacuna antiga que não era de escopo: a T35 **nunca tivera teste a 380px**, nem quando nasceu, e agora tem.
 
 ---
 
@@ -99,12 +101,25 @@ Três decisões que a implementação tomou e que a ficha registra para serem co
 
 ## 4. Tela — T35 Configurações
 
-Item na lateral **abaixo de Auditoria**, visível **só** a quem pode configurar. Quatro blocos, na ordem:
+Item na lateral **abaixo de Auditoria**, visível **só** a quem pode configurar. Quatro blocos, distribuídos em **três abas**:
 
-1. **Política de senha** — comprimento, classes de caractere, histórico e validade.
-2. **Tempo de sessão** — inatividade e teto absoluto.
-3. **Bloqueio por tentativas de login** — parâmetros, mais a lista **Contas bloqueadas** com o botão *Desbloquear*.
-4. **Bloqueio por origem de rede** — parâmetros, mais a lista **Endereços bloqueados** com o botão *Liberar*.
+| Aba | Blocos |
+|---|---|
+| **Senha** | política de senha — comprimento, classes de caractere, histórico e validade |
+| **Sessão** | tempo de sessão — inatividade e teto absoluto |
+| **Bloqueios** | bloqueio por tentativas de login (+ lista **Contas bloqueadas**, botão *Desbloquear*) e bloqueio por origem de rede (+ lista **Endereços bloqueados**, botão *Liberar*) |
+
+**Três abas e não quatro, deliberadamente:** os dois bloqueios são irmãos — mesma mecânica, e é onde se desbloqueia. Separá-los obrigaria quem vai liberar alguém a adivinhar, em duas abas, se o que travou foi a conta ou o endereço.
+
+A aba viaja na **query** (`?aba=`), e por isso a navegação é por **âncora nativa, não `<Link>`** — convenção da casa, medida, e prendida pela cerca `infra/arquitetura/navegacao-por-query.test.ts`, onde a tela está declarada. Aba desconhecida na URL cai na padrão (**Senha**), nunca em erro nem em tela vazia.
+
+### Faixa de panorama — o que as abas custam, e como se paga
+
+Acima das abas, sempre visível, uma faixa de quatro células (`kpi-row`, sem CSS novo) com o estado de **cada uma das quatro proteções** e, quando houver, a contagem de contas e endereços bloqueados no momento.
+
+**Ela não é enfeite, é a contrapartida da decisão de usar abas.** Aba esconde: sem a faixa, quem administra o portal poderia nunca abrir a aba *Bloqueios* e nunca descobrir que o bloqueio por origem existe — desligado. A rolagem longa que as abas substituíram tinha essa virtude, a de mostrar tudo que há, e a faixa é o que a devolve. O teste `a faixa de panorama mostra as quatro proteções em TODAS as abas` é quem reprova se alguém a mover para dentro de uma aba.
+
+O texto das células vem do domínio (`dominio/usuarios/resumo-politicas.ts`), não da tela: a interface não pode ter uma segunda opinião sobre o que "desligado" significa. E **proteção desligada aparece como a palavra "Desligado"**, jamais como `0` — número sozinho não distingue *desligado* de *nenhuma tentativa permitida*, que são opostos. É o mesmo hábito que os cartões já tinham.
 
 Quem não é Administrador é redirecionado à HOME. Cada bloco salva sozinho, com aviso próprio de sucesso e de erro: um formulário único obrigaria a revalidar tudo para mudar um campo, e uma recusa numa ponta descartaria a edição da outra.
 
