@@ -116,6 +116,7 @@ const SECOES_DA_REFERENCIA = [
 const SECOES_NASCIDAS_DEPOIS: ReadonlyArray<{ id: string; onda: string }> = [
   { id: "j7", onda: "Onda 12 · Patrocinadores (ficha §5)" },
   { id: "j8", onda: "Onda 12 · Telemetria da operadora (F20, ficha §5)" },
+  { id: "j9", onda: "Onda 15 · Configurações do portal (ficha §4 e §6.1)" },
 ];
 
 /**

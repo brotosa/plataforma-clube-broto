@@ -80,17 +80,18 @@ export const MAPA_AJUDA: ReadonlyArray<ModuloDeAjuda> = [
    */
   { padrao: "/carga-inicial", rotulo: "Carga inicial", secao: SECAO_DE_ABERTURA },
   /**
-   * Configurações (política de senha, tempo de sessão, bloqueio por login).
-   * Mesmo caso da carga inicial, e pela mesma razão: o guia ainda não tem
-   * seção sobre este módulo — a 4.6 ("Configurar a plataforma") é sobre o
+   * Configurações (senha, sessão, bloqueio por login e por origem) → 4.9.
+   *
+   * Nasceu apontando para `SECAO_DE_ABERTURA`, porque o guia não tinha
+   * seção sobre o módulo — a 4.6 ("Configurar a plataforma") é sobre o
    * Parametrizador, que cuida de regra de negócio, não de segurança do
-   * portal. Sem a entrada aqui a rota não casaria com padrão nenhum
-   * (`"/"` casa só com o caminho vazio), `resolverOrigem` devolveria nulo e
-   * a tela perderia a BARRA DE VOLTA — exatamente o que o comentário acima
-   * diz que não se pode deixar acontecer com uma tela real.
-   * Quando o guia ganhar a seção, é só trocar `SECAO_DE_ABERTURA` por ela.
+   * portal. Era o caso previsto pela RN59, e a entrada existia para que a
+   * tela não perdesse a BARRA DE VOLTA: sem ela a rota não casaria com
+   * padrão nenhum (`"/"` casa só com o caminho vazio) e `resolverOrigem`
+   * devolveria nulo. Com a 4.9 publicada, o destino passa a ser a seção
+   * própria — e a pendência §6.1 da ficha da Onda 15 se fecha.
    */
-  { padrao: "/configuracoes", rotulo: "Configurações", secao: SECAO_DE_ABERTURA },
+  { padrao: "/configuracoes", rotulo: "Configurações", secao: "j9" },
 ];
 
 /**

@@ -1434,6 +1434,7 @@ a:hover{color:var(--azul)}
       <a href="#j6">4.6 · Configurar a plataforma</a>
       <a href="#j7">4.7 · Patrocinadores</a>
       <a href="#j8">4.8 · Telemetria da operadora</a>
+      <a href="#j9">4.9 · Configurações do portal</a>
       <div class="g">Referência</div><a href="#papeis">5 · Papéis e permissões</a>
       <a href="#faltam">6 · Por que alguns números não aparecem</a>
       <a href="#glossario">7 · Glossário</a>
@@ -1844,6 +1845,69 @@ a:hover{color:var(--azul)}
   <p>O dado que vem da operadora é <strong>somente leitura</strong> na plataforma: não há onde editar contador, evento ou divergência. Corrigir por aqui seria trabalho perdido — a próxima importação desfaria a edição em silêncio, e ninguém saberia dizer qual dos dois números estava certo.</p>
 </section>
 
+<section class="gd-sec" id="j9">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.9</span> Configurações do portal</h2>
+  <p class="gd-lead">A seção anterior sobre configuração, a 4.6, cuida das réguas do negócio. Esta cuida de outra coisa: <strong>como a porta se tranca</strong>.</p>
+
+  <p>Restrito ao <strong>Administrador da Plataforma</strong>, o módulo guarda quatro ajustes — e todos valem para todo mundo, inclusive para quem os alterou. Cada mudança fica registrada na auditoria, com o valor anterior e o novo.</p>
+
+  <h3>Política de senha</h3>
+  <p>Quantos caracteres uma senha precisa ter, quais tipos de caractere são exigidos (maiúscula, minúscula, número, símbolo), quantas senhas anteriores não podem ser repetidas e de quantos em quantos dias a senha vence. A tela de troca de senha <strong>mostra a exigência vigente</strong>: se a política apertar, o aviso aperta junto, sem ninguém reescrever texto.</p>
+  <p>Apertar a regra não obriga ninguém a trocar a senha na hora — a nova exigência vale na próxima troca. O <strong>vencimento</strong> é a exceção deliberada: quando ele está ligado, quem estiver com a senha vencida é levado à tela de troca no acesso seguinte. Por isso ele nasce desligado, e ligá-lo é decisão consciente.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">A plataforma não sabe a sua senha</span>
+      <p>Nem a atual, nem as antigas. O que fica guardado é uma marca matemática que serve para <strong>conferir</strong> e não serve para <strong>ler</strong> — inclusive no histórico que impede a repetição. É por isso que o Administrador emite credencial provisória, mas não conhece a senha de ninguém: não há onde consultá-la.</p>
+    </div>
+  </div>
+
+  <h3>Tempo de sessão</h3>
+  <p>Depois de quanto tempo <strong>sem atividade</strong> a sessão se encerra. A contagem é deslizante: cada ação sua reinicia o relógio, e o contador ao lado do sino mostra quanto falta — ele fica âmbar quando o fim se aproxima. Se o tempo acabar, a plataforma leva você de volta ao login explicando o motivo. O que já foi salvo permanece; o que estava pela metade em um formulário, não.</p>
+  <p>Ao lado dele há o <strong>teto absoluto</strong>: a duração máxima de uma sessão, esteja ela ativa ou não. Sem teto, quem trabalha o dia inteiro sem parar nunca é levado a autenticar-se de novo. Também nasce desligado.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Vale para as sessões já abertas</span>
+      <p>Encurtar o tempo alcança quem <strong>já está dentro</strong>, não só os próximos acessos. E quem decide é o servidor: o contador na tela é o reflexo visível da regra, não a regra. Sem ele — ou sem JavaScript no navegador —, a sessão expira do mesmo jeito.</p>
+    </div>
+  </div>
+
+  <h3>Bloqueio por tentativas de login</h3>
+  <p>Quantas senhas erradas seguidas bloqueiam o acesso a uma conta, e por quanto tempo. Enquanto bloqueada, a conta é recusada <strong>mesmo com a senha certa</strong> — e errar de novo não aumenta o castigo. Passado o tempo, a contagem recomeça do zero.</p>
+  <p>Há duas saídas do bloqueio: <strong>esperar</strong> ou <strong>pedir ao Administrador</strong>. Em <em>Contas bloqueadas</em>, na própria tela, o Administrador libera o acesso na hora.</p>
+
+  <h3>Bloqueio por origem de rede</h3>
+  <p>O anterior protege uma conta; este protege contra quem varre <strong>várias</strong>. Conta as falhas vindas de um mesmo endereço de rede, qualquer que seja a conta alvo, e tranca o endereço ao alcançar o limite. A lista <em>Endereços bloqueados</em> permite liberar antes do prazo. Nasce desligado, porque um escritório inteiro costuma sair por um único endereço — e trancá-lo trancaria todos de uma vez.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"></path></svg>
+    <div>
+      <span class="gd-rot">O que este bloqueio não é</span>
+      <p>Ele conta <strong>falhas de senha</strong>, não requisições por minuto. Não é defesa contra volume: um ataque que inunde a plataforma de pedidos continua custando trabalho ao servidor a cada tentativa. Essa proteção é de outra camada — fica antes da aplicação, na entrada da rede, e não se configura aqui.</p>
+    </div>
+  </div>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Tudo pode ser desligado</span>
+      <p>Vencimento de senha, histórico, teto de sessão, expiração por inatividade e os dois bloqueios: cada um tem o valor <strong>zero</strong> como desligamento explícito, e a tela diz em palavras o que está valendo. A régua de segurança é escolha do Administrador, e uma proteção que não se possa desligar vira um jeito de perder o acesso à própria plataforma.</p>
+    </div>
+  </div>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"></path></svg>
+    <div>
+      <span class="gd-rot">O Administrador da Plataforma nunca é bloqueado</span>
+      <p>Nem pela conta, nem pela origem. É proposital: se a conta que desbloqueia as outras pudesse se trancar, um erro de digitação repetido deixaria a plataforma sem quem a destranca. Em troca, a senha dessa conta merece cuidado maior que a das demais — as falhas contra ela continuam contando para o endereço de onde vêm, mas ela própria continua entrando.</p>
+    </div>
+  </div>
+</section>
+
 <section class="gd-sec" id="papeis">
   <div class="gd-sec-grupo">Referência</div>
   <h2><span class="gd-num">5</span> Papéis e permissões</h2>
@@ -1982,6 +2046,7 @@ a:hover{color:var(--azul)}
       <li><a href="#j6">4.6 · Configurar a plataforma</a></li>
       <li><a href="#j7">4.7 · Patrocinadores</a></li>
       <li><a href="#j8">4.8 · Telemetria da operadora</a></li>
+      <li><a href="#j9">4.9 · Configurações do portal</a></li>
       <li class="g">Referência</li>
       <li><a href="#papeis">5 · Papéis e permissões</a></li>
       <li><a href="#faltam">6 · Por que alguns números não aparecem</a></li>
@@ -1993,7 +2058,7 @@ a:hover{color:var(--azul)}
 
 <script>
 (function () {
-  var secoes = ["oquee","vocab","princ","j1","j2","j3","j4","j5","j6","j7","j8","papeis","faltam","glossario"];
+  var secoes = ["oquee","vocab","princ","j1","j2","j3","j4","j5","j6","j7","j8","j9","papeis","faltam","glossario"];
   var raiz = document.querySelector('.gd');
   if (!raiz) return;
 
