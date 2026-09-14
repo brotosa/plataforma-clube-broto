@@ -130,6 +130,20 @@ describe("RN59 — a volta devolve à tela exata de origem", () => {
     expect(resolverOrigem("/rota-que-nao-existe")).toBeNull();
     expect(resolverOrigem("/entrar")).toBeNull();
   });
+
+  /**
+   * Regressão: Configurações nasceu fora do MAPA_AJUDA e, como `"/"` casa só
+   * com o caminho vazio, a rota não casava com padrão nenhum — a tela real
+   * perdia a barra de volta. É o mesmo motivo pelo qual a carga inicial está
+   * no mapa. Sem a entrada, este teste falha com `null`.
+   */
+  it("Configurações é tela real e por isso tem volta", () => {
+    expect(resolverOrigem("/configuracoes")).toEqual({
+      destino: "/configuracoes",
+      rotulo: "Configurações",
+      secao: SECAO_DE_ABERTURA,
+    });
+  });
 });
 
 describe("RN59 — o caminho de origem é entrada não confiável", () => {

@@ -5,9 +5,8 @@ import { configBase } from "./config-base";
 import { prisma } from "@/infra/prisma/cliente";
 import { provedorCredenciaisPrisma } from "@/infra/identidade/provedor-credenciais-prisma";
 import type { ProvedorIdentidade } from "@/dominio/identidade/provedor-identidade";
-import { sessaoContinuaValida } from "@/dominio/usuarios/regras";
-import { sessaoExpirouPorInatividade } from "@/dominio/usuarios/politica-sessao";
 import { lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
+import { revisarTokenDeSessao } from "./revisao-de-sessao";
 import { logger } from "@/infra/log/logger";
 
 const esquemaCredenciais = z.object({
@@ -109,37 +108,50 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         lerPoliticaDeSessao(),
       ]);
 
-      if (!atual || !sessaoContinuaValida(token.sessaoEpoca, atual)) {
-        logger.info(
-          { usuarioId: token.id, epocaDoToken: token.sessaoEpoca },
-          "sessão revogada (RN47)",
-        );
-        return null;
-      }
-
-      // Expiração por inatividade (janela deslizante). Cada chamada deste
-      // callback nasce de atividade real — navegação, server action ou o
-      // heartbeat do cliente, que só dispara com atividade —, então usar a
-      // marca ANTERIOR para decidir e, se válida, reiniciá-la para "agora"
-      // implementa a janela sem keep-alive: sem atividade, sem chamada, e a
-      // requisição seguinte encontra o intervalo estourado.
+      // A decisão (revogação por época + expiração por inatividade, nessa
+      // ordem) vive em `revisarTokenDeSessao`, fora daqui, porque dentro da
+      // chamada do NextAuth nenhum teste a alcançava. Aqui fica só o IO e o
+      // log; a regra é testada isoladamente.
+      //
+      // Cada chamada deste callback nasce de atividade real — navegação,
+      // server action ou o heartbeat do cliente, que só dispara com
+      // atividade —, então decidir pela marca ANTERIOR e reiniciá-la para
+      // "agora" implementa a janela deslizante sem keep-alive: sem
+      // atividade, sem chamada, e a requisição seguinte encontra o intervalo
+      // estourado.
+      //
+      // QUEM PERSISTE A MARCA É O HEARTBEAT, não esta linha. Server Component
+      // não escreve cookie no Next.js: numa navegação o token é atualizado
+      // em memória e o cookie continua com o valor antigo. Só um contexto que
+      // pode emitir Set-Cookie — a server action `registrarAtividade`, via
+      // `unstable_update` — grava a marca nova. Por isso o heartbeat é
+      // estrutural, e não um enfeite: sem ele a janela contaria desde o
+      // login. Medido pelo e2e que lê e forja o próprio cookie
+      // (`e2e/sessao-inatividade.spec.ts`).
       const agora = Date.now();
-      if (sessaoExpirouPorInatividade(token.ultimaAtividade, agora, politicaSessao)) {
-        logger.info(
-          { usuarioId: token.id, inativoMs: agora - (token.ultimaAtividade ?? agora) },
-          "sessão expirada por inatividade",
-        );
+      const revisao = revisarTokenDeSessao({
+        token,
+        usuarioAtual: atual,
+        politica: politicaSessao,
+        agora,
+      });
+
+      if (!revisao.token) {
+        if (revisao.motivo === "inatividade") {
+          logger.info(
+            { usuarioId: token.id, inativoMs: agora - (token.ultimaAtividade ?? agora) },
+            "sessão expirada por inatividade",
+          );
+        } else {
+          logger.info(
+            { usuarioId: token.id, epocaDoToken: token.sessaoEpoca },
+            "sessão revogada (RN47)",
+          );
+        }
         return null;
       }
-      token.ultimaAtividade = agora;
 
-      // O usuário segue válido: papel, nome e a marca de credencial
-      // provisória são relidos, para que a UI nunca fique com um retrato
-      // velho de quem é a pessoa.
-      token.papel = atual.papel;
-      token.nome = atual.nome;
-      token.trocaSenhaObrigatoria = atual.trocaSenhaObrigatoria;
-      return token;
+      return revisao.token;
     },
     session({ session, token }) {
       session.user.id = token.id;
