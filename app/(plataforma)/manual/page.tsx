@@ -138,16 +138,21 @@ export default async function PaginaManual() {
         >
           {ORDEM_MODULOS.map((modulo) => (
             <figure key={modulo} className="card" style={{ margin: 0, padding: 12 }}>
-              {/* Captura estática já dimensionada (1280×800), com lazy-load
+              {/* Captura estática já dimensionada (1280×1100), com lazy-load
                   e dimensões declaradas — não vale acionar o otimizador de
                   imagem do Next (custo por request) para uma galeria de
-                  manual. `<img>` é a escolha certa aqui. */}
+                  manual. `<img>` é a escolha certa aqui.
+
+                  A altura declarada acompanha a do gerador
+                  (`e2e/capturar-telas-manual.spec.ts`): ela reserva o espaço
+                  e evita layout shift, então divergir das duas é reintroduzir
+                  o salto que os atributos existem para impedir. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={arquivoDaTela(modulo)}
                 alt={`Captura da tela do módulo ${ROTULO_MODULO[modulo]}`}
                 width={1280}
-                height={800}
+                height={1100}
                 loading="lazy"
                 decoding="async"
                 style={{
@@ -244,7 +249,7 @@ export default async function PaginaManual() {
                             src={arquivoDaTela(modulo)}
                             alt={`Tela do módulo ${ROTULO_MODULO[modulo]}, onde estas ações acontecem`}
                             width={1280}
-                            height={800}
+                            height={1100}
                             loading="lazy"
                             decoding="async"
                             style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, border: "1px solid var(--borda)" }}
