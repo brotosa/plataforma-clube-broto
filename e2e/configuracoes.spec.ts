@@ -129,8 +129,29 @@ test("Administrador ajusta o bloqueio por login e vê a lista de bloqueados vazi
 
   await page.getByLabel("Tentativas antes de bloquear").fill("4");
   await page.getByLabel("Tempo de bloqueio (minutos)").fill("20");
-  await page.getByRole("button", { name: "Salvar bloqueio" }).click();
+  // `exact` é necessário desde que existe "Salvar bloqueio por origem": a
+  // correspondência por nome é por substring e casaria com os dois botões.
+  await page.getByRole("button", { name: "Salvar bloqueio", exact: true }).click();
   await expect(page.getByText("Bloqueio por login salvo")).toBeVisible();
+});
+
+test("Administrador ajusta o bloqueio por origem e vê a lista de endereços vazia", async ({
+  page,
+}) => {
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes");
+  await expect(page.getByRole("heading", { name: "Bloqueio por origem de rede" })).toBeVisible();
+  await expect(page.getByText("Nenhum endereço bloqueado no momento.")).toBeVisible();
+  // Nasce desligado: o campo vem em 0 e a prévia diz isso.
+  await expect(page.getByLabel("Falhas por endereço antes de bloquear")).toHaveValue("0");
+  await expect(page.getByText(/bloqueio por origem está desligado/i)).toBeVisible();
+
+  await page.getByLabel("Falhas por endereço antes de bloquear").fill("10");
+  await page.getByRole("button", { name: "Salvar bloqueio por origem" }).click();
+  await expect(page.getByText("Bloqueio por origem salvo")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel("Falhas por endereço antes de bloquear")).toHaveValue("10");
 });
 
 test("bloqueio por tentativas: erra a senha, é barrado e o Administrador desbloqueia", async ({

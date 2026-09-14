@@ -124,6 +124,25 @@ model Usuario {
   @@map("usuarios")
 }
 
+/// Bloqueio de login por ORIGEM de rede. Uma linha por endereço visto
+/// falhando; some do caminho quente quando o bloqueio está desligado.
+///
+/// O endereço é dado operacional de segurança, não cadastro: fica aqui para
+/// o Administrador poder ver e desbloquear. A retenção segue a mesma pergunta
+/// aberta da auditoria (`[A CONFIRMAR — jurídico]`).
+model BloqueioOrigem {
+  id           String    @id @default(cuid())
+  /// Endereço de rede de onde vieram as tentativas.
+  origem       String    @unique
+  tentativas   Int       @default(0)
+  bloqueadoAte DateTime? @map("bloqueado_ate")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  @@index([bloqueadoAte])
+  @@map("bloqueios_origem")
+}
+
 /// Histórico de hashes de senha anteriores de um usuário, append-only, para a
 /// regra "não repetir as últimas N senhas" da política de senha
 /// (Configurações). Guarda o HASH bcrypt, nunca o texto — o mesmo cuidado do
@@ -181,6 +200,13 @@ model ConfiguracaoPortal {
   /// da Plataforma nunca é bloqueado. Faixas no domínio.
   loginMaxTentativas  Int     @default(5) @map("login_max_tentativas")
   loginBloqueioMin    Int     @default(15) @map("login_bloqueio_min")
+
+  /// Bloqueio por ORIGEM (endereço de rede): quantas falhas consecutivas
+  /// vindas do mesmo endereço bloqueiam aquela origem, e por quantos minutos.
+  /// **0 = desligado, e é o padrão** — bloqueio por origem atinge todo mundo
+  /// atrás do mesmo endereço, então ligar é decisão consciente.
+  origemMaxTentativas Int     @default(0) @map("origem_max_tentativas")
+  origemBloqueioMin   Int     @default(15) @map("origem_bloqueio_min")
 
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 

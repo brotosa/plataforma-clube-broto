@@ -7,6 +7,12 @@ import { prisma } from "@/infra/prisma/cliente";
 import { logger } from "@/infra/log/logger";
 import { lerPoliticaDeLogin } from "@/infra/casos-de-uso/configuracoes";
 import { estaBloqueado, registrarFalha } from "@/dominio/usuarios/politica-login";
+import { obterOrigemDaRequisicao } from "./origem-requisicao";
+import {
+  limparOrigem,
+  origemEstaBloqueada,
+  registrarFalhaDeOrigem,
+} from "@/infra/casos-de-uso/bloqueio-origem";
 
 /**
  * Implementação de identidade da Onda 1: credenciais próprias verificadas
@@ -26,8 +32,15 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
     email: string,
     senha: string,
   ): Promise<UsuarioAutenticado | null> {
+    // Origem da requisição, para o bloqueio por endereço. Nula = regra não
+    // se aplica (ver `obterOrigemDaRequisicao`).
+    const origem = await obterOrigemDaRequisicao();
+
     const usuario = await prisma.usuario.findUnique({ where: { email } });
     if (!usuario || !usuario.ativo) {
+      // E-mail desconhecido também é falha da origem: senão bastaria variar o
+      // e-mail para nunca acumular contagem.
+      await registrarFalhaDeOrigem(origem);
       logger.info({ email, motivo: "usuario_inexistente_ou_inativo" }, "autenticação recusada");
       return null;
     }
@@ -41,13 +54,24 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
       trocaSenhaObrigatoria: usuario.trocaSenhaObrigatoria,
     });
 
-    // Administrador da Plataforma: nunca bloqueado, nunca contado. Só a senha.
+    // Administrador da Plataforma: nunca bloqueado — nem pela conta, nem pela
+    // ORIGEM. Mas a falha contra ele CONTA para a origem: sem isso, mirar um
+    // e-mail de Administrador evadiria o bloqueio por endereço.
     if (usuario.papel === "ADMINISTRADOR_PLATAFORMA") {
       if (!(await compare(senha, usuario.senhaHash))) {
+        await registrarFalhaDeOrigem(origem);
         logger.info({ email, motivo: "senha_invalida" }, "autenticação recusada");
         return null;
       }
+      await limparOrigem(origem);
       return paraSessao();
+    }
+
+    // Origem bloqueada: recusa antes de conferir a senha, como no bloqueio por
+    // conta. Não estende o bloqueio — só nega.
+    if (await origemEstaBloqueada(origem)) {
+      logger.info({ email, motivo: "origem_bloqueada" }, "autenticação recusada");
+      return null;
     }
 
     const agora = new Date();
@@ -68,6 +92,7 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
         where: { id: usuario.id },
         data: { loginTentativas: novo.tentativas, loginBloqueadoAte: novo.bloqueadoAte },
       });
+      await registrarFalhaDeOrigem(origem);
       logger.info(
         { email, motivo: novo.bloqueadoAte ? "senha_invalida_bloqueou" : "senha_invalida" },
         "autenticação recusada",
@@ -82,6 +107,7 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
         data: { loginTentativas: 0, loginBloqueadoAte: null },
       });
     }
+    await limparOrigem(origem);
     return paraSessao();
   },
 };

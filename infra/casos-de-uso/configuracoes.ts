@@ -17,6 +17,11 @@ import {
   POLITICA_LOGIN_PADRAO,
   validarPoliticaDeLogin,
 } from "@/dominio/usuarios/politica-login";
+import {
+  type PoliticaDeOrigem,
+  POLITICA_ORIGEM_PADRAO,
+  validarPoliticaDeOrigem,
+} from "@/dominio/usuarios/politica-origem";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -179,6 +184,52 @@ export async function alterarPoliticaDeSenha(ator: Ator, nova: PoliticaDeSenha):
             validadeDias: anterior.senhaValidadeDias,
           })
         : paraAuditavel(POLITICA_SENHA_PADRAO),
+      novo: dados,
+    });
+  });
+}
+
+/** Só os campos da política de origem, para a trilha de auditoria. */
+function paraAuditavelOrigem(politica: PoliticaDeOrigem): Record<string, unknown> {
+  return {
+    origemMaxTentativas: politica.maxTentativas,
+    origemBloqueioMin: politica.bloqueioMin,
+  };
+}
+
+/** Política de bloqueio por origem vigente — o padrão do domínio se não há linha. */
+export async function lerPoliticaDeOrigem(): Promise<PoliticaDeOrigem> {
+  const linha = await prisma.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
+  if (!linha) return POLITICA_ORIGEM_PADRAO;
+  return { maxTentativas: linha.origemMaxTentativas, bloqueioMin: linha.origemBloqueioMin };
+}
+
+/** Salva a política de bloqueio por origem — só Administrador, validada e auditada. */
+export async function alterarPoliticaDeOrigem(ator: Ator, nova: PoliticaDeOrigem): Promise<void> {
+  exigirPermissao(ator.papel, "CONFIGURAR_PORTAL");
+  const erros = validarPoliticaDeOrigem(nova);
+  if (erros.length > 0) {
+    throw new ErroDeValidacao(erros);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const anterior = await tx.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
+    const dados = paraAuditavelOrigem(nova);
+    await tx.configuracaoPortal.upsert({
+      where: { id: ID_SINGLETON },
+      create: { id: ID_SINGLETON, ...dados },
+      update: dados,
+    });
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: ENTIDADE,
+      entidadeId: ID_SINGLETON,
+      autorId: ator.id,
+      anterior: anterior
+        ? paraAuditavelOrigem({
+            maxTentativas: anterior.origemMaxTentativas,
+            bloqueioMin: anterior.origemBloqueioMin,
+          })
+        : paraAuditavelOrigem(POLITICA_ORIGEM_PADRAO),
       novo: dados,
     });
   });
