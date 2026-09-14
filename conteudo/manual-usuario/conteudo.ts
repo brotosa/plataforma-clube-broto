@@ -485,12 +485,14 @@ export const MANUAL_ACOES: Readonly<Record<Acao, AcaoManual>> = {
     modulo: "CONFIGURACOES",
     titulo: "Configurar o portal",
     oQueE:
-      "Ajustar as configurações técnicas e de segurança do portal — hoje, a política de senha (comprimento, classes de caractere exigidas e quantas senhas anteriores não podem repetir). Toda mudança é auditada.",
+      "Ajustar as configurações técnicas e de segurança do portal, em três blocos: a política de senha (comprimento, classes de caractere exigidas e quantas senhas anteriores não podem repetir); o tempo de sessão por inatividade, que o contador ao lado do sino reflete e que cada atividade reinicia; e o bloqueio por tentativas de login (quantas senhas erradas seguidas bloqueiam a conta e por quanto tempo), com a lista de contas bloqueadas para liberar antes do prazo. O Administrador da Plataforma nunca é bloqueado. Toda mudança é auditada.",
     onde: "Configurações.",
     passos: [
       "Abra Configurações na lateral.",
-      "Ajuste a política de senha e salve.",
-      "A nova política passa a valer na próxima troca de senha.",
+      "Ajuste a política de senha e salve — vale na próxima troca de senha.",
+      "Ajuste o tempo de sessão e salve — vale nas sessões abertas já na requisição seguinte.",
+      "Ajuste o bloqueio por tentativas e salve — vale nas próximas tentativas de login.",
+      "Em 'Contas bloqueadas', use Desbloquear para liberar alguém antes de o tempo correr.",
     ],
   },
 };
