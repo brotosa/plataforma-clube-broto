@@ -20,6 +20,8 @@ export interface PoliticaDeSenha {
   exigeSimbolo: boolean;
   /** Quantas senhas anteriores não podem repetir (0 = sem histórico). */
   historicoN: number;
+  /** Validade da senha em dias — **0 desativa** a troca periódica. */
+  validadeDias: number;
 }
 
 /** Padrão do domínio — usado quando ainda não há linha de configuração. */
@@ -30,6 +32,9 @@ export const POLITICA_SENHA_PADRAO: PoliticaDeSenha = {
   exigeNumero: false,
   exigeSimbolo: false,
   historicoN: 5,
+  // 0 = sem troca periódica. Padrão desligado: ligar é decisão do
+  // Administrador, nunca efeito colateral de uma entrega.
+  validadeDias: 0,
 };
 
 // Limites de sanidade dos PRÓPRIOS valores da política (o que o Admin salva).
@@ -38,6 +43,13 @@ export const COMPRIMENTO_MIN_MINIMO = 8;
 export const COMPRIMENTO_MIN_MAXIMO = 64;
 export const HISTORICO_MINIMO = 0;
 export const HISTORICO_MAXIMO = 24;
+/**
+ * Validade da senha, em dias. **0 é o único valor abaixo do mínimo aceito**, e
+ * significa desligado — não existe "vencer em 5 dias", que seria hostil sem
+ * ser mais seguro.
+ */
+export const VALIDADE_DIAS_MINIMO = 30;
+export const VALIDADE_DIAS_MAXIMO = 730;
 
 /**
  * Valida os VALORES que o Administrador tenta salvar (não uma senha). Recusa
@@ -59,7 +71,35 @@ export function validarPoliticaDeSenha(politica: PoliticaDeSenha): string[] {
     erros.push(`O histórico de senhas não pode passar de ${HISTORICO_MAXIMO}.`);
   }
 
+  const validade = politica.validadeDias;
+  if (!Number.isInteger(validade) || validade < 0) {
+    erros.push("A validade da senha não pode ser negativa (use 0 para desligar).");
+  } else if (validade !== 0 && (validade < VALIDADE_DIAS_MINIMO || validade > VALIDADE_DIAS_MAXIMO)) {
+    erros.push(
+      `A validade da senha deve ser 0 (desligada) ou entre ${VALIDADE_DIAS_MINIMO} e ${VALIDADE_DIAS_MAXIMO} dias.`,
+    );
+  }
+
   return erros;
+}
+
+/**
+ * A senha venceu? Função pura, e o coração da troca periódica.
+ *
+ * Duas ausências significam **não venceu**, e as duas são deliberadas:
+ * validade `0` (desligada) e `alteradaEm` nulo — este último é o estado de
+ * quem já existia quando a coluna nasceu, e tratá-lo como vencido mandaria a
+ * base inteira para a tela de troca no primeiro deploy.
+ */
+export function senhaVenceu(
+  alteradaEm: Date | null | undefined,
+  agora: Date,
+  politica: PoliticaDeSenha,
+): boolean {
+  if (!politica.validadeDias || politica.validadeDias <= 0) return false;
+  if (!(alteradaEm instanceof Date) || Number.isNaN(alteradaEm.getTime())) return false;
+  const limiteMs = politica.validadeDias * 24 * 60 * 60_000;
+  return agora.getTime() - alteradaEm.getTime() > limiteMs;
 }
 
 // Reconhecedores por classe. Unicode-aware: letra maiúscula/minúscula acentuada

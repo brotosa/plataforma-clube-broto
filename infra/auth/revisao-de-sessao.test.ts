@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { JWT } from "next-auth/jwt";
 import { POLITICA_SESSAO_PADRAO } from "@/dominio/usuarios/politica-sessao";
+import { POLITICA_SENHA_PADRAO } from "@/dominio/usuarios/politica-senha";
 import { revisarTokenDeSessao, type UsuarioParaRevisao } from "./revisao-de-sessao";
 
 /**
@@ -52,7 +53,7 @@ describe("revisão do token de sessão (callback jwt)", () => {
       // 31 minutos parados, política de 30.
       token: token({ ultimaAtividade: AGORA - 31 * MIN }),
       usuarioAtual: usuario(),
-      politica: { tempoSessaoMin: 30 },
+      politica: { tempoSessaoMin: 30, tetoMin: 0 },
       agora: AGORA,
     });
     expect(resultado.token).toBeNull();
@@ -66,7 +67,7 @@ describe("revisão do token de sessão (callback jwt)", () => {
       revisarTokenDeSessao({
         token: parado,
         usuarioAtual: usuario(),
-        politica: { tempoSessaoMin: 30 },
+        politica: { tempoSessaoMin: 30, tetoMin: 0 },
         agora: AGORA,
       }).token,
     ).not.toBeNull();
@@ -75,7 +76,7 @@ describe("revisão do token de sessão (callback jwt)", () => {
       revisarTokenDeSessao({
         token: parado,
         usuarioAtual: usuario(),
-        politica: { tempoSessaoMin: 15 },
+        politica: { tempoSessaoMin: 15, tetoMin: 0 },
         agora: AGORA,
       }).token,
     ).toBeNull();
@@ -144,5 +145,73 @@ describe("revisão do token de sessão (callback jwt)", () => {
     expect(novo).not.toBeNull();
     // E passa a ter a marca a partir de agora.
     expect(novo?.ultimaAtividade).toBe(AGORA);
+  });
+});
+
+describe("teto absoluto e validade de senha na revisão", () => {
+  const POL = (tempoSessaoMin: number, tetoMin: number) => ({ tempoSessaoMin, tetoMin });
+
+  it("o teto derruba mesmo com atividade recentíssima — e o motivo é 'teto'", () => {
+    const r = revisarTokenDeSessao({
+      token: token({ ultimaAtividade: AGORA, inicioSessao: AGORA - 61 * MIN }),
+      usuarioAtual: usuario(),
+      politica: POL(30, 60),
+      agora: AGORA,
+    });
+    expect(r.token).toBeNull();
+    expect(r.motivo).toBe("teto");
+  });
+
+  it("o teto vem ANTES da inatividade: quem estourou os dois é 'teto', não 'inatividade'", () => {
+    const r = revisarTokenDeSessao({
+      token: token({ ultimaAtividade: AGORA - 99 * MIN, inicioSessao: AGORA - 999 * MIN }),
+      usuarioAtual: usuario(),
+      politica: POL(30, 60),
+      agora: AGORA,
+    });
+    expect(r.motivo).toBe("teto");
+  });
+
+  it("mas a revogação continua vencendo o teto", () => {
+    const r = revisarTokenDeSessao({
+      token: token({ inicioSessao: AGORA - 999 * MIN }),
+      usuarioAtual: usuario({ sessaoEpoca: 9 }),
+      politica: POL(30, 60),
+      agora: AGORA,
+    });
+    expect(r.motivo).toBe("revogada");
+  });
+
+  it("com tudo desligado (0/0) a sessão sobrevive a qualquer intervalo", () => {
+    const r = revisarTokenDeSessao({
+      token: token({ ultimaAtividade: AGORA - 999 * MIN, inicioSessao: AGORA - 9999 * MIN }),
+      usuarioAtual: usuario(),
+      politica: POL(0, 0),
+      agora: AGORA,
+    });
+    expect(r.token).not.toBeNull();
+  });
+
+  it("senha vencida NÃO derruba a sessão — marca como troca obrigatória", () => {
+    const r = revisarTokenDeSessao({
+      token: token({ trocaSenhaObrigatoria: false }),
+      usuarioAtual: usuario({ senhaAlteradaEm: new Date(AGORA - 200 * 24 * 60 * MIN) }),
+      politica: POL(30, 0),
+      politicaSenha: { ...POLITICA_SENHA_PADRAO, validadeDias: 90 },
+      agora: AGORA,
+    });
+    expect(r.token).not.toBeNull();
+    expect(r.token?.trocaSenhaObrigatoria).toBe(true);
+  });
+
+  it("validade desligada deixa a credencial em paz", () => {
+    const r = revisarTokenDeSessao({
+      token: token({ trocaSenhaObrigatoria: false }),
+      usuarioAtual: usuario({ senhaAlteradaEm: new Date(AGORA - 900 * 24 * 60 * MIN) }),
+      politica: POL(30, 0),
+      politicaSenha: { ...POLITICA_SENHA_PADRAO, validadeDias: 0 },
+      agora: AGORA,
+    });
+    expect(r.token?.trocaSenhaObrigatoria).toBe(false);
   });
 });

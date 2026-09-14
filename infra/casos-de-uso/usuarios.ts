@@ -392,7 +392,9 @@ export async function trocarPropriaSenha(
     }
     const novo = await tx.usuario.update({
       where: { id: ator.id },
-      data: { senhaHash, trocaSenhaObrigatoria: false },
+      // `senhaAlteradaEm` é o relógio da validade periódica (RN72): sem
+      // gravá-lo aqui a senha nova nasceria "nunca vence".
+      data: { senhaHash, trocaSenhaObrigatoria: false, senhaAlteradaEm: new Date() },
     });
 
     // Registra a senha ANTERIOR no histórico (só o hash) e poda para o

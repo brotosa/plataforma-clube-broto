@@ -47,5 +47,12 @@ declare module "next-auth/jwt" {
      * expira por falta do campo.
      */
     ultimaAtividade?: number;
+    /**
+     * Instante do login (epoch ms), para o teto ABSOLUTO de sessão. Ao
+     * contrário de `ultimaAtividade`, nunca é reiniciado — é o que faz o teto
+     * não se renovar com o uso. Ausente em tokens emitidos antes desta fase;
+     * nesse caso o teto não se aplica, e passa a valer no próximo login.
+     */
+    inicioSessao?: number;
   }
 }

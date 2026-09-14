@@ -32,6 +32,10 @@ function formatar(ms: number): string {
 }
 
 export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) {
+  // Expiração por inatividade DESLIGADA (0 em Configurações): sem contador,
+  // sem heartbeat e sem encerramento. O servidor também não expira — as duas
+  // pontas leem a mesma política, e discordar aqui seria deslogar sem motivo.
+  const ligado = tempoSessaoMs > 0;
   // `expiraEm` é a fonte da verdade do contador; vive em ref para não
   // reprogramar timers a cada atividade. O estado só carrega o texto exibido.
   const expiraEmRef = useRef<number>(Date.now() + tempoSessaoMs);
@@ -40,6 +44,7 @@ export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) 
   const [restanteMs, setRestanteMs] = useState<number>(tempoSessaoMs);
 
   useEffect(() => {
+    if (!ligado) return;
     function marcarAtividade() {
       expiraEmRef.current = Date.now() + tempoSessaoMs;
       atividadePendenteRef.current = true;
@@ -91,7 +96,9 @@ export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) 
       window.clearInterval(tique);
       window.clearInterval(pulso);
     };
-  }, [tempoSessaoMs]);
+  }, [tempoSessaoMs, ligado]);
+
+  if (!ligado) return null;
 
   const avisar = restanteMs <= AVISO_MS;
   const minutos = Math.max(0, Math.ceil(restanteMs / 60000));

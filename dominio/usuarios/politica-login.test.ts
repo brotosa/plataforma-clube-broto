@@ -75,3 +75,31 @@ describe("política de bloqueio por login (Configurações)", () => {
     expect(texto).toMatch(/Administrador/);
   });
 });
+
+describe("bloqueio desligável (tudo configurável)", () => {
+  const DESLIGADO = { maxTentativas: 0, bloqueioMin: 15 };
+
+  it("0 é válido e significa desligado", () => {
+    expect(validarPoliticaDeLogin(DESLIGADO)).toEqual([]);
+    expect(descreverPolitica(DESLIGADO)).toMatch(/desligad/i);
+  });
+
+  it("desligado não conta nem bloqueia, por mais que se erre", () => {
+    let estado = estadoLimpo();
+    for (let i = 0; i < 50; i += 1) estado = registrarFalha(estado, DESLIGADO, AGORA);
+    expect(estado).toEqual({ tentativas: 0, bloqueadoAte: null });
+  });
+
+  it("religar não pune falhas antigas — o contador ficou em zero", () => {
+    let estado = estadoLimpo();
+    estado = registrarFalha(estado, DESLIGADO, AGORA);
+    // Religado com limite 3: a primeira falha depois disso é a primeira mesmo.
+    estado = registrarFalha(estado, { maxTentativas: 3, bloqueioMin: 15 }, AGORA);
+    expect(estado.tentativas).toBe(1);
+    expect(estado.bloqueadoAte).toBeNull();
+  });
+
+  it("recusa valor negativo", () => {
+    expect(validarPoliticaDeLogin({ maxTentativas: -1, bloqueioMin: 15 })).toHaveLength(1);
+  });
+});

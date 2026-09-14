@@ -52,14 +52,15 @@ export function FormularioBloqueioLogin({ inicial }: { inicial: PoliticaDeLogin 
             id={`${idBase}-tent`}
             className="input"
             type="number"
-            min={MAX_TENTATIVAS_MINIMO}
+            min={0}
             max={MAX_TENTATIVAS_MAXIMO}
             value={politica.maxTentativas}
             style={{ width: 120 }}
             onChange={(evento) => atualizar("maxTentativas", Number(evento.target.value))}
           />
           <span className="cap" style={{ marginTop: 4 }}>
-            Entre {MAX_TENTATIVAS_MINIMO} e {MAX_TENTATIVAS_MAXIMO} tentativas consecutivas.
+            <b>0 desliga</b> o bloqueio por tentativas. Ligado, aceita de {MAX_TENTATIVAS_MINIMO} a{" "}
+            {MAX_TENTATIVAS_MAXIMO} tentativas consecutivas.
           </span>
         </div>
 

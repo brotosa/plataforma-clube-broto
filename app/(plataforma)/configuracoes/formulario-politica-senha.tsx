@@ -6,6 +6,8 @@ import {
   COMPRIMENTO_MIN_MAXIMO,
   COMPRIMENTO_MIN_MINIMO,
   HISTORICO_MAXIMO,
+  VALIDADE_DIAS_MAXIMO,
+  VALIDADE_DIAS_MINIMO,
   type PoliticaDeSenha,
   descreverPolitica,
 } from "@/dominio/usuarios/politica-senha";
@@ -102,6 +104,25 @@ export function FormularioPoliticaSenha({ inicial }: { inicial: PoliticaDeSenha 
           />
           <span className="cap" style={{ marginTop: 4 }}>
             0 desliga o histórico. Até {HISTORICO_MAXIMO}.
+          </span>
+        </div>
+
+        <div className="field" style={{ marginTop: 6 }}>
+          <label htmlFor={`${idBase}-validade`}>Validade da senha (dias)</label>
+          <input
+            id={`${idBase}-validade`}
+            className="input"
+            type="number"
+            min={0}
+            max={VALIDADE_DIAS_MAXIMO}
+            value={politica.validadeDias}
+            style={{ width: 120 }}
+            onChange={(evento) => atualizar("validadeDias", Number(evento.target.value) as never)}
+          />
+          <span className="cap" style={{ marginTop: 4 }}>
+            <b>0 desliga</b> a troca periódica. Ligada, aceita de {VALIDADE_DIAS_MINIMO} a{" "}
+            {VALIDADE_DIAS_MAXIMO} dias — passado o prazo, a próxima entrada exige trocar a senha.
+            Quem nunca trocou desde a implantação não vence até a primeira troca.
           </span>
         </div>
       </div>

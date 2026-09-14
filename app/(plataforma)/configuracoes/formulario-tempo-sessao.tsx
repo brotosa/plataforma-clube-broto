@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   TEMPO_SESSAO_MAXIMO,
   TEMPO_SESSAO_MINIMO,
+  TETO_MAXIMO,
+  TETO_MINIMO,
   type PoliticaDeSessao,
   descreverPolitica,
 } from "@/dominio/usuarios/politica-sessao";
@@ -44,18 +46,40 @@ export function FormularioTempoSessao({ inicial }: { inicial: PoliticaDeSessao }
           id={`${idBase}-tempo`}
           className="input"
           type="number"
-          min={TEMPO_SESSAO_MINIMO}
+          min={0}
           max={TEMPO_SESSAO_MAXIMO}
           value={politica.tempoSessaoMin}
           style={{ width: 120 }}
           onChange={(evento) => {
-            setPolitica({ tempoSessaoMin: Number(evento.target.value) });
+            setPolitica((atual) => ({ ...atual, tempoSessaoMin: Number(evento.target.value) }));
             setSucesso(false);
           }}
         />
         <span className="cap" style={{ marginTop: 4 }}>
-          Entre {TEMPO_SESSAO_MINIMO} e {TEMPO_SESSAO_MAXIMO} minutos. Passado esse intervalo sem
-          atividade, a sessão expira.
+          <b>0 desliga</b> a expiração por inatividade. Ligada, aceita de {TEMPO_SESSAO_MINIMO} a{" "}
+          {TEMPO_SESSAO_MAXIMO} minutos.
+        </span>
+      </div>
+
+      <div className="field" style={{ marginTop: 14 }}>
+        <label htmlFor={`${idBase}-teto`}>Teto absoluto da sessão (minutos)</label>
+        <input
+          id={`${idBase}-teto`}
+          className="input"
+          type="number"
+          min={0}
+          max={TETO_MAXIMO}
+          value={politica.tetoMin}
+          style={{ width: 120 }}
+          onChange={(evento) => {
+            setPolitica((atual) => ({ ...atual, tetoMin: Number(evento.target.value) }));
+            setSucesso(false);
+          }}
+        />
+        <span className="cap" style={{ marginTop: 4 }}>
+          <b>0 desliga.</b> Ligado, encerra a sessão esse tanto de minutos após o login — mesmo com
+          uso contínuo, e sem se renovar. Aceita de {TETO_MINIMO} a {TETO_MAXIMO}, e não pode ser
+          menor que o tempo de inatividade.
         </span>
       </div>
 

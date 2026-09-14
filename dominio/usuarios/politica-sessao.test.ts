@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   POLITICA_SESSAO_PADRAO,
+  TETO_MAXIMO,
+  sessaoEstourouTeto,
   TEMPO_SESSAO_MAXIMO,
   TEMPO_SESSAO_MINIMO,
   descreverPolitica,
@@ -16,22 +18,22 @@ describe("política de sessão (Configurações)", () => {
   });
 
   it("aceita valores dentro da faixa e recusa fora dela", () => {
-    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MINIMO })).toEqual([]);
-    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MAXIMO })).toEqual([]);
-    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MINIMO - 1 })).toHaveLength(1);
-    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MAXIMO + 1 })).toHaveLength(1);
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MINIMO, tetoMin: 0 })).toEqual([]);
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MAXIMO, tetoMin: 0 })).toEqual([]);
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MINIMO - 1, tetoMin: 0 })).toHaveLength(1);
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: TEMPO_SESSAO_MAXIMO + 1, tetoMin: 0 })).toHaveLength(1);
   });
 
   it("recusa valor não inteiro", () => {
-    expect(validarPoliticaDeSessao({ tempoSessaoMin: 12.5 })).toHaveLength(1);
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: 12.5, tetoMin: 0 })).toHaveLength(1);
   });
 
   it("converte minutos em milissegundos", () => {
-    expect(tempoSessaoEmMs({ tempoSessaoMin: 30 })).toBe(30 * 60_000);
+    expect(tempoSessaoEmMs({ tempoSessaoMin: 30, tetoMin: 0 })).toBe(30 * 60_000);
   });
 
   it("expira quando a inatividade ultrapassa o tempo tolerado", () => {
-    const politica = { tempoSessaoMin: 30 };
+    const politica = { tempoSessaoMin: 30, tetoMin: 0 };
     const agora = 1_000_000_000;
     const dentro = agora - 29 * 60_000;
     const noLimite = agora - 30 * 60_000;
@@ -48,7 +50,49 @@ describe("política de sessão (Configurações)", () => {
   });
 
   it("descreve a política de forma legível", () => {
-    expect(descreverPolitica({ tempoSessaoMin: 20 })).toContain("20");
-    expect(descreverPolitica({ tempoSessaoMin: 20 })).toMatch(/atividade/i);
+    expect(descreverPolitica({ tempoSessaoMin: 20, tetoMin: 0 })).toContain("20");
+    expect(descreverPolitica({ tempoSessaoMin: 20, tetoMin: 0 })).toMatch(/atividade/i);
+  });
+});
+
+describe("teto absoluto e desligamento (tudo configurável)", () => {
+  const AGORA = 1_000_000_000;
+  const MIN = 60_000;
+
+  it("0 desliga a expiração por inatividade — nem com dias parada a sessão cai", () => {
+    const desligada = { tempoSessaoMin: 0, tetoMin: 0 };
+    expect(validarPoliticaDeSessao(desligada)).toEqual([]);
+    expect(sessaoExpirouPorInatividade(AGORA - 10 * 24 * 60 * MIN, AGORA, desligada)).toBe(false);
+  });
+
+  it("0 desliga o teto absoluto", () => {
+    expect(sessaoEstourouTeto(AGORA - 99 * 60 * MIN, AGORA, { tempoSessaoMin: 30, tetoMin: 0 })).toBe(
+      false,
+    );
+  });
+
+  it("o teto derruba a sessão mesmo com uso contínuo", () => {
+    const politica = { tempoSessaoMin: 30, tetoMin: 60 };
+    // Atividade agorinha, mas logada há 61 minutos.
+    expect(sessaoExpirouPorInatividade(AGORA, AGORA, politica)).toBe(false);
+    expect(sessaoEstourouTeto(AGORA - 61 * MIN, AGORA, politica)).toBe(true);
+    // No limite ainda não estourou (estritamente maior).
+    expect(sessaoEstourouTeto(AGORA - 60 * MIN, AGORA, politica)).toBe(false);
+  });
+
+  it("token sem marca de início (emitido antes desta fase) não estoura o teto", () => {
+    expect(sessaoEstourouTeto(undefined, AGORA, { tempoSessaoMin: 30, tetoMin: 60 })).toBe(false);
+  });
+
+  it("recusa teto fora da faixa e teto menor que a inatividade", () => {
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: 30, tetoMin: 5 })).toHaveLength(1);
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: 30, tetoMin: TETO_MAXIMO + 1 })).toHaveLength(1);
+    // Teto de 30 com inatividade de 60: o teto cairia antes da janela contar.
+    expect(validarPoliticaDeSessao({ tempoSessaoMin: 60, tetoMin: 30 })).toHaveLength(1);
+  });
+
+  it("descreve os dois estados — ligado e desligado", () => {
+    expect(descreverPolitica({ tempoSessaoMin: 0, tetoMin: 0 })).toMatch(/desligad/i);
+    expect(descreverPolitica({ tempoSessaoMin: 30, tetoMin: 120 })).toContain("120");
   });
 });
