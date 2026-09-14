@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/infra/auth";
 import { emailEstaBloqueado } from "@/infra/casos-de-uso/bloqueio-login";
+import { origemEstaBloqueada } from "@/infra/casos-de-uso/bloqueio-origem";
+import { obterOrigemDaRequisicao } from "@/infra/identidade/origem-requisicao";
 
 export const metadata: Metadata = {
   title: "Entrar",
@@ -25,7 +27,15 @@ async function autenticar(dados: FormData) {
       // (ou está) bloqueada, a mensagem é outra — e diz onde pedir ajuda —,
       // sem que o provedor precise vazar o motivo da recusa.
       const bloqueado = email ? await emailEstaBloqueado(email) : false;
-      redirect(bloqueado ? "/entrar?erro=bloqueado" : "/entrar?erro=credenciais");
+      if (bloqueado) {
+        redirect("/entrar?erro=bloqueado");
+      }
+      // A origem pode ter sido trancada por falhas repetidas deste endereço,
+      // mesmo com a conta livre — a mensagem precisa dizer qual é o caso.
+      if (await origemEstaBloqueada(await obterOrigemDaRequisicao())) {
+        redirect("/entrar?erro=origem");
+      }
+      redirect("/entrar?erro=credenciais");
     }
     throw erro; // NEXT_REDIRECT do fluxo de sucesso passa adiante
   }
@@ -120,6 +130,24 @@ export default async function PaginaEntrar({
           >
             Acesso bloqueado por tentativas de senha erradas. Aguarde o tempo de bloqueio ou peça ao
             Administrador da Plataforma para desbloquear.
+          </p>
+        ) : null}
+
+        {erro === "origem" ? (
+          <p
+            role="alert"
+            className="cap"
+            style={{
+              color: "var(--erro-texto-aaa)",
+              background: "var(--erro-claro)",
+              border: "1px solid var(--erro)",
+              borderRadius: "var(--r-sm)",
+              padding: "10px 12px",
+              margin: "0 0 16px",
+            }}
+          >
+            Este endereço de rede está temporariamente bloqueado por tentativas repetidas. Aguarde o
+            tempo de bloqueio ou peça ao Administrador da Plataforma para liberar.
           </p>
         ) : null}
 

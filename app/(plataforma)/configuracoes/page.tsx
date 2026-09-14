@@ -6,12 +6,16 @@ import {
   lerPoliticaDeLogin,
   lerPoliticaDeSenha,
   lerPoliticaDeSessao,
+  lerPoliticaDeOrigem,
 } from "@/infra/casos-de-uso/configuracoes";
 import { listarLoginsBloqueados } from "@/infra/casos-de-uso/bloqueio-login";
+import { listarOrigensBloqueadas } from "@/infra/casos-de-uso/bloqueio-origem";
 import { FormularioPoliticaSenha } from "./formulario-politica-senha";
 import { FormularioTempoSessao } from "./formulario-tempo-sessao";
 import { FormularioBloqueioLogin } from "./formulario-bloqueio-login";
 import { ListaBloqueados } from "./lista-bloqueados";
+import { FormularioBloqueioOrigem } from "./formulario-bloqueio-origem";
+import { ListaOrigens } from "./lista-origens";
 
 export const metadata: Metadata = {
   title: "Configurações",
@@ -33,12 +37,15 @@ export default async function PaginaConfiguracoes() {
     redirect("/");
   }
 
-  const [politica, politicaSessao, politicaLogin, bloqueados] = await Promise.all([
-    lerPoliticaDeSenha(),
-    lerPoliticaDeSessao(),
-    lerPoliticaDeLogin(),
-    listarLoginsBloqueados(),
-  ]);
+  const [politica, politicaSessao, politicaLogin, bloqueados, politicaOrigem, origens] =
+    await Promise.all([
+      lerPoliticaDeSenha(),
+      lerPoliticaDeSessao(),
+      lerPoliticaDeLogin(),
+      listarLoginsBloqueados(),
+      lerPoliticaDeOrigem(),
+      listarOrigensBloqueadas(),
+    ]);
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
@@ -93,6 +100,32 @@ export default async function PaginaConfiguracoes() {
           nome: linha.nome,
           email: linha.email,
           rotuloPapel: linha.rotuloPapel,
+          minutosRestantes: linha.minutosRestantes,
+        }))}
+      />
+
+      <h2 className="h-el" style={{ margin: "28px 0 4px" }}>
+        Bloqueio por origem de rede
+      </h2>
+      <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
+        Tranca o endereço de onde vêm falhas repetidas de login, qualquer que seja a conta alvo.
+        Nasce desligado. O Administrador da Plataforma continua entrando de um endereço bloqueado —
+        mas as falhas contra contas de Administrador também contam para a origem.
+      </p>
+
+      <FormularioBloqueioOrigem inicial={politicaOrigem} />
+
+      <h3 className="h-el" style={{ margin: "20px 0 4px", fontSize: "1rem" }}>
+        Endereços bloqueados
+      </h3>
+      <p className="cap" style={{ margin: "0 0 12px", maxWidth: "74ch" }}>
+        Libere um endereço antes de o tempo correr. A liberação é auditada.
+      </p>
+
+      <ListaOrigens
+        itens={origens.map((linha) => ({
+          id: linha.id,
+          origem: linha.origem,
           minutosRestantes: linha.minutosRestantes,
         }))}
       />
