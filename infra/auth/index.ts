@@ -5,7 +5,7 @@ import { configBase } from "./config-base";
 import { prisma } from "@/infra/prisma/cliente";
 import { provedorCredenciaisPrisma } from "@/infra/identidade/provedor-credenciais-prisma";
 import type { ProvedorIdentidade } from "@/dominio/identidade/provedor-identidade";
-import { lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
+import { lerPoliticaDeSenha, lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
 import { revisarTokenDeSessao } from "./revisao-de-sessao";
 import { logger } from "@/infra/log/logger";
 
@@ -81,8 +81,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.sessaoEpoca = user.sessaoEpoca;
         token.trocaSenhaObrigatoria = user.trocaSenhaObrigatoria;
         // Nasce com a atividade zerada em "agora" — o relógio da inatividade
-        // (PoliticaDeSessao) começa a contar do login.
+        // (PoliticaDeSessao) começa a contar do login. `inicioSessao` marca o
+        // mesmo instante mas NUNCA é reiniciado: é o relógio do teto absoluto.
         token.ultimaAtividade = Date.now();
+        token.inicioSessao = Date.now();
         return token;
       }
 
@@ -94,7 +96,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       // usuário (época/papel/nome) e a política de sessão vigente. A política
       // é lida aqui, e não gravada no token, para que apertar o tempo em
       // Configurações valha para as sessões abertas na requisição seguinte.
-      const [atual, politicaSessao] = await Promise.all([
+      const [atual, politicaSessao, politicaSenha] = await Promise.all([
         prisma.usuario.findUnique({
           where: { id: token.id },
           select: {
@@ -103,9 +105,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             nome: true,
             sessaoEpoca: true,
             trocaSenhaObrigatoria: true,
+            senhaAlteradaEm: true,
           },
         }),
         lerPoliticaDeSessao(),
+        // A validade periódica da senha é lida aqui, e não gravada no token,
+        // pelo mesmo motivo do tempo de sessão: ligar a troca periódica vale
+        // para as sessões abertas já na requisição seguinte.
+        lerPoliticaDeSenha(),
       ]);
 
       // A decisão (revogação por época + expiração por inatividade, nessa
@@ -133,11 +140,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token,
         usuarioAtual: atual,
         politica: politicaSessao,
+        politicaSenha,
         agora,
       });
 
       if (!revisao.token) {
-        if (revisao.motivo === "inatividade") {
+        if (revisao.motivo === "teto") {
+          logger.info(
+            { usuarioId: token.id, desdeLoginMs: agora - (token.inicioSessao ?? agora) },
+            "sessão encerrada pelo teto absoluto",
+          );
+        } else if (revisao.motivo === "inatividade") {
           logger.info(
             { usuarioId: token.id, inativoMs: agora - (token.ultimaAtividade ?? agora) },
             "sessão expirada por inatividade",

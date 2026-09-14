@@ -116,6 +116,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
       exigeNumero: true,
       exigeSimbolo: false,
       historicoN: 3,
+      validadeDias: 0,
     });
 
     const depois = await lerPoliticaDeSenha();
@@ -147,6 +148,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
       exigeMaiuscula: true,
       exigeNumero: true,
       historicoN: 0,
+      validadeDias: 0,
     });
     const alvo = await criarDireto("Classe Cfg", "LEITURA", "senha-antiga-1");
     const ator = { id: alvo.id, papel: "LEITURA" as const };
@@ -165,6 +167,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
       ...POLITICA_SENHA_PADRAO,
       comprimentoMin: 8,
       historicoN: 3,
+      validadeDias: 0,
     });
     const alvo = await criarDireto("Historico Cfg", "LEITURA", "primeira-senha-1");
     const ator = { id: alvo.id, papel: "LEITURA" as const };
@@ -191,15 +194,15 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
   it("recusa a escrita do tempo de sessão a quem não é Administrador", async () => {
     const gestor = await criarDireto("Gestor Sessao", "GESTOR");
     await expect(
-      alterarPoliticaDeSessao({ id: gestor.id, papel: "GESTOR" }, { tempoSessaoMin: 20 }),
+      alterarPoliticaDeSessao({ id: gestor.id, papel: "GESTOR" }, { tempoSessaoMin: 20, tetoMin: 0 }),
     ).rejects.toBeInstanceOf(ErroDeAutorizacao);
   });
 
   it("recusa tempo de sessão fora da faixa", async () => {
-    await expect(alterarPoliticaDeSessao(admin, { tempoSessaoMin: 1 })).rejects.toBeInstanceOf(
+    await expect(alterarPoliticaDeSessao(admin, { tempoSessaoMin: 1, tetoMin: 0 })).rejects.toBeInstanceOf(
       ErroDeValidacao,
     );
-    await expect(alterarPoliticaDeSessao(admin, { tempoSessaoMin: 10_000 })).rejects.toBeInstanceOf(
+    await expect(alterarPoliticaDeSessao(admin, { tempoSessaoMin: 10_000, tetoMin: 0 })).rejects.toBeInstanceOf(
       ErroDeValidacao,
     );
   });
@@ -207,7 +210,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
   it("lê o padrão do domínio quando não há linha e passa a ler o que foi salvo, auditando", async () => {
     expect(await lerPoliticaDeSessao()).toEqual(POLITICA_SESSAO_PADRAO);
 
-    await alterarPoliticaDeSessao(admin, { tempoSessaoMin: 45 });
+    await alterarPoliticaDeSessao(admin, { tempoSessaoMin: 45, tetoMin: 0 });
     expect((await lerPoliticaDeSessao()).tempoSessaoMin).toBe(45);
 
     const evento = await prisma.auditoriaEvento.findFirst({
@@ -224,7 +227,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
 
   it("tempo de sessão e política de senha convivem na mesma linha singleton", async () => {
     await alterarPoliticaDeSenha(admin, { ...POLITICA_SENHA_PADRAO, comprimentoMin: 11 });
-    await alterarPoliticaDeSessao(admin, { tempoSessaoMin: 22 });
+    await alterarPoliticaDeSessao(admin, { tempoSessaoMin: 22, tetoMin: 0 });
     // Nenhuma das duas escritas apaga a outra.
     expect((await lerPoliticaDeSenha()).comprimentoMin).toBe(11);
     expect((await lerPoliticaDeSessao()).tempoSessaoMin).toBe(22);
@@ -235,6 +238,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
       ...POLITICA_SENHA_PADRAO,
       comprimentoMin: 8,
       historicoN: 2,
+      validadeDias: 0,
     });
     const alvo = await criarDireto("Poda Cfg", "LEITURA", "senha-numero-1");
     const ator = { id: alvo.id, papel: "LEITURA" as const };

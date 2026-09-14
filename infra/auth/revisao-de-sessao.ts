@@ -3,8 +3,10 @@ import type { Papel } from "@prisma/client";
 import { sessaoContinuaValida } from "@/dominio/usuarios/regras";
 import {
   type PoliticaDeSessao,
+  sessaoEstourouTeto,
   sessaoExpirouPorInatividade,
 } from "@/dominio/usuarios/politica-sessao";
+import { type PoliticaDeSenha, senhaVenceu } from "@/dominio/usuarios/politica-senha";
 
 /**
  * A decisão que o callback `jwt` do Auth.js toma a cada requisição
@@ -28,10 +30,12 @@ export interface UsuarioParaRevisao {
   nome: string;
   sessaoEpoca: number;
   trocaSenhaObrigatoria: boolean;
+  /** Quando a senha foi trocada — nulo = nunca vence (ver `senhaVenceu`). */
+  senhaAlteradaEm?: Date | null;
 }
 
 /** Por que a sessão caiu — só para o log do servidor (RN55: não vai à tela). */
-export type MotivoDaQueda = "revogada" | "inatividade";
+export type MotivoDaQueda = "revogada" | "inatividade" | "teto";
 
 export interface ResultadoDaRevisao {
   token: JWT | null;
@@ -53,17 +57,32 @@ export function revisarTokenDeSessao(entrada: {
   token: JWT;
   usuarioAtual: UsuarioParaRevisao | null;
   politica: PoliticaDeSessao;
+  politicaSenha?: PoliticaDeSenha;
   agora: number;
 }): ResultadoDaRevisao {
-  const { token, usuarioAtual, politica, agora } = entrada;
+  const { token, usuarioAtual, politica, politicaSenha, agora } = entrada;
 
   if (!usuarioAtual || !sessaoContinuaValida(token.sessaoEpoca, usuarioAtual)) {
     return { token: null, motivo: "revogada" };
   }
 
+  // O teto ABSOLUTO vem antes da inatividade: ele não se renova com o uso, e
+  // quem o estourou está fora mesmo tendo agido há um segundo. Reportar
+  // "inatividade" nesse caso seria mentir no log.
+  if (sessaoEstourouTeto(token.inicioSessao, agora, politica)) {
+    return { token: null, motivo: "teto" };
+  }
+
   if (sessaoExpirouPorInatividade(token.ultimaAtividade, agora, politica)) {
     return { token: null, motivo: "inatividade" };
   }
+
+  // Validade periódica da senha: não derruba a sessão — marca a credencial
+  // como provisória, e o layout do grupo (plataforma) já leva à tela de troca.
+  // Reusar o caminho existente evita um segundo mecanismo de redirecionamento.
+  const venceu = politicaSenha
+    ? senhaVenceu(usuarioAtual.senhaAlteradaEm ?? null, new Date(agora), politicaSenha)
+    : false;
 
   return {
     token: {
@@ -71,7 +90,7 @@ export function revisarTokenDeSessao(entrada: {
       ultimaAtividade: agora,
       papel: usuarioAtual.papel,
       nome: usuarioAtual.nome,
-      trocaSenhaObrigatoria: usuarioAtual.trocaSenhaObrigatoria,
+      trocaSenhaObrigatoria: usuarioAtual.trocaSenhaObrigatoria || venceu,
     },
   };
 }

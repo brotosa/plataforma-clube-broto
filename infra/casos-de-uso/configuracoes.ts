@@ -42,6 +42,7 @@ function paraAuditavel(politica: PoliticaDeSenha): Record<string, unknown> {
     senhaExigeNumero: politica.exigeNumero,
     senhaExigeSimbolo: politica.exigeSimbolo,
     senhaHistoricoN: politica.historicoN,
+    senhaValidadeDias: politica.validadeDias,
   };
 }
 
@@ -56,19 +57,20 @@ export async function lerPoliticaDeSenha(): Promise<PoliticaDeSenha> {
     exigeNumero: linha.senhaExigeNumero,
     exigeSimbolo: linha.senhaExigeSimbolo,
     historicoN: linha.senhaHistoricoN,
+    validadeDias: linha.senhaValidadeDias,
   };
 }
 
 /** Só o campo da política de sessão, para a trilha de auditoria. */
 function paraAuditavelSessao(politica: PoliticaDeSessao): Record<string, unknown> {
-  return { tempoSessaoMin: politica.tempoSessaoMin };
+  return { tempoSessaoMin: politica.tempoSessaoMin, sessaoTetoMin: politica.tetoMin };
 }
 
 /** Política de sessão vigente — o padrão do domínio quando não há linha. */
 export async function lerPoliticaDeSessao(): Promise<PoliticaDeSessao> {
   const linha = await prisma.configuracaoPortal.findUnique({ where: { id: ID_SINGLETON } });
   if (!linha) return POLITICA_SESSAO_PADRAO;
-  return { tempoSessaoMin: linha.tempoSessaoMin };
+  return { tempoSessaoMin: linha.tempoSessaoMin, tetoMin: linha.sessaoTetoMin };
 }
 
 /** Salva a política de sessão — só Administrador, valores validados e auditados. */
@@ -92,7 +94,7 @@ export async function alterarPoliticaDeSessao(ator: Ator, nova: PoliticaDeSessao
       entidadeId: ID_SINGLETON,
       autorId: ator.id,
       anterior: anterior
-        ? paraAuditavelSessao({ tempoSessaoMin: anterior.tempoSessaoMin })
+        ? paraAuditavelSessao({ tempoSessaoMin: anterior.tempoSessaoMin, tetoMin: anterior.sessaoTetoMin })
         : paraAuditavelSessao(POLITICA_SESSAO_PADRAO),
       novo: dados,
     });
@@ -174,6 +176,7 @@ export async function alterarPoliticaDeSenha(ator: Ator, nova: PoliticaDeSenha):
             exigeNumero: anterior.senhaExigeNumero,
             exigeSimbolo: anterior.senhaExigeSimbolo,
             historicoN: anterior.senhaHistoricoN,
+            validadeDias: anterior.senhaValidadeDias,
           })
         : paraAuditavel(POLITICA_SENHA_PADRAO),
       novo: dados,

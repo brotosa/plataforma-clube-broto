@@ -29,11 +29,14 @@ export const BLOQUEIO_MIN_MAXIMO = 1440; // 24 horas.
 export function validarPoliticaDeLogin(politica: PoliticaDeLogin): string[] {
   const erros: string[] = [];
   const { maxTentativas, bloqueioMin } = politica;
-  if (!Number.isInteger(maxTentativas)) {
-    erros.push("O número de tentativas deve ser um inteiro.");
-  } else if (maxTentativas < MAX_TENTATIVAS_MINIMO || maxTentativas > MAX_TENTATIVAS_MAXIMO) {
+  if (!Number.isInteger(maxTentativas) || maxTentativas < 0) {
+    erros.push("O número de tentativas não pode ser negativo (use 0 para desligar).");
+  } else if (
+    maxTentativas !== 0 &&
+    (maxTentativas < MAX_TENTATIVAS_MINIMO || maxTentativas > MAX_TENTATIVAS_MAXIMO)
+  ) {
     erros.push(
-      `O número de tentativas deve ficar entre ${MAX_TENTATIVAS_MINIMO} e ${MAX_TENTATIVAS_MAXIMO}.`,
+      `O número de tentativas deve ser 0 (desligado) ou entre ${MAX_TENTATIVAS_MINIMO} e ${MAX_TENTATIVAS_MAXIMO}.`,
     );
   }
   if (!Number.isInteger(bloqueioMin)) {
@@ -73,6 +76,11 @@ export function registrarFalha(
   politica: PoliticaDeLogin,
   agora: Date,
 ): EstadoBloqueio {
+  // Bloqueio DESLIGADO (0): não conta e não bloqueia — nem sequer acumula
+  // contador, para que religar a regra não puna falhas antigas.
+  if (!politica.maxTentativas || politica.maxTentativas <= 0) {
+    return atual;
+  }
   // Bloqueio ainda vigente: nada muda (a falha nem deveria ter chegado aqui).
   if (estaBloqueado(atual.bloqueadoAte, agora)) {
     return atual;
@@ -104,5 +112,8 @@ export function minutosRestantesDeBloqueio(
 
 /** Descrição legível da política, para a tela de Configurações. */
 export function descreverPolitica(politica: PoliticaDeLogin): string {
+  if (!politica.maxTentativas || politica.maxTentativas <= 0) {
+    return "O bloqueio por tentativas está desligado: errar a senha não tranca a conta.";
+  }
   return `Após ${politica.maxTentativas} tentativas de senha erradas, o acesso fica bloqueado por ${politica.bloqueioMin} minuto(s). O Administrador da Plataforma nunca é bloqueado.`;
 }

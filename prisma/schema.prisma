@@ -70,6 +70,12 @@ model Usuario {
   loginTentativas   Int       @default(0) @map("login_tentativas")
   loginBloqueadoAte DateTime? @map("login_bloqueado_ate")
 
+  /// Quando a senha foi trocada pela última vez, para a validade periódica.
+  /// **Nulo = nunca vence** — é o estado de quem já existia quando a coluna
+  /// nasceu, e tratá-lo como vencido mandaria a base inteira para a tela de
+  /// troca no primeiro deploy. Passa a ter valor na próxima troca.
+  senhaAlteradaEm   DateTime? @map("senha_alterada_em")
+
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
@@ -155,11 +161,20 @@ model ConfiguracaoPortal {
   senhaExigeSimbolo   Boolean @default(false) @map("senha_exige_simbolo")
   /// Quantas senhas anteriores não podem repetir (0 = sem histórico).
   senhaHistoricoN     Int     @default(5) @map("senha_historico_n")
+  /// Validade da senha em dias — passado o prazo desde a última troca, a
+  /// próxima entrada exige trocar. **0 = desativado**, e é o padrão: ligar é
+  /// decisão do Administrador, não efeito de deploy.
+  senhaValidadeDias   Int     @default(0) @map("senha_validade_dias")
 
   /// Tempo de sessão por inatividade, em minutos: passado esse intervalo sem
   /// atividade, a sessão expira (janela deslizante — cada atividade reinicia a
   /// contagem). Default 30. A cerca de faixa vive no domínio.
   tempoSessaoMin      Int     @default(30) @map("tempo_sessao_min")
+  /// Teto ABSOLUTO da sessão em minutos: passado esse tempo desde o login, a
+  /// sessão cai mesmo com atividade contínua. **0 = desativado**, e é o
+  /// padrão — ligar é decisão do Administrador. Diferente do tempo de
+  /// inatividade, este não se renova com o uso.
+  sessaoTetoMin       Int     @default(0) @map("sessao_teto_min")
 
   /// Bloqueio por tentativas de login: quantas falhas consecutivas bloqueiam
   /// a conta (default 5) e por quantos minutos (default 15). O Administrador
