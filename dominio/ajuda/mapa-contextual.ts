@@ -79,6 +79,18 @@ export const MAPA_AJUDA: ReadonlyArray<ModuloDeAjuda> = [
    * de fora tiraria a barra de uma tela real da plataforma.
    */
   { padrao: "/carga-inicial", rotulo: "Carga inicial", secao: SECAO_DE_ABERTURA },
+  /**
+   * Configurações (política de senha, tempo de sessão, bloqueio por login).
+   * Mesmo caso da carga inicial, e pela mesma razão: o guia ainda não tem
+   * seção sobre este módulo — a 4.6 ("Configurar a plataforma") é sobre o
+   * Parametrizador, que cuida de regra de negócio, não de segurança do
+   * portal. Sem a entrada aqui a rota não casaria com padrão nenhum
+   * (`"/"` casa só com o caminho vazio), `resolverOrigem` devolveria nulo e
+   * a tela perderia a BARRA DE VOLTA — exatamente o que o comentário acima
+   * diz que não se pode deixar acontecer com uma tela real.
+   * Quando o guia ganhar a seção, é só trocar `SECAO_DE_ABERTURA` por ela.
+   */
+  { padrao: "/configuracoes", rotulo: "Configurações", secao: SECAO_DE_ABERTURA },
 ];
 
 /**
