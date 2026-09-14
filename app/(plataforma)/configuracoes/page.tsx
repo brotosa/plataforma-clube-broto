@@ -2,9 +2,16 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/infra/auth";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
-import { lerPoliticaDeSenha, lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
+import {
+  lerPoliticaDeLogin,
+  lerPoliticaDeSenha,
+  lerPoliticaDeSessao,
+} from "@/infra/casos-de-uso/configuracoes";
+import { listarLoginsBloqueados } from "@/infra/casos-de-uso/bloqueio-login";
 import { FormularioPoliticaSenha } from "./formulario-politica-senha";
 import { FormularioTempoSessao } from "./formulario-tempo-sessao";
+import { FormularioBloqueioLogin } from "./formulario-bloqueio-login";
+import { ListaBloqueados } from "./lista-bloqueados";
 
 export const metadata: Metadata = {
   title: "Configurações",
@@ -26,9 +33,11 @@ export default async function PaginaConfiguracoes() {
     redirect("/");
   }
 
-  const [politica, politicaSessao] = await Promise.all([
+  const [politica, politicaSessao, politicaLogin, bloqueados] = await Promise.all([
     lerPoliticaDeSenha(),
     lerPoliticaDeSessao(),
+    lerPoliticaDeLogin(),
+    listarLoginsBloqueados(),
   ]);
 
   return (
@@ -60,6 +69,33 @@ export default async function PaginaConfiguracoes() {
       </p>
 
       <FormularioTempoSessao inicial={politicaSessao} />
+
+      <h2 className="h-el" style={{ margin: "28px 0 4px" }}>
+        Bloqueio por tentativas de login
+      </h2>
+      <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
+        Quantas senhas erradas seguidas bloqueiam a conta e por quanto tempo. O Administrador da
+        Plataforma nunca é bloqueado — a conta que faz o desbloqueio não pode se trancar.
+      </p>
+
+      <FormularioBloqueioLogin inicial={politicaLogin} />
+
+      <h3 className="h-el" style={{ margin: "20px 0 4px", fontSize: "1rem" }}>
+        Contas bloqueadas
+      </h3>
+      <p className="cap" style={{ margin: "0 0 12px", maxWidth: "74ch" }}>
+        Libere o acesso antes de o tempo de bloqueio correr. O desbloqueio é auditado.
+      </p>
+
+      <ListaBloqueados
+        itens={bloqueados.map((linha) => ({
+          id: linha.id,
+          nome: linha.nome,
+          email: linha.email,
+          rotuloPapel: linha.rotuloPapel,
+          minutosRestantes: linha.minutosRestantes,
+        }))}
+      />
     </div>
   );
 }

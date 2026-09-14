@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/infra/auth";
+import { emailEstaBloqueado } from "@/infra/casos-de-uso/bloqueio-login";
 
 export const metadata: Metadata = {
   title: "Entrar",
@@ -10,16 +11,21 @@ export const metadata: Metadata = {
 
 async function autenticar(dados: FormData) {
   "use server";
+  const email = String(dados.get("email") ?? "");
   try {
     await signIn("credentials", {
-      email: dados.get("email"),
+      email,
       senha: dados.get("senha"),
       // T26 é a HOME da plataforma (ficha Onda 6 §2).
       redirectTo: "/",
     });
   } catch (erro) {
     if (erro instanceof AuthError) {
-      redirect("/entrar?erro=credenciais");
+      // O provedor já atualizou o estado de bloqueio (PR C). Se a conta ficou
+      // (ou está) bloqueada, a mensagem é outra — e diz onde pedir ajuda —,
+      // sem que o provedor precise vazar o motivo da recusa.
+      const bloqueado = email ? await emailEstaBloqueado(email) : false;
+      redirect(bloqueado ? "/entrar?erro=bloqueado" : "/entrar?erro=credenciais");
     }
     throw erro; // NEXT_REDIRECT do fluxo de sucesso passa adiante
   }
@@ -96,6 +102,24 @@ export default async function PaginaEntrar({
             }}
           >
             E-mail ou senha inválidos. Verifique os dados e tente novamente.
+          </p>
+        ) : null}
+
+        {erro === "bloqueado" ? (
+          <p
+            role="alert"
+            className="cap"
+            style={{
+              color: "var(--erro-texto-aaa)",
+              background: "var(--erro-claro)",
+              border: "1px solid var(--erro)",
+              borderRadius: "var(--r-sm)",
+              padding: "10px 12px",
+              margin: "0 0 16px",
+            }}
+          >
+            Acesso bloqueado por tentativas de senha erradas. Aguarde o tempo de bloqueio ou peça ao
+            Administrador da Plataforma para desbloquear.
           </p>
         ) : null}
 
