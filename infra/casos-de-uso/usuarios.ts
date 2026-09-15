@@ -535,3 +535,64 @@ export async function exigirNovaSenhaDeTodos(ator: Ator): Promise<{ alcancados: 
 
   return { alcancados: alvos.length };
 }
+
+/**
+ * Encerrar as sessões abertas de um usuário, **sem tirar o acesso dele**.
+ *
+ * O caso real: o notebook esquecido logado no cliente, ou a suspeita de que um
+ * token vazou sem que a pessoa tenha feito nada de errado. Nenhuma ação
+ * existente cobria isso sem efeito colateral — `inativarUsuario` derruba as
+ * sessões, mas revoga o acesso e força credencial provisória nova na volta, e
+ * `redefinirCredencial` troca a senha e cria um segredo para alguém
+ * transmitir. Aqui não se mexe em papel, em situação nem em senha: a pessoa
+ * simplesmente entra de novo, com o que já sabe.
+ *
+ * **Bloquear manualmente foi considerado e descartado**, por ser
+ * indistinguível de inativar no que importa — e pior em dois pontos: a conta
+ * continuaria marcada "Ativo" sem conseguir entrar, o que é chamado de
+ * suporte garantido, e a pessoa voltaria com a senha antiga, que é justamente
+ * o que não se quer quando a suspensão vem de suspeita.
+ *
+ * O mecanismo é o da RN47: incrementar `sessaoEpoca` invalida todo token
+ * emitido antes, e a queda acontece na requisição seguinte de cada sessão.
+ *
+ * **A auditoria é escrita à mão, e não pelo diff.** `sessaoEpoca` está em
+ * `CAMPOS_FORA_DA_TRILHA` — e com razão, porque ele muda junto de outras ações
+ * e poluiria a trilha —, então o diff genérico não geraria evento nenhum e o
+ * ato ficaria invisível. Um administrador derrubando a sessão de outra pessoa
+ * é exatamente o tipo de coisa que a trilha existe para registrar, então o
+ * evento é de **ato**, com campo nomeado, no mesmo padrão do acesso a dados
+ * plenos da Onda 5.
+ */
+export async function encerrarSessoes(ator: Ator, usuarioId: string): Promise<void> {
+  exigirPermissao(ator.papel, "GERIR_USUARIOS");
+
+  await prisma.$transaction(async (tx) => {
+    const alvo = await tx.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { id: true, nome: true },
+    });
+    if (!alvo) {
+      throw new ErroDeValidacao(["Usuário não encontrado."]);
+    }
+
+    await tx.usuario.update({
+      where: { id: usuarioId },
+      data: { sessaoEpoca: { increment: 1 } },
+    });
+
+    await criarGravadorPrisma(tx).gravar([
+      {
+        entidade: ENTIDADE,
+        entidadeId: usuarioId,
+        campo: "sessoes_encerradas",
+        valorAnterior: null,
+        valorNovo: JSON.stringify({
+          motivo: "encerramento manual pelo administrador",
+          proprioAutor: ator.id === usuarioId,
+        }),
+        autorId: ator.id,
+      },
+    ]);
+  });
+}

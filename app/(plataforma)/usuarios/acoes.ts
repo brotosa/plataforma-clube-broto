@@ -13,6 +13,7 @@ import {
   trocarPropriaSenha,
   exigirNovaSenha,
   exigirNovaSenhaDeTodos,
+  encerrarSessoes,
 } from "@/infra/casos-de-uso/usuarios";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
@@ -179,6 +180,30 @@ export async function acaoExigirNovaSenhaDeTodos(
         alcancados === 0
           ? "Nenhum usuário a alcançar: todos os ativos já estão com troca exigida."
           : `Troca de senha exigida de ${alcancados} usuário(s) ativo(s), inclusive você.`,
+    };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
+/**
+ * Encerrar as sessões abertas de um usuário. Não tira o acesso: a pessoa entra
+ * de novo com a senha que já tem.
+ */
+export async function acaoEncerrarSessoes(
+  _anterior: EstadoUsuarios,
+  dados: FormData,
+): Promise<EstadoUsuarios> {
+  const ator = await atorDaSessao();
+  const usuarioId = String(dados.get("usuarioId") ?? "");
+  try {
+    await encerrarSessoes(ator, usuarioId);
+    revalidatePath("/usuarios");
+    return {
+      sucesso:
+        ator.id === usuarioId
+          ? "Suas sessões foram encerradas — inclusive esta, na próxima navegação."
+          : "Sessões encerradas — o acesso continua, e a pessoa entra de novo com a senha atual.",
     };
   } catch (erro) {
     return paraEstado(erro);
