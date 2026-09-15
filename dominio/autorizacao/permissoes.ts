@@ -285,10 +285,28 @@ export const ACOES = Object.keys(PERMISSOES) as ReadonlyArray<Acao>;
  * próprio.
  */
 export function podeExecutar(papel: Papel, acao: Acao): boolean {
-  if (PAPEIS_COM_ACESSO_TOTAL.includes(papel)) {
+  if (temAcessoTotal(papel)) {
     return true;
   }
   return PERMISSOES[acao].includes(papel);
+}
+
+/**
+ * O papel pode toda ação da plataforma?
+ *
+ * Exposto porque a interface precisa **distinguir** o acesso total dos demais
+ * — a T27 o marca com o degrau mais forte da pílula de papel, já que é a
+ * atribuição de maior consequência da tela. Sem esta função a tela repetiria
+ * o literal `"ADMINISTRADOR_PLATAFORMA"`, que foi exatamente o padrão que a
+ * renomeação da Onda 15 mostrou ser frágil: nome muda, comparação literal fica
+ * para trás em silêncio.
+ *
+ * **Não serve para decidir permissão** — para isso existe `podeExecutar`, que
+ * responde pela ação concreta. Esta responde "quanto pesa este papel", que é
+ * pergunta de apresentação.
+ */
+export function temAcessoTotal(papel: Papel): boolean {
+  return PAPEIS_COM_ACESSO_TOTAL.includes(papel);
 }
 
 /** Erro padronizado para negativas de autorização. */

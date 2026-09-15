@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import type { Papel } from "@prisma/client";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
+import { podeExecutar, temAcessoTotal } from "@/dominio/autorizacao/permissoes";
 import { MENSAGEM_ULTIMO_ADMINISTRADOR } from "@/dominio/usuarios/regras";
 import type { LinhaUsuario } from "@/infra/consultas/usuarios";
 import { ErrosDoFormulario, MensagemDeSucesso } from "../aliados/formularios";
@@ -42,6 +43,31 @@ const PAPEIS: ReadonlyArray<Papel> = [
   "ADMIN",
   "ADMINISTRADOR_PLATAFORMA",
 ];
+
+/**
+ * A pílula da coluna Papel, em três degraus.
+ *
+ * `pill-neutra` para quem não administra · `pill-info` para o **Administrador**
+ * · `pill-info pill-total`, com ponto e borda firme, para o **Administrador da
+ * Plataforma**, que pode toda ação.
+ *
+ * Os dois papéis de administração ficam na mesma família de cor de propósito:
+ * ambos administram, e o que os separa é **quanto** podem — grau, não espécie.
+ *
+ * Escrito por capacidade, e não pelo nome do papel. Antes da Onda 15 a regra
+ * era `papel === "ADMINISTRADOR_PLATAFORMA" ? azul : cinza`, escrita quando
+ * esse nome designava o administrador comum. A renomeação a deixou **certa por
+ * coincidência** — o azul passou a marcar o acesso total, que é mesmo o que
+ * merece destaque, mas por acidente — e, pior, deixou o Administrador com a
+ * mesma pílula cinza de Leitura e Comercial. Comparação literal de papel é o
+ * padrão que a renomeação mostrou ser frágil.
+ */
+function classeDaPilulaDePapel(papel: Papel): string {
+  if (temAcessoTotal(papel)) {
+    return "pill pill-info pill-total";
+  }
+  return podeExecutar(papel, "GERIR_USUARIOS") ? "pill pill-info" : "pill pill-neutra";
+}
 
 const ESTADO_INICIAL: EstadoUsuarios = {};
 
@@ -399,13 +425,8 @@ export function TabelaUsuarios({
                   {usuario.email}
                 </td>
                 <td data-label="Papel">
-                  <span
-                    className={
-                      usuario.papel === "ADMINISTRADOR_PLATAFORMA"
-                        ? "pill pill-info"
-                        : "pill pill-neutra"
-                    }
-                  >
+                  <span className={classeDaPilulaDePapel(usuario.papel)}>
+                    {temAcessoTotal(usuario.papel) ? <i aria-hidden="true" /> : null}
                     {ROTULOS_PAPEL[usuario.papel]}
                   </span>
                 </td>
