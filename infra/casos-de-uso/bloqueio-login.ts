@@ -1,7 +1,7 @@
 import { prisma } from "@/infra/prisma/cliente";
 import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
-import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
+import { exigirPermissao, podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import {
   estaBloqueado,
@@ -19,15 +19,20 @@ import { type Ator, ErroDeValidacao } from "./contexto";
 /**
  * A conta desse e-mail está bloqueada agora? Usada pela tela de login para
  * mostrar a mensagem certa — sem que o provedor de credenciais vaze o motivo.
- * Nunca reporta o Administrador como bloqueado (ele não é), nem revela a
- * existência de e-mail: desconhecido/inativo devolve `false`.
+ * Nunca reporta como bloqueado quem é isento (não é), nem revela a existência
+ * de e-mail: desconhecido/inativo devolve `false`.
+ *
+ * A isenção é lida pela **capacidade** (`CONFIGURAR_PORTAL`), no mesmo desenho
+ * do provedor de credenciais — e tem de ser a mesma condição dos dois lados:
+ * se aqui dissesse "bloqueado" e lá a autenticação deixasse passar, a tela de
+ * login exibiria um bloqueio que não existe.
  */
 export async function emailEstaBloqueado(email: string): Promise<boolean> {
   const usuario = await prisma.usuario.findUnique({
     where: { email },
     select: { ativo: true, papel: true, loginBloqueadoAte: true },
   });
-  if (!usuario || !usuario.ativo || usuario.papel === "ADMINISTRADOR_PLATAFORMA") {
+  if (!usuario || !usuario.ativo || podeExecutar(usuario.papel, "CONFIGURAR_PORTAL")) {
     return false;
   }
   return estaBloqueado(usuario.loginBloqueadoAte, new Date());

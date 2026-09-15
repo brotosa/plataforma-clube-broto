@@ -109,7 +109,7 @@ test("contador de sessão aparece ao lado do sino e conta em mm:ss", async ({ pa
 
 test("Administrador ajusta o tempo de sessão e salva", async ({ page }) => {
   await entrar(page, ADMIN);
-  await page.goto("/configuracoes");
+  await page.goto("/configuracoes?aba=sessao");
   await expect(page.getByRole("heading", { name: "Tempo de sessão" })).toBeVisible();
 
   const campo = page.getByLabel("Tempo de sessão (minutos)");
@@ -123,7 +123,7 @@ test("Administrador ajusta o tempo de sessão e salva", async ({ page }) => {
 
 test("Administrador ajusta o bloqueio por login e vê a lista de bloqueados vazia", async ({ page }) => {
   await entrar(page, ADMIN);
-  await page.goto("/configuracoes");
+  await page.goto("/configuracoes?aba=bloqueios");
   await expect(page.getByRole("heading", { name: "Bloqueio por tentativas de login" })).toBeVisible();
   await expect(page.getByText("Nenhuma conta bloqueada no momento.")).toBeVisible();
 
@@ -139,7 +139,7 @@ test("Administrador ajusta o bloqueio por origem e vê a lista de endereços vaz
   page,
 }) => {
   await entrar(page, ADMIN);
-  await page.goto("/configuracoes");
+  await page.goto("/configuracoes?aba=bloqueios");
   await expect(page.getByRole("heading", { name: "Bloqueio por origem de rede" })).toBeVisible();
   await expect(page.getByText("Nenhum endereço bloqueado no momento.")).toBeVisible();
   // Nasce desligado: o campo vem em 0 e a prévia diz isso.
@@ -191,7 +191,7 @@ test("bloqueio por tentativas: erra a senha, é barrado e o Administrador desblo
     try {
       const paginaAdmin = await adminCtx.newPage();
       await entrar(paginaAdmin, ADMIN);
-      await paginaAdmin.goto("/configuracoes");
+      await paginaAdmin.goto("/configuracoes?aba=bloqueios");
       const linha = paginaAdmin.getByRole("row", { name: new RegExp(alvo.email) });
       await expect(linha).toBeVisible();
       await linha.getByRole("button", { name: "Desbloquear" }).click();
@@ -209,6 +209,66 @@ test("bloqueio por tentativas: erra a senha, é barrado e o Administrador desblo
   } finally {
     await ctx.close();
   }
+});
+
+test("as três abas navegam e trocam o conteúdo — axe limpo em cada uma", async ({ page }) => {
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes");
+
+  const abas = page.getByRole("navigation", { name: "Seções das configurações" });
+
+  // Abre em "Senha": é a aba padrão de quem chega sem `?aba=`.
+  await expect(page.getByRole("heading", { name: "Política de senha" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tempo de sessão" })).toHaveCount(0);
+  await semViolacoesAxe(page);
+
+  await abas.getByRole("link", { name: "Sessão" }).click();
+  await page.waitForURL(/\?aba=sessao/);
+  await expect(page.getByRole("heading", { name: "Tempo de sessão" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Política de senha" })).toHaveCount(0);
+  await semViolacoesAxe(page);
+
+  await abas.getByRole("link", { name: "Bloqueios" }).click();
+  await page.waitForURL(/\?aba=bloqueios/);
+  await expect(page.getByRole("heading", { name: "Bloqueio por tentativas de login" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bloqueio por origem de rede" })).toBeVisible();
+  await semViolacoesAxe(page);
+});
+
+/**
+ * A razão de ser da faixa: abas ESCONDEM. Sem ela, quem administra o portal
+ * pode nunca abrir "Bloqueios" e nunca descobrir que o bloqueio por origem
+ * existe — desligado. A faixa fica fora do sistema de abas e cobre as quatro
+ * proteções em qualquer uma delas. Se alguém mover a faixa para dentro de uma
+ * aba, este teste é que reprova.
+ */
+test("a faixa de panorama mostra as quatro proteções em TODAS as abas", async ({ page }) => {
+  await entrar(page, ADMIN);
+  const faixa = page.getByRole("group", { name: "Panorama das configurações de segurança" });
+
+  for (const aba of ["senha", "sessao", "bloqueios"]) {
+    await page.goto(`/configuracoes?aba=${aba}`);
+    await expect(faixa).toBeVisible();
+    await expect(faixa.getByText("Senha", { exact: true })).toBeVisible();
+    await expect(faixa.getByText("Sessão", { exact: true })).toBeVisible();
+    await expect(faixa.getByText("Bloqueio por login", { exact: true })).toBeVisible();
+    await expect(faixa.getByText("Bloqueio por origem", { exact: true })).toBeVisible();
+  }
+});
+
+test("proteção desligada aparece como palavra na faixa, nunca como zero", async ({ page }) => {
+  // Padrão do domínio: o bloqueio por origem nasce desligado.
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes");
+  const faixa = page.getByRole("group", { name: "Panorama das configurações de segurança" });
+  await expect(faixa.getByText("Desligado")).toBeVisible();
+});
+
+test("aba inexistente na URL cai no padrão, não em erro nem em tela vazia", async ({ page }) => {
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes?aba=inventada");
+  await expect(page.getByRole("heading", { level: 1, name: "Configurações" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Política de senha" })).toBeVisible();
 });
 
 test("Gestor não vê 'Configurações' e é redirecionado se tentar a rota", async ({ page }) => {

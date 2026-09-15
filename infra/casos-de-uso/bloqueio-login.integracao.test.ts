@@ -28,7 +28,7 @@ let admin: Ator;
 
 async function criarDireto(
   nome: string,
-  papel: "ADMINISTRADOR_PLATAFORMA" | "GESTOR" | "LEITURA",
+  papel: "ADMINISTRADOR_PLATAFORMA" | "ADMIN" | "GESTOR" | "LEITURA",
 ) {
   return prisma.usuario.create({
     data: {
@@ -115,6 +115,32 @@ describe.skipIf(!temBanco)("Bloqueio por tentativas de login (PR C)", () => {
     // E continua entrando com a senha certa.
     expect(
       await provedorCredenciaisPrisma.autenticarPorCredenciais(outroAdmin.email, SENHA),
+    ).not.toBeNull();
+  });
+
+  /**
+   * A isenção acompanhou a RENOMEAÇÃO da Onda 15, e tinha de acompanhar.
+   *
+   * O papel que se chamava "Administrador da Plataforma" passou a se chamar
+   * "Administrador" (`ADMIN`), e é nele que estão as contas reais. Se a
+   * isenção tivesse ficado presa ao literal `ADMINISTRADOR_PLATAFORMA`, ela
+   * passaria a valer para um papel que ninguém detém e as contas reais —
+   * que só trocaram de nome — perderiam a isenção **sem que nada no pedido
+   * mandasse tirá-la**. Numa renomeação, nada pode mudar.
+   *
+   * A condição passou a ser a CAPACIDADE (`CONFIGURAR_PORTAL`), que é o
+   * motivo original da regra: a conta que destranca as outras não pode se
+   * trancar.
+   */
+  it("o papel renomeado (Administrador) também nunca é bloqueado nem contado", async () => {
+    const administrador = await criarDireto("Administrador Alvo Blq", "ADMIN");
+    await errarSenha(administrador.email, 10);
+    const estado = await prisma.usuario.findUniqueOrThrow({ where: { id: administrador.id } });
+    expect(estado.loginTentativas).toBe(0);
+    expect(estado.loginBloqueadoAte).toBeNull();
+    expect(await emailEstaBloqueado(administrador.email)).toBe(false);
+    expect(
+      await provedorCredenciaisPrisma.autenticarPorCredenciais(administrador.email, SENHA),
     ).not.toBeNull();
   });
 

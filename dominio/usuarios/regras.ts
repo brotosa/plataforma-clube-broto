@@ -1,10 +1,11 @@
 import type { Papel } from "@prisma/client";
+import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 
 /**
  * Regras puras da gestão de usuários (Onda 6, ficha §3 e §5).
  *
  * RN46 — proteção do último administrador (anti-lockout): o sistema impede
- * rebaixar ou inativar o único usuário com papel Administrador.
+ * rebaixar ou inativar o único usuário capaz de gerir usuários.
  * RN47 — a inativação revoga o acesso imediatamente e preserva o histórico.
  *
  * Nada aqui toca banco: as funções recebem o retrato de quem existe e
@@ -26,11 +27,25 @@ export interface MudancaDeUsuario {
   ativo?: boolean;
 }
 
-const PAPEL_ADMINISTRADOR: Papel = "ADMINISTRADOR_PLATAFORMA";
-
-/** Administrador que conta para a RN46: tem o papel E está ativo. */
+/**
+ * Administrador que conta para a RN46: **pode gerir usuários** e está ativo.
+ *
+ * Era `papel === "ADMINISTRADOR_PLATAFORMA"`, escrito quando esse era o único
+ * papel de administração. A Onda 15 renomeou aquele papel para `ADMIN`
+ * ("Administrador") e deu o nome antigo ao acesso total — e a comparação
+ * literal teria ficado **errada e silenciosa**: depois da renomeação a base
+ * não tem nenhum `ADMINISTRADOR_PLATAFORMA`, a contagem daria zero, a regra
+ * nunca dispararia, e alguém poderia rebaixar o último Administrador deixando
+ * a plataforma sem quem atribui papéis. A RN46 existe exatamente para impedir
+ * isso.
+ *
+ * Definir pela **capacidade** em vez do nome resolve de uma vez: quem protege
+ * a plataforma de ficar sem administração é quem pode `GERIR_USUARIOS`, seja
+ * qual for o papel que venha a ter essa ação. Papel novo com essa capacidade
+ * passa a contar sozinho, sem ninguém lembrar de vir aqui.
+ */
 export function eAdministradorEfetivo(usuario: UsuarioEmAvaliacao): boolean {
-  return usuario.papel === PAPEL_ADMINISTRADOR && usuario.ativo;
+  return usuario.ativo && podeExecutar(usuario.papel, "GERIR_USUARIOS");
 }
 
 /**

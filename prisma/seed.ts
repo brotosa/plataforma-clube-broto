@@ -165,7 +165,8 @@ const USUARIOS_DEV: ReadonlyArray<{
     | "COMERCIAL"
     | "APROVADOR"
     | "LEITURA"
-    | "ADMINISTRADOR_PLATAFORMA";
+    | "ADMINISTRADOR_PLATAFORMA"
+    | "ADMIN";
 }> = [
   { nome: "Gestor (desenvolvimento)", email: "gestor@dev.clubebroto.local", papel: "GESTOR" },
   { nome: "Analista (desenvolvimento)", email: "analista@dev.clubebroto.local", papel: "ANALISTA" },
@@ -173,9 +174,20 @@ const USUARIOS_DEV: ReadonlyArray<{
   { nome: "Comercial (desenvolvimento)", email: "comercial@dev.clubebroto.local", papel: "COMERCIAL" },
   { nome: "Aprovador (desenvolvimento)", email: "aprovador@dev.clubebroto.local", papel: "APROVADOR" },
   { nome: "Leitura (desenvolvimento)", email: "leitura@dev.clubebroto.local", papel: "LEITURA" },
+  /*
+   * Os dois papéis de administração, com os e-mails casando com os nomes:
+   * `administrador@` é o Administrador — o papel renomeado, que mantém as
+   * atribuições de sempre — e `acessototal@` é o acesso total, que na base
+   * real nasce sem ninguém e aqui existe para os testes o exercitarem.
+   */
+  {
+    nome: "Administrador (desenvolvimento)",
+    email: "administrador@dev.clubebroto.local",
+    papel: "ADMIN",
+  },
   {
     nome: "Administrador da Plataforma (desenvolvimento)",
-    email: "administrador@dev.clubebroto.local",
+    email: "acessototal@dev.clubebroto.local",
     papel: "ADMINISTRADOR_PLATAFORMA",
   },
 ];

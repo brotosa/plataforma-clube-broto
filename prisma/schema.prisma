@@ -37,10 +37,19 @@ enum Papel {
   COMERCIAL
   APROVADOR
   LEITURA
-  /// Onda 3 (ficha §2, RN23): único papel com escrita no Parametrizador e
-  /// na definição de metas. Os demais leem o hub por transparência da
-  /// configuração vigente. A gestão completa de usuários fica na Onda 6.
+  /// Onda 3 (ficha §2, RN23): escrita no Parametrizador e na definição de
+  /// metas, gestão de usuários e auditoria. Desde o desdobramento da Onda 15
+  /// é também o papel de **acesso total**: pode toda ação do sistema.
+  /// Continua sendo o papel protegido pela RN46 (a plataforma nunca fica sem
+  /// administrador) e pela isenção de bloqueio da RN74.
   ADMINISTRADOR_PLATAFORMA
+  /// Onda 15: recebe exatamente as permissões que o ADMINISTRADOR_PLATAFORMA
+  /// tinha antes de virar acesso total — configuração, metas, usuários,
+  /// auditoria, dados pessoais plenos e leitura. Administra a plataforma sem
+  /// operar o negócio. **Não** é isento de bloqueio por tentativas (RN74) nem
+  /// conta para a RN46: quem garante que sempre há como destrancar a casa é o
+  /// ADMINISTRADOR_PLATAFORMA.
+  ADMIN
 }
 
 model Usuario {

@@ -1,7 +1,7 @@
 # Ficha de Módulo — Onda 15: Configurações do portal
-**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 14/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.4 para validação · 15/09/2026
 
-Fase **F23**, única da onda. Módulo novo (**T35**), exclusivo do Administrador da Plataforma: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
+Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Administrador** e ao **Administrador da Plataforma**: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
 
 > **Esta ficha é retroativa, e isso é uma ressalva, não um detalhe.**
 >
@@ -15,13 +15,19 @@ Fase **F23**, única da onda. Módulo novo (**T35**), exclusivo do Administrador
 >
 > Nenhuma RN nova foi criada: as três funcionalidades cabem dentro de RN72, RN73 e RN74, porque são a mesma regra com um eixo a mais. Criar RN75–RN77 inflaria a numeração sem separar assunto algum.
 
+> **O que a v0.3 muda.** Só a **§4**: a tela ganhou **abas** e a **faixa de panorama**, depois de a própria tela ficar longa demais para rolar. **Nenhuma regra mudou**, nenhum parâmetro novo, nenhuma migration — as quatro proteções, seus valores, suas faixas e seu comportamento são exatamente os da v0.2. A rodada também fechou uma lacuna antiga que não era de escopo: a T35 **nunca tivera teste a 380px**, nem quando nasceu, e agora tem.
+
+> **O que a v0.4 muda.** Acrescenta a **§5.1**: o papel de administração foi **renomeado** para **Administrador** (valor `ADMIN`), mantendo as mesmas 12 atribuições e os mesmos detentores, e o nome **Administrador da Plataforma** passou a designar um papel **novo, de acesso total**, que nasce sem ninguém. É a primeira mudança de RBAC da ficha e a única desta onda com **migration** — duas, e a separação entre elas é obrigatória por restrição do PostgreSQL.
+>
+> **Como é renomeação, nada muda para quem já usa** — mesmas permissões, mesma isenção de bloqueio, mesmo peso na RN46. Garantir isso obrigou a rever duas regras que identificavam o administrador pelo nome literal e teriam passado a valer para ninguém; a §5.1 explica.
+
 ---
 
 ## 1. Por que existe
 
 A plataforma já tinha o **Parametrizador** (Onda 3), que cuida de parâmetro de **negócio** — régua, teto, comissão, meta. Não tinha onde ajustar o que é **técnico e de segurança do portal**, e essas regras viviam como constante em código: o mínimo de senha era `10` escrito na tela de troca, a sessão não expirava por inatividade e não havia bloqueio por tentativa de login.
 
-Configurações é o **irmão de segurança do Parametrizador**: mesma disciplina (escrita só do Administrador, sempre auditada, efeito prospectivo), assunto diferente.
+Configurações é o **irmão de segurança do Parametrizador**: mesma disciplina (escrita só de quem administra, sempre auditada, efeito prospectivo), assunto diferente.
 
 ## 2. Entidades
 
@@ -99,12 +105,25 @@ Três decisões que a implementação tomou e que a ficha registra para serem co
 
 ## 4. Tela — T35 Configurações
 
-Item na lateral **abaixo de Auditoria**, visível **só** a quem pode configurar. Quatro blocos, na ordem:
+Item na lateral **abaixo de Auditoria**, visível **só** a quem pode configurar. Quatro blocos, distribuídos em **três abas**:
 
-1. **Política de senha** — comprimento, classes de caractere, histórico e validade.
-2. **Tempo de sessão** — inatividade e teto absoluto.
-3. **Bloqueio por tentativas de login** — parâmetros, mais a lista **Contas bloqueadas** com o botão *Desbloquear*.
-4. **Bloqueio por origem de rede** — parâmetros, mais a lista **Endereços bloqueados** com o botão *Liberar*.
+| Aba | Blocos |
+|---|---|
+| **Senha** | política de senha — comprimento, classes de caractere, histórico e validade |
+| **Sessão** | tempo de sessão — inatividade e teto absoluto |
+| **Bloqueios** | bloqueio por tentativas de login (+ lista **Contas bloqueadas**, botão *Desbloquear*) e bloqueio por origem de rede (+ lista **Endereços bloqueados**, botão *Liberar*) |
+
+**Três abas e não quatro, deliberadamente:** os dois bloqueios são irmãos — mesma mecânica, e é onde se desbloqueia. Separá-los obrigaria quem vai liberar alguém a adivinhar, em duas abas, se o que travou foi a conta ou o endereço.
+
+A aba viaja na **query** (`?aba=`), e por isso a navegação é por **âncora nativa, não `<Link>`** — convenção da casa, medida, e prendida pela cerca `infra/arquitetura/navegacao-por-query.test.ts`, onde a tela está declarada. Aba desconhecida na URL cai na padrão (**Senha**), nunca em erro nem em tela vazia.
+
+### Faixa de panorama — o que as abas custam, e como se paga
+
+Acima das abas, sempre visível, uma faixa de quatro células (`kpi-row`, sem CSS novo) com o estado de **cada uma das quatro proteções** e, quando houver, a contagem de contas e endereços bloqueados no momento.
+
+**Ela não é enfeite, é a contrapartida da decisão de usar abas.** Aba esconde: sem a faixa, quem administra o portal poderia nunca abrir a aba *Bloqueios* e nunca descobrir que o bloqueio por origem existe — desligado. A rolagem longa que as abas substituíram tinha essa virtude, a de mostrar tudo que há, e a faixa é o que a devolve. O teste `a faixa de panorama mostra as quatro proteções em TODAS as abas` é quem reprova se alguém a mover para dentro de uma aba.
+
+O texto das células vem do domínio (`dominio/usuarios/resumo-politicas.ts`), não da tela: a interface não pode ter uma segunda opinião sobre o que "desligado" significa. E **proteção desligada aparece como a palavra "Desligado"**, jamais como `0` — número sozinho não distingue *desligado* de *nenhuma tentativa permitida*, que são opostos. É o mesmo hábito que os cartões já tinham.
 
 Quem não é Administrador é redirecionado à HOME. Cada bloco salva sozinho, com aviso próprio de sucesso e de erro: um formulário único obrigaria a revalidar tudo para mudar um campo, e uma recusa numa ponta descartaria a edição da outra.
 
@@ -116,7 +135,52 @@ A tela reusa o componente existente do repositório (`card`, `field`, `aviso-inl
 
 ## 5. RBAC
 
-Ação única **`CONFIGURAR_PORTAL`**, permitida só ao `ADMINISTRADOR_PLATAFORMA` e negada aos outros seis papéis — mesmo desenho de `CONFIGURAR_PARAMETROS`, o irmão de negócio. Cobre os três blocos e o desbloqueio: **não há ação separada** para desbloquear conta.
+Ação única **`CONFIGURAR_PORTAL`** — mesmo desenho de `CONFIGURAR_PARAMETROS`, o irmão de negócio. Cobre os quatro blocos e os dois desbloqueios: **não há ação separada** para desbloquear conta nem para liberar endereço.
+
+### 5.1 Renomeação do papel de administração, e o acesso total (v0.4)
+
+Por decisão da TI, o papel de administração foi **renomeado** e um papel de **acesso total** foi criado ao lado dele.
+
+| Valor de enum | Rótulo | Alcance | Detentores |
+|---|---|---|---|
+| **`ADMIN`** | **Administrador** | as **12 ações** de sempre — configuração, metas, usuários, auditoria, dados pessoais plenos e leitura | **as contas que já existiam**, movidas pela migration |
+| **`ADMINISTRADOR_PLATAFORMA`** | **Administrador da Plataforma** | **acesso total**: as 35 ações, e as que vierem depois | **nenhum**, até alguém atribuir |
+
+**O verbo é renomear, e a consequência é que nada muda para quem já usa.** As contas que hoje administram a plataforma continuam com exatamente as mesmas permissões, a mesma isenção de bloqueio e o mesmo peso na RN46 — só o nome do papel delas mudou. O acesso total é papel **novo**, nasce vazio, e é atribuído por ato humano na T27, auditado.
+
+Nenhum outro papel muda de alcance — Gestor segue com 31 ações, Analista com 16, e assim por diante; há teste que cobra essas contagens.
+
+**"Acesso total" está escrito como regra, não como 35 concessões.** A constante `PAPEIS_COM_ACESSO_TOTAL`, em `dominio/autorizacao/permissoes.ts`, é onde o total mora; a matriz responde "quem mais além dele". A explicitação célula a célula que a casa exige não se perde: a tabela do teste continua declarando os **oito** papéis em **todas** as ações, e a cerca `acesso-total-cobre-todas-as-acoes` quebra o build se alguém esburacar o total.
+
+#### O que a renomeação obrigou a rever, e por quê
+
+Duas regras identificavam o administrador pelo **literal** `"ADMINISTRADOR_PLATAFORMA"`. Deixá-las como estavam teria produzido regressão **silenciosa**: depois da migration esse valor não tem nenhum detentor, então as duas regras passariam a valer para ninguém.
+
+1. **RN46 — proteção do último administrador.** A contagem daria zero, a regra nunca dispararia, e seria possível rebaixar o último Administrador deixando a plataforma **sem quem atribui papéis**. Passou a contar quem pode `GERIR_USUARIOS`, que é exatamente o que a regra sempre quis dizer.
+2. **RN74 — isenção de bloqueio.** As contas reais, que só trocaram de nome, perderiam a isenção **sem que nada no pedido mandasse tirá-la**. Passou a valer para quem pode `CONFIGURAR_PORTAL` — o motivo original da regra: a conta que destranca as outras não pode se trancar.
+
+Definir as duas por **capacidade** em vez de nome resolve de uma vez e é auto-mantido: papel novo com essas ações entra sozinho.
+
+#### A RN06 e a mudança de governança
+
+**A RN06 continua valendo para o acesso total, e não é contradição:** ela é verificada **por registro**, comparando `solicitanteId` com quem decide — nunca foi permissão de papel. Poder aprovar não é poder aprovar o que se pediu.
+
+**Mas há uma mudança de governança, e ela precisa ser vista.** Antes, parâmetro sensível pedido por um administrador **tinha** de ser aprovado por alguém de fora da administração, porque nenhum administrador possuía `APROVAR_DEVOLVER`. Agora **dois detentores do acesso total podem aprovar um ao outro** — é um par de olhos a menos. Quem quiser restringir tem como, sem código: **designar aprovadores** na regra, que o motor passa a exigir o decisor entre eles. Registrado em teste para não ficar implícito.
+
+Enquanto o acesso total não for atribuído a ninguém, a situação prática é a de hoje: quem escreve parâmetro é o Administrador, que não aprova.
+
+#### Migrations — duas, e a separação é obrigatória
+
+1. `20260915120000_papel_admin` — acrescenta o valor `ADMIN` ao enum.
+2. `20260915130000_renomear_administrador` — move as contas existentes para ele.
+
+**Precisam ser arquivos distintos:** o PostgreSQL recusa usar um valor de enum na mesma transação em que ele foi criado, e o Prisma roda cada migration em transação. Juntá-las faria o deploy falhar.
+
+Nenhuma coluna é removida, nenhum tipo é estreitado, nenhuma linha existente é obrigada a preencher valor — o dever da base povoada vale integralmente. A segunda migration **altera dado**, e o dado que altera é exatamente o que a renomeação significa.
+
+#### Risco declarado: dois nomes parecidos, poderes muito diferentes
+
+"Administrador" e "Administrador da Plataforma" ficam vizinhos na lista de papéis da T27, e errar o item concede a plataforma inteira com um clique. A mitigação é a nota ao lado do seletor, ligada ao campo por `aria-describedby`. **Não é mitigação completa** — a proteção real seria confirmação explícita ao atribuir o acesso total, e fica registrada aqui como possível melhoria, não como algo que esta rodada entregou.
 
 ## 6. Pendências declaradas — o que esta ficha NÃO resolve
 

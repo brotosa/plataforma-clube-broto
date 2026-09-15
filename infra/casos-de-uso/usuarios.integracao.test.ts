@@ -53,14 +53,28 @@ async function criarDireto(
  */
 async function apenasUmAdministradorAtivo() {
   await prisma.usuario.updateMany({
-    where: { papel: "ADMINISTRADOR_PLATAFORMA", email: { not: { endsWith: SUFIXO } } },
+    // A RN46 passou a contar quem PODE GERIR USUÁRIOS, e não um papel literal
+    // (ver `eAdministradorEfetivo`): depois da renomeação da Onda 15 são dois
+    // papéis. Neutralizar só um deles deixaria o outro contando, e o teste
+    // provaria "é o último" sobre uma base onde ele não é.
+    where: {
+      papel: { in: ["ADMINISTRADOR_PLATAFORMA", "ADMIN"] },
+      email: { not: { endsWith: SUFIXO } },
+    },
     data: { ativo: false },
   });
 }
 
 async function restaurarAdministradoresDoSeed() {
   await prisma.usuario.updateMany({
-    where: { papel: "ADMINISTRADOR_PLATAFORMA", email: { not: { endsWith: SUFIXO } } },
+    // A RN46 passou a contar quem PODE GERIR USUÁRIOS, e não um papel literal
+    // (ver `eAdministradorEfetivo`): depois da renomeação da Onda 15 são dois
+    // papéis. Neutralizar só um deles deixaria o outro contando, e o teste
+    // provaria "é o último" sobre uma base onde ele não é.
+    where: {
+      papel: { in: ["ADMINISTRADOR_PLATAFORMA", "ADMIN"] },
+      email: { not: { endsWith: SUFIXO } },
+    },
     data: { ativo: true },
   });
 }

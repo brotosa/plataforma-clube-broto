@@ -8,6 +8,11 @@ import type { Papel } from "@prisma/client";
  * Onda 5 acrescenta as ações de dados de PF dos Assinantes.
  * A segregação solicitante ≠ aprovador (RN06) não é uma permissão estática:
  * é garantida no serviço do motor de aprovação.
+ *
+ * **Onda 15 — o papel de administração se desdobrou em dois.** O
+ * `ADMINISTRADOR_PLATAFORMA` passou a ter **acesso total** e o `ADMIN` nasceu
+ * com exatamente as permissões que ele tinha até então. Ver
+ * `PAPEIS_COM_ACESSO_TOTAL` abaixo, que é onde o "total" está escrito.
  */
 export type Acao =
   | "VISUALIZAR"
@@ -35,7 +40,7 @@ export type Acao =
   // Onda 3 — Parametrizador (ficha §2, RN23).
   | "VISUALIZAR_PARAMETROS"
   | "CONFIGURAR_PARAMETROS"
-  // Configurações do portal (segurança) — só o Administrador da Plataforma.
+  // Configurações do portal (segurança) — o ADMIN e o acesso total.
   | "CONFIGURAR_PORTAL"
   // Onda 5 — Assinantes (ficha §2). Contagens e agregados são VISUALIZAR.
   | "VISUALIZAR_DADOS_PESSOAIS_PLENOS"
@@ -63,12 +68,46 @@ export type Acao =
   | "COMENTAR_FICHA_PATROCINADOR";
 
 /**
+ * Papéis de **acesso total**: podem toda ação, inclusive as que forem
+ * criadas depois desta linha.
+ *
+ * Desdobramento da Onda 15. Até aqui o `ADMINISTRADOR_PLATAFORMA` tinha 12
+ * das 35 ações, por uma segregação deliberada — "quem configura o produto
+ * não opera o negócio" — que aparece escrita em vários comentários da matriz
+ * abaixo. **Essa segregação foi revertida por decisão da TI**, e o papel
+ * passou a ser o superusuário da plataforma; o papel `ADMIN`, criado na mesma
+ * rodada, herdou exatamente as 12 ações e é quem mantém o desenho anterior.
+ * Os comentários históricos permanecem na matriz, marcados, porque a reversão
+ * foi uma escolha e não um descuido — e quem for reabrir o assunto merece
+ * saber o que se pensava antes.
+ *
+ * **Por que aqui e não repetido nas 35 linhas.** "Acesso total" é uma
+ * propriedade do papel, não 35 concessões que por acaso coincidem. Escrito
+ * como regra, uma ação nova nasce já coberta — que é o que "total" significa.
+ * Escrito como 35 repetições, bastaria alguém esquecer uma para o
+ * superusuário perder acesso em silêncio.
+ *
+ * A explicitação célula a célula que a casa exige **não se perde**: a
+ * `TABELA_DA_FICHA`, em `permissoes.test.ts`, continua declarando a decisão
+ * de TODOS os papéis em TODAS as ações, e a cerca
+ * `acesso-total-cobre-todas-as-acoes` quebra o build se esta regra deixar de
+ * valer.
+ */
+const PAPEIS_COM_ACESSO_TOTAL: ReadonlyArray<Papel> = ["ADMINISTRADOR_PLATAFORMA"];
+
+/**
  * Tabelas das fichas §2 — papéis × ações (fonte da verdade).
  *
  * Onda 5, v1: "visualizar dados pessoais plenos" e "exportar listas de
  * contato" pertencem a Gestor e Administrador. O papel Administrador da
  * Plataforma chegou com a Onda 3 (F10) e está incluído nas duas linhas,
  * como a própria F11 previu ao deixá-las com o Gestor sozinho.
+ *
+ * **Leia junto com `PAPEIS_COM_ACESSO_TOTAL`.** Desde a Onda 15 o
+ * `ADMINISTRADOR_PLATAFORMA` não aparece nesta matriz: ele pode tudo, por
+ * regra, e repeti-lo em 35 linhas só criaria ruído e chance de esquecimento.
+ * Onde ele estava escrito, hoje está o `ADMIN`, que herdou as mesmas células.
+ * Esta matriz responde, portanto, **quem mais** além do acesso total.
  */
 const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Onda 1. VISUALIZAR ganha os papéis novos: o fluxo do funil abre a
@@ -80,7 +119,7 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
     "COMERCIAL",
     "APROVADOR",
     "LEITURA",
-    "ADMINISTRADOR_PLATAFORMA",
+    "ADMIN",
   ],
   CRIAR_EDITAR: ["GESTOR", "ANALISTA"],
   // "Solicitar promoção a Aliada ativa": Gestor e Comercial (ficha Onda 2
@@ -92,10 +131,12 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   GERAR_EXPORTACAO: ["GESTOR"],
   // Nasceu na F4 (telemetria batch da Minutrade) e a F20 a reusa para a
   // esteira dos quatro relatórios da operadora — é a mesma ação de
-  // negócio, com os mesmos dois papéis (ficha da Onda 12 §8). O
-  // ADMINISTRADOR_PLATAFORMA fica de fora de propósito: o papel dele é
-  // parametrizar (RN23), não operar carga. Ler o histórico e as
-  // divergências é de todos os papéis, e por isso não há ação de leitura.
+  // negócio, com os mesmos dois papéis (ficha da Onda 12 §8). Ler o histórico
+  // e as divergências é de todos os papéis, e por isso não há ação de leitura.
+  // [Histórico, Onda 15] Aqui se lia que "o ADMINISTRADOR_PLATAFORMA fica de
+  // fora de propósito: o papel dele é parametrizar (RN23), não operar carga".
+  // Deixou de valer para ele — é acesso total — e passou a valer para o ADMIN,
+  // que herdou o desenho.
   IMPORTAR_TELEMETRIA: ["GESTOR", "ANALISTA"],
   // Onda 2 — matriz da ficha §2, célula a célula.
   VISUALIZAR_FUNIL: [
@@ -105,7 +146,7 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
     "COMERCIAL",
     "APROVADOR",
     "LEITURA",
-    "ADMINISTRADOR_PLATAFORMA",
+    "ADMIN",
   ],
   INCLUIR_NO_RADAR: ["GESTOR", "ANALISTA_SCOUT"],
   ASSUMIR_E_AVALIAR: ["GESTOR", "ANALISTA_SCOUT"],
@@ -118,7 +159,7 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Errata da ficha Onda 3 v0.2 sobre a ficha da Onda 2: metas são
   // definidas SOMENTE pelo Administrador da Plataforma — nem o Gestor
   // escreve aqui. Ver também §3.2 (meta vigente 24 novos aliados/ano).
-  DEFINIR_METAS: ["ADMINISTRADOR_PLATAFORMA"],
+  DEFINIR_METAS: ["ADMIN"],
   // RN23 — leitura do hub para todos (transparência da configuração
   // vigente); escrita exclusiva do Administrador da Plataforma.
   VISUALIZAR_PARAMETROS: [
@@ -128,25 +169,26 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
     "COMERCIAL",
     "APROVADOR",
     "LEITURA",
-    "ADMINISTRADOR_PLATAFORMA",
+    "ADMIN",
   ],
-  CONFIGURAR_PARAMETROS: ["ADMINISTRADOR_PLATAFORMA"],
-  CONFIGURAR_PORTAL: ["ADMINISTRADOR_PLATAFORMA"],
+  CONFIGURAR_PARAMETROS: ["ADMIN"],
+  CONFIGURAR_PORTAL: ["ADMIN"],
   // Onda 5 — os papéis do funil (Onda 2) não operam dados de PF.
-  VISUALIZAR_DADOS_PESSOAIS_PLENOS: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
-  EXPORTAR_LISTAS_CONTATO: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+  VISUALIZAR_DADOS_PESSOAIS_PLENOS: ["GESTOR", "ADMIN"],
+  EXPORTAR_LISTAS_CONTATO: ["GESTOR", "ADMIN"],
   // Cargas de assinantes seguem o padrão operacional das demais
   // importações da plataforma (Gestor e Analista).
   IMPORTAR_ASSINANTES: ["GESTOR", "ANALISTA"],
   // Salvar/editar segmentos segue CRIAR_EDITAR; contagem é aberta a
   // todos os papéis (RN33) e por isso fica sob VISUALIZAR.
   GERIR_SEGMENTOS: ["GESTOR", "ANALISTA"],
-  // Onda 4 (ficha §2): "modelagem e ativação: Gestor e Analista". O
-  // Administrador da Plataforma (RN23) fica DE FORA por segregação: o
-  // papel da Onda 3 configura o produto, não opera campanha — a ficha da
-  // Onda 4 §2 não o menciona, e incluí-lo seria inventar célula. Se um
+  // Onda 4 (ficha §2): "modelagem e ativação: Gestor e Analista". Se um
   // papel de marketing for criado ([A CONFIRMAR] da ficha §2), ele entra
   // nestas três linhas e em mais nada.
+  // [Histórico, Onda 15] Aqui se lia que "o Administrador da Plataforma (RN23)
+  // fica DE FORA por segregação: o papel da Onda 3 configura o produto, não
+  // opera campanha". A segregação foi revertida para ele por decisão da TI; o
+  // ADMIN a mantém.
   MODELAR_CAMPANHA: ["GESTOR", "ANALISTA"],
   ATIVAR_ENCERRAR_CAMPANHA: ["GESTOR", "ANALISTA"],
   GERIR_CESTAS: ["GESTOR", "ANALISTA"],
@@ -154,7 +196,7 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   // Administrador da Plataforma — nem o Gestor escreve aqui. É a mesma
   // exclusividade da escrita no Parametrizador, e pelo mesmo motivo:
   // quem configura quem pode o quê não pode ser quem opera.
-  GERIR_USUARIOS: ["ADMINISTRADOR_PLATAFORMA"],
+  GERIR_USUARIOS: ["ADMIN"],
   // Onda 6 (ficha §4): "somente leitura para TODOS os papéis". A trilha é
   // o contrapeso do RBAC — esconder a auditoria de quem é auditado
   // esvaziaria a governança que esta onda existe para tornar visível.
@@ -165,12 +207,12 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
     "COMERCIAL",
     "APROVADOR",
     "LEITURA",
-    "ADMINISTRADOR_PLATAFORMA",
+    "ADMIN",
   ],
   // RN48 — o extrato sai do produto e vira artefato de auditoria externa;
   // só Gestor e Administrador exportam, e a exportação é ela própria
   // auditada (meta-trilha garantida no caso de uso).
-  EXPORTAR_EXTRATO_AUDITORIA: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+  EXPORTAR_EXTRATO_AUDITORIA: ["GESTOR", "ADMIN"],
   // Onda 12 (RN62): "Gestor cria, edita e inativa; leitura para todos os
   // papéis". A leitura aberta é coerente com o resto da plataforma — o
   // patrocinador é contraparte comercial do Clube, não dado sensível, e o
@@ -182,13 +224,14 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
     "COMERCIAL",
     "APROVADOR",
     "LEITURA",
-    "ADMINISTRADOR_PLATAFORMA",
+    "ADMIN",
   ],
   // Escrita de patrocinador, contrato, minuta e vínculo — tudo o que muda
-  // a base do saldo. O ADMINISTRADOR_PLATAFORMA fica DE FORA pela mesma
-  // segregação da RN46 que já o exclui de campanha: quem configura o
-  // produto não opera o negócio. A célula está explicitada na matriz do
-  // teste, como a ficha manda, e não herdada por omissão.
+  // a base do saldo. A célula está explicitada na matriz do teste, como a
+  // ficha manda, e não herdada por omissão.
+  // [Histórico, Onda 15] Aqui se lia que "o ADMINISTRADOR_PLATAFORMA fica DE
+  // FORA pela mesma segregação que já o exclui de campanha: quem configura o
+  // produto não opera o negócio". Revertido para ele; o ADMIN mantém.
   GERIR_PATROCINADORES: ["GESTOR"],
   /**
    * RN66 — gerar o R1.
@@ -208,8 +251,8 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
   GERAR_RELATORIO_PATROCINADOR: ["GESTOR"],
   // Pós-homologação — comentar na ficha do aliado (painel de atividades). Os
   // papéis que operam a ficha em qualquer módulo: Gestor, Analista (Aliados),
-  // Analista de Scout e Comercial. Leitura, Aprovador e Administrador da
-  // Plataforma leem o feed (VISUALIZAR), mas não escrevem.
+  // Analista de Scout e Comercial. Leitura, Aprovador e ADMIN leem o feed
+  // (VISUALIZAR), mas não escrevem — o acesso total escreve.
   COMENTAR_FICHA_ALIADO: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
   // Comentar na ficha do patrocinador — os MESMOS papéis do aliado, por
   // decisão explícita ("igual ao aliado"). A célula está aqui na matriz de
@@ -227,8 +270,24 @@ const PERMISSOES: Readonly<Record<Acao, ReadonlyArray<Papel>>> = {
  */
 export const ACOES = Object.keys(PERMISSOES) as ReadonlyArray<Acao>;
 
-/** Verifica se o papel pode executar a ação. */
+/**
+ * Verifica se o papel pode executar a ação.
+ *
+ * Acesso total vem primeiro e por regra (ver `PAPEIS_COM_ACESSO_TOTAL`): o
+ * superusuário pode toda ação, inclusive as criadas depois. Os demais papéis
+ * respondem pela matriz, célula a célula.
+ *
+ * **A RN06 continua valendo para o acesso total, e não é contradição.** A
+ * segregação solicitante ≠ aprovador nunca foi permissão de papel: ela é
+ * verificada por registro, comparando `solicitanteId` com quem decide
+ * (`dominio/aprovacao/motor.ts`). Poder aprovar não é poder aprovar o que se
+ * pediu — o superusuário aprova o pedido dos outros e continua barrado no
+ * próprio.
+ */
 export function podeExecutar(papel: Papel, acao: Acao): boolean {
+  if (PAPEIS_COM_ACESSO_TOTAL.includes(papel)) {
+    return true;
+  }
   return PERMISSOES[acao].includes(papel);
 }
 
