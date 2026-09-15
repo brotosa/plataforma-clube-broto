@@ -223,6 +223,61 @@ test("T27 — RN46: o último administrador não pode ser inativado, e a tela ex
   }
 });
 
+/**
+ * Encerrar sessões — o caso que nenhuma das ações vizinhas cobria.
+ *
+ * O contraste com o teste da inativação, logo abaixo, é o ponto inteiro: as
+ * duas derrubam a sessão na requisição seguinte, mas só uma **devolve a
+ * pessoa** com a senha que ela já tem. Se um dia alguém "simplificar" isto
+ * fazendo o botão inativar, o segundo trecho deste teste reprova.
+ */
+test("encerrar sessões derruba o logado — e ele entra de novo com a MESMA senha", async ({
+  browser,
+}) => {
+  const marca = runId();
+  const alvo = await semearUsuarioDescartavel(marca);
+
+  const contextoAlvo = await browser.newContext();
+  const contextoAdmin = await browser.newContext();
+
+  try {
+    const paginaAlvo: Page = await contextoAlvo.newPage();
+    const paginaAdmin: Page = await contextoAdmin.newPage();
+
+    // 1. O alvo entra e está navegando.
+    await paginaAlvo.goto("/entrar");
+    await paginaAlvo.getByLabel("E-mail").fill(alvo.email);
+    await paginaAlvo.getByLabel("Senha").fill(SENHA);
+    await paginaAlvo.getByRole("button", { name: "Entrar" }).click();
+    await paginaAlvo.waitForURL((url) => new URL(url).pathname === "/");
+
+    // 2. Em OUTRO navegador, o Administrador encerra as sessões dele.
+    await entrar(paginaAdmin, ADMIN);
+    await paginaAdmin.goto("/usuarios");
+    const linha = paginaAdmin.getByRole("row").filter({ hasText: alvo.email });
+    await linha.getByRole("button", { name: "Encerrar sessões" }).click();
+    await expect(paginaAdmin.getByText(/Sessões encerradas/)).toBeVisible();
+
+    // 3. A próxima requisição do alvo já não passa (mecanismo da RN47).
+    await paginaAlvo.goto("/aliados");
+    await paginaAlvo.waitForURL(/\/entrar/);
+
+    // 4. E aqui está a diferença para "Inativar": o acesso CONTINUA. A pessoa
+    //    entra de novo com a senha de sempre, sem credencial provisória e sem
+    //    ninguém ter de lhe transmitir nada.
+    await paginaAlvo.getByLabel("E-mail").fill(alvo.email);
+    await paginaAlvo.getByLabel("Senha").fill(SENHA);
+    await paginaAlvo.getByRole("button", { name: "Entrar" }).click();
+    await paginaAlvo.waitForURL((url) => new URL(url).pathname === "/");
+    await expect(
+      paginaAlvo.getByRole("heading", { level: 1, name: "O Clube hoje" }),
+    ).toBeVisible();
+  } finally {
+    await contextoAlvo.close();
+    await contextoAdmin.close();
+  }
+});
+
 // ---------------------------------------------------------------------
 // RN47 — a revogação imediata, com dois navegadores
 // ---------------------------------------------------------------------

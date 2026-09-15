@@ -13,6 +13,7 @@ import {
   trocarPropriaSenha,
   exigirNovaSenha,
   exigirNovaSenhaDeTodos,
+  encerrarSessoes,
 } from "./usuarios";
 
 /**
@@ -408,6 +409,61 @@ describe.skipIf(!temBanco)("T27 — gestão de usuários (RN46, RN47)", () => {
           data: { trocaSenhaObrigatoria: false },
         });
       }
+    });
+  });
+
+  /**
+   * Encerrar sessões — derrubar quem está logado SEM tirar o acesso.
+   *
+   * O que separa esta ação das duas vizinhas: `inativarUsuario` também derruba,
+   * mas revoga o acesso e força credencial nova na volta; `redefinirCredencial`
+   * troca a senha e cria um segredo para alguém transmitir. Aqui a conta segue
+   * ativa, o papel segue o mesmo e a senha segue valendo.
+   */
+  describe("encerrar sessões", () => {
+    it("incrementa a época e NÃO mexe em acesso, papel nem senha", async () => {
+      const alvo = await criarDireto("Sessoes F23", "LEITURA");
+      const antes = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+
+      await encerrarSessoes(admin, alvo.id);
+
+      const depois = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+      // É o mecanismo da RN47: todo token emitido antes deixa de valer.
+      expect(depois.sessaoEpoca).toBe(antes.sessaoEpoca + 1);
+      // E nada mais muda — é o ponto da ação.
+      expect(depois.ativo).toBe(true);
+      expect(depois.papel).toBe(antes.papel);
+      expect(depois.senhaHash).toBe(antes.senhaHash);
+      expect(depois.trocaSenhaObrigatoria).toBe(antes.trocaSenhaObrigatoria);
+    });
+
+    /**
+     * `sessaoEpoca` está em `CAMPOS_FORA_DA_TRILHA`, então o diff genérico não
+     * geraria evento nenhum e o ato ficaria INVISÍVEL na auditoria. O evento é
+     * escrito à mão, como ato, e este teste é quem garante que continue sendo.
+     */
+    it("grava o ato na trilha, com autor — e não depende do diff de campos", async () => {
+      const alvo = await criarDireto("Sessoes Trilha F23", "LEITURA");
+      await encerrarSessoes(admin, alvo.id);
+
+      const evento = await prisma.auditoriaEvento.findFirst({
+        where: { entidadeId: alvo.id, campo: "sessoes_encerradas" },
+        orderBy: { criadoEm: "desc" },
+      });
+      expect(evento).not.toBeNull();
+      expect(evento?.autorId).toBe(admin.id);
+      expect(evento?.valorNovo).toContain("encerramento manual");
+    });
+
+    it("exige permissão de gestão de usuários", async () => {
+      const alvo = await criarDireto("Sessoes RBAC F23", "LEITURA");
+      await expect(
+        encerrarSessoes({ id: alvo.id, papel: "GESTOR" }, alvo.id),
+      ).rejects.toBeInstanceOf(ErroDeAutorizacao);
+    });
+
+    it("recusa usuário inexistente com erro nomeado", async () => {
+      await expect(encerrarSessoes(admin, "nao-existe")).rejects.toBeInstanceOf(ErroDeValidacao);
     });
   });
 });

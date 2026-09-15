@@ -13,6 +13,7 @@ import {
   acaoInativarUsuario,
   acaoReativarUsuario,
   acaoExigirNovaSenha,
+  acaoEncerrarSessoes,
   acaoRedefinirCredencial,
   type EstadoUsuarios,
 } from "./acoes";
@@ -208,6 +209,10 @@ function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
     EstadoUsuarios,
     FormData
   >(acaoExigirNovaSenha, ESTADO_INICIAL);
+  const [sessoes, despacharSessoes, pendenteSessoes] = useActionState<EstadoUsuarios, FormData>(
+    acaoEncerrarSessoes,
+    ESTADO_INICIAL,
+  );
 
   const bloqueado = usuario.ativo && usuario.unicoAdministradorAtivo;
 
@@ -237,6 +242,23 @@ function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
           está com a marca acesa o botão não teria efeito — oferecer uma ação
           que não faz nada é pior que não a oferecer.
         */}
+        {/*
+          Só para conta ATIVA: derrubar a sessão de quem já está inativo não
+          faz nada — a inativação já revogou tudo pela RN47.
+        */}
+        {usuario.ativo ? (
+          <form action={despacharSessoes}>
+            <input type="hidden" name="usuarioId" value={usuario.id} />
+            <button
+              type="submit"
+              className="btn btn-ghost btn-sm"
+              disabled={pendenteSessoes}
+              title="Derruba quem está logado agora. O acesso continua: a pessoa entra de novo com a senha atual."
+            >
+              Encerrar sessões
+            </button>
+          </form>
+        ) : null}
         {usuario.ativo && !usuario.trocaSenhaObrigatoria ? (
           <form action={despacharNovaSenha}>
             <input type="hidden" name="usuarioId" value={usuario.id} />
@@ -257,6 +279,7 @@ function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
       <Mensagens estado={estado} />
       <Mensagens estado={credencial} />
       <Mensagens estado={novaSenha} />
+      <Mensagens estado={sessoes} />
     </div>
   );
 }
