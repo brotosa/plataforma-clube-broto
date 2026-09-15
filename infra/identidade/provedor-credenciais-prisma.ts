@@ -7,6 +7,7 @@ import { prisma } from "@/infra/prisma/cliente";
 import { logger } from "@/infra/log/logger";
 import { lerPoliticaDeLogin } from "@/infra/casos-de-uso/configuracoes";
 import { estaBloqueado, registrarFalha } from "@/dominio/usuarios/politica-login";
+import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { obterOrigemDaRequisicao } from "./origem-requisicao";
 import {
   limparOrigem,
@@ -54,17 +55,21 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
       trocaSenhaObrigatoria: usuario.trocaSenhaObrigatoria,
     });
 
-    // Administrador da Plataforma: nunca bloqueado — nem pela conta, nem pela
-    // ORIGEM. Mas a falha contra ele CONTA para a origem: sem isso, mirar um
-    // e-mail de Administrador evadiria o bloqueio por endereço.
+    // Quem CONFIGURA O PORTAL nunca é bloqueado — nem pela conta, nem pela
+    // ORIGEM. Mas a falha contra essa conta CONTA para a origem: sem isso,
+    // mirar um e-mail isento evadiria o bloqueio por endereço.
     //
-    // **O `ADMIN` da Onda 15 NÃO é isento, e é decisão.** A isenção existe por
-    // um motivo estreito — a conta que destranca as outras não pode se trancar
-    // — e ele não é essa conta: se um `ADMIN` for bloqueado, o acesso total o
-    // libera. Estender a isenção ao papel novo dobraria a superfície de contas
-    // sem limite de tentativas, que é justamente a lacuna declarada na ficha
-    // da Onda 15 §6.1. Menos contas isentas é melhor, não pior.
-    if (usuario.papel === "ADMINISTRADOR_PLATAFORMA") {
+    // Era `papel === "ADMINISTRADOR_PLATAFORMA"`. A Onda 15 renomeou aquele
+    // papel para `ADMIN` e deu o nome antigo ao acesso total, e a comparação
+    // literal teria ficado **errada e silenciosa**: a isenção passaria a valer
+    // para um papel que, logo depois da migration, ninguém detém — e as contas
+    // reais, que só trocaram de nome, perderiam a isenção sem que nada no
+    // pedido dissesse para tirá-la. Numa renomeação, nada pode mudar.
+    //
+    // Definir pela **capacidade** mantém a isenção exatamente onde estava e
+    // conserva o motivo original dela: a conta que destranca as outras não
+    // pode se trancar. Quem destranca é quem tem `CONFIGURAR_PORTAL`.
+    if (podeExecutar(usuario.papel, "CONFIGURAR_PORTAL")) {
       if (!(await compare(senha, usuario.senhaHash))) {
         await registrarFalhaDeOrigem(origem);
         logger.info({ email, motivo: "senha_invalida" }, "autenticação recusada");

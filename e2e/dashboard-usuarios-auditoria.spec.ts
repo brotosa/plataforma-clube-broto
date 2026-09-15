@@ -26,7 +26,6 @@ import {
  */
 
 const ADMIN = "administrador@dev.clubebroto.local";
-const ADMIN_RESERVA = "administrador2@dev.clubebroto.local";
 
 /**
  * Usuário descartável com a MESMA senha dos usuários de desenvolvimento: o
@@ -73,10 +72,20 @@ async function removerDescartaveis() {
   });
 }
 
+/**
+ * Os papéis que contam para a RN46 — **os dois**.
+ *
+ * A regra passou a proteger quem pode GERIR USUÁRIOS, e não um papel literal
+ * (ver `eAdministradorEfetivo`): depois da renomeação da Onda 15 isso são o
+ * Administrador (`ADMIN`) e o acesso total. Neutralizar só um deixaria o outro
+ * contando, e o caso de "é o último" provaria sobre uma base onde ele não é.
+ */
+const PAPEIS_QUE_ADMINISTRAM = ["ADMINISTRADOR_PLATAFORMA", "ADMIN"] as const;
+
 /** Devolve os administradores do seed ao estado ativo. */
 async function restaurarAdministradores() {
   await prisma.usuario.updateMany({
-    where: { papel: "ADMINISTRADOR_PLATAFORMA" },
+    where: { papel: { in: [...PAPEIS_QUE_ADMINISTRAM] } },
     data: { ativo: true },
   });
 }
@@ -187,9 +196,13 @@ test("T27 — quem não é Administrador vê a tela em somente leitura (RN46)", 
 test("T27 — RN46: o último administrador não pode ser inativado, e a tela explica", async ({
   page,
 }) => {
-  // Deixa o administrador principal como o ÚNICO ativo.
-  await prisma.usuario.update({
-    where: { email: ADMIN_RESERVA },
+  // Deixa o administrador principal como o ÚNICO ativo — o que inclui inativar
+  // quem tem ACESSO TOTAL, porque ele também administra e também conta.
+  await prisma.usuario.updateMany({
+    where: {
+      papel: { in: [...PAPEIS_QUE_ADMINISTRAM] },
+      email: { not: ADMIN },
+    },
     data: { ativo: false },
   });
 

@@ -23,11 +23,48 @@ const gestor = (id: string, ativo = true): UsuarioEmAvaliacao => ({
   ativo,
 });
 
+/** O papel RENOMEADO na Onda 15 — é onde vivem as contas reais. */
+const administrador = (id: string, ativo = true): UsuarioEmAvaliacao => ({
+  id,
+  papel: "ADMIN",
+  ativo,
+});
+
 describe("RN46 — proteção do último administrador (anti-lockout)", () => {
   it("só conta como administrador efetivo quem tem o papel E está ativo", () => {
     expect(eAdministradorEfetivo(admin("a1"))).toBe(true);
     expect(eAdministradorEfetivo(admin("a1", false))).toBe(false);
     expect(eAdministradorEfetivo(gestor("g1"))).toBe(false);
+  });
+
+  /**
+   * A regressão que a renomeação da Onda 15 quase produziu, e que este teste
+   * existe para impedir que volte.
+   *
+   * A RN46 comparava o papel com o literal `"ADMINISTRADOR_PLATAFORMA"`. Depois
+   * da renomeação, as contas reais passaram a ser `ADMIN` e a base ficou sem
+   * nenhum `ADMINISTRADOR_PLATAFORMA` — a contagem daria **zero**, a regra
+   * nunca dispararia e alguém poderia rebaixar o último Administrador,
+   * deixando a plataforma sem quem atribui papéis. Silenciosamente: nenhum
+   * erro, nenhum aviso, só a proteção deixando de existir.
+   *
+   * A definição passou a ser por **capacidade** (`GERIR_USUARIOS`), e é isso
+   * que estes casos cobram.
+   */
+  it("conta o papel renomeado (Administrador) — e qualquer papel que possa gerir usuários", () => {
+    expect(eAdministradorEfetivo(administrador("n1"))).toBe(true);
+    expect(eAdministradorEfetivo(administrador("n1", false))).toBe(false);
+    // O acesso total também gere usuários, então também conta.
+    expect(eAdministradorEfetivo(admin("a1"))).toBe(true);
+  });
+
+  it("o último Administrador não pode ser rebaixado, mesmo havendo acesso total ausente", () => {
+    const alvo = administrador("n1");
+    expect(outrosAdministradoresAtivos(alvo, [alvo, gestor("g1")])).toBe(0);
+    expect(removeCondicaoDeAdministrador(alvo, { papel: "GESTOR" })).toBe(true);
+    // Converter o último Administrador em acesso total NÃO o desprotege: ele
+    // continua podendo gerir usuários, então a condição se mantém.
+    expect(removeCondicaoDeAdministrador(alvo, { papel: "ADMINISTRADOR_PLATAFORMA" })).toBe(false);
   });
 
   it("conta os outros administradores ativos excluindo o alvo por id", () => {

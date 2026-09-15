@@ -1,7 +1,7 @@
 # Ficha de Módulo — Onda 15: Configurações do portal
 **Plataforma de Administração e Gestão do Clube Broto** · v0.4 para validação · 15/09/2026
 
-Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Admin** e ao **Administrador da Plataforma**: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
+Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Administrador** e ao **Administrador da Plataforma**: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
 
 > **Esta ficha é retroativa, e isso é uma ressalva, não um detalhe.**
 >
@@ -17,7 +17,9 @@ Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Admin** e ao
 
 > **O que a v0.3 muda.** Só a **§4**: a tela ganhou **abas** e a **faixa de panorama**, depois de a própria tela ficar longa demais para rolar. **Nenhuma regra mudou**, nenhum parâmetro novo, nenhuma migration — as quatro proteções, seus valores, suas faixas e seu comportamento são exatamente os da v0.2. A rodada também fechou uma lacuna antiga que não era de escopo: a T35 **nunca tivera teste a 380px**, nem quando nasceu, e agora tem.
 
-> **O que a v0.4 muda.** Acrescenta a **§5.1**: o papel de administração se desdobrou em dois — `ADMIN`, com exatamente as 12 ações que o `ADMINISTRADOR_PLATAFORMA` tinha, e o `ADMINISTRADOR_PLATAFORMA`, que passou a ser **acesso total**. É a primeira mudança de RBAC da ficha, e a única desta onda com **migration** — aditiva, um valor de enum, nenhuma linha tocada. Traz três decisões declaradas (RN06, RN74 e RN46) e registra a mudança de governança que o acesso total produz na aprovação de parâmetro sensível.
+> **O que a v0.4 muda.** Acrescenta a **§5.1**: o papel de administração foi **renomeado** para **Administrador** (valor `ADMIN`), mantendo as mesmas 12 atribuições e os mesmos detentores, e o nome **Administrador da Plataforma** passou a designar um papel **novo, de acesso total**, que nasce sem ninguém. É a primeira mudança de RBAC da ficha e a única desta onda com **migration** — duas, e a separação entre elas é obrigatória por restrição do PostgreSQL.
+>
+> **Como é renomeação, nada muda para quem já usa** — mesmas permissões, mesma isenção de bloqueio, mesmo peso na RN46. Garantir isso obrigou a rever duas regras que identificavam o administrador pelo nome literal e teriam passado a valer para ninguém; a §5.1 explica.
 
 ---
 
@@ -25,7 +27,7 @@ Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Admin** e ao
 
 A plataforma já tinha o **Parametrizador** (Onda 3), que cuida de parâmetro de **negócio** — régua, teto, comissão, meta. Não tinha onde ajustar o que é **técnico e de segurança do portal**, e essas regras viviam como constante em código: o mínimo de senha era `10` escrito na tela de troca, a sessão não expirava por inatividade e não havia bloqueio por tentativa de login.
 
-Configurações é o **irmão de segurança do Parametrizador**: mesma disciplina (escrita só do Administrador, sempre auditada, efeito prospectivo), assunto diferente.
+Configurações é o **irmão de segurança do Parametrizador**: mesma disciplina (escrita só de quem administra, sempre auditada, efeito prospectivo), assunto diferente.
 
 ## 2. Entidades
 
@@ -135,30 +137,50 @@ A tela reusa o componente existente do repositório (`card`, `field`, `aviso-inl
 
 Ação única **`CONFIGURAR_PORTAL`** — mesmo desenho de `CONFIGURAR_PARAMETROS`, o irmão de negócio. Cobre os quatro blocos e os dois desbloqueios: **não há ação separada** para desbloquear conta nem para liberar endereço.
 
-### 5.1 Desdobramento do papel de administração (v0.4)
+### 5.1 Renomeação do papel de administração, e o acesso total (v0.4)
 
-Por decisão da TI, o papel de administração virou **dois**:
+Por decisão da TI, o papel de administração foi **renomeado** e um papel de **acesso total** foi criado ao lado dele.
 
-| Papel | Alcance | Rótulo na interface |
-|---|---|---|
-| **`ADMIN`** | exatamente as **12 ações** que o `ADMINISTRADOR_PLATAFORMA` tinha até aqui — configuração, metas, usuários, auditoria, dados pessoais plenos e leitura | "Admin" |
-| **`ADMINISTRADOR_PLATAFORMA`** | **acesso total**: as 35 ações, e as que vierem depois | "Administrador da Plataforma (acesso total)" |
+| Valor de enum | Rótulo | Alcance | Detentores |
+|---|---|---|---|
+| **`ADMIN`** | **Administrador** | as **12 ações** de sempre — configuração, metas, usuários, auditoria, dados pessoais plenos e leitura | **as contas que já existiam**, movidas pela migration |
+| **`ADMINISTRADOR_PLATAFORMA`** | **Administrador da Plataforma** | **acesso total**: as 35 ações, e as que vierem depois | **nenhum**, até alguém atribuir |
 
-Nenhum outro papel muda de alcance — Gestor segue com 31, Analista com 16, e assim por diante; há teste que cobra essas contagens.
+**O verbo é renomear, e a consequência é que nada muda para quem já usa.** As contas que hoje administram a plataforma continuam com exatamente as mesmas permissões, a mesma isenção de bloqueio e o mesmo peso na RN46 — só o nome do papel delas mudou. O acesso total é papel **novo**, nasce vazio, e é atribuído por ato humano na T27, auditado.
+
+Nenhum outro papel muda de alcance — Gestor segue com 31 ações, Analista com 16, e assim por diante; há teste que cobra essas contagens.
 
 **"Acesso total" está escrito como regra, não como 35 concessões.** A constante `PAPEIS_COM_ACESSO_TOTAL`, em `dominio/autorizacao/permissoes.ts`, é onde o total mora; a matriz responde "quem mais além dele". A explicitação célula a célula que a casa exige não se perde: a tabela do teste continua declarando os **oito** papéis em **todas** as ações, e a cerca `acesso-total-cobre-todas-as-acoes` quebra o build se alguém esburacar o total.
 
-**Três decisões declaradas, porque nenhuma delas se deduz do pedido:**
+#### O que a renomeação obrigou a rever, e por quê
 
-1. **A RN06 continua valendo para o acesso total, e isso não é contradição.** A segregação solicitante ≠ aprovador nunca foi permissão de papel: é verificada **por registro**, comparando `solicitanteId` com quem decide. Poder aprovar não é poder aprovar o que se pediu.
+Duas regras identificavam o administrador pelo **literal** `"ADMINISTRADOR_PLATAFORMA"`. Deixá-las como estavam teria produzido regressão **silenciosa**: depois da migration esse valor não tem nenhum detentor, então as duas regras passariam a valer para ninguém.
 
-   **Mas há uma mudança real de governança, e ela precisa ser vista:** antes, parâmetro sensível pedido por um administrador **tinha** de ser aprovado por alguém de fora da administração, porque nenhum administrador possuía `APROVAR_DEVOLVER`. Agora **dois Administradores da Plataforma podem aprovar um ao outro**. É um par de olhos a menos. Quem quiser restringir tem como, sem código: **designar aprovadores** na regra, que o motor passa a exigir o decisor entre eles. Registrado em teste (`Onda 15 — um Administrador da Plataforma aprova o pedido de outro`) para não ficar implícito.
+1. **RN46 — proteção do último administrador.** A contagem daria zero, a regra nunca dispararia, e seria possível rebaixar o último Administrador deixando a plataforma **sem quem atribui papéis**. Passou a contar quem pode `GERIR_USUARIOS`, que é exatamente o que a regra sempre quis dizer.
+2. **RN74 — isenção de bloqueio.** As contas reais, que só trocaram de nome, perderiam a isenção **sem que nada no pedido mandasse tirá-la**. Passou a valer para quem pode `CONFIGURAR_PORTAL` — o motivo original da regra: a conta que destranca as outras não pode se trancar.
 
-2. **A isenção de bloqueio da RN74 NÃO se estende ao `ADMIN`.** Ela existe por um motivo estreito — a conta que destranca as outras não pode se trancar — e o `ADMIN` não é essa conta: se for bloqueado, o acesso total o libera. Estender dobraria a superfície de contas sem limite de tentativas, que é justamente a lacuna do §6.1.
+Definir as duas por **capacidade** em vez de nome resolve de uma vez e é auto-mantido: papel novo com essas ações entra sozinho.
 
-3. **A RN46 continua protegendo só o `ADMINISTRADOR_PLATAFORMA`.** O que ela defende é que sempre exista alguém capaz de destrancar a casa; o `ADMIN` pode ser bloqueado e depende de terceiro. Consequência desejável: **converter o último `ADMINISTRADOR_PLATAFORMA` em `ADMIN` é recusado**, como qualquer rebaixamento do último administrador.
+#### A RN06 e a mudança de governança
 
-**Migration estritamente aditiva, e nenhum usuário muda de papel.** Acrescenta um valor ao enum e não toca em linha alguma — quem é `ADMINISTRADOR_PLATAFORMA` hoje continua sendo, e **passa a poder tudo**. Mover pessoas para o `ADMIN` é ato humano na T27, auditado: rebaixar alguém em silêncio no deploy seria mudança de acesso sem autor na trilha.
+**A RN06 continua valendo para o acesso total, e não é contradição:** ela é verificada **por registro**, comparando `solicitanteId` com quem decide — nunca foi permissão de papel. Poder aprovar não é poder aprovar o que se pediu.
+
+**Mas há uma mudança de governança, e ela precisa ser vista.** Antes, parâmetro sensível pedido por um administrador **tinha** de ser aprovado por alguém de fora da administração, porque nenhum administrador possuía `APROVAR_DEVOLVER`. Agora **dois detentores do acesso total podem aprovar um ao outro** — é um par de olhos a menos. Quem quiser restringir tem como, sem código: **designar aprovadores** na regra, que o motor passa a exigir o decisor entre eles. Registrado em teste para não ficar implícito.
+
+Enquanto o acesso total não for atribuído a ninguém, a situação prática é a de hoje: quem escreve parâmetro é o Administrador, que não aprova.
+
+#### Migrations — duas, e a separação é obrigatória
+
+1. `20260915120000_papel_admin` — acrescenta o valor `ADMIN` ao enum.
+2. `20260915130000_renomear_administrador` — move as contas existentes para ele.
+
+**Precisam ser arquivos distintos:** o PostgreSQL recusa usar um valor de enum na mesma transação em que ele foi criado, e o Prisma roda cada migration em transação. Juntá-las faria o deploy falhar.
+
+Nenhuma coluna é removida, nenhum tipo é estreitado, nenhuma linha existente é obrigada a preencher valor — o dever da base povoada vale integralmente. A segunda migration **altera dado**, e o dado que altera é exatamente o que a renomeação significa.
+
+#### Risco declarado: dois nomes parecidos, poderes muito diferentes
+
+"Administrador" e "Administrador da Plataforma" ficam vizinhos na lista de papéis da T27, e errar o item concede a plataforma inteira com um clique. A mitigação é a nota ao lado do seletor, ligada ao campo por `aria-describedby`. **Não é mitigação completa** — a proteção real seria confirmação explícita ao atribuir o acesso total, e fica registrada aqui como possível melhoria, não como algo que esta rodada entregou.
 
 ## 6. Pendências declaradas — o que esta ficha NÃO resolve
 

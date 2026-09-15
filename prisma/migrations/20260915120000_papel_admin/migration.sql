@@ -1,18 +1,18 @@
--- Onda 15 — desdobramento do papel de administração em dois.
+-- Onda 15 — acrescenta o valor de enum do papel renomeado.
 --
--- O `ADMINISTRADOR_PLATAFORMA` passa a ser o papel de acesso total, e o novo
--- `ADMIN` recebe exatamente as permissões que aquele tinha até aqui
--- (configuração, metas, usuários, auditoria, dados pessoais e leitura).
+-- Primeira de duas migrations. Esta APENAS cria o valor `ADMIN`; quem move as
+-- contas existentes para ele é a seguinte (20260915130000). A separação é
+-- obrigatória: o PostgreSQL recusa usar um valor de enum na mesma transação em
+-- que ele foi criado, e o Prisma roda cada migration em transação.
 --
--- Estritamente aditiva: acrescenta um valor ao enum e não toca em linha
--- alguma. NENHUM usuário existente muda de papel — quem é
--- ADMINISTRADOR_PLATAFORMA hoje continua sendo, e passa a poder tudo. Mover
--- pessoas para o ADMIN é ato humano na T27, auditado, e não trabalho de
--- migration: rebaixar alguém em silêncio no deploy seria mudança de acesso
--- sem autor na trilha.
+-- Contexto, para quem ler isto isolado: o papel que se chamava "Administrador
+-- da Plataforma" passa a se chamar "Administrador" (valor `ADMIN`) e mantém as
+-- mesmas atribuições; o nome "Administrador da Plataforma" (valor
+-- `ADMINISTRADOR_PLATAFORMA`, que já existia) passa a designar o ACESSO TOTAL.
 --
--- Segue o precedente da F10, que acrescentou o próprio
--- ADMINISTRADOR_PLATAFORMA a este mesmo enum.
+-- Estritamente aditiva: acrescenta um valor ao enum e não toca em linha alguma.
+-- Segue o precedente da F10, que acrescentou o próprio ADMINISTRADOR_PLATAFORMA
+-- a este mesmo enum.
 
 -- AlterEnum
 ALTER TYPE "Papel" ADD VALUE 'ADMIN';

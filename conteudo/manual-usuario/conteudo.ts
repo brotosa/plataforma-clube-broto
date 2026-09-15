@@ -509,17 +509,17 @@ export interface ResumoPapel {
  * cada papel não vem daqui: é derivada da matriz de permissões na tela.
  */
 export const RESUMO_PAPEL: Readonly<Record<Papel, ResumoPapel>> = {
-  ADMINISTRADOR_PLATAFORMA: {
-    quemE:
-      "Acesso total: pode toda ação da plataforma, de configurar o produto a operar o negócio. É o papel de quem precisa entrar em qualquer lugar — e o único que nunca é bloqueado por tentativas de senha e que a plataforma se recusa a deixar acabar.",
-    noDiaADia:
-      "Manter usuários e papéis, ajustar réguas, listas e metas, acompanhar a auditoria e, quando for preciso, entrar em qualquer módulo sem depender de outro papel. A única barreira que permanece é a da RN06: ninguém aprova o que pediu, nem aqui.",
-  },
   ADMIN: {
     quemE:
-      "Administra a plataforma sem operar o negócio: usuários, parâmetros, metas, auditoria e dados pessoais. É exatamente o que o Administrador da Plataforma era antes de virar acesso total — não cadastra aliado, não aprova, não opera campanha nem patrocinador.",
+      "Administrador: configura o produto — usuários, parâmetros e metas. Por segregação, não opera o negócio (não cadastra aliado, não aprova, não opera campanha ou patrocinador). É o papel que até a Onda 15 se chamava Administrador da Plataforma; só o nome mudou.",
     noDiaADia:
       "Manter usuários e papéis, ajustar réguas e listas no Parametrizador, definir metas e acompanhar a auditoria e os dados pessoais quando necessário.",
+  },
+  ADMINISTRADOR_PLATAFORMA: {
+    quemE:
+      "Acesso total: pode toda ação da plataforma, de configurar o produto a operar o negócio. É o papel de quem precisa entrar em qualquer lugar sem depender de outra pessoa — e, por isso mesmo, o que se atribui com mais critério.",
+    noDiaADia:
+      "Entrar onde for preciso, em qualquer módulo, sem depender de outro papel. A única barreira que permanece é a de sempre: ninguém aprova o que pediu.",
   },
   GESTOR: {
     quemE:

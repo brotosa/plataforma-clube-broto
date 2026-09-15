@@ -1,0 +1,23 @@
+-- Onda 15 — a renomeação, que é o que esta rodada de fato faz.
+--
+-- O papel que se chamava "Administrador da Plataforma" passa a se chamar
+-- "Administrador" e MANTÉM exatamente as atribuições que tinha. Quem o detém
+-- hoje continua com o mesmo acesso, só sob outro nome — daí o UPDATE abaixo,
+-- que move as contas existentes para o valor de enum do papel renomeado.
+--
+-- O nome "Administrador da Plataforma" passa a designar o ACESSO TOTAL, que é
+-- papel novo e, depois desta migration, **nasce sem nenhum detentor**. Atribuí-lo
+-- é ato humano na T27, auditado, e quem pode fazê-lo é o próprio Administrador,
+-- que tem GERIR_USUARIOS.
+--
+-- POR QUE É UM ARQUIVO SEPARADO, e não o mesmo da adição do enum: o PostgreSQL
+-- recusa usar um valor de enum na mesma transação em que ele foi criado
+-- ("unsafe use of new value of enum type"). O Prisma roda cada migration em
+-- transação, então a adição (20260915120000) e este uso precisam de arquivos
+-- distintos. Juntá-los faria o deploy falhar.
+--
+-- Estritamente aditiva no schema: não remove coluna, não estreita tipo, não
+-- exige valor de linha existente. Altera dado, e o dado que altera é
+-- exatamente o que a renomeação significa.
+
+UPDATE "usuarios" SET "papel" = 'ADMIN' WHERE "papel" = 'ADMINISTRADOR_PLATAFORMA';

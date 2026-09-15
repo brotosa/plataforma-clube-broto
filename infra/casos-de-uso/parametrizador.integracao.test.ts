@@ -35,7 +35,11 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
   const prisma = new PrismaClient();
   const PREFIXO = "[TESTE-F10]";
 
-  let administrador: { id: string; papel: "ADMINISTRADOR_PLATAFORMA" };
+  // Onda 15 — `administrador@` é o papel RENOMEADO (`ADMIN`): escreve
+  // parâmetro, como sempre escreveu, e não aprova. Os dois abaixo são de
+  // ACESSO TOTAL, e é por isso que só eles decidem sobre solicitação.
+  let administrador: { id: string; papel: "ADMIN" };
+  let acessoTotal: { id: string; papel: "ADMINISTRADOR_PLATAFORMA" };
   let outroAdministrador: { id: string; papel: "ADMINISTRADOR_PLATAFORMA" };
   let gestor: { id: string; papel: "GESTOR" };
   let scout: { id: string; papel: "ANALISTA_SCOUT" };
@@ -96,6 +100,7 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
     gestor = (await buscar("gestor@dev.clubebroto.local")) as typeof gestor;
     scout = (await buscar("scout@dev.clubebroto.local")) as typeof scout;
     aprovador = (await buscar("aprovador@dev.clubebroto.local")) as typeof aprovador;
+    acessoTotal = (await buscar("acessototal@dev.clubebroto.local")) as typeof acessoTotal;
     // Segundo administrador: a RN06 impede que quem solicita aprove.
     const segundo = await prisma.usuario.upsert({
       where: { email: "administrador2@dev.clubebroto.local" },
@@ -394,7 +399,7 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
     const pendente = await alterarValorDeRegra(outroAdministrador, "COMISSAO_PADRAO_PCT", 8);
     expect(pendente.aplicado).toBe(false);
 
-    await decidirSolicitacao(administrador, pendente.solicitacaoId as string, "APROVADA", null);
+    await decidirSolicitacao(acessoTotal, pendente.solicitacaoId as string, "APROVADA", null);
     expect(await lerValor("COMISSAO_PADRAO_PCT")).toBe(8);
 
     await configurarRegraAprovacao(gestor, "PARAMETRO_SENSIVEL", { exigida: false });

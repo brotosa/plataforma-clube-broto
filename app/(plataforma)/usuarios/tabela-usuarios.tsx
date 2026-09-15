@@ -126,6 +126,7 @@ function FormularioUsuario({
             id="usuario-papel"
             name="papel"
             className="select"
+            aria-describedby="usuario-papel-ajuda"
             defaultValue={usuario?.papel ?? "LEITURA"}
           >
             {PAPEIS.map((papel) => (
@@ -134,6 +135,19 @@ function FormularioUsuario({
               </option>
             ))}
           </select>
+          {/*
+            Onda 15 — os dois papéis de administração têm nomes parecidos e
+            poderes muito diferentes, e a lista os deixa vizinhos. Errar o item
+            aqui concede a plataforma inteira, em silêncio e com um clique. A
+            nota é a mitigação mais barata desse risco; ela é ligada ao campo
+            por `aria-describedby` para que o leitor de tela a ouça junto com o
+            rótulo, e não como texto solto depois dele.
+          */}
+          <p id="usuario-papel-ajuda" className="cap" style={{ margin: "6px 0 0", maxWidth: "62ch" }}>
+            <strong>Administrador</strong> configura a plataforma — usuários, parâmetros, metas e
+            auditoria — e não opera o negócio. <strong>Administrador da Plataforma</strong> é{" "}
+            <strong>acesso total</strong>: pode toda ação do sistema.
+          </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="submit" className="btn btn-azul" disabled={pendente}>
