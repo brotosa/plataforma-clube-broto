@@ -12,6 +12,7 @@ import {
   acaoCriarUsuario,
   acaoInativarUsuario,
   acaoReativarUsuario,
+  acaoExigirNovaSenha,
   acaoRedefinirCredencial,
   type EstadoUsuarios,
 } from "./acoes";
@@ -203,6 +204,10 @@ function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
     EstadoUsuarios,
     FormData
   >(acaoRedefinirCredencial, ESTADO_INICIAL);
+  const [novaSenha, despacharNovaSenha, pendenteNovaSenha] = useActionState<
+    EstadoUsuarios,
+    FormData
+  >(acaoExigirNovaSenha, ESTADO_INICIAL);
 
   const bloqueado = usuario.ativo && usuario.unicoAdministradorAtivo;
 
@@ -226,12 +231,32 @@ function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
             Redefinir credencial
           </button>
         </form>
+        {/*
+          Só para conta ATIVA, e só quando a troca ainda não está exigida: para
+          inativo o serviço recusa (não acessa a plataforma), e para quem já
+          está com a marca acesa o botão não teria efeito — oferecer uma ação
+          que não faz nada é pior que não a oferecer.
+        */}
+        {usuario.ativo && !usuario.trocaSenhaObrigatoria ? (
+          <form action={despacharNovaSenha}>
+            <input type="hidden" name="usuarioId" value={usuario.id} />
+            <button
+              type="submit"
+              className="btn btn-ghost btn-sm"
+              disabled={pendenteNovaSenha}
+              title="A senha atual continua valendo até a pessoa entrar e trocá-la."
+            >
+              Exigir nova senha
+            </button>
+          </form>
+        ) : null}
       </div>
       {bloqueado ? (
         <span className="cap">{MENSAGEM_ULTIMO_ADMINISTRADOR}</span>
       ) : null}
       <Mensagens estado={estado} />
       <Mensagens estado={credencial} />
+      <Mensagens estado={novaSenha} />
     </div>
   );
 }

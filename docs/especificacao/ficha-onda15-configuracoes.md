@@ -1,5 +1,5 @@
 # Ficha de Módulo — Onda 15: Configurações do portal
-**Plataforma de Administração e Gestão do Clube Broto** · v0.4 para validação · 15/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.5 para validação · 15/09/2026
 
 Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Administrador** e ao **Administrador da Plataforma**: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
 
@@ -20,6 +20,8 @@ Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Administrado
 > **O que a v0.4 muda.** Acrescenta a **§5.1**: o papel de administração foi **renomeado** para **Administrador** (valor `ADMIN`), mantendo as mesmas 12 atribuições e os mesmos detentores, e o nome **Administrador da Plataforma** passou a designar um papel **novo, de acesso total**, que nasce sem ninguém. É a primeira mudança de RBAC da ficha e a única desta onda com **migration** — duas, e a separação entre elas é obrigatória por restrição do PostgreSQL.
 >
 > **Como é renomeação, nada muda para quem já usa** — mesmas permissões, mesma isenção de bloqueio, mesmo peso na RN46. Garantir isso obrigou a rever duas regras que identificavam o administrador pelo nome literal e teriam passado a valer para ninguém; a §5.1 explica.
+
+> **O que a v0.5 muda.** Acrescenta ao §3 (RN72) a ação **exigir nova senha no próximo acesso** — por usuário na T27 e em massa na T35. Ela existe porque ligar a validade de senha **não alcança quem já está na base**: `senhaAlteradaEm` nasce nula e nulo significa "nunca vence", então a política ficava acesa e sem morder até cada pessoa trocar por conta própria. **Sem migration e sem parâmetro novo** — é ato, não configuração.
 
 ---
 
@@ -68,6 +70,10 @@ O histórico guarda **o hash bcrypt** da senha anterior, nunca o texto, e a comp
 O padrão **preserva o comportamento anterior** (10, sem exigência de classe) — apertar é decisão do Administrador, não efeito colateral da entrega.
 
 **Vencimento periódico (v0.2).** A senha pode ter prazo: passados N dias desde a última troca, a próxima entrada exige trocar. É a **única** parte da política que alcança quem já está dentro sem pedir nada — apertar comprimento ou classe vale na próxima troca, mas vencimento, por definição, obriga. Daí as três cautelas: nasce em `0` (desligado), a faixa começa em 30 dias para que não se configure um prazo que vence todo mundo amanhã, e `senhaAlteradaEm` nula **nunca vence** (ver §2).
+
+**Exigir nova senha no próximo acesso (v0.5).** Acende a marca de troca obrigatória **sem trocar a senha**, e a distinção é o ponto: "Redefinir credencial" gera uma senha provisória que alguém precisa transmitir — WhatsApp, e-mail, recado —, e todo canal desses é chance de vazamento; esta ação preserva a senha atual, então **nada trafega**. Por isso também **não derruba a sessão**: a pessoa já está autenticada com a senha que se está pedindo para trocar, e derrubar perderia trabalho sem ganhar segurança.
+
+Existe em dois lugares, e os dois são necessários: **por usuário** na T27, e **em massa** na T35, aba Senha, ao lado do parâmetro de validade — que é onde quem liga o vencimento está olhando quando a lacuna se cria. A ação em massa alcança só os **ativos** (inativo não acessa, e quem for reativado já recebe credencial provisória), **inclui quem executa** — a tela já diz que os ajustes valem para todo mundo, inclusive para quem os alterou — e pede **confirmação em dois passos**, porque não tem desfazer: a marca só sai quando cada pessoa troca a senha. Grava **um evento por usuário**, não um agregado: a trilha responde "o que aconteceu com esta conta".
 
 A sessão **não cai** quando a senha vence: o que acontece é que a marca de troca obrigatória se acende, e o usuário é conduzido à tela de troca. Derrubar a sessão seria pior e não mais seguro — a pessoa já está autenticada, e a diferença entre as duas condutas é só quanto trabalho ela perde.
 

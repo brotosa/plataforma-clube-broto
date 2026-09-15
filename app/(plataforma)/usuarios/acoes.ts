@@ -11,6 +11,8 @@ import {
   reativarUsuario,
   redefinirCredencial,
   trocarPropriaSenha,
+  exigirNovaSenha,
+  exigirNovaSenhaDeTodos,
 } from "@/infra/casos-de-uso/usuarios";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 
@@ -134,6 +136,49 @@ export async function acaoRedefinirCredencial(
     return {
       sucesso: "Credencial redefinida — as sessões abertas do usuário foram derrubadas.",
       senhaProvisoria,
+    };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
+/**
+ * Exigir nova senha de um usuário. Diferente de redefinir credencial, **não
+ * devolve senha provisória** — a atual continua valendo até a pessoa trocar —,
+ * e por isso não há nada a exibir nem a transmitir.
+ */
+export async function acaoExigirNovaSenha(
+  _anterior: EstadoUsuarios,
+  dados: FormData,
+): Promise<EstadoUsuarios> {
+  const ator = await atorDaSessao();
+  try {
+    await exigirNovaSenha(ator, String(dados.get("usuarioId") ?? ""));
+    revalidatePath("/usuarios");
+    return {
+      sucesso:
+        "Troca de senha exigida — a pessoa entra com a senha atual e é levada à troca no próximo acesso.",
+    };
+  } catch (erro) {
+    return paraEstado(erro);
+  }
+}
+
+/** Exigir nova senha de todos os usuários ativos, inclusive de quem executa. */
+export async function acaoExigirNovaSenhaDeTodos(
+  _anterior: EstadoUsuarios,
+  _dados: FormData,
+): Promise<EstadoUsuarios> {
+  const ator = await atorDaSessao();
+  try {
+    const { alcancados } = await exigirNovaSenhaDeTodos(ator);
+    revalidatePath("/usuarios");
+    revalidatePath("/configuracoes");
+    return {
+      sucesso:
+        alcancados === 0
+          ? "Nenhum usuário a alcançar: todos os ativos já estão com troca exigida."
+          : `Troca de senha exigida de ${alcancados} usuário(s) ativo(s), inclusive você.`,
     };
   } catch (erro) {
     return paraEstado(erro);
