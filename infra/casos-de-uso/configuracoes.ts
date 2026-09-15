@@ -48,6 +48,7 @@ function paraAuditavel(politica: PoliticaDeSenha): Record<string, unknown> {
     senhaExigeSimbolo: politica.exigeSimbolo,
     senhaHistoricoN: politica.historicoN,
     senhaValidadeDias: politica.validadeDias,
+    credencialProvisoriaHoras: politica.credencialProvisoriaHoras,
   };
 }
 
@@ -63,6 +64,7 @@ export async function lerPoliticaDeSenha(): Promise<PoliticaDeSenha> {
     exigeSimbolo: linha.senhaExigeSimbolo,
     historicoN: linha.senhaHistoricoN,
     validadeDias: linha.senhaValidadeDias,
+    credencialProvisoriaHoras: linha.credencialProvisoriaHoras,
   };
 }
 
@@ -182,6 +184,7 @@ export async function alterarPoliticaDeSenha(ator: Ator, nova: PoliticaDeSenha):
             exigeSimbolo: anterior.senhaExigeSimbolo,
             historicoN: anterior.senhaHistoricoN,
             validadeDias: anterior.senhaValidadeDias,
+            credencialProvisoriaHoras: anterior.credencialProvisoriaHoras,
           })
         : paraAuditavel(POLITICA_SENHA_PADRAO),
       novo: dados,

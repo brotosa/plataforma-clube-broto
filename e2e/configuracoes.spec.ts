@@ -242,7 +242,7 @@ test("as três abas navegam e trocam o conteúdo — axe limpo em cada uma", asy
  * proteções em qualquer uma delas. Se alguém mover a faixa para dentro de uma
  * aba, este teste é que reprova.
  */
-test("a faixa de panorama mostra as quatro proteções em TODAS as abas", async ({ page }) => {
+test("a faixa de panorama mostra as cinco proteções em TODAS as abas", async ({ page }) => {
   await entrar(page, ADMIN);
   const faixa = page.getByRole("group", { name: "Panorama das configurações de segurança" });
 
@@ -253,15 +253,27 @@ test("a faixa de panorama mostra as quatro proteções em TODAS as abas", async 
     await expect(faixa.getByText("Sessão", { exact: true })).toBeVisible();
     await expect(faixa.getByText("Bloqueio por login", { exact: true })).toBeVisible();
     await expect(faixa.getByText("Bloqueio por origem", { exact: true })).toBeVisible();
+    // A quinta célula (fila de acabamento da Onda 15). Ela está na PRIMEIRA
+    // aba, mas na faixa pelo mesmo motivo das outras: é a única proteção da
+    // tela que pode deixar alguém de fora, e isso não pode depender de rolar
+    // a aba até o fim.
+    await expect(faixa.getByText("Credencial provisória", { exact: true })).toBeVisible();
   }
 });
 
 test("proteção desligada aparece como palavra na faixa, nunca como zero", async ({ page }) => {
-  // Padrão do domínio: o bloqueio por origem nasce desligado.
+  // Padrão do domínio: DUAS proteções nascem desligadas — o bloqueio por
+  // origem e a validade da credencial provisória. Ambas precisam da palavra:
+  // "0" se leria como "nenhuma tentativa permitida" numa e como "expira
+  // imediatamente" na outra, que são o oposto do que significam.
   await entrar(page, ADMIN);
   await page.goto("/configuracoes");
   const faixa = page.getByRole("group", { name: "Panorama das configurações de segurança" });
-  await expect(faixa.getByText("Desligado")).toBeVisible();
+  await expect(faixa.getByText("Desligado")).toHaveCount(2);
+  await expect(faixa.getByText("Desligado").first()).toBeVisible();
+  // E nenhuma das duas escreve o zero cru no lugar do destaque.
+  await expect(faixa.getByText("0 h", { exact: true })).toHaveCount(0);
+  await expect(faixa.getByText("0", { exact: true })).toHaveCount(0);
 });
 
 test("aba inexistente na URL cai no padrão, não em erro nem em tela vazia", async ({ page }) => {
@@ -281,4 +293,145 @@ test("Gestor não vê 'Configurações' e é redirecionado se tentar a rota", as
   await page.goto("/configuracoes");
   await page.waitForURL((url) => new URL(url).pathname === "/");
   await expect(page.getByRole("heading", { level: 1, name: "Configurações" })).toHaveCount(0);
+});
+
+/**
+ * Validade da credencial provisória — o prazo da senha que alguém transmitiu.
+ *
+ * O percurso inteiro, com dois navegadores, porque é onde as duas metades se
+ * encontram: o Administrador cria a conta e recebe a senha; o prazo passa; a
+ * pessoa é recusada **com a senha certa** e a tela lhe diz o que fazer; o
+ * Administrador reemite e ela entra. Nenhum teste de unidade alcança isso, e
+ * é justamente a cadeia em que um elo solto não aparece — a proteção ficaria
+ * ligada e não mordendo, ou mordendo sem saída.
+ */
+test("credencial provisória expirada barra a senha certa, e a reemissão devolve o acesso", async ({
+  browser,
+}) => {
+  const marca = runId();
+  await prisma.configuracaoPortal.upsert({
+    where: { id: "portal" },
+    update: { credencialProvisoriaHoras: 24 },
+    create: { id: "portal", credencialProvisoriaHoras: 24 },
+  });
+
+  const contextoAdmin = await browser.newContext();
+  const contextoAlvo = await browser.newContext();
+  try {
+    // 1. O Administrador cria a conta e recolhe a senha provisória da tela.
+    const paginaAdmin = await contextoAdmin.newPage();
+    await entrar(paginaAdmin, ADMIN);
+    await paginaAdmin.goto("/usuarios");
+    await paginaAdmin.getByRole("button", { name: "+ Novo usuário" }).click();
+    await paginaAdmin.getByLabel("Nome completo").fill(`Prazo ${marca}`);
+    const email = `prazo-${marca}${SUFIXO_E2E}`;
+    await paginaAdmin.getByLabel("E-mail corporativo").fill(email);
+    await paginaAdmin.getByLabel("Papel", { exact: true }).selectOption("LEITURA");
+    await paginaAdmin.getByRole("button", { name: "Criar usuário" }).click();
+
+    const aviso = paginaAdmin.getByText(/Senha provisória:/);
+    await expect(aviso).toBeVisible();
+    const senha = ((await aviso.textContent()) ?? "").match(/broto-[\w-]+/)?.[0] ?? "";
+    expect(senha).not.toBe("");
+
+    // A lista já mostra o prazo, e é por isso que ele é calculado na consulta
+    // e não na tela: os dois lados leem a mesma função.
+    await paginaAdmin.getByLabel("Buscar por nome ou e-mail").fill(email);
+    const linha = paginaAdmin.getByRole("row").filter({ hasText: email });
+    await expect(linha.getByText(/expira em \d+ h/)).toBeVisible();
+
+    // 2. Envelhece a emissão para além do prazo — 30 minutos de espera não
+    //    cabem numa suíte, e o que se quer provar é a regra, não o relógio.
+    await prisma.usuario.update({
+      where: { email },
+      data: { credencialEmitidaEm: new Date(Date.now() - 25 * 60 * 60_000) },
+    });
+
+    // 3. A senha está CERTA e mesmo assim não entra — e a tela diz por quê.
+    const paginaAlvo = await contextoAlvo.newPage();
+    await paginaAlvo.goto("/entrar");
+    await paginaAlvo.getByLabel("E-mail").fill(email);
+    await paginaAlvo.getByLabel("Senha").fill(senha);
+    await paginaAlvo.getByRole("button", { name: "Entrar" }).click();
+    await paginaAlvo.waitForURL(/\/entrar\?erro=credencial-expirada/);
+    await expect(paginaAlvo.getByText(/A senha provisória desta conta expirou/)).toBeVisible();
+    await semViolacoesAxe(paginaAlvo);
+
+    // E a recusa NÃO conta como senha errada: a conta não fica bloqueada por
+    // acertar. Punir quem acertou seria contar o que a regra não mede.
+    const apos = await prisma.usuario.findUniqueOrThrow({ where: { email } });
+    expect(apos.loginTentativas).toBe(0);
+    expect(apos.loginBloqueadoAte).toBeNull();
+
+    // 4. A lista do Administrador acusa o estado, com o remédio na frase.
+    await paginaAdmin.reload();
+    await paginaAdmin.getByLabel("Buscar por nome ou e-mail").fill(email);
+    await expect(linha.getByText("expirada — emita outra")).toBeVisible();
+
+    // 5. Reemitir devolve o acesso — é a única saída, e ela funciona.
+    await linha.getByRole("button", { name: "Acesso" }).click();
+    await linha.getByRole("button", { name: "Redefinir credencial" }).click();
+    const novoAviso = paginaAdmin.getByText(/Senha provisória:/);
+    await expect(novoAviso).toBeVisible();
+    const nova = ((await novoAviso.textContent()) ?? "").match(/broto-[\w-]+/)?.[0] ?? "";
+    expect(nova).not.toBe(senha);
+
+    await paginaAlvo.goto("/entrar");
+    await paginaAlvo.getByLabel("E-mail").fill(email);
+    await paginaAlvo.getByLabel("Senha").fill(nova);
+    await paginaAlvo.getByRole("button", { name: "Entrar" }).click();
+    // Credencial provisória só navega para a troca de senha (ficha §3).
+    await paginaAlvo.waitForURL(/\/trocar-senha/);
+  } finally {
+    await contextoAdmin.close();
+    await contextoAlvo.close();
+  }
+});
+
+/**
+ * A isenção de quem configura o portal, pelo mesmo motivo da RN74: é a conta
+ * que emite credencial para as outras, e se a dela expirar não sobra ninguém
+ * para reemitir. Uma plataforma cuja única saída é o banco de dados não tem
+ * saída.
+ *
+ * O teste força o pior caso possível — credencial do Administrador emitida há
+ * um mês, com a proteção ligada — e exige que ele entre assim mesmo.
+ */
+test("quem configura o portal não é barrado pela credencial provisória expirada", async ({
+  browser,
+}) => {
+  await prisma.configuracaoPortal.upsert({
+    where: { id: "portal" },
+    update: { credencialProvisoriaHoras: 1 },
+    create: { id: "portal", credencialProvisoriaHoras: 1 },
+  });
+  const antes = await prisma.usuario.findUniqueOrThrow({ where: { email: ADMIN } });
+  await prisma.usuario.update({
+    where: { email: ADMIN },
+    data: {
+      trocaSenhaObrigatoria: true,
+      credencialEmitidaEm: new Date(Date.now() - 30 * 24 * 60 * 60_000),
+    },
+  });
+
+  const contexto = await browser.newContext();
+  try {
+    const pagina = await contexto.newPage();
+    await pagina.goto("/entrar");
+    await pagina.getByLabel("E-mail").fill(ADMIN);
+    await pagina.getByLabel("Senha").fill(SENHA);
+    await pagina.getByRole("button", { name: "Entrar" }).click();
+    // Entra — e vai para a troca obrigatória, que é outra coisa e continua
+    // valendo. O que não pode acontecer é ser recusado.
+    await pagina.waitForURL(/\/trocar-senha/);
+  } finally {
+    await contexto.close();
+    await prisma.usuario.update({
+      where: { email: ADMIN },
+      data: {
+        trocaSenhaObrigatoria: antes.trocaSenhaObrigatoria,
+        credencialEmitidaEm: antes.credencialEmitidaEm,
+      },
+    });
+  }
 });

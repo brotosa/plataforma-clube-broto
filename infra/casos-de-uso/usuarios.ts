@@ -67,6 +67,7 @@ function estadoAuditavel(usuario: {
   papel: Papel;
   ativo: boolean;
   trocaSenhaObrigatoria: boolean;
+  credencialEmitidaEm?: Date | null;
 }) {
   return {
     nome: usuario.nome,
@@ -74,6 +75,15 @@ function estadoAuditavel(usuario: {
     papel: usuario.papel,
     ativo: usuario.ativo,
     trocaSenhaObrigatoria: usuario.trocaSenhaObrigatoria,
+    /*
+     * O instante da emissão entra na trilha — e com ele um buraco se fecha.
+     * Redefinir a credencial de quem JÁ estava com a troca exigida não mudava
+     * nenhum campo auditável, então `registrarMutacao` não gravava nada: a
+     * reemissão era invisível na T28. Agora toda emissão muda este valor, e
+     * toda emissão aparece. O hash continua fora (CAMPOS_FORA_DA_TRILHA), e a
+     * data não revela senha alguma.
+     */
+    credencialEmitidaEm: usuario.credencialEmitidaEm?.toISOString() ?? null,
   };
 }
 
@@ -131,6 +141,7 @@ export async function criarUsuario(
         senhaHash,
         ativo: true,
         trocaSenhaObrigatoria: true,
+        credencialEmitidaEm: new Date(),
       },
     });
     await registrarMutacao(criarGravadorPrisma(tx), {
@@ -268,7 +279,12 @@ export async function reativarUsuario(
 
     const novo = await tx.usuario.update({
       where: { id: usuarioId },
-      data: { ativo: true, senhaHash, trocaSenhaObrigatoria: true },
+      data: {
+        ativo: true,
+        senhaHash,
+        trocaSenhaObrigatoria: true,
+        credencialEmitidaEm: new Date(),
+      },
     });
 
     await registrarMutacao(criarGravadorPrisma(tx), {
@@ -309,6 +325,7 @@ export async function redefinirCredencial(
       data: {
         senhaHash,
         trocaSenhaObrigatoria: true,
+        credencialEmitidaEm: new Date(),
         sessaoEpoca: { increment: 1 },
       },
     });
@@ -394,7 +411,18 @@ export async function trocarPropriaSenha(
       where: { id: ator.id },
       // `senhaAlteradaEm` é o relógio da validade periódica (RN72): sem
       // gravá-lo aqui a senha nova nasceria "nunca vence".
-      data: { senhaHash, trocaSenhaObrigatoria: false, senhaAlteradaEm: new Date() },
+      //
+      // E `credencialEmitidaEm` volta a nulo: a senha agora é escolhida pela
+      // pessoa, ninguém a transmitiu, e a validade da credencial provisória
+      // deixa de ter o que governar. Deixá-la preenchida expiraria a senha
+      // definitiva pelo prazo da provisória — o defeito exato que separar os
+      // dois relógios existe para impedir.
+      data: {
+        senhaHash,
+        trocaSenhaObrigatoria: false,
+        senhaAlteradaEm: new Date(),
+        credencialEmitidaEm: null,
+      },
     });
 
     // Registra a senha ANTERIOR no histórico (só o hash) e poda para o

@@ -7,6 +7,7 @@ import {
   formatarMinutos,
   resumirPoliticaDeLogin,
   resumirPoliticaDeOrigem,
+  resumirCredencialProvisoria,
   resumirPoliticaDeSenha,
   resumirPoliticaDeSessao,
 } from "./resumo-politicas";
@@ -148,5 +149,41 @@ describe("resumirPoliticaDeOrigem", () => {
     expect(resumo.principal).toBe("20 falhas");
     expect(resumo.detalhe).toBe("bloqueia por 15 min");
     expect(resumo.desligada).toBe(false);
+  });
+});
+
+/**
+ * A célula da credencial provisória.
+ *
+ * Ela ganhou lugar próprio na faixa, e não uma terceira parte do detalhe da
+ * Senha, porque é a única proteção da aba capaz de deixar alguém **de fora**.
+ * O que este bloco prende é a disciplina da faixa: desligado aparece como a
+ * **palavra** "Desligado", nunca como `0` — `0 h` se leria como "expira
+ * imediatamente", que é o oposto do que significa.
+ */
+describe("resumirCredencialProvisoria", () => {
+  it("no padrão está desligada, e diz isso em palavra", () => {
+    const resumo = resumirCredencialProvisoria(POLITICA_SENHA_PADRAO);
+    expect(resumo.rotulo).toBe("Credencial provisória");
+    expect(resumo.principal).toBe("Desligado");
+    expect(resumo.principal).not.toContain("0");
+    expect(resumo.desligada).toBe(true);
+  });
+
+  it("ligada, mostra o prazo em unidade legível e não se marca como desligada", () => {
+    const resumo = resumirCredencialProvisoria({
+      ...POLITICA_SENHA_PADRAO,
+      credencialProvisoriaHoras: 48,
+    });
+    expect(resumo.principal).toBe("2 dias");
+    expect(resumo.desligada).toBe(false);
+  });
+
+  it("prazo de horas não vira dia por arredondamento", () => {
+    const resumo = resumirCredencialProvisoria({
+      ...POLITICA_SENHA_PADRAO,
+      credencialProvisoriaHoras: 8,
+    });
+    expect(resumo.principal).toBe("8 h");
   });
 });

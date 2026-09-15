@@ -466,4 +466,107 @@ describe.skipIf(!temBanco)("T27 — gestão de usuários (RN46, RN47)", () => {
       await expect(encerrarSessoes(admin, "nao-existe")).rejects.toBeInstanceOf(ErroDeValidacao);
     });
   });
+
+  /**
+   * O relógio da credencial provisória (fila de acabamento da Onda 15).
+   *
+   * A regra de expiração é pura e está coberta em `politica-senha.test.ts`.
+   * O que **só** a integração prova é que o relógio é acertado nos três
+   * lugares onde a plataforma emite credencial, e **zerado** no único lugar
+   * onde a pessoa escolhe a senha. Errar qualquer um desses quatro pontos
+   * produz um defeito silencioso: a proteção fica ligada e não morde, ou —
+   * pior — passa a valer para uma senha que ninguém transmitiu.
+   */
+  describe("relógio da credencial provisória", () => {
+    it("criar, reativar e redefinir acertam a data de emissão", async () => {
+      const { id } = await criarUsuario(admin, {
+        nome: "Relogio Credencial",
+        email: `relogio-credencial${SUFIXO}`,
+        papel: "LEITURA",
+      });
+      const aoCriar = await prisma.usuario.findUniqueOrThrow({ where: { id } });
+      expect(aoCriar.credencialEmitidaEm).toBeInstanceOf(Date);
+
+      // Recuar a data prova que a emissão seguinte a REESCREVE, e não apenas
+      // que ela estava preenchida de antes.
+      const antiga = new Date("2020-01-01T00:00:00Z");
+      await prisma.usuario.update({ where: { id }, data: { credencialEmitidaEm: antiga } });
+      await redefinirCredencial(admin, id);
+      const aoRedefinir = await prisma.usuario.findUniqueOrThrow({ where: { id } });
+      expect(aoRedefinir.credencialEmitidaEm!.getTime()).toBeGreaterThan(antiga.getTime());
+
+      await prisma.usuario.update({ where: { id }, data: { credencialEmitidaEm: antiga } });
+      await inativarUsuario(admin, id);
+      await reativarUsuario(admin, id);
+      const aoReativar = await prisma.usuario.findUniqueOrThrow({ where: { id } });
+      expect(aoReativar.credencialEmitidaEm!.getTime()).toBeGreaterThan(antiga.getTime());
+    });
+
+    /**
+     * O ponto mais fácil de esquecer, e o de pior consequência: sem zerar
+     * aqui, a senha que a PESSOA escolheu herdaria o prazo da provisória e
+     * expiraria em horas, trancando quem fez tudo certo.
+     */
+    it("a troca da própria senha ZERA a emissão — senha escolhida não tem prazo", async () => {
+      const { id } = await criarUsuario(admin, {
+        nome: "Relogio Zera",
+        email: `relogio-zera${SUFIXO}`,
+        papel: "LEITURA",
+      });
+
+      await trocarPropriaSenha(
+        { id, papel: "LEITURA" },
+        { nova: "senha-escolhida-9", confirmacao: "senha-escolhida-9" },
+      );
+
+      const depois = await prisma.usuario.findUniqueOrThrow({ where: { id } });
+      expect(depois.trocaSenhaObrigatoria).toBe(false);
+      expect(depois.credencialEmitidaEm).toBeNull();
+      // E o relógio da validade periódica (RN72) passa a correr — são dois
+      // relógios distintos, e a troca move os dois em sentidos opostos.
+      expect(depois.senhaAlteradaEm).toBeInstanceOf(Date);
+    });
+
+    /**
+     * "Exigir nova senha" acende a troca obrigatória **sem trocar a senha**:
+     * não há credencial transmitida, então não pode nascer prazo. Se nascesse,
+     * a ação criada para fazer a validade periódica morder acabaria trancando
+     * a conta por uma regra que não é dela.
+     */
+    it("exigir nova senha NÃO cria prazo de credencial", async () => {
+      const alvo = await criarDireto("Relogio Exigir", "LEITURA");
+      await exigirNovaSenha(admin, alvo.id);
+
+      const depois = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+      expect(depois.trocaSenhaObrigatoria).toBe(true);
+      expect(depois.credencialEmitidaEm).toBeNull();
+    });
+
+    /**
+     * Um buraco que esta fase fecha de lambuja: redefinir a credencial de quem
+     * JÁ estava com a troca exigida não mudava nenhum campo auditável, então
+     * o diff era vazio e a reemissão não aparecia na T28.
+     */
+    it("reemitir para quem já estava com a troca exigida agora grava na trilha", async () => {
+      const { id } = await criarUsuario(admin, {
+        nome: "Relogio Trilha",
+        email: `relogio-trilha${SUFIXO}`,
+        papel: "LEITURA",
+      });
+      const antes = await prisma.auditoriaEvento.count({ where: { entidadeId: id } });
+
+      await redefinirCredencial(admin, id);
+
+      const depois = await prisma.auditoriaEvento.count({ where: { entidadeId: id } });
+      expect(depois).toBeGreaterThan(antes);
+      const evento = await prisma.auditoriaEvento.findFirst({
+        where: { entidadeId: id, campo: "credencialEmitidaEm" },
+        orderBy: { criadoEm: "desc" },
+      });
+      expect(evento).not.toBeNull();
+      // A trilha registra QUANDO houve emissão, nunca o quê: nem a senha, nem
+      // o hash dela.
+      expect(evento?.valorNovo ?? "").not.toContain("$2");
+    });
+  });
 });
