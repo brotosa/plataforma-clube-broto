@@ -704,6 +704,16 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .kpi-cel{border-left:0}
   .kpi-cel:nth-child(n+2){border-top:1px solid var(--borda)}
 }
+/* Cinco células (T35 — a faixa de panorama ganhou a credencial provisória).
+   Modificador, e não alteração do `.kpi-row`: as outras telas usam quatro e
+   não podem mudar por tabela. A quinta célula NÃO entra sem isto — o
+   `repeat(4,…)` a jogaria sozinha numa segunda linha, sem borda superior e
+   com três colunas vazias à direita, que é o mesmo defeito de célula fantasma
+   corrigido no `.dash-stats` na Onda 7. */
+.kpi-row-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1000px){.kpi-row-5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.kpi-row-5{grid-template-columns:minmax(0,1fr)}}
+
 .kpi-cel .v{font-family:var(--font-family-headline);font-weight:700;font-size:29px;line-height:1.05;
   color:var(--preto);font-variant-numeric:tabular-nums;letter-spacing:-.015em}
 /* alerta usa o token de TEXTO derivado, não o --erro puro: 29px bold sobre

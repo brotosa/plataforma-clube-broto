@@ -73,6 +73,42 @@ function classeDaPilulaDePapel(papel: Papel): string {
 
 const ESTADO_INICIAL: EstadoUsuarios = {};
 
+/**
+ * O prazo da credencial provisória, embaixo do selo.
+ *
+ * Só aparece quando existe prazo: `null` é a proteção desligada, e nesse caso
+ * escrever "sem prazo" em toda linha seria ruído por uma configuração que a
+ * tela de Configurações já declara. Expirada ganha a cor de erro porque é uma
+ * conta **impedida de entrar** — não é aviso, é estado.
+ *
+ * O número vem da consulta, que o calcula pela mesma função do domínio que o
+ * login usa. A tela só escolhe a palavra.
+ */
+function PrazoDaCredencial({ minutos }: { minutos: number | null }) {
+  if (minutos === null) return null;
+
+  if (minutos <= 0) {
+    return (
+      <span
+        className="cap"
+        style={{ display: "block", color: "var(--erro-texto-aaa)", fontWeight: 700 }}
+      >
+        expirada — emita outra
+      </span>
+    );
+  }
+
+  const horas = Math.floor(minutos / 60);
+  const restante =
+    horas >= 48 ? `${Math.floor(horas / 24)} dias` : horas >= 1 ? `${horas} h` : `${minutos} min`;
+
+  return (
+    <span className="cap" style={{ display: "block" }}>
+      expira em {restante}
+    </span>
+  );
+}
+
 /*
  * Tamanhos de página, e por que o padrão é 25.
  *
@@ -590,9 +626,12 @@ export function TabelaUsuarios({
                       {usuario.ativo ? "Ativo" : "Inativo"}
                     </span>
                     {usuario.trocaSenhaObrigatoria ? (
-                      <span className="cap" style={{ display: "block", marginTop: 2 }}>
-                        credencial provisória
-                      </span>
+                      <>
+                        <span className="cap" style={{ display: "block", marginTop: 2 }}>
+                          credencial provisória
+                        </span>
+                        <PrazoDaCredencial minutos={usuario.minutosAteExpirarCredencial} />
+                      </>
                     ) : null}
                   </td>
                   <td data-label="Ações">

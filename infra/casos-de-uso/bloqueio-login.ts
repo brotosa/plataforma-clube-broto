@@ -8,6 +8,8 @@ import {
   estadoLimpo,
   minutosRestantesDeBloqueio,
 } from "@/dominio/usuarios/politica-login";
+import { credencialProvisoriaExpirou } from "@/dominio/usuarios/politica-senha";
+import { lerPoliticaDeSenha } from "./configuracoes";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -36,6 +38,42 @@ export async function emailEstaBloqueado(email: string): Promise<boolean> {
     return false;
   }
   return estaBloqueado(usuario.loginBloqueadoAte, new Date());
+}
+
+/**
+ * A credencial provisória desse e-mail está expirada agora?
+ *
+ * Mesmo desenho e mesmo propósito de `emailEstaBloqueado`: o provedor recusa
+ * sem dizer por quê, e a tela de login relê o estado para escolher a mensagem
+ * certa — que aqui é a única que leva a pessoa à saída, porque insistir na
+ * senha não resolve e o remédio está com outra pessoa.
+ *
+ * A isenção é a mesma capacidade (`CONFIGURAR_PORTAL`) e tem de ser a mesma
+ * condição dos dois lados: se aqui dissesse "expirada" e lá a autenticação
+ * deixasse passar, a tela exibiria um impedimento que não existe.
+ *
+ * E-mail desconhecido ou inativo devolve `false`, como lá.
+ */
+export async function credencialProvisoriaExpirada(email: string): Promise<boolean> {
+  const usuario = await prisma.usuario.findUnique({
+    where: { email },
+    select: {
+      ativo: true,
+      papel: true,
+      trocaSenhaObrigatoria: true,
+      credencialEmitidaEm: true,
+    },
+  });
+  if (
+    !usuario ||
+    !usuario.ativo ||
+    !usuario.trocaSenhaObrigatoria ||
+    podeExecutar(usuario.papel, "CONFIGURAR_PORTAL")
+  ) {
+    return false;
+  }
+  const politica = await lerPoliticaDeSenha();
+  return credencialProvisoriaExpirou(usuario.credencialEmitidaEm, new Date(), politica);
 }
 
 /** Uma conta bloqueada, para a lista de desbloqueio. */

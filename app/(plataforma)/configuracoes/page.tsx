@@ -11,6 +11,7 @@ import {
 import { listarLoginsBloqueados } from "@/infra/casos-de-uso/bloqueio-login";
 import { listarOrigensBloqueadas } from "@/infra/casos-de-uso/bloqueio-origem";
 import {
+  resumirCredencialProvisoria,
   resumirPoliticaDeLogin,
   resumirPoliticaDeOrigem,
   resumirPoliticaDeSenha,
@@ -110,6 +111,7 @@ export default async function PaginaConfiguracoes({
 
       <FaixaPanorama
         senha={resumirPoliticaDeSenha(politica)}
+        credencial={resumirCredencialProvisoria(politica)}
         sessao={resumirPoliticaDeSessao(politicaSessao)}
         login={resumirPoliticaDeLogin(politicaLogin)}
         origem={resumirPoliticaDeOrigem(politicaOrigem)}

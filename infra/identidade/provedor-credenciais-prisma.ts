@@ -5,8 +5,9 @@ import type {
 } from "@/dominio/identidade/provedor-identidade";
 import { prisma } from "@/infra/prisma/cliente";
 import { logger } from "@/infra/log/logger";
-import { lerPoliticaDeLogin } from "@/infra/casos-de-uso/configuracoes";
+import { lerPoliticaDeLogin, lerPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
 import { estaBloqueado, registrarFalha } from "@/dominio/usuarios/politica-login";
+import { credencialProvisoriaExpirou } from "@/dominio/usuarios/politica-senha";
 import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { obterOrigemDaRequisicao } from "./origem-requisicao";
 import {
@@ -46,6 +47,23 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
       return null;
     }
 
+    /**
+     * A credencial provisória expirou?
+     *
+     * Só é consultada **depois** de a senha bater: antes disso não há nada a
+     * dizer a quem está tentando, e conferir cedo gastaria consulta em toda
+     * tentativa errada.
+     *
+     * Não conta falha nem estende bloqueio: a senha estava certa, e punir
+     * quem acertou seria contar o que a regra não mede. Também não zera os
+     * contadores — a entrada não se completou.
+     */
+    const credencialExpirada = async (): Promise<boolean> => {
+      if (!usuario.trocaSenhaObrigatoria) return false;
+      const politica = await lerPoliticaDeSenha();
+      return credencialProvisoriaExpirou(usuario.credencialEmitidaEm, new Date(), politica);
+    };
+
     const paraSessao = (): UsuarioAutenticado => ({
       id: usuario.id,
       nome: usuario.nome,
@@ -76,6 +94,13 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
         return null;
       }
       await limparOrigem(origem);
+      /*
+       * Quem configura o portal também não tem a credencial provisória
+       * expirada contra si, pelo mesmo motivo da isenção de bloqueio da RN74:
+       * é a conta que emite credencial para os outros, e se a dela expirar
+       * não sobra ninguém para reemitir. Uma plataforma cuja única saída é o
+       * banco de dados não tem saída.
+       */
       return paraSessao();
     }
 
@@ -109,6 +134,14 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
         { email, motivo: novo.bloqueadoAte ? "senha_invalida_bloqueou" : "senha_invalida" },
         "autenticação recusada",
       );
+      return null;
+    }
+
+    // Senha correta, mas a credencial provisória passou do prazo: recusa, e o
+    // remédio é o Administrador emitir outra (T27 → Acesso → Redefinir
+    // credencial). A tela de login relê o estado para dizer isso.
+    if (await credencialExpirada()) {
+      logger.info({ email, motivo: "credencial_provisoria_expirada" }, "autenticação recusada");
       return null;
     }
 
