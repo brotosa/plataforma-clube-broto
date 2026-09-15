@@ -159,6 +159,9 @@ test("exigir nova senha de um usuário — sem credencial a transmitir", async (
     await page.goto("/usuarios");
 
     const linha = page.getByRole("row").filter({ hasText: alvo.nome });
+    // Onda 15 — as três ações de credencial e sessão passaram para o menu
+    // "Acesso" da linha; à vista ficaram só Editar e Inativar/Reativar.
+    await linha.getByRole("button", { name: "Acesso" }).click();
     const botao = linha.getByRole("button", { name: "Exigir nova senha" });
     await expect(botao).toBeVisible();
     await botao.click();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useId, useMemo, useState } from "react";
 import type { Papel } from "@prisma/client";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import { podeExecutar, temAcessoTotal } from "@/dominio/autorizacao/permissoes";
@@ -73,6 +73,18 @@ function classeDaPilulaDePapel(papel: Papel): string {
 
 const ESTADO_INICIAL: EstadoUsuarios = {};
 
+/*
+ * Tamanhos de página, e por que o padrão é 25.
+ *
+ * A RN56 manda conjunto contido ler por rolagem e reserva paginação para base
+ * ilimitada; usuários internos são dezenas, não milhares. Com a linha compacta
+ * a equipe de hoje cabe inteira numa página — o rodapé existe para quando ela
+ * crescer, e o seletor deixa quem quiser encurtar a leitura fazê-lo sem que a
+ * escolha vire regra para todo mundo.
+ */
+const TAMANHOS_DE_PAGINA = [10, 25, 50] as const;
+const POR_PAGINA_PADRAO = 25;
+
 function iniciaisDe(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
   return (
@@ -89,8 +101,8 @@ function Mensagens({ estado }: { estado: EstadoUsuarios }) {
       {estado.senhaProvisoria ? (
         <div className="aviso-inline" role="status">
           <span>
-            Senha provisória: <b className="num">{estado.senhaProvisoria}</b> — ela não será
-            exibida de novo.
+            Senha provisória: <b className="num">{estado.senhaProvisoria}</b> — ela não será exibida
+            de novo.
           </span>
         </div>
       ) : null}
@@ -171,7 +183,11 @@ function FormularioUsuario({
             por `aria-describedby` para que o leitor de tela a ouça junto com o
             rótulo, e não como texto solto depois dele.
           */}
-          <p id="usuario-papel-ajuda" className="cap" style={{ margin: "6px 0 0", maxWidth: "62ch" }}>
+          <p
+            id="usuario-papel-ajuda"
+            className="cap"
+            style={{ margin: "6px 0 0", maxWidth: "62ch" }}
+          >
             <strong>Administrador</strong> configura a plataforma — usuários, parâmetros, metas e
             auditoria — e não opera o negócio. <strong>Administrador da Plataforma</strong> é{" "}
             <strong>acesso total</strong>: pode toda ação do sistema.
@@ -187,8 +203,8 @@ function FormularioUsuario({
         </div>
         {usuario ? null : (
           <p className="cap" style={{ margin: 0 }}>
-            O usuário nasce com credencial provisória e troca obrigatória no primeiro acesso
-            (ficha §3). SSO Entra ID segue como decisão futura.
+            O usuário nasce com credencial provisória e troca obrigatória no primeiro acesso (ficha
+            §3). SSO Entra ID segue como decisão futura.
           </p>
         )}
       </form>
@@ -196,7 +212,26 @@ function FormularioUsuario({
   );
 }
 
-function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
+/**
+ * Ações da linha, em faixa única (Onda 15 — layout da T27).
+ *
+ * As cinco ações estavam empilhadas: cada linha media ~170 px e a tela passava
+ * de 2.200 px com treze contas. Pior que o tamanho era a tendência — toda ação
+ * nova esticava **todas** as linhas, e a fase anterior acrescentou duas.
+ *
+ * O corte não é por frequência de uso, é por **família**: `Editar` e
+ * `Inativar/Reativar` decidem sobre a conta e ficam à vista; redefinir
+ * credencial, encerrar sessões e exigir nova senha decidem sobre o **acesso**
+ * dela e entram no menu. Quem procura uma das três procura a família, não o
+ * botão — e ação nova cabe ali sem esticar nada.
+ *
+ * O menu é botão + painel controlado, e não `<details>`: `aria-expanded` é
+ * explícito e o papel `button` é o mesmo em toda a plataforma. O painel fica
+ * **no fluxo** — o porquê está no `dseed-admin.css`, e é medido: flutuando,
+ * ele obrigaria a tirar o `overflow-x` do cartão, e a tabela passaria a
+ * transbordar entre 760px e 1.080px.
+ */
+function AcoesDaLinha({ usuario, aoEditar }: { usuario: LinhaUsuario; aoEditar: () => void }) {
   const [estado, despachar, pendente] = useActionState<EstadoUsuarios, FormData>(
     usuario.ativo ? acaoInativarUsuario : acaoReativarUsuario,
     ESTADO_INICIAL,
@@ -214,68 +249,100 @@ function AcoesDaLinha({ usuario }: { usuario: LinhaUsuario }) {
     ESTADO_INICIAL,
   );
 
+  const [menuAberto, setMenuAberto] = useState(false);
+  const painelId = useId();
+
   const bloqueado = usuario.ativo && usuario.unicoAdministradorAtivo;
+  // A marca acesa dispensa a ação: exigir de novo não faria nada.
+  const podeExigirSenha = usuario.ativo && !usuario.trocaSenhaObrigatoria;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="acoes-linha">
+        <button type="button" className="btn btn-ghost btn-sm btn-xs" onClick={aoEditar}>
+          Editar
+        </button>
         <form action={despachar}>
           <input type="hidden" name="usuarioId" value={usuario.id} />
           <button
             type="submit"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm btn-xs"
             disabled={bloqueado || pendente}
             title={bloqueado ? MENSAGEM_ULTIMO_ADMINISTRADOR : undefined}
           >
             {usuario.ativo ? "Inativar" : "Reativar"}
           </button>
         </form>
-        <form action={despacharCredencial}>
-          <input type="hidden" name="usuarioId" value={usuario.id} />
-          <button type="submit" className="btn btn-ghost btn-sm" disabled={pendenteCredencial}>
-            Redefinir credencial
-          </button>
-        </form>
-        {/*
-          Só para conta ATIVA, e só quando a troca ainda não está exigida: para
-          inativo o serviço recusa (não acessa a plataforma), e para quem já
-          está com a marca acesa o botão não teria efeito — oferecer uma ação
-          que não faz nada é pior que não a oferecer.
-        */}
-        {/*
-          Só para conta ATIVA: derrubar a sessão de quem já está inativo não
-          faz nada — a inativação já revogou tudo pela RN47.
-        */}
-        {usuario.ativo ? (
-          <form action={despacharSessoes}>
-            <input type="hidden" name="usuarioId" value={usuario.id} />
-            <button
-              type="submit"
-              className="btn btn-ghost btn-sm"
-              disabled={pendenteSessoes}
-              title="Derruba quem está logado agora. O acesso continua: a pessoa entra de novo com a senha atual."
-            >
-              Encerrar sessões
-            </button>
-          </form>
-        ) : null}
-        {usuario.ativo && !usuario.trocaSenhaObrigatoria ? (
-          <form action={despacharNovaSenha}>
-            <input type="hidden" name="usuarioId" value={usuario.id} />
-            <button
-              type="submit"
-              className="btn btn-ghost btn-sm"
-              disabled={pendenteNovaSenha}
-              title="A senha atual continua valendo até a pessoa entrar e trocá-la."
-            >
-              Exigir nova senha
-            </button>
-          </form>
-        ) : null}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm btn-xs menu-acesso"
+          data-aberto={menuAberto ? "sim" : "nao"}
+          aria-expanded={menuAberto}
+          aria-controls={painelId}
+          onClick={() => setMenuAberto((aberto) => !aberto)}
+        >
+          Acesso
+          <svg
+            className="chev"
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
       </div>
-      {bloqueado ? (
-        <span className="cap">{MENSAGEM_ULTIMO_ADMINISTRADOR}</span>
+      {menuAberto ? (
+        <div className="menu-acesso-pop" id={painelId}>
+          <form action={despacharCredencial}>
+            <input type="hidden" name="usuarioId" value={usuario.id} />
+            <button
+              type="submit"
+              disabled={pendenteCredencial}
+              title="Sorteia uma senha provisória e obriga a troca no próximo acesso."
+            >
+              Redefinir credencial
+            </button>
+          </form>
+          {/*
+                Só para conta ATIVA: derrubar a sessão de quem já está inativo
+                não faz nada — a inativação já revogou tudo pela RN47.
+              */}
+          {usuario.ativo ? (
+            <form action={despacharSessoes}>
+              <input type="hidden" name="usuarioId" value={usuario.id} />
+              <button
+                type="submit"
+                disabled={pendenteSessoes}
+                title="Derruba quem está logado agora. O acesso continua: a pessoa entra de novo com a senha atual."
+              >
+                Encerrar sessões
+              </button>
+            </form>
+          ) : null}
+          {podeExigirSenha ? (
+            <>
+              <div className="menu-acesso-sep" />
+              <form action={despacharNovaSenha}>
+                <input type="hidden" name="usuarioId" value={usuario.id} />
+                <button
+                  type="submit"
+                  disabled={pendenteNovaSenha}
+                  title="A senha atual continua valendo até a pessoa entrar e trocá-la."
+                >
+                  Exigir nova senha
+                </button>
+              </form>
+            </>
+          ) : null}
+        </div>
       ) : null}
+      {bloqueado ? <span className="cap">{MENSAGEM_ULTIMO_ADMINISTRADOR}</span> : null}
       <Mensagens estado={estado} />
       <Mensagens estado={credencial} />
       <Mensagens estado={novaSenha} />
@@ -300,6 +367,9 @@ export function TabelaUsuarios({
   const [papelFiltro, setPapelFiltro] = useState<Papel | "TODOS">("TODOS");
   const [situacaoFiltro, setSituacaoFiltro] = useState<"TODOS" | "ATIVO" | "INATIVO">("TODOS");
 
+  const [porPagina, setPorPagina] = useState<number>(POR_PAGINA_PADRAO);
+  const [pagina, setPagina] = useState(1);
+
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return usuarios.filter((usuario) => {
@@ -319,6 +389,23 @@ export function TabelaUsuarios({
 
   const temFiltro = busca.trim() !== "" || papelFiltro !== "TODOS" || situacaoFiltro !== "TODOS";
 
+  /*
+   * A página é grampeada na renderização, e não só reposta ao filtrar: inativar
+   * o último usuário de uma página a faz desaparecer, e sem o grampo a tabela
+   * ficaria vazia sem nada explicar. Filtrar repõe em 1 nos próprios controles
+   * — quem busca quer o começo do resultado, não a página 3 dele.
+   */
+  const paginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
+  const paginaAtual = Math.min(pagina, paginas);
+  const primeiro = (paginaAtual - 1) * porPagina;
+  const visiveis = filtrados.slice(primeiro, primeiro + porPagina);
+
+  /** Repõe a leitura no começo — todo controle que muda o conjunto passa aqui. */
+  function reiniciar(aplicar: () => void) {
+    aplicar();
+    setPagina(1);
+  }
+
   return (
     <>
       <div
@@ -333,8 +420,8 @@ export function TabelaUsuarios({
         <div>
           <h1 className="h-page">Usuários</h1>
           <div className="cap" style={{ marginTop: 4 }}>
-            Usuários internos da plataforma · credencial própria com troca no primeiro acesso ·
-            SSO é decisão futura
+            Usuários internos da plataforma · credencial própria com troca no primeiro acesso · SSO
+            é decisão futura
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -374,7 +461,13 @@ export function TabelaUsuarios({
 
       <div
         className="g-resp"
-        style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 14 }}
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "flex-end",
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
       >
         <div className="field" style={{ flex: "1 1 260px", margin: 0 }}>
           <label htmlFor="filtro-usuario-busca">Buscar por nome ou e-mail</label>
@@ -384,7 +477,7 @@ export function TabelaUsuarios({
             type="search"
             placeholder="Nome ou e-mail…"
             value={busca}
-            onChange={(evento) => setBusca(evento.target.value)}
+            onChange={(evento) => reiniciar(() => setBusca(evento.target.value))}
           />
         </div>
         <div className="field" style={{ margin: 0 }}>
@@ -393,7 +486,9 @@ export function TabelaUsuarios({
             id="filtro-usuario-papel"
             className="select"
             value={papelFiltro}
-            onChange={(evento) => setPapelFiltro(evento.target.value as Papel | "TODOS")}
+            onChange={(evento) =>
+              reiniciar(() => setPapelFiltro(evento.target.value as Papel | "TODOS"))
+            }
           >
             <option value="TODOS">Todos os papéis</option>
             {PAPEIS.map((papel) => (
@@ -410,7 +505,9 @@ export function TabelaUsuarios({
             className="select"
             value={situacaoFiltro}
             onChange={(evento) =>
-              setSituacaoFiltro(evento.target.value as "TODOS" | "ATIVO" | "INATIVO")
+              reiniciar(() =>
+                setSituacaoFiltro(evento.target.value as "TODOS" | "ATIVO" | "INATIVO"),
+              )
             }
           >
             <option value="TODOS">Todas</option>
@@ -422,11 +519,13 @@ export function TabelaUsuarios({
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            onClick={() => {
-              setBusca("");
-              setPapelFiltro("TODOS");
-              setSituacaoFiltro("TODOS");
-            }}
+            onClick={() =>
+              reiniciar(() => {
+                setBusca("");
+                setPapelFiltro("TODOS");
+                setSituacaoFiltro("TODOS");
+              })
+            }
           >
             Limpar filtros
           </button>
@@ -448,73 +547,135 @@ export function TabelaUsuarios({
               <th>E-mail</th>
               <th>Papel</th>
               <th>Situação</th>
-              <th style={{ width: 260 }}>Ações</th>
+              {/* Largura para os três botões em UMA linha: a faixa não quebra
+                  (`flex-wrap:nowrap`), e coluna estreita demais devolveria a
+                  linha de duas alturas que esta mudança veio desfazer. */}
+              <th style={{ width: 268 }}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {filtrados.length === 0 ? (
+            {visiveis.length === 0 ? (
               <tr>
-                <td colSpan={5} className="cap" style={{ textAlign: "center", padding: "22px 14px" }}>
+                <td
+                  colSpan={5}
+                  className="cap"
+                  style={{ textAlign: "center", padding: "22px 14px" }}
+                >
                   Nenhum usuário corresponde aos filtros.
                 </td>
               </tr>
             ) : (
-              filtrados.map((usuario) => (
-              <tr key={usuario.id}>
-                <td data-label="Usuário">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="logo-ini" style={{ width: 30, height: 30, fontSize: 11 }}>
-                      {iniciaisDe(usuario.nome)}
-                    </span>
-                    <span style={{ fontWeight: 600 }}>{usuario.nome}</span>
-                  </div>
-                </td>
-                <td data-label="E-mail" className="num">
-                  {usuario.email}
-                </td>
-                <td data-label="Papel">
-                  <span className={classeDaPilulaDePapel(usuario.papel)}>
-                    {temAcessoTotal(usuario.papel) ? <i aria-hidden="true" /> : null}
-                    {ROTULOS_PAPEL[usuario.papel]}
-                  </span>
-                </td>
-                <td data-label="Situação">
-                  <span className={usuario.ativo ? "pill pill-ok" : "pill pill-neutra"}>
-                    <i aria-hidden="true" />
-                    {usuario.ativo ? "Ativo" : "Inativo"}
-                  </span>
-                  {usuario.trocaSenhaObrigatoria ? (
-                    <span className="cap" style={{ display: "block", marginTop: 2 }}>
-                      credencial provisória
-                    </span>
-                  ) : null}
-                </td>
-                <td data-label="Ações">
-                  {podeGerir ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            setCriando(false);
-                            setEmEdicao(usuario);
-                          }}
-                        >
-                          Editar
-                        </button>
-                      </div>
-                      <AcoesDaLinha usuario={usuario} />
+              visiveis.map((usuario) => (
+                <tr key={usuario.id}>
+                  <td data-label="Usuário">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="logo-ini" style={{ width: 30, height: 30, fontSize: 11 }}>
+                        {iniciaisDe(usuario.nome)}
+                      </span>
+                      <span style={{ fontWeight: 600 }}>{usuario.nome}</span>
                     </div>
-                  ) : (
-                    <span className="cap">somente leitura</span>
-                  )}
-                </td>
-              </tr>
+                  </td>
+                  <td data-label="E-mail" className="num">
+                    {usuario.email}
+                  </td>
+                  <td data-label="Papel">
+                    <span className={classeDaPilulaDePapel(usuario.papel)}>
+                      {temAcessoTotal(usuario.papel) ? <i aria-hidden="true" /> : null}
+                      {ROTULOS_PAPEL[usuario.papel]}
+                    </span>
+                  </td>
+                  <td data-label="Situação">
+                    <span className={usuario.ativo ? "pill pill-ok" : "pill pill-neutra"}>
+                      <i aria-hidden="true" />
+                      {usuario.ativo ? "Ativo" : "Inativo"}
+                    </span>
+                    {usuario.trocaSenhaObrigatoria ? (
+                      <span className="cap" style={{ display: "block", marginTop: 2 }}>
+                        credencial provisória
+                      </span>
+                    ) : null}
+                  </td>
+                  <td data-label="Ações">
+                    {podeGerir ? (
+                      <AcoesDaLinha
+                        usuario={usuario}
+                        aoEditar={() => {
+                          setCriando(false);
+                          setEmEdicao(usuario);
+                        }}
+                      />
+                    ) : (
+                      <span className="cap">somente leitura</span>
+                    )}
+                  </td>
+                </tr>
               ))
             )}
           </tbody>
         </table>
+        <nav className="paginacao" aria-label="Paginação da lista de usuários">
+          <span className="cap">
+            {filtrados.length === 0
+              ? "Nenhum usuário na lista"
+              : `Mostrando ${primeiro + 1}–${primeiro + visiveis.length} de ${filtrados.length}`}
+          </span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <label htmlFor="usuarios-por-pagina" className="cap">
+                Por página
+              </label>
+              <select
+                id="usuarios-por-pagina"
+                className="select select-sm"
+                value={porPagina}
+                onChange={(evento) => reiniciar(() => setPorPagina(Number(evento.target.value)))}
+              >
+                {TAMANHOS_DE_PAGINA.map((tamanho) => (
+                  <option key={tamanho} value={tamanho}>
+                    {tamanho}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="paginas">
+              <button
+                type="button"
+                className="pg"
+                disabled={paginaAtual <= 1}
+                onClick={() => setPagina(paginaAtual - 1)}
+              >
+                Anterior
+              </button>
+              {Array.from({ length: paginas }, (_, indice) => indice + 1).map((numero) => (
+                <button
+                  key={numero}
+                  type="button"
+                  className="pg num"
+                  aria-current={numero === paginaAtual ? "page" : undefined}
+                  aria-label={`Página ${numero}`}
+                  onClick={() => setPagina(numero)}
+                >
+                  {numero}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="pg"
+                disabled={paginaAtual >= paginas}
+                onClick={() => setPagina(paginaAtual + 1)}
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        </nav>
       </div>
       <p className="cap" style={{ margin: "14px 0 0" }}>
         Não existe exclusão de usuário: quem tem histórico é inativado, e a autoria dele nos
