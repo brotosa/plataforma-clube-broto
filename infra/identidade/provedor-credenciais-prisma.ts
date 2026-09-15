@@ -57,6 +57,13 @@ export const provedorCredenciaisPrisma: ProvedorIdentidade = {
     // Administrador da Plataforma: nunca bloqueado — nem pela conta, nem pela
     // ORIGEM. Mas a falha contra ele CONTA para a origem: sem isso, mirar um
     // e-mail de Administrador evadiria o bloqueio por endereço.
+    //
+    // **O `ADMIN` da Onda 15 NÃO é isento, e é decisão.** A isenção existe por
+    // um motivo estreito — a conta que destranca as outras não pode se trancar
+    // — e ele não é essa conta: se um `ADMIN` for bloqueado, o acesso total o
+    // libera. Estender a isenção ao papel novo dobraria a superfície de contas
+    // sem limite de tentativas, que é justamente a lacuna declarada na ficha
+    // da Onda 15 §6.1. Menos contas isentas é melhor, não pior.
     if (usuario.papel === "ADMINISTRADOR_PLATAFORMA") {
       if (!(await compare(senha, usuario.senhaHash))) {
         await registrarFalhaDeOrigem(origem);

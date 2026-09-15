@@ -26,6 +26,21 @@ export interface MudancaDeUsuario {
   ativo?: boolean;
 }
 
+/**
+ * O papel que a RN46 protege — a plataforma nunca fica sem ele.
+ *
+ * **O `ADMIN` da Onda 15 NÃO entra aqui, e é decisão.** O que a RN46 defende
+ * é que sempre exista alguém capaz de destrancar a casa: atribuir papéis,
+ * reativar conta, mexer na configuração. Depois do desdobramento, quem tem
+ * isso garantido em qualquer circunstância é o acesso total — o `ADMIN` pode
+ * ser bloqueado por tentativas (RN74) e depende de alguém para ser liberado.
+ * Contá-lo como administrador efetivo permitiria uma base só com `ADMIN`s
+ * trancados e ninguém para abrir.
+ *
+ * Consequência prática, e desejável: converter o **último**
+ * `ADMINISTRADOR_PLATAFORMA` em `ADMIN` é recusado pela RN46, como qualquer
+ * outro rebaixamento do último administrador.
+ */
 const PAPEL_ADMINISTRADOR: Papel = "ADMINISTRADOR_PLATAFORMA";
 
 /** Administrador que conta para a RN46: tem o papel E está ativo. */

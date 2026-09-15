@@ -26,6 +26,12 @@ import {
  * todo jeito: a UI é conveniência, não é a garantia.
  */
 
+/*
+ * Ordem do seletor de papel. `ADMIN` entra ao lado do
+ * `ADMINISTRADOR_PLATAFORMA` porque os dois são de administração e a escolha
+ * entre eles é a que exige comparação — o acesso total fica por último, que é
+ * onde a atribuição mais pesada deve estar.
+ */
 const PAPEIS: ReadonlyArray<Papel> = [
   "GESTOR",
   "ANALISTA",
@@ -33,6 +39,7 @@ const PAPEIS: ReadonlyArray<Papel> = [
   "COMERCIAL",
   "APROVADOR",
   "LEITURA",
+  "ADMIN",
   "ADMINISTRADOR_PLATAFORMA",
 ];
 

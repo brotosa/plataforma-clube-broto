@@ -165,7 +165,8 @@ const USUARIOS_DEV: ReadonlyArray<{
     | "COMERCIAL"
     | "APROVADOR"
     | "LEITURA"
-    | "ADMINISTRADOR_PLATAFORMA";
+    | "ADMINISTRADOR_PLATAFORMA"
+    | "ADMIN";
 }> = [
   { nome: "Gestor (desenvolvimento)", email: "gestor@dev.clubebroto.local", papel: "GESTOR" },
   { nome: "Analista (desenvolvimento)", email: "analista@dev.clubebroto.local", papel: "ANALISTA" },
@@ -173,6 +174,7 @@ const USUARIOS_DEV: ReadonlyArray<{
   { nome: "Comercial (desenvolvimento)", email: "comercial@dev.clubebroto.local", papel: "COMERCIAL" },
   { nome: "Aprovador (desenvolvimento)", email: "aprovador@dev.clubebroto.local", papel: "APROVADOR" },
   { nome: "Leitura (desenvolvimento)", email: "leitura@dev.clubebroto.local", papel: "LEITURA" },
+  { nome: "Admin (desenvolvimento)", email: "admin@dev.clubebroto.local", papel: "ADMIN" },
   {
     nome: "Administrador da Plataforma (desenvolvimento)",
     email: "administrador@dev.clubebroto.local",

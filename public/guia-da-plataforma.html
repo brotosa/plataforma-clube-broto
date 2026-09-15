@@ -1850,7 +1850,7 @@ a:hover{color:var(--azul)}
   <h2><span class="gd-num">4.9</span> Configurações do portal</h2>
   <p class="gd-lead">A seção anterior sobre configuração, a 4.6, cuida das réguas do negócio. Esta cuida de outra coisa: <strong>como a porta se tranca</strong>.</p>
 
-  <p>Restrito ao <strong>Administrador da Plataforma</strong>, o módulo guarda quatro ajustes — e todos valem para todo mundo, inclusive para quem os alterou. Cada mudança fica registrada na auditoria, com o valor anterior e o novo.</p>
+  <p>Restrito ao <strong>Admin</strong> e ao <strong>Administrador da Plataforma</strong>, o módulo guarda quatro ajustes — e todos valem para todo mundo, inclusive para quem os alterou. Cada mudança fica registrada na auditoria, com o valor anterior e o novo.</p>
 
   <h3>Política de senha</h3>
   <p>Quantos caracteres uma senha precisa ter, quais tipos de caractere são exigidos (maiúscula, minúscula, número, símbolo), quantas senhas anteriores não podem ser repetidas e de quantos em quantos dias a senha vence. A tela de troca de senha <strong>mostra a exigência vigente</strong>: se a política apertar, o aviso aperta junto, sem ninguém reescrever texto.</p>
@@ -1904,6 +1904,7 @@ a:hover{color:var(--azul)}
     <div>
       <span class="gd-rot">O Administrador da Plataforma nunca é bloqueado</span>
       <p>Nem pela conta, nem pela origem. É proposital: se a conta que desbloqueia as outras pudesse se trancar, um erro de digitação repetido deixaria a plataforma sem quem a destranca. Em troca, a senha dessa conta merece cuidado maior que a das demais — as falhas contra ela continuam contando para o endereço de onde vêm, mas ela própria continua entrando.</p>
+      <p>A isenção é <strong>só desse papel</strong>. O <strong>Admin</strong>, que também configura o portal, é bloqueado como qualquer pessoa — se isso acontecer, quem o libera é o Administrador da Plataforma.</p>
     </div>
   </div>
 </section>
@@ -1951,6 +1952,17 @@ a:hover{color:var(--azul)}
     <div>
       <span class="gd-rot">Duas garantias que valem para todos</span>
       <p>Ninguém aprova o próprio pedido, mesmo tendo as duas permissões. E não é possível rebaixar ou inativar o <strong>último administrador</strong> — a plataforma impede, para que ninguém fique trancado do lado de fora da própria casa.</p>
+    </div>
+  </div>
+
+  <div class="gd-bloco gd-nota gd-compl" data-origem="Complemento — Onda 15">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+    <div>
+      <span class="gd-rot">Complemento — Onda 15 · A administração virou dois papéis</span>
+      <p>O que a tabela acima descreve como <strong>Administrador da Plataforma</strong> passou a se chamar <strong>Admin</strong>, com exatamente as mesmas atribuições: configura réguas, listas, metas e percentuais, cria e inativa usuários, define papéis e acompanha a auditoria — e continua sem operar o dia a dia comercial.</p>
+      <p>O nome <strong>Administrador da Plataforma</strong> passou a designar o <strong>acesso total</strong>: pode toda ação do sistema, de configurar o produto a cadastrar aliado, aprovar, operar campanha e patrocinador. É o papel de quem precisa entrar em qualquer lugar sem depender de outra pessoa.</p>
+      <p>As duas garantias do bloco acima continuam valendo <strong>para os dois</strong>, e é bom ser explícito: nem o acesso total aprova o próprio pedido. O que a plataforma impede de acabar é o Administrador da Plataforma — converter o último deles em Admin é recusado pelo mesmo motivo que rebaixar o último administrador sempre foi.</p>
+      <p>Uma diferença que importa no dia a dia: <strong>só o Administrador da Plataforma nunca é bloqueado</strong> por tentativas de senha. O Admin é bloqueado como qualquer pessoa, e quem o libera é o Administrador da Plataforma.</p>
     </div>
   </div>
 </section>

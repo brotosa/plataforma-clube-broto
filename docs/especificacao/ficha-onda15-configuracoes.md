@@ -1,7 +1,7 @@
 # Ficha de Módulo — Onda 15: Configurações do portal
-**Plataforma de Administração e Gestão do Clube Broto** · v0.3 para validação · 14/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.4 para validação · 15/09/2026
 
-Fase **F23**, única da onda. Módulo novo (**T35**), exclusivo do Administrador da Plataforma: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
+Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Admin** e ao **Administrador da Plataforma**: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
 
 > **Esta ficha é retroativa, e isso é uma ressalva, não um detalhe.**
 >
@@ -16,6 +16,8 @@ Fase **F23**, única da onda. Módulo novo (**T35**), exclusivo do Administrador
 > Nenhuma RN nova foi criada: as três funcionalidades cabem dentro de RN72, RN73 e RN74, porque são a mesma regra com um eixo a mais. Criar RN75–RN77 inflaria a numeração sem separar assunto algum.
 
 > **O que a v0.3 muda.** Só a **§4**: a tela ganhou **abas** e a **faixa de panorama**, depois de a própria tela ficar longa demais para rolar. **Nenhuma regra mudou**, nenhum parâmetro novo, nenhuma migration — as quatro proteções, seus valores, suas faixas e seu comportamento são exatamente os da v0.2. A rodada também fechou uma lacuna antiga que não era de escopo: a T35 **nunca tivera teste a 380px**, nem quando nasceu, e agora tem.
+
+> **O que a v0.4 muda.** Acrescenta a **§5.1**: o papel de administração se desdobrou em dois — `ADMIN`, com exatamente as 12 ações que o `ADMINISTRADOR_PLATAFORMA` tinha, e o `ADMINISTRADOR_PLATAFORMA`, que passou a ser **acesso total**. É a primeira mudança de RBAC da ficha, e a única desta onda com **migration** — aditiva, um valor de enum, nenhuma linha tocada. Traz três decisões declaradas (RN06, RN74 e RN46) e registra a mudança de governança que o acesso total produz na aprovação de parâmetro sensível.
 
 ---
 
@@ -131,7 +133,32 @@ A tela reusa o componente existente do repositório (`card`, `field`, `aviso-inl
 
 ## 5. RBAC
 
-Ação única **`CONFIGURAR_PORTAL`**, permitida só ao `ADMINISTRADOR_PLATAFORMA` e negada aos outros seis papéis — mesmo desenho de `CONFIGURAR_PARAMETROS`, o irmão de negócio. Cobre os três blocos e o desbloqueio: **não há ação separada** para desbloquear conta.
+Ação única **`CONFIGURAR_PORTAL`** — mesmo desenho de `CONFIGURAR_PARAMETROS`, o irmão de negócio. Cobre os quatro blocos e os dois desbloqueios: **não há ação separada** para desbloquear conta nem para liberar endereço.
+
+### 5.1 Desdobramento do papel de administração (v0.4)
+
+Por decisão da TI, o papel de administração virou **dois**:
+
+| Papel | Alcance | Rótulo na interface |
+|---|---|---|
+| **`ADMIN`** | exatamente as **12 ações** que o `ADMINISTRADOR_PLATAFORMA` tinha até aqui — configuração, metas, usuários, auditoria, dados pessoais plenos e leitura | "Admin" |
+| **`ADMINISTRADOR_PLATAFORMA`** | **acesso total**: as 35 ações, e as que vierem depois | "Administrador da Plataforma (acesso total)" |
+
+Nenhum outro papel muda de alcance — Gestor segue com 31, Analista com 16, e assim por diante; há teste que cobra essas contagens.
+
+**"Acesso total" está escrito como regra, não como 35 concessões.** A constante `PAPEIS_COM_ACESSO_TOTAL`, em `dominio/autorizacao/permissoes.ts`, é onde o total mora; a matriz responde "quem mais além dele". A explicitação célula a célula que a casa exige não se perde: a tabela do teste continua declarando os **oito** papéis em **todas** as ações, e a cerca `acesso-total-cobre-todas-as-acoes` quebra o build se alguém esburacar o total.
+
+**Três decisões declaradas, porque nenhuma delas se deduz do pedido:**
+
+1. **A RN06 continua valendo para o acesso total, e isso não é contradição.** A segregação solicitante ≠ aprovador nunca foi permissão de papel: é verificada **por registro**, comparando `solicitanteId` com quem decide. Poder aprovar não é poder aprovar o que se pediu.
+
+   **Mas há uma mudança real de governança, e ela precisa ser vista:** antes, parâmetro sensível pedido por um administrador **tinha** de ser aprovado por alguém de fora da administração, porque nenhum administrador possuía `APROVAR_DEVOLVER`. Agora **dois Administradores da Plataforma podem aprovar um ao outro**. É um par de olhos a menos. Quem quiser restringir tem como, sem código: **designar aprovadores** na regra, que o motor passa a exigir o decisor entre eles. Registrado em teste (`Onda 15 — um Administrador da Plataforma aprova o pedido de outro`) para não ficar implícito.
+
+2. **A isenção de bloqueio da RN74 NÃO se estende ao `ADMIN`.** Ela existe por um motivo estreito — a conta que destranca as outras não pode se trancar — e o `ADMIN` não é essa conta: se for bloqueado, o acesso total o libera. Estender dobraria a superfície de contas sem limite de tentativas, que é justamente a lacuna do §6.1.
+
+3. **A RN46 continua protegendo só o `ADMINISTRADOR_PLATAFORMA`.** O que ela defende é que sempre exista alguém capaz de destrancar a casa; o `ADMIN` pode ser bloqueado e depende de terceiro. Consequência desejável: **converter o último `ADMINISTRADOR_PLATAFORMA` em `ADMIN` é recusado**, como qualquer rebaixamento do último administrador.
+
+**Migration estritamente aditiva, e nenhum usuário muda de papel.** Acrescenta um valor ao enum e não toca em linha alguma — quem é `ADMINISTRADOR_PLATAFORMA` hoje continua sendo, e **passa a poder tudo**. Mover pessoas para o `ADMIN` é ato humano na T27, auditado: rebaixar alguém em silêncio no deploy seria mudança de acesso sem autor na trilha.
 
 ## 6. Pendências declaradas — o que esta ficha NÃO resolve
 

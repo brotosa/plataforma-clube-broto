@@ -338,17 +338,64 @@ describe.skipIf(!temBanco)("Parametrizador — casos de uso integrados (F10)", (
     const pendente = await alterarValorDeRegra(outroAdministrador, "COMISSAO_PADRAO_PCT", 7);
     expect(pendente.aplicado).toBe(false);
 
-    // A segregação aqui é estrutural, não circunstancial: só o
-    // Administrador da Plataforma escreve parâmetro (RN23) e ele não tem
-    // APROVAR_DEVOLVER, então o solicitante jamais é o decisor.
+    /*
+     * A proteção continua; o MECANISMO mudou, e a diferença é registrada aqui
+     * porque é a consequência mais delicada do desdobramento da Onda 15.
+     *
+     * ANTES: a segregação era estrutural por RBAC — o Administrador da
+     * Plataforma escrevia parâmetro (RN23) e não tinha APROVAR_DEVOLVER, então
+     * a recusa vinha como `ErroDeAutorizacao`, e a aprovação tinha
+     * obrigatoriamente de sair do grupo de administração.
+     *
+     * DEPOIS: o papel virou acesso total e TEM APROVAR_DEVOLVER. Quem barra
+     * passa a ser a RN06 no motor, que compara `solicitanteId` com o decisor —
+     * por registro, não por papel. Ninguém aprova o que pediu, e isso não
+     * mudou nem um pouco; a recusa agora é `ErroDeValidacao` com a mensagem da
+     * regra.
+     *
+     * O que MUDOU de verdade, e está no teste seguinte: **outro**
+     * Administrador da Plataforma agora pode aprovar o pedido deste. Antes era
+     * impossível; hoje é possível quando a regra não designa aprovadores.
+     */
     await expect(
       decidirSolicitacao(outroAdministrador, pendente.solicitacaoId as string, "APROVADA", null),
-    ).rejects.toBeInstanceOf(ErroDeAutorizacao);
+    ).rejects.toBeInstanceOf(ErroDeValidacao);
+    await expect(
+      decidirSolicitacao(outroAdministrador, pendente.solicitacaoId as string, "APROVADA", null),
+    ).rejects.toThrow(/RN06/);
     expect(await lerValor("COMISSAO_PADRAO_PCT")).toBe(5);
 
     // Quem tem a permissão decide, e aí o valor passa a valer.
     await decidirSolicitacao(aprovador, pendente.solicitacaoId as string, "APROVADA", null);
     expect(await lerValor("COMISSAO_PADRAO_PCT")).toBe(7);
+
+    await configurarRegraAprovacao(gestor, "PARAMETRO_SENSIVEL", { exigida: false });
+    await restaurarReguas();
+  });
+
+  /**
+   * A mudança de governança do desdobramento da Onda 15, escrita como teste
+   * para não ficar implícita.
+   *
+   * Até aqui, parâmetro sensível pedido por um administrador **tinha** de ser
+   * aprovado por alguém de fora da administração (Gestor ou Aprovador), porque
+   * nenhum administrador possuía `APROVAR_DEVOLVER`. Com o acesso total, dois
+   * Administradores da Plataforma passam a poder aprovar um ao outro.
+   *
+   * Isto **não** é uma brecha da RN06 — ninguém aprova o próprio pedido, e o
+   * teste acima cobra isso —, mas é um par de olhos a menos, e a plataforma
+   * tem como restringir quando quiser: basta designar aprovadores na regra,
+   * que o motor exige o decisor entre eles (`validarDecisao`). O teste existe
+   * para que, se um dia essa decisão for revista, fique claro que o
+   * comportamento atual foi escolhido e medido — não herdado por descuido.
+   */
+  it("Onda 15 — um Administrador da Plataforma aprova o pedido de outro", async () => {
+    await configurarRegraAprovacao(gestor, "PARAMETRO_SENSIVEL", { exigida: true });
+    const pendente = await alterarValorDeRegra(outroAdministrador, "COMISSAO_PADRAO_PCT", 8);
+    expect(pendente.aplicado).toBe(false);
+
+    await decidirSolicitacao(administrador, pendente.solicitacaoId as string, "APROVADA", null);
+    expect(await lerValor("COMISSAO_PADRAO_PCT")).toBe(8);
 
     await configurarRegraAprovacao(gestor, "PARAMETRO_SENSIVEL", { exigida: false });
     await restaurarReguas();

@@ -30,44 +30,45 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "APROVADOR",
       "LEITURA",
       "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
     negados: [],
   },
   {
     acao: "CRIAR_EDITAR",
-    permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     // Ficha Onda 2 §2: Comercial solicita a promoção; o scout, não.
     acao: "SOLICITAR_PROMOCAO",
-    permitidos: ["GESTOR", "ANALISTA", "COMERCIAL"],
-    negados: ["ANALISTA_SCOUT", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA", "COMERCIAL"],
+    negados: ["ANALISTA_SCOUT", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "APROVAR_DEVOLVER",
-    permitidos: ["GESTOR", "APROVADOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "APROVADOR"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "LEITURA", "ADMIN"],
   },
   {
     acao: "CONFIGURAR_REGRAS_APROVACAO",
-    permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "PUBLICAR_PAUSAR_ENCERRAR_OFERTA",
-    permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "GERAR_EXPORTACAO",
-    permitidos: ["GESTOR"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "IMPORTAR_TELEMETRIA",
-    permitidos: ["GESTOR", "ANALISTA"],
-    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
+    negados: ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   // ---- Onda 2: Mercado & Scout (ficha §2) ----
   {
@@ -80,39 +81,40 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "APROVADOR",
       "LEITURA",
       "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
     negados: [],
   },
   {
     acao: "INCLUIR_NO_RADAR",
-    permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA_SCOUT"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "ASSUMIR_E_AVALIAR",
-    permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA_SCOUT"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "PRIORIZAR",
-    permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA_SCOUT"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "GERAR_REVISAR_DOSSIE",
-    permitidos: ["GESTOR", "ANALISTA_SCOUT"],
-    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA_SCOUT"],
+    negados: ["ANALISTA", "COMERCIAL", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     // "○ (ver)" do Comercial na linha do dossiê.
     acao: "VER_DOSSIE",
-    permitidos: ["GESTOR", "ANALISTA_SCOUT", "COMERCIAL"],
-    negados: ["ANALISTA", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA_SCOUT", "COMERCIAL"],
+    negados: ["ANALISTA", "APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     acao: "ASSUMIR_NEGOCIACAO",
-    permitidos: ["GESTOR", "COMERCIAL"],
-    negados: ["ANALISTA", "ANALISTA_SCOUT", "APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "COMERCIAL"],
+    negados: ["ANALISTA", "ANALISTA_SCOUT", "APROVADOR", "LEITURA", "ADMIN"],
   },
   // ---- Errata da ficha Onda 3 v0.2: a célula única "definir metas e
   // designar" da ficha da Onda 2 vira duas, com titulares diferentes. ----
@@ -120,21 +122,22 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // Designar responsável de scout/comercial permanece com o Gestor —
     // inclusive contra o Administrador, que não opera o funil.
     acao: "DESIGNAR_RESPONSAVEIS",
-    permitidos: ["GESTOR"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR"],
     negados: [
       "ANALISTA",
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
     // Metas passam ao Administrador da Plataforma: o Gestor, que as tinha
     // na ficha da Onda 2, agora é negado — é o coração da errata.
     acao: "DEFINIR_METAS",
-    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   // ---- Onda 3: Parametrizador (ficha §2, RN23) ----
@@ -149,19 +152,22 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "APROVADOR",
       "LEITURA",
       "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
     negados: [],
   },
   {
     acao: "CONFIGURAR_PARAMETROS",
-    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   // Configurações do portal (segurança) — só o Administrador da Plataforma,
   // no mesmo desenho de CONFIGURAR_PARAMETROS (o irmão de negócio).
   {
     acao: "CONFIGURAR_PORTAL",
-    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   // Onda 5 — ficha §2. As duas primeiras são de "Gestor e Administrador":
@@ -170,23 +176,25 @@ const TABELA_DA_FICHA: ReadonlyArray<{
   // chegasse. É o que a F10 faz aqui.
   {
     acao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
-    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "EXPORTAR_LISTAS_CONTATO",
-    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
     acao: "IMPORTAR_ASSINANTES",
-    permitidos: ["GESTOR", "ANALISTA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
     negados: [
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
@@ -197,24 +205,24 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // histórico e das divergências continua sendo de todos os papéis, e
     // por isso não há permissão de leitura a declarar aqui.
     acao: "IMPORTAR_TELEMETRIA",
-    permitidos: ["GESTOR", "ANALISTA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
     negados: [
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
     acao: "GERIR_SEGMENTOS",
-    permitidos: ["GESTOR", "ANALISTA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
     negados: [
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   // Onda 4 — ficha §2: modelagem e ativação com Gestor e Analista. A
@@ -222,7 +230,7 @@ const TABELA_DA_FICHA: ReadonlyArray<{
   // da Onda 5 — verificada no caso de uso, não aqui.
   {
     acao: "MODELAR_CAMPANHA",
-    permitidos: ["GESTOR", "ANALISTA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
     negados: [
       "ANALISTA_SCOUT",
       "COMERCIAL",
@@ -231,29 +239,29 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       // Segregação: o Administrador da Plataforma (RN23) configura o
       // produto e não opera campanha — a ficha da Onda 4 §2 dá modelagem
       // e ativação a Gestor e Analista.
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
     acao: "ATIVAR_ENCERRAR_CAMPANHA",
-    permitidos: ["GESTOR", "ANALISTA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
     negados: [
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
     acao: "GERIR_CESTAS",
-    permitidos: ["GESTOR", "ANALISTA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA"],
     negados: [
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   // ---- Onda 6: Usuários e Auditoria (ficha §3 e §4) ----
@@ -261,7 +269,8 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // RN46 — exclusiva do Administrador da Plataforma. O Gestor é negado
     // aqui: é a mesma segregação da escrita no Parametrizador.
     acao: "GERIR_USUARIOS",
-    permitidos: ["ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   {
@@ -275,6 +284,7 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "APROVADOR",
       "LEITURA",
       "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
     negados: [],
   },
@@ -282,7 +292,8 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // RN48 — exportar o extrato exige Gestor ou Administrador. Ler a
     // trilha na tela é de todos; tirá-la do produto, não.
     acao: "EXPORTAR_EXTRATO_AUDITORIA",
-    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["GESTOR", "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN"],
     negados: ["ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR", "LEITURA"],
   },
   // ---- Onda 12: Patrocinadores (ficha §4, RN62 e RN66) ----
@@ -298,6 +309,7 @@ const TABELA_DA_FICHA: ReadonlyArray<{
       "APROVADOR",
       "LEITURA",
       "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
     negados: [],
   },
@@ -307,14 +319,14 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // acrescentá-lo seria inventar célula. O Administrador fica de fora
     // pela segregação da RN46.
     acao: "GERIR_PATROCINADORES",
-    permitidos: ["GESTOR"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR"],
     negados: [
       "ANALISTA",
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
@@ -322,14 +334,14 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // `permissoes.ts`. Restrita ao Gestor porque o R1 sai da plataforma e
     // é auditado, como toda saída de dado no produto.
     acao: "GERAR_RELATORIO_PATROCINADOR",
-    permitidos: ["GESTOR"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR"],
     negados: [
       "ANALISTA",
       "ANALISTA_SCOUT",
       "COMERCIAL",
       "APROVADOR",
       "LEITURA",
-      "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ],
   },
   {
@@ -337,15 +349,15 @@ const TABELA_DA_FICHA: ReadonlyArray<{
     // Os papéis que operam a ficha comentam; Leitura, Aprovador e
     // Administrador da Plataforma leem o feed, mas não escrevem.
     acao: "COMENTAR_FICHA_ALIADO",
-    permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
-    negados: ["APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
+    negados: ["APROVADOR", "LEITURA", "ADMIN"],
   },
   {
     // Comentar na ficha do patrocinador — os mesmos papéis do aliado
     // ("igual ao aliado"); os demais leem o feed, mas não escrevem.
     acao: "COMENTAR_FICHA_PATROCINADOR",
-    permitidos: ["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
-    negados: ["APROVADOR", "LEITURA", "ADMINISTRADOR_PLATAFORMA"],
+    permitidos: ["ADMINISTRADOR_PLATAFORMA", "GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL"],
+    negados: ["APROVADOR", "LEITURA", "ADMIN"],
   },
 ];
 
@@ -377,6 +389,7 @@ describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {
       "APROVADOR",
       "LEITURA",
       "ADMINISTRADOR_PLATAFORMA",
+      "ADMIN",
     ];
     for (const linha of TABELA_DA_FICHA) {
       const declarados = [...linha.permitidos, ...linha.negados].sort();
@@ -401,6 +414,70 @@ describe("RBAC — tabelas de permissões das fichas §2 (Ondas 1 a 6)", () => {
       semLinha,
       `ações sem decisão declarada na ficha: ${semLinha.join(", ")}`,
     ).toEqual([]);
+  });
+
+  /**
+   * Cerca do desdobramento da Onda 15 — `acesso-total-cobre-todas-as-acoes`.
+   *
+   * "Acesso total" só é total enquanto ninguém o esburacar. Sem esta cerca,
+   * bastaria alguém acrescentar uma ação e esquecer a célula, ou tirar o papel
+   * de `PAPEIS_COM_ACESSO_TOTAL`, para o superusuário perder acesso **em
+   * silêncio** — e o defeito só apareceria quando alguém tentasse usar a
+   * plataforma e fosse barrado sem explicação.
+   */
+  it("o ADMINISTRADOR_PLATAFORMA pode TODAS as ações — acesso total é total", () => {
+    const negadas = ACOES.filter((acao) => !podeExecutar("ADMINISTRADOR_PLATAFORMA", acao));
+    expect(
+      negadas,
+      `o acesso total foi esburacado nestas ações: ${negadas.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  /**
+   * O outro lado do desdobramento: o `ADMIN` existe para ser **exatamente** o
+   * que o `ADMINISTRADOR_PLATAFORMA` era antes de virar acesso total. Esta
+   * lista é a matriz congelada daquele momento, transcrita da própria
+   * implementação anterior — não uma releitura. Se alguém alterar o `ADMIN`,
+   * é aqui que a mudança tem de ser assumida por escrito.
+   */
+  it("o ADMIN tem exatamente as 12 ações que o Administrador da Plataforma tinha antes", () => {
+    const ANTES_DO_DESDOBRAMENTO: ReadonlyArray<Acao> = [
+      "VISUALIZAR",
+      "VISUALIZAR_FUNIL",
+      "DEFINIR_METAS",
+      "VISUALIZAR_PARAMETROS",
+      "CONFIGURAR_PARAMETROS",
+      "CONFIGURAR_PORTAL",
+      "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
+      "EXPORTAR_LISTAS_CONTATO",
+      "GERIR_USUARIOS",
+      "VISUALIZAR_AUDITORIA",
+      "EXPORTAR_EXTRATO_AUDITORIA",
+      "VISUALIZAR_PATROCINADORES",
+    ];
+    const doAdmin = ACOES.filter((acao) => podeExecutar("ADMIN", acao));
+    expect([...doAdmin].sort()).toEqual([...ANTES_DO_DESDOBRAMENTO].sort());
+  });
+
+  /**
+   * O desdobramento não podia mexer em mais ninguém. Os números vêm da matriz
+   * medida ANTES da mudança — se alguma linha de outro papel for alterada de
+   * passagem, esta contagem acusa.
+   */
+  it("nenhum outro papel mudou de alcance no desdobramento", () => {
+    const ALCANCE_ANTERIOR: ReadonlyArray<[Papel, number]> = [
+      ["GESTOR", 31],
+      ["ANALISTA", 16],
+      ["ANALISTA_SCOUT", 12],
+      ["COMERCIAL", 10],
+      ["APROVADOR", 6],
+      ["LEITURA", 5],
+    ];
+    for (const [papel, quantas] of ALCANCE_ANTERIOR) {
+      expect(ACOES.filter((acao) => podeExecutar(papel, acao)).length, `alcance de ${papel}`).toBe(
+        quantas,
+      );
+    }
   });
 
   it("expõe papel e ação no erro de autorização", () => {

@@ -1,0 +1,14 @@
+-- Reversão do desdobramento do papel de administração.
+--
+-- O PostgreSQL não suporta DROP VALUE em enum, então o valor 'ADMIN' não é
+-- removido: a reversão o deixa órfão e inerte. O que a reversão precisa
+-- garantir é que nenhuma linha o referencie — e a escolha aqui é DELIBERADA
+-- e conservadora.
+--
+-- Quem estiver com papel ADMIN é PROMOVIDO a ADMINISTRADOR_PLATAFORMA, não
+-- apagado. Na matriz anterior à migration os dois papéis são a mesma coisa,
+-- então a promoção devolve exatamente o acesso que a pessoa tinha — enquanto
+-- apagar o usuário (o que o down da F10 fez, quando o papel era novo e só
+-- existia em conta de implantação) destruiria conta real numa base povoada, e
+-- levaria junto tudo o que depende dela por chave estrangeira.
+UPDATE "usuarios" SET "papel" = 'ADMINISTRADOR_PLATAFORMA' WHERE "papel" = 'ADMIN';
