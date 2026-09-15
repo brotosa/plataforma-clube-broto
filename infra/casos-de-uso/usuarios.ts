@@ -428,3 +428,110 @@ export async function trocarPropriaSenha(
     });
   });
 }
+
+/**
+ * Exigir nova senha no próximo acesso — para um usuário.
+ *
+ * **Não é o mesmo que "Redefinir credencial", e a diferença é o ponto.**
+ * Redefinir *troca* a senha e devolve uma provisória que alguém precisa
+ * transmitir — por WhatsApp, e-mail, recado —, e todo canal desses é uma
+ * chance de vazamento. Esta ação **preserva a senha atual**: a pessoa entra
+ * com o que já sabe e é conduzida à troca. Nada trafega.
+ *
+ * Por isso também **não derruba a sessão**: quem está trabalhando continua, e
+ * a exigência se aplica na requisição seguinte — o `revisarTokenDeSessao` lê a
+ * marca do banco a cada requisição, não do token. Derrubar seria perder
+ * trabalho sem ganhar segurança: a pessoa já está autenticada com a senha que
+ * estamos pedindo para trocar.
+ *
+ * O caso que motivou: ligar a validade de senha (RN72) **não alcança quem já
+ * está na base**, porque `senhaAlteradaEm` nasce nula e nulo significa "nunca
+ * vence". Sem esta ação, a política fica ligada e sem morder até que cada
+ * pessoa troque a senha por conta própria — que pode ser nunca.
+ */
+export async function exigirNovaSenha(ator: Ator, usuarioId: string): Promise<void> {
+  exigirPermissao(ator.papel, "GERIR_USUARIOS");
+
+  await prisma.$transaction(async (tx) => {
+    const anterior = await tx.usuario.findUnique({ where: { id: usuarioId } });
+    if (!anterior) {
+      throw new ErroDeValidacao(["Usuário não encontrado."]);
+    }
+    if (!anterior.ativo) {
+      throw new ErroDeValidacao([
+        "Usuário inativo não acessa a plataforma — reative antes de exigir a troca.",
+      ]);
+    }
+    if (anterior.trocaSenhaObrigatoria) {
+      // Já está exigido: sair sem gravar evita poluir a trilha com um evento
+      // que não muda nada (RN49 — a auditoria não se apaga, então não se suja).
+      return;
+    }
+
+    const novo = await tx.usuario.update({
+      where: { id: usuarioId },
+      data: { trocaSenhaObrigatoria: true },
+    });
+
+    await registrarMutacao(criarGravadorPrisma(tx), {
+      entidade: ENTIDADE,
+      entidadeId: usuarioId,
+      autorId: ator.id,
+      anterior: estadoAuditavel(anterior),
+      novo: estadoAuditavel(novo),
+      camposIgnorados: CAMPOS_FORA_DA_TRILHA,
+    });
+  });
+}
+
+/**
+ * Exigir nova senha de **todos os usuários ativos**.
+ *
+ * É o ato que dá início ao ciclo do vencimento de senha sobre uma base que já
+ * existia. Devolve quantos foram alcançados, porque "apliquei a política" sem
+ * número é uma frase que não se confere.
+ *
+ * **Inclui quem executa**, de propósito: a tela de Configurações já diz que os
+ * ajustes "valem para todo mundo, inclusive para quem os alterou", e abrir uma
+ * exceção para o Administrador seria contradizer isso justamente na regra em
+ * que a exceção mais chamaria atenção.
+ *
+ * **Não inclui inativos**: eles não acessam a plataforma, então exigir troca
+ * deles não protege nada — e quem for reativado já recebe credencial
+ * provisória com troca obrigatória, pelo caminho da `reativarUsuario`.
+ *
+ * Grava **um evento por usuário**, não um evento agregado: a trilha responde
+ * "o que aconteceu com esta conta", e um evento coletivo obrigaria quem
+ * audita uma pessoa a saber que houve uma ação em massa naquele dia.
+ */
+export async function exigirNovaSenhaDeTodos(ator: Ator): Promise<{ alcancados: number }> {
+  exigirPermissao(ator.papel, "GERIR_USUARIOS");
+
+  const alvos = await prisma.usuario.findMany({
+    where: { ativo: true, trocaSenhaObrigatoria: false },
+    select: { id: true },
+  });
+  if (alvos.length === 0) {
+    return { alcancados: 0 };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const alvo of alvos) {
+      const anterior = await tx.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+      const novo = await tx.usuario.update({
+        where: { id: alvo.id },
+        data: { trocaSenhaObrigatoria: true },
+      });
+      await registrarMutacao(criarGravadorPrisma(tx), {
+        entidade: ENTIDADE,
+        entidadeId: alvo.id,
+        autorId: ator.id,
+        anterior: estadoAuditavel(anterior),
+        novo: estadoAuditavel(novo),
+        camposIgnorados: CAMPOS_FORA_DA_TRILHA,
+      });
+    }
+  });
+
+  return { alcancados: alvos.length };
+}

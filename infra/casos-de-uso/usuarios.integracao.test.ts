@@ -11,6 +11,8 @@ import {
   reativarUsuario,
   redefinirCredencial,
   trocarPropriaSenha,
+  exigirNovaSenha,
+  exigirNovaSenhaDeTodos,
 } from "./usuarios";
 
 /**
@@ -301,5 +303,111 @@ describe.skipIf(!temBanco)("T27 — gestão de usuários (RN46, RN47)", () => {
     expect(evento?.valorAnterior).toBe("true");
     expect(evento?.valorNovo).toBe("false");
     expect(evento?.autorId).toBe(admin.id);
+  });
+
+  /**
+   * Exigir nova senha — o remédio para a lacuna da validade (RN72).
+   *
+   * Ligar o vencimento não alcança quem já está na base: `senhaAlteradaEm`
+   * nasce nula e nulo significa "nunca vence". Sem esta ação a política fica
+   * acesa e sem morder.
+   */
+  describe("exigir nova senha no próximo acesso", () => {
+    it("acende a marca SEM trocar a senha — a atual continua valendo", async () => {
+      const alvo = await criarDireto("Troca F23", "LEITURA");
+      const antes = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+
+      await exigirNovaSenha(admin, alvo.id);
+
+      const depois = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+      expect(depois.trocaSenhaObrigatoria).toBe(true);
+      // O ponto que separa esta ação de "redefinir credencial": o hash é o
+      // MESMO, então nada precisou ser transmitido a ninguém.
+      expect(depois.senhaHash).toBe(antes.senhaHash);
+      // E a sessão não é derrubada: a pessoa já está autenticada com a senha
+      // que estamos pedindo para trocar.
+      expect(depois.sessaoEpoca).toBe(antes.sessaoEpoca);
+    });
+
+    it("grava a mudança na trilha, com autor", async () => {
+      const alvo = await criarDireto("Troca Trilha F23", "LEITURA");
+      await exigirNovaSenha(admin, alvo.id);
+      const evento = await prisma.auditoriaEvento.findFirst({
+        where: { entidadeId: alvo.id, campo: "trocaSenhaObrigatoria" },
+        orderBy: { criadoEm: "desc" },
+      });
+      expect(evento?.valorAnterior).toBe("false");
+      expect(evento?.valorNovo).toBe("true");
+      expect(evento?.autorId).toBe(admin.id);
+    });
+
+    it("não grava evento quando a marca já está acesa — trilha não se suja", async () => {
+      const alvo = await criarDireto("Troca Idempotente F23", "LEITURA");
+      await exigirNovaSenha(admin, alvo.id);
+      const antes = await prisma.auditoriaEvento.count({ where: { entidadeId: alvo.id } });
+      await exigirNovaSenha(admin, alvo.id);
+      const depois = await prisma.auditoriaEvento.count({ where: { entidadeId: alvo.id } });
+      expect(depois).toBe(antes);
+    });
+
+    it("recusa usuário inativo — quem não acessa não tem o que trocar", async () => {
+      const alvo = await criarDireto("Troca Inativo F23", "LEITURA");
+      await inativarUsuario(admin, alvo.id);
+      await expect(exigirNovaSenha(admin, alvo.id)).rejects.toBeInstanceOf(ErroDeValidacao);
+    });
+
+    it("exige permissão de gestão de usuários", async () => {
+      const alvo = await criarDireto("Troca RBAC F23", "LEITURA");
+      await expect(
+        exigirNovaSenha({ id: alvo.id, papel: "GESTOR" }, alvo.id),
+      ).rejects.toBeInstanceOf(ErroDeAutorizacao);
+    });
+
+    /**
+     * Este caso toca a BASE INTEIRA, e por isso restaura a base inteira.
+     *
+     * Aprendido de um defeito próprio: a primeira versão não restaurava, e os
+     * usuários de desenvolvimento do seed ficaram com troca obrigatória acesa.
+     * O efeito só apareceu depois, na suíte e2e: o login passava, a plataforma
+     * conduzia à tela de troca, o shell não renderizava e SEIS testes de papéis
+     * falhavam — nenhum deles com relação aparente com senha. Limpar apenas os
+     * usuários descartáveis do próprio arquivo não basta quando o caso de uso,
+     * por definição, alcança todo mundo.
+     */
+    it("em massa: alcança os ATIVOS, conta quantos, e não repete", async () => {
+      const ativo = await criarDireto("Massa Ativo F23", "LEITURA");
+      const inativo = await criarDireto("Massa Inativo F23", "LEITURA");
+      await inativarUsuario(admin, inativo.id);
+
+      // Quem estava livre da marca antes — é a esses que o estado será devolvido.
+      const livresAntes = await prisma.usuario.findMany({
+        where: { trocaSenhaObrigatoria: false },
+        select: { id: true },
+      });
+
+      try {
+        const { alcancados } = await exigirNovaSenhaDeTodos(admin);
+        expect(alcancados).toBeGreaterThan(0);
+
+        expect(
+          (await prisma.usuario.findUniqueOrThrow({ where: { id: ativo.id } }))
+            .trocaSenhaObrigatoria,
+        ).toBe(true);
+        // Inativo fica de fora: não acessa a plataforma, e a reativação já emite
+        // credencial provisória com troca obrigatória.
+        expect(
+          (await prisma.usuario.findUniqueOrThrow({ where: { id: inativo.id } }))
+            .trocaSenhaObrigatoria,
+        ).toBe(false);
+
+        // Rodar de novo não alcança ninguém — todos os ativos já estão marcados.
+        expect((await exigirNovaSenhaDeTodos(admin)).alcancados).toBe(0);
+      } finally {
+        await prisma.usuario.updateMany({
+          where: { id: { in: livresAntes.map((linha) => linha.id) } },
+          data: { trocaSenhaObrigatoria: false },
+        });
+      }
+    });
   });
 });

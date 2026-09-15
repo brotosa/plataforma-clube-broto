@@ -23,6 +23,7 @@ import { ListaBloqueados } from "./lista-bloqueados";
 import { FormularioBloqueioOrigem } from "./formulario-bloqueio-origem";
 import { ListaOrigens } from "./lista-origens";
 import { FaixaPanorama } from "./faixa-panorama";
+import { ExigirTrocaDeTodos } from "./exigir-troca-de-todos";
 
 export const metadata: Metadata = {
   title: "Configurações",
@@ -150,6 +151,17 @@ export default async function PaginaConfiguracoes({
           </p>
 
           <FormularioPoliticaSenha inicial={politica} />
+
+          <h3 className="h-el" style={{ margin: "28px 0 4px", fontSize: "1rem" }}>
+            Aplicar a política à base existente
+          </h3>
+          <p className="cap" style={{ margin: "0 0 12px", maxWidth: "74ch" }}>
+            Apertar a política vale na próxima troca de cada pessoa. Se ninguém trocar, nada
+            muda — e a validade em dias, em particular, só começa a contar depois da primeira
+            troca. Este é o empurrão inicial.
+          </p>
+
+          <ExigirTrocaDeTodos />
         </>
       ) : null}
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { entrar, semViolacoesAxe } from "./ajudantes";
+import { entrar, prisma, runId, semViolacoesAxe } from "./ajudantes";
 
 /**
  * O desdobramento do papel de administração (Onda 15, ficha §5.1).
@@ -116,6 +116,84 @@ test("a coluna Papel distingue os três níveis de poder", async ({ page }) => {
   const gestor = pilula("Gestor do Clube");
   await expect(gestor).toBeVisible();
   await expect(gestor).toHaveClass(/pill-neutra/);
+
+  await semViolacoesAxe(page);
+});
+
+/**
+ * "Exigir nova senha" — o remédio para a lacuna da validade (RN72).
+ *
+ * Ligar o vencimento **não alcança quem já está na base**: `senhaAlteradaEm`
+ * nasce nula e nulo significa "nunca vence". Sem esta ação a política fica
+ * acesa e sem morder, e ninguém descobre até auditar.
+ *
+ * O que o teste prova na tela: a ação existe por usuário, some quando já não
+ * tem efeito, e **não devolve senha provisória** — porque não troca a senha,
+ * e por isso não há nada a transmitir a ninguém.
+ */
+test("exigir nova senha de um usuário — sem credencial a transmitir", async ({ page }) => {
+  /*
+   * Usuário descartável, e não um do seed: a ação muda o estado da conta, e
+   * outras suítes leem os usuários de desenvolvimento. Marcar um deles aqui
+   * deixaria a base suja para quem roda depois — foi exatamente o defeito que
+   * a versão anterior deste PR produziu, do lado do teste de integração.
+   */
+  const marca = runId();
+  const modelo = await prisma.usuario.findUniqueOrThrow({
+    where: { email: "leitura@dev.clubebroto.local" },
+    select: { senhaHash: true },
+  });
+  const alvo = await prisma.usuario.create({
+    data: {
+      nome: `Alvo Troca ${marca}`,
+      email: `alvo-troca-${marca}@papeis-e2e.local`,
+      senhaHash: modelo.senhaHash,
+      papel: "LEITURA",
+      ativo: true,
+      trocaSenhaObrigatoria: false,
+    },
+  });
+
+  try {
+    await entrar(page, ACESSO_TOTAL);
+    await page.goto("/usuarios");
+
+    const linha = page.getByRole("row").filter({ hasText: alvo.nome });
+    const botao = linha.getByRole("button", { name: "Exigir nova senha" });
+    await expect(botao).toBeVisible();
+    await botao.click();
+
+    await expect(linha.getByText(/Troca de senha exigida/)).toBeVisible();
+    // Nada de senha provisória: a atual continua valendo até a pessoa trocar.
+    await expect(linha.getByText(/Senha provisória/)).toHaveCount(0);
+    // E o botão some — oferecer uma ação sem efeito é pior que não a oferecer.
+    await expect(linha.getByRole("button", { name: "Exigir nova senha" })).toHaveCount(0);
+
+    // A senha NÃO mudou: é o que separa esta ação de "redefinir credencial".
+    const depois = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+    expect(depois.trocaSenhaObrigatoria).toBe(true);
+    expect(depois.senhaHash).toBe(modelo.senhaHash);
+  } finally {
+    await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: alvo.id } });
+    await prisma.usuario.delete({ where: { id: alvo.id } });
+  }
+});
+
+test("Configurações → Senha traz o empurrão inicial, com confirmação em dois passos", async ({
+  page,
+}) => {
+  await entrar(page, ACESSO_TOTAL);
+  await page.goto("/configuracoes?aba=senha");
+
+  await expect(
+    page.getByRole("heading", { name: "Aplicar a política à base existente" }),
+  ).toBeVisible();
+
+  // Um clique não dispara: a ação alcança todo mundo e não tem desfazer.
+  await page.getByRole("button", { name: "Exigir nova senha de todos" }).click();
+  await expect(page.getByRole("button", { name: "Confirmar — exigir de todos" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancelar" }).click();
+  await expect(page.getByRole("button", { name: "Confirmar — exigir de todos" })).toHaveCount(0);
 
   await semViolacoesAxe(page);
 });
