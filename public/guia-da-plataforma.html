@@ -277,6 +277,20 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pill-info{background:var(--azul-lightest);color:var(--azul-texto-aaa);border-color:var(--azul-claro)}
 .pill-neutra{background:var(--off);color:var(--paragrafo-aaa);border-color:var(--borda)}
 .pill-pendente{background:var(--branco);color:var(--paragrafo-aaa);border:1px dashed var(--cinza)}
+/* Onda 15 — o degrau mais forte da pílula de papel (T27), para o ACESSO TOTAL.
+   A hierarquia da coluna Papel tem três níveis: `pill-neutra` para quem não
+   administra, `pill-info` para o Administrador, e `pill-info pill-total` para
+   o Administrador da Plataforma, que pode tudo.
+   Por que intensidade da MESMA família e não uma cor nova: os dois administram,
+   e famílias distintas sugeririam assuntos distintos; o que muda entre eles é
+   quanto podem, que é grau, não espécie.
+   E por que não a pílula azul sólida, que seria o destaque óbvio: `--azul` com
+   texto branco mede 4,88:1 — passa em AA e REPROVA em AAA, e a pílula usa
+   tamanho de legenda, que não conta como texto grande. O par de `pill-info`
+   (`--azul-lightest` + `--azul-texto-aaa`) já é o combo que passa, então o
+   degrau se faz com borda firme e ponto, sem tocar em texto sobre fundo. */
+.pill-total{border-color:var(--azul)}
+.pill-total i{background:var(--azul)}
 .tag-cat{display:inline-block;font:var(--font-body-caption-bold);color:var(--azul-texto-aaa);
   background:var(--azul-lightest);border:1px solid var(--azul-claro);border-radius:var(--r-pill);padding:3px 10px;white-space:nowrap}
 

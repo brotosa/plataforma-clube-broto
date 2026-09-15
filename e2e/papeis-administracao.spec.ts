@@ -77,3 +77,45 @@ test("o Administrador configura o bloqueio e continua isento da RN74", async ({ 
     page.getByText(/nunca é bloqueado — a conta que faz o desbloqueio não pode se trancar/),
   ).toBeVisible();
 });
+
+/**
+ * A hierarquia visual da coluna Papel na T27 — três degraus.
+ *
+ * Nasceu de um defeito de leitura: a regra antiga era `papel ===
+ * "ADMINISTRADOR_PLATAFORMA" ? azul : cinza`, escrita quando esse nome
+ * designava o administrador comum. Depois da renomeação ela ficou **certa por
+ * coincidência** — o azul passou a marcar o acesso total, que é mesmo o que
+ * merece destaque — e deixou o Administrador com a mesma pílula cinza de
+ * Leitura e Comercial, indistinguível de quem não administra.
+ *
+ * Este teste existe para que a hierarquia seja decisão, e não acidente: se
+ * alguém "consertar" a regra achando que é resíduo, ele reprova.
+ */
+test("a coluna Papel distingue os três níveis de poder", async ({ page }) => {
+  await entrar(page, ACESSO_TOTAL);
+  await page.goto("/usuarios");
+
+  const pilula = (rotulo: string) =>
+    page.locator(".tbl td .pill").filter({ hasText: new RegExp(`^${rotulo}$`) }).first();
+
+  // Acesso total: degrau mais forte — azul com borda firme e ponto.
+  const total = pilula("Administrador da Plataforma");
+  await expect(total).toBeVisible();
+  await expect(total).toHaveClass(/pill-info/);
+  await expect(total).toHaveClass(/pill-total/);
+  await expect(total.locator("i")).toHaveCount(1);
+
+  // Administrador: mesma família, um degrau abaixo — sem o ponto.
+  const administrador = pilula("Administrador");
+  await expect(administrador).toBeVisible();
+  await expect(administrador).toHaveClass(/pill-info/);
+  await expect(administrador).not.toHaveClass(/pill-total/);
+  await expect(administrador.locator("i")).toHaveCount(0);
+
+  // Quem não administra fica neutro — e é o contraste que dá sentido aos dois.
+  const gestor = pilula("Gestor do Clube");
+  await expect(gestor).toBeVisible();
+  await expect(gestor).toHaveClass(/pill-neutra/);
+
+  await semViolacoesAxe(page);
+});
