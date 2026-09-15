@@ -52,6 +52,20 @@ async function semearUsuarioDescartavel(sufixo: string) {
   });
 }
 
+/**
+ * Abre a T27 já estreitada num usuário e devolve a linha dele.
+ *
+ * Desde que a lista pagina (Onda 15), localizar a linha sem filtrar é apostar
+ * que ela caiu na primeira página — e esta suíte semeia descartáveis ao longo
+ * do arquivo, então a contagem sobe durante a própria execução. A busca torna
+ * o alvo independente de posição, que é o que o teste quer afirmar.
+ */
+async function abrirLinhaDoUsuario(pagina: Page, termo: string) {
+  await pagina.goto("/usuarios");
+  await pagina.getByLabel("Buscar por nome ou e-mail").fill(termo);
+  return pagina.getByRole("row").filter({ hasText: termo });
+}
+
 async function removerDescartaveis() {
   const usuarios = await prisma.usuario.findMany({
     where: { email: { endsWith: "@e2e.local" } },
@@ -181,6 +195,80 @@ test("T27 — o Administrador cria usuário e recebe a senha provisória uma vez
   await expect(page.getByText("credencial provisória").first()).toBeVisible();
 });
 
+/**
+ * T27 — a linha compacta e o rodapé de paginação (Onda 15).
+ *
+ * O que este teste prende não é a aparência, é a **regra de corte**: `Editar` e
+ * `Inativar/Reativar` decidem sobre a conta e ficam à vista; redefinir
+ * credencial, encerrar sessões e exigir nova senha decidem sobre o acesso dela
+ * e vivem no menu. Antes disso as cinco estavam empilhadas e cada ação nova
+ * esticava **todas** as linhas — a tela passava de 2.200 px com treze contas.
+ *
+ * Se alguém devolver uma das três à faixa visível "para ficar mais à mão", a
+ * primeira asserção reprova; se o menu deixar de ser operável por teclado, a
+ * segunda reprova. As duas coisas são decisão, não acidente.
+ */
+test("T27 — a linha traz duas ações à vista e as de acesso no menu", async ({ page }) => {
+  const marca = runId();
+  const alvo = await semearUsuarioDescartavel(`layout-${marca}`);
+
+  try {
+    await entrar(page, ADMIN);
+    await page.goto("/usuarios");
+    // A busca põe a linha em foco e dispensa depender de onde ela cai na
+    // paginação — o conjunto cresce a cada teste que semeia descartável.
+    await page.getByLabel("Buscar por nome ou e-mail").fill(alvo.email);
+
+    const linha = page.getByRole("row").filter({ hasText: alvo.email });
+    await expect(linha.getByRole("button", { name: "Editar" })).toBeVisible();
+    await expect(linha.getByRole("button", { name: "Inativar" })).toBeVisible();
+
+    // Fechado, o menu não expõe nenhuma das três.
+    const menu = linha.getByRole("button", { name: "Acesso" });
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    await expect(linha.getByRole("button", { name: "Redefinir credencial" })).toHaveCount(0);
+    await expect(linha.getByRole("button", { name: "Encerrar sessões" })).toHaveCount(0);
+    await expect(linha.getByRole("button", { name: "Exigir nova senha" })).toHaveCount(0);
+
+    // Aberto por TECLADO — o menu não pode depender de ponteiro.
+    await menu.focus();
+    await page.keyboard.press("Enter");
+    await expect(menu).toHaveAttribute("aria-expanded", "true");
+    await expect(linha.getByRole("button", { name: "Redefinir credencial" })).toBeVisible();
+    await expect(linha.getByRole("button", { name: "Encerrar sessões" })).toBeVisible();
+    await expect(linha.getByRole("button", { name: "Exigir nova senha" })).toBeVisible();
+
+    await semViolacoesAxe(page);
+  } finally {
+    await removerDescartaveis();
+  }
+});
+
+/**
+ * O rodapé de paginação. Com a linha compacta a equipe de hoje cabe inteira
+ * numa página — então o teste força o menor tamanho para provar que a máquina
+ * funciona antes de a equipe crescer, que é quando descobrir um defeito aqui
+ * sairia caro.
+ */
+test("T27 — o rodapé pagina a lista e a leitura volta ao começo ao filtrar", async ({ page }) => {
+  await entrar(page, ADMIN);
+  await page.goto("/usuarios");
+
+  const rodape = page.getByRole("navigation", { name: "Paginação da lista de usuários" });
+  await page.getByLabel("Por página").selectOption("10");
+
+  await expect(rodape.getByText(/^Mostrando 1–10 de \d+$/)).toBeVisible();
+  await expect(rodape.getByRole("button", { name: "Anterior" })).toBeDisabled();
+
+  await rodape.getByRole("button", { name: "Próxima" }).click();
+  await expect(rodape.getByText(/^Mostrando 11–/)).toBeVisible();
+
+  // Filtrar repõe em 1: quem busca quer o começo do resultado, não a página 2
+  // dele — e sem isso a tabela apareceria vazia, sem nada explicar.
+  await page.getByLabel("Buscar por nome ou e-mail").fill("@dev.clubebroto.local");
+  await expect(rodape.getByText(/^Mostrando 1–/)).toBeVisible();
+});
+
 test("T27 — quem não é Administrador vê a tela em somente leitura (RN46)", async ({ page }) => {
   await entrar(page, "gestor@dev.clubebroto.local");
   await page.goto("/usuarios");
@@ -208,9 +296,7 @@ test("T27 — RN46: o último administrador não pode ser inativado, e a tela ex
 
   try {
     await entrar(page, ADMIN);
-    await page.goto("/usuarios");
-
-    const linha = page.getByRole("row").filter({ hasText: ADMIN });
+    const linha = await abrirLinhaDoUsuario(page, ADMIN);
     const inativar = linha.getByRole("button", { name: "Inativar" });
     await expect(inativar).toBeDisabled();
     await expect(linha.getByText(/Designe outro administrador antes/)).toBeVisible();
@@ -253,8 +339,9 @@ test("encerrar sessões derruba o logado — e ele entra de novo com a MESMA sen
 
     // 2. Em OUTRO navegador, o Administrador encerra as sessões dele.
     await entrar(paginaAdmin, ADMIN);
-    await paginaAdmin.goto("/usuarios");
-    const linha = paginaAdmin.getByRole("row").filter({ hasText: alvo.email });
+    const linha = await abrirLinhaDoUsuario(paginaAdmin, alvo.email);
+    // Onda 15 — a ação vive no menu "Acesso" da linha (layout compacto da T27).
+    await linha.getByRole("button", { name: "Acesso" }).click();
     await linha.getByRole("button", { name: "Encerrar sessões" }).click();
     await expect(paginaAdmin.getByText(/Sessões encerradas/)).toBeVisible();
 
@@ -307,8 +394,7 @@ test("RN47 — usuário inativado por outro navegador é derrubado na requisiç�
 
     // 2. Em OUTRO navegador, o Administrador o inativa.
     await entrar(paginaAdmin, ADMIN);
-    await paginaAdmin.goto("/usuarios");
-    const linha = paginaAdmin.getByRole("row").filter({ hasText: alvo.email });
+    const linha = await abrirLinhaDoUsuario(paginaAdmin, alvo.email);
     await linha.getByRole("button", { name: "Inativar" }).click();
     await expect(paginaAdmin.getByText(/Usuário inativado/)).toBeVisible();
 
@@ -347,8 +433,7 @@ test("RN47 — trocar o papel também derruba a sessão aberta", async ({ browse
     await paginaAlvo.waitForURL((url) => new URL(url).pathname === "/");
 
     await entrar(paginaAdmin, ADMIN);
-    await paginaAdmin.goto("/usuarios");
-    const linha = paginaAdmin.getByRole("row").filter({ hasText: alvo.email });
+    const linha = await abrirLinhaDoUsuario(paginaAdmin, alvo.email);
     await linha.getByRole("button", { name: "Editar" }).click();
     await paginaAdmin.getByLabel("Papel", { exact: true }).selectOption("APROVADOR");
     await paginaAdmin.getByRole("button", { name: "Gravar alterações" }).click();

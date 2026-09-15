@@ -1405,6 +1405,64 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .fr-chip.on{background:var(--azul);border-color:var(--azul);color:#fff}
 .select-sm{height:32px;padding:0 30px 0 12px;font-size:13px;background-position:right 10px center}
 
+/* ===== T27 · ações por linha em faixa única e rodapé de paginação (Onda 15) =====
+   A linha de Usuários empilhava cinco botões (~170px de altura cada linha) e a
+   tela passava de 2.200px com treze contas — e crescia a cada ação nova. Aqui a
+   linha volta a ser linha: `Editar` e `Inativar/Reativar` ficam à vista, e as
+   ações de credencial e sessão — mesma família — entram no menu `Acesso`.
+   Ação nova entra no menu sem esticar nada.
+
+   Convenção da Onda 14: geometria que se repete ganha nome, porque estilo
+   inline é invisível às cercas. Estas classes são genéricas de propósito —
+   qualquer tabela com mais de duas ações por linha deve usá-las. */
+.acoes-linha{display:flex;align-items:flex-start;gap:6px;flex-wrap:nowrap}
+/* Um degrau abaixo do .btn-sm: 28px é o menor alvo que ainda comporta rótulo
+   por extenso. Abaixo disto só caberia ícone, e ação destrutiva sem palavra
+   depende de passar o mouse — o que não existe por toque nem por teclado. */
+.btn-xs{height:28px;padding:0 10px;font-size:12.5px}
+
+/* O painel fica NO FLUXO, e isso é decisão medida, não descuido.
+   Flutuando, ele exigiria que o cartão da tabela não tivesse `overflow` — e
+   recorte de `overflow-x` recorta em y também, então o menu apareceria
+   cortado na altura. Sem o `overflow-x`, a tabela (que pede ~1.080px) passa a
+   transbordar o cartão entre 760px e 1.080px, onde a `.tbl-resp` ainda não
+   colapsou: trocaria-se um defeito de menu por um defeito de tabela.
+
+   No fluxo, o preço é só a altura da linha aberta. E o painel é irmão da
+   faixa, não item dela: dentro de uma faixa `nowrap` a largura mínima dele
+   entraria na soma dos itens e a coluna esticaria 120px a cada abertura —
+   medido. Irmão, ele concorre com a faixa (246px) e perde, e a tabela não se
+   reorganiza. */
+.menu-acesso .chev{transition:transform var(--dur-1) var(--ease)}
+.menu-acesso[data-aberto="sim"] .chev{transform:rotate(180deg)}
+.menu-acesso-pop{align-self:flex-start;max-width:100%;
+  display:flex;flex-direction:column;gap:2px;min-width:206px;padding:5px;
+  background:var(--branco);border:1px solid var(--borda);border-radius:var(--r-md);
+  box-shadow:var(--shadow-lg)}
+.menu-acesso-pop button{display:block;width:100%;text-align:left;border:0;background:none;
+  padding:7px 9px;border-radius:var(--r-xs);cursor:pointer;font-size:13px;color:var(--preto)}
+.menu-acesso-pop button:hover{background:var(--azul-lightest)}
+.menu-acesso-pop button[disabled]{opacity:.45;cursor:not-allowed}
+.menu-acesso-sep{height:1px;background:var(--borda);margin:3px 0}
+@media (prefers-reduced-motion:reduce){.menu-acesso .chev{transition:none}}
+/* Colapsada em cards (≤760px) a célula não tem coluna a preservar, e a faixa
+   volta a quebrar — três botões lado a lado não cabem em 380px. */
+@media (max-width:760px){.acoes-linha{flex-wrap:wrap}}
+
+/* Rodapé de paginação — dentro do cartão, colado à tabela. O contraste do
+   número ativo é o par AAA (azul-lightest + azul-texto-aaa), nunca o azul
+   sólido com branco, que fica em 4,88:1 e reprova nesta escala. */
+.paginacao{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:11px 14px;border-top:1px solid var(--borda)}
+.paginas{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pg{min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+  padding:0 9px;border:1px solid var(--borda);border-radius:var(--r-xs);background:var(--branco);
+  font:var(--font-body-caption-bold);color:var(--preto);cursor:pointer}
+.pg:hover{background:var(--azul-lightest);border-color:var(--azul-claro)}
+.pg[disabled]{opacity:.45;cursor:not-allowed}
+.pg[aria-current="page"]{background:var(--azul-lightest);border-color:var(--azul-claro);
+  color:var(--azul-texto-aaa)}
+
 </style>
 <style>
 html{scroll-behavior:smooth}
