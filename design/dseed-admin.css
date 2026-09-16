@@ -1313,3 +1313,17 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pg[disabled]{opacity:.45;cursor:not-allowed}
 .pg[aria-current="page"]{background:var(--azul-lightest);border-color:var(--azul-claro);
   color:var(--azul-texto-aaa)}
+
+/* Par de pílulas na mesma célula (T27 — situação + presença). Lado a lado
+   porque respondem perguntas diferentes: uma é permissão ("pode entrar"), a
+   outra é fato ("entrou há pouco").
+
+   `nowrap` é o que mantém a promessa: deixadas quebrar, as duas empilhavam e
+   a linha crescia de 73px para 97px — desfazendo numa tela o aperto que a
+   faixa única de ações tinha acabado de conquistar. Sem quebra, a largura
+   mínima das duas entra no cálculo da coluna e a tabela reserva o espaço.
+
+   Colapsada em cards (≤760px) a quebra volta: lá não há coluna a preservar, e
+   duas pílulas lado a lado não cabem em 380px. */
+.pill-par{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+@media (max-width:760px){.pill-par{flex-wrap:wrap}}

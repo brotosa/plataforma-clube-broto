@@ -85,6 +85,15 @@ model Usuario {
   /// própria pessoa escolheu, que esta validade não governa. Zera na troca.
   credencialEmitidaEm DateTime? @map("credencial_emitida_em")
 
+  /// Última atividade autenticada desta conta — a marca de presença da T27.
+  ///
+  /// Escrita pelo callback `jwt`, com folga: só grava quando a marca já está
+  /// velha o bastante, para não virar uma escrita por clique. **Não é
+  /// auditoria** e não gera evento: presença é telemetria de uso, não ato de
+  /// negócio (mesma disciplina da rota de saúde, RN61). **Nulo = nunca
+  /// acessou**, que é informação e não zero (disciplina da RN53).
+  ultimoAcessoEm DateTime? @map("ultimo_acesso_em")
+
   /// Quando a senha foi trocada pela última vez, para a validade periódica.
   /// **Nulo = nunca vence** — é o estado de quem já existia quando a coluna
   /// nasceu, e tratá-lo como vencido mandaria a base inteira para a tela de

@@ -596,3 +596,102 @@ test("T28 — a linha da trilha abre por teclado, pelo botão de expansão", asy
     page.getByRole("button", { name: /^Recolher o detalhe/ }).first(),
   ).toHaveAttribute("aria-expanded", "true");
 });
+
+/**
+ * T27 — presença: On-line, Offline e "nunca acessou".
+ *
+ * O indicador é uma **inferência declarada**, não uma conexão observada: a
+ * plataforma é HTTP e não há soquete aberto para olhar. O que existe é a marca
+ * da última atividade, escrita pelo caminho de autenticação com folga de um
+ * minuto. Por isso o teste envelhece a marca no banco em vez de esperar —
+ * esperar cinco minutos numa suíte é inviável, e o que se quer provar é a
+ * regra, não o relógio.
+ *
+ * Os três estados de uma vez, na mesma tela, porque o que importa é o
+ * CONTRASTE: se os três colapsassem num só rótulo, o indicador não diria nada.
+ * E `nunca acessou` é o mais útil dos três para quem administra — é a conta
+ * criada cuja credencial talvez nunca tenha chegado a ninguém.
+ */
+test("T27 — a presença distingue on-line, offline e quem nunca acessou", async ({ page }) => {
+  const marca = runId();
+  const online = await semearUsuarioDescartavel(`presenca-on-${marca}`);
+  const offline = await semearUsuarioDescartavel(`presenca-off-${marca}`);
+  const nunca = await semearUsuarioDescartavel(`presenca-nunca-${marca}`);
+
+  await prisma.usuario.update({
+    where: { id: online.id },
+    data: { ultimoAcessoEm: new Date() },
+  });
+  await prisma.usuario.update({
+    where: { id: offline.id },
+    data: { ultimoAcessoEm: new Date(Date.now() - 3 * 24 * 60 * 60_000) },
+  });
+  // `nunca` fica com a coluna NULA — é o estado de nascimento, e o teste não
+  // o fabrica: ele apenas não o preenche.
+
+  try {
+    await entrar(page, ADMIN);
+
+    const linhaOnline = await abrirLinhaDoUsuario(page, online.email);
+    await expect(linhaOnline.getByText("On-line · agora")).toBeVisible();
+
+    const linhaOffline = await abrirLinhaDoUsuario(page, offline.email);
+    await expect(linhaOffline.getByText("Offline · há 3 dias")).toBeVisible();
+
+    const linhaNunca = await abrirLinhaDoUsuario(page, nunca.email);
+    await expect(linhaNunca.getByText("Nunca acessou")).toBeVisible();
+    // Nunca acessou NÃO é um offline antigo: os dois rótulos são exclusivos.
+    await expect(linhaNunca.getByText(/^Offline/)).toHaveCount(0);
+
+    await semViolacoesAxe(page);
+  } finally {
+    await removerDescartaveis();
+  }
+});
+
+/**
+ * A marca é escrita pelo próprio ato de usar a plataforma — e este teste é o
+ * único lugar onde isso se prova de ponta a ponta.
+ *
+ * Também prova a **folga**: a segunda navegação, um instante depois, não
+ * regrava. Sem folga, cada clique seria um `UPDATE` no banco, e o indicador
+ * custaria mais do que tudo o que mostra.
+ */
+test("T27 — usar a plataforma grava a presença, e a folga evita escrita por clique", async ({
+  browser,
+}) => {
+  const marca = runId();
+  const alvo = await semearUsuarioDescartavel(`presenca-grava-${marca}`);
+  // Nasce sem marca: é o que torna a primeira gravação observável.
+  await prisma.usuario.update({ where: { id: alvo.id }, data: { ultimoAcessoEm: null } });
+
+  const contexto = await browser.newContext();
+  try {
+    const pagina = await contexto.newPage();
+    await pagina.goto("/entrar");
+    await pagina.getByLabel("E-mail").fill(alvo.email);
+    await pagina.getByLabel("Senha").fill(SENHA);
+    await pagina.getByRole("button", { name: "Entrar" }).click();
+    await pagina.waitForURL((url) => new URL(url).pathname === "/");
+
+    const primeira = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+    expect(primeira.ultimoAcessoEm).toBeInstanceOf(Date);
+
+    // Segunda navegação imediata: dentro da folga, a marca NÃO se move.
+    await pagina.goto("/aliados");
+    await expect(pagina.getByRole("heading", { level: 1, name: /Aliados/ })).toBeVisible();
+    const segunda = await prisma.usuario.findUniqueOrThrow({ where: { id: alvo.id } });
+    expect(segunda.ultimoAcessoEm!.getTime()).toBe(primeira.ultimoAcessoEm!.getTime());
+
+    /*
+     * E presença NÃO é auditoria: a trilha da RN49 não se polui com telemetria
+     * de uso, no mesmo espírito da rota de saúde (RN61). Navegar não pode ter
+     * gerado evento nenhum sobre esta conta.
+     */
+    const eventos = await prisma.auditoriaEvento.count({ where: { entidadeId: alvo.id } });
+    expect(eventos).toBe(0);
+  } finally {
+    await contexto.close();
+    await removerDescartaveis();
+  }
+});

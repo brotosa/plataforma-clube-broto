@@ -7,6 +7,7 @@ import { provedorCredenciaisPrisma } from "@/infra/identidade/provedor-credencia
 import type { ProvedorIdentidade } from "@/dominio/identidade/provedor-identidade";
 import { lerPoliticaDeSenha, lerPoliticaDeSessao } from "@/infra/casos-de-uso/configuracoes";
 import { revisarTokenDeSessao } from "./revisao-de-sessao";
+import { deveRegistrarAcesso } from "@/dominio/usuarios/presenca";
 import { logger } from "@/infra/log/logger";
 
 const esquemaCredenciais = z.object({
@@ -106,6 +107,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             sessaoEpoca: true,
             trocaSenhaObrigatoria: true,
             senhaAlteradaEm: true,
+            ultimoAcessoEm: true,
           },
         }),
         lerPoliticaDeSessao(),
@@ -162,6 +164,41 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           );
         }
         return null;
+      }
+
+      /*
+       * MARCA DE PRESENÇA (indicador On-line/Offline da T27).
+       *
+       * Aqui, e não numa rota própria, porque este é o único ponto por onde
+       * passa **toda** requisição autenticada — navegação, server action e o
+       * pulso do cliente. Uma rota separada mediria só quem a chamasse.
+       *
+       * Três disciplinas, e nenhuma é detalhe:
+       *
+       *  • **Com folga.** Sem ela, cada clique viraria um `UPDATE`. A folga é
+       *    de um minuto e cabe com sobra na janela de cinco da tela, então
+       *    economizar aqui não faz o indicador mentir.
+       *  • **Depois da revisão, nunca antes.** Sessão revogada ou vencida não
+       *    deixa rastro de presença: marcar quem acabou de ser recusado
+       *    mostraria "on-line" para quem foi posto para fora.
+       *  • **Sem auditoria e sem quebrar a requisição.** Presença é telemetria
+       *    de uso, não ato de negócio — a trilha da RN49 não se polui com
+       *    isso, no mesmo espírito da rota de saúde (RN61). E se a escrita
+       *    falhar, o acesso segue: ninguém fica de fora da plataforma porque
+       *    um indicador não pôde ser atualizado.
+       */
+      // `atual` não é nulo aqui — a revisão devolve token nulo quando o
+      // usuário sumiu, e nesse caso já retornamos acima. A guarda é para o
+      // compilador, e serve de lembrete de que a ordem é o que garante isso.
+      if (atual && deveRegistrarAcesso(atual.ultimoAcessoEm, new Date(agora))) {
+        try {
+          await prisma.usuario.update({
+            where: { id: token.id },
+            data: { ultimoAcessoEm: new Date(agora) },
+          });
+        } catch (erro) {
+          logger.warn({ usuarioId: token.id, erro }, "falha ao registrar presença");
+        }
       }
 
       return revisao.token;
