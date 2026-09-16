@@ -89,7 +89,7 @@ function primeirosArgumentosDeSqlCru(fonte: string): string[] {
 
     // Lê até a vírgula ou o parêntese de nível zero: é o primeiro argumento.
     let profundidade = 0;
-    let inicio = i;
+    const inicio = i;
     for (; i < fonte.length; i += 1) {
       const caractere = fonte[i]!;
       if ("([{`".includes(caractere)) profundidade += 1;

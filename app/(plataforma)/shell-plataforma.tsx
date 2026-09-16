@@ -79,6 +79,20 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
   },
   { rotulo: "Aprovações", href: "/aprovacoes", icone: "M22 11.1V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" },
   {
+    /*
+     * Onda 16 — entre Aprovações e Parametrizador: fecha o bloco de operação
+     * e vem antes do de administração. A posição e o ícone são PROPOSTA
+     * (ficha §6.1): a ordem e os ícones vieram do protótipo v2.1, que é
+     * contrato visual, e acrescentar item é decisão de Design.
+     *
+     * Medido antes de escolher o nome: "Gerador de relatórios" ocupa 138px
+     * no espaço de ~160px da lateral, em uma linha, sem cortar.
+     */
+    rotulo: "Gerador de relatórios",
+    href: "/relatorios",
+    icone: "M3 3v18h18M7 16V9M12 16V5M17 16v-4",
+  },
+  {
     rotulo: "Parametrizador",
     href: "/parametrizador",
     icone: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",

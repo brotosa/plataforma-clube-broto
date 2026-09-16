@@ -16,7 +16,7 @@ import {
   resumirDefinicao,
   validarEstruturaDefinicao,
 } from "@/dominio/relatorios/compilador";
-import { type TabelaPivotada, pivotar } from "@/dominio/relatorios/pivo";
+import { type TabelaPivotada, pivotar, tabelaParaCsv } from "@/dominio/relatorios/pivo";
 import { executarConsultaDeRelatorio } from "@/infra/consultas/relatorios";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
@@ -220,15 +220,58 @@ export async function executarRelatorio(
 }
 
 /**
- * A mensagem do estouro de teto (RN79 + RN55): nomeia a causa e oferece o
- * caminho, em vez de anunciar um limite e deixar a pessoa adivinhar.
+ * Exportação em CSV.
+ *
+ * **Não é atalho para nada** (RN76, ficha §3): passa pelo mesmo
+ * `executarRelatorio`, com a mesma conferência de permissão, a mesma
+ * exigência de finalidade e o mesmo teto. A única diferença é que a trilha
+ * operacional marca `exportou`, que é o recorte de quem pergunta o que saiu
+ * da plataforma.
  */
-export function mensagemDeTeto(teto: number): string {
-  return (
-    `O resultado passou de ${teto.toLocaleString("pt-BR")} linhas e foi cortado aí. ` +
-    `Estreite um filtro, agrupe por um campo a menos, ou exporte em CSV para levar tudo.`
-  );
+export async function exportarRelatorioCsv(
+  ator: Ator,
+  definicaoBruta: unknown,
+  opcoes: Omit<OpcoesDeExecucao, "exportacao" | "teto"> = {},
+): Promise<{ csv: string; nomeArquivo: string; linhas: number; truncado: boolean }> {
+  const resultado = await executarRelatorio(ator, definicaoBruta, {
+    ...opcoes,
+    exportacao: true,
+  });
+
+  const definicao = validarEstruturaDefinicao(definicaoBruta);
+  const assunto = assuntoPorSlug(definicao.assunto);
+  const carimbo = new Date().toISOString().slice(0, 10);
+  const base = (assunto?.rotulo ?? definicao.assunto)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+
+  return {
+    csv: tabelaParaCsv(resultado.tabela),
+    nomeArquivo: `relatorio-${base}-${carimbo}.csv`,
+    linhas: resultado.total,
+    truncado: resultado.truncado,
+  };
 }
+
+/*
+ * A mensagem do estouro de teto (RN79 + RN55) vive nas DUAS telas que a
+ * exibem, e não aqui, numa função comum.
+ *
+ * Houve uma, exportada, e ela ficou sem chamador: a prévia e a exportação
+ * dizem coisas diferentes — "amostra, há mais" contra "o arquivo saiu com N
+ * linhas e foi cortado" —, e uma frase só para as duas seria vaga nas duas.
+ * Mantê-la exportada e sem uso seria pior que não tê-la: a próxima mão a
+ * tomaria por caminho canônico e trocaria duas mensagens boas por uma
+ * genérica. Trazê-la de volta exige um terceiro lugar que precise do mesmo
+ * texto.
+ *
+ * E há a razão técnica: o construtor é componente de cliente, e importar
+ * daqui arrastaria o caso de uso — com o Prisma atrás — para o pacote do
+ * navegador.
+ */
 
 // ---------------------------------------------------------------------
 // Galeria — salvar, listar, abrir, apagar

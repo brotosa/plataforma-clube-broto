@@ -105,6 +105,21 @@ export interface ColunaProjetada {
   campo: string;
   tipo: CampoRelatorio["tipo"];
   agregacao?: Agregacao;
+  /**
+   * Valor guardado → rótulo de gente, para os campos de lista fechada.
+   *
+   * **Sem isto, a tela exibe o banco.** A primeira versão não o tinha, e o
+   * cruzamento por Natureza saiu com as colunas `BENEFICIO`, `RECOMPENSA` e
+   * `CUPOM_DESCONTO` — que é o que o Postgres devolve, e não o que o
+   * catálogo já sabia chamar de "Benefício (Checkout Broto)". Apareceu no
+   * primeiro print da tela montada com dado real; nenhum teste o via, porque
+   * todos conferiam número e nenhum conferia nome.
+   *
+   * Vai junto da projeção, e não é buscado pela tela, para que o pivô e o
+   * CSV usem o mesmo rótulo sem consultar o catálogo — que é código de
+   * servidor e não atravessa para o cliente.
+   */
+  rotulosDeValor?: Readonly<Record<string, string>>;
 }
 
 export interface RelatorioCompilado {
@@ -518,6 +533,13 @@ export function compilarRelatorio(
       papel: dimensao.papel,
       campo: dimensao.campo.slug,
       tipo: dimensao.campo.tipo,
+      ...(dimensao.campo.valores
+        ? {
+            rotulosDeValor: Object.fromEntries(
+              dimensao.campo.valores.map((opcao) => [opcao.valor, opcao.rotulo]),
+            ),
+          }
+        : {}),
     });
   });
 

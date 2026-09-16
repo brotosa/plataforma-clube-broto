@@ -779,3 +779,63 @@ test.describe("responsividade a 380px — Onda 15", () => {
     }
   });
 });
+
+/**
+ * Onda 16 (F24) — o Gerador de relatórios a 380px.
+ *
+ * A tela é de três painéis no desktop, e é justamente por isso que ela é a
+ * mais capaz de estourar a largura: o painel de campos, as três gavetas lado
+ * a lado e uma tabela de largura livre. As consultas de mídia colapsam tudo
+ * em coluna única (900px para o grid, 760px para as gavetas), e este teste é
+ * quem prova que colapsaram — sem ele, o defeito só apareceria no celular de
+ * quem estivesse em campo.
+ *
+ * A tabela de resultado é o caso à parte: ela **pode** rolar na horizontal,
+ * porque relatório cruzado tem colunas demais para 380px, e cortá-las seria
+ * esconder dado. O que não pode rolar é a PÁGINA — e é essa a distinção que
+ * `semRolagemHorizontal` verifica.
+ */
+test.describe("responsividade a 380px — Onda 16", () => {
+  const GESTOR = "gestor@dev.clubebroto.local";
+
+  test("T36: a abertura empilha os cartões de assunto", async ({ page }) => {
+    await entrar(page, GESTOR);
+    await page.goto("/relatorios");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Gerador de relatórios" })).toBeVisible();
+    const cartoes = page.locator(".rel-assunto");
+    expect(await cartoes.count()).toBeGreaterThan(0);
+    for (const cartao of await cartoes.all()) {
+      const caixa = await cartao.boundingBox();
+      expect((caixa?.x ?? 0) + (caixa?.width ?? 0), "borda direita do cartão").toBeLessThanOrEqual(
+        380,
+      );
+    }
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+
+  test("T36: as três gavetas empilham e o construtor segue operável", async ({ page }) => {
+    await entrar(page, GESTOR);
+    await page.goto("/relatorios?assunto=ofertas");
+
+    const gavetas = page.locator(".rel-gaveta");
+    await expect(gavetas).toHaveCount(3);
+    for (const gaveta of await gavetas.all()) {
+      const caixa = await gaveta.boundingBox();
+      expect((caixa?.x ?? 0) + (caixa?.width ?? 0), "borda direita da gaveta").toBeLessThanOrEqual(
+        380,
+      );
+    }
+
+    // O caminho por botão é o que existe no toque: arrastar numa lista que
+    // rola é ruim no celular, e a RN57 já dizia que arrastar não pode ser o
+    // único caminho. Aqui isso deixa de ser princípio e vira necessidade.
+    await page.getByRole("button", { name: "Pôr Situação em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+});

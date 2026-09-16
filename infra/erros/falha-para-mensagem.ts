@@ -3,6 +3,7 @@ import { ErroDeEnvioDeArquivo } from "@/dominio/arquivos/arquivo-enviado";
 import { ErroDeArquivoAusente } from "@/dominio/arquivos/artefato-derivado";
 import { ErroDeArquivo, ErroDeConfiguracao } from "@/dominio/erros/falhas";
 import { ErroDeLayoutTelemetria } from "@/dominio/integracao/telemetria";
+import { ErroDeRelatorioInvalido } from "@/dominio/relatorios/compilador";
 import { ErroDeSegmentoInvalido } from "@/dominio/segmentacao/compilador";
 import { ErroDeTemplate } from "@/dominio/dossie/template";
 import { ErroDeValidacao } from "@/infra/casos-de-uso/contexto";
@@ -48,6 +49,13 @@ const FALHAS_CONHECIDAS = [
   // ativar" não diz que a peça precisa ser reenviada.
   ErroDeArquivoAusente,
   ErroDeSegmentoInvalido,
+  // Onda 16 (RN75). No Gerador de relatórios a mensagem do compilador NÃO é
+  // um aviso de erro: é a interface. "O operador 'contém' não vale para o
+  // campo Situação" é o que ensina a pessoa a montar a consulta, e o mesmo
+  // vale para a recusa de soma sobre junção que multiplica, que explica por
+  // que o número seria falso. Trocá-las pelo genérico deixaria quem monta
+  // adivinhando o que a plataforma já sabe.
+  ErroDeRelatorioInvalido,
   ErroDeTemplate,
   ErroDeProvedor,
 ] as const;

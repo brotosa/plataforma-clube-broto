@@ -116,6 +116,73 @@ describe("pivô com campos em Colunas", () => {
   });
 });
 
+/*
+ * O grupo que nasceu de um defeito visto em print, e não em teste.
+ *
+ * A tabela montada com dado real saiu com as colunas `BENEFICIO`,
+ * `RECOMPENSA` e `CUPOM_DESCONTO` — o valor do Postgres, e não o rótulo que
+ * o catálogo já sabia ("Benefício (Checkout Broto)"). Os dez testes acima
+ * passavam: todos conferiam NÚMERO, e nenhum conferia NOME.
+ *
+ * É o padrão de cegueira que vale registrar: teste que verifica a mecânica
+ * do pivô não verifica o que a pessoa lê.
+ */
+describe("a tabela mostra o rótulo do catálogo, nunca o valor do banco", () => {
+  const dimensaoNaturezaRotulada: ColunaProjetada = {
+    ...dimensaoNatureza,
+    rotulosDeValor: {
+      BENEFICIO: "Benefício (Checkout Broto)",
+      CUPOM_DESCONTO: "Desconto (Checkout Externo)",
+    },
+  };
+  const dimensaoSituacao: ColunaProjetada = {
+    chave: "d0",
+    rotulo: "Situação",
+    papel: "LINHA",
+    campo: "oferta-status",
+    tipo: "LISTA",
+    rotulosDeValor: { PUBLICADA: "Publicada", RASCUNHO: "Rascunho" },
+  };
+
+  it("o cabeçalho de coluna vem rotulado", () => {
+    const tabela = pivotar(
+      [dimensaoAliado, dimensaoNaturezaRotulada, medidaQuantos],
+      [
+        { d0: "AGROMOVE", d1: "BENEFICIO", v0: 28 },
+        { d0: "AGROMOVE", d1: "CUPOM_DESCONTO", v0: 3 },
+      ],
+    );
+    expect(tabela.medidas.map((m) => m.rotulo)).toEqual([
+      "Benefício (Checkout Broto)",
+      "Desconto (Checkout Externo)",
+    ]);
+  });
+
+  it("a célula de linha vem rotulada no CSV", () => {
+    const csv = tabelaParaCsv(
+      pivotar(
+        [dimensaoSituacao, medidaQuantos],
+        [
+          { d0: "PUBLICADA", v0: 120 },
+          { d0: "RASCUNHO", v0: 9 },
+        ],
+      ),
+    );
+    expect(csv).toContain("Publicada;120");
+    expect(csv).not.toContain("PUBLICADA");
+  });
+
+  it("valor sem entrada no de-para sai como veio, e não vazio", () => {
+    // Enum novo no banco antes de o catálogo aprender o rótulo: melhor o
+    // valor cru à vista do que uma célula em branco, que pareceria ausência.
+    expect(rotularDimensao("VALOR_NOVO", { PUBLICADA: "Publicada" })).toBe("VALOR_NOVO");
+  });
+
+  it("sem de-para, o comportamento é o de antes", () => {
+    expect(rotularDimensao("MT")).toBe("MT");
+  });
+});
+
 describe("rótulo de dimensão", () => {
   it("nulo e vazio viram o mesmo rótulo explícito", () => {
     expect(rotularDimensao(null)).toBe(ROTULO_SEM_VALOR);

@@ -100,6 +100,18 @@ const TELAS_COM_CONTROLE_DE_QUERY: ReadonlyArray<{ arquivo: string; rota: string
    * proteção está como não está.
    */
   { arquivo: "app/(plataforma)/configuracoes/page.tsx", rota: "/configuracoes" },
+  /**
+   * Onda 16 (F24). A T36 é uma rota só em dois estados: sem `?assunto=`, a
+   * abertura com os cartões e as prateleiras; com ele, o construtor. Os
+   * cartões de assunto, os da galeria (`?relatorio=`) e os links de volta
+   * alteram **apenas a query da própria rota** — exatamente a forma em que o
+   * defeito foi medido.
+   *
+   * Entra aqui de saída, e não depois de reproduzir o problema: numa tela em
+   * que o clique escolhe o assunto, um alternador que não navega deixaria a
+   * pessoa montando o relatório sobre o assunto errado sem nada na tela dizer.
+   */
+  { arquivo: "app/(plataforma)/relatorios/page.tsx", rota: "/relatorios" },
 ];
 
 /**
