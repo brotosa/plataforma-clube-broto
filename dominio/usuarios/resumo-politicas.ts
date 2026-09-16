@@ -99,6 +99,30 @@ export function resumirPoliticaDeSenha(politica: PoliticaDeSenha): ResumoDePolit
 }
 
 /**
+ * Credencial provisória. Ganha célula própria, e não uma terceira parte do
+ * detalhe da Senha, porque é a única proteção da aba que pode **deixar alguém
+ * de fora** — e proteção com esse efeito não pode depender de quem leu a
+ * linha inteira até o fim. É também a mais fácil de ligar sem perceber a
+ * consequência: o prazo corre para quem ainda não entrou.
+ */
+export function resumirCredencialProvisoria(politica: PoliticaDeSenha): ResumoDePolitica {
+  if (politica.credencialProvisoriaHoras <= 0) {
+    return {
+      rotulo: "Credencial provisória",
+      principal: "Desligado",
+      detalhe: "a senha emitida vale sem prazo",
+      desligada: true,
+    };
+  }
+  return {
+    rotulo: "Credencial provisória",
+    principal: formatarMinutos(politica.credencialProvisoriaHoras * 60),
+    detalhe: "depois disso, só com nova emissão",
+    desligada: false,
+  };
+}
+
+/**
  * Sessão. Só se considera desligada quando **os dois** eixos estão em zero —
  * com um deles ligado a sessão ainda tem prazo, e marcar a célula como
  * desligada seria falso.

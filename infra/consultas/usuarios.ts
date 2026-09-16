@@ -1,6 +1,8 @@
 import type { Papel } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import { eAdministradorEfetivo } from "@/dominio/usuarios/regras";
+import { minutosAteExpirarCredencial } from "@/dominio/usuarios/politica-senha";
+import { lerPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
 import { classificarSensibilidade } from "@/dominio/auditoria/extrato";
 
 /**
@@ -22,6 +24,16 @@ export interface LinhaUsuario {
    * pior experiência do que dizer antes.
    */
   unicoAdministradorAtivo: boolean;
+  /**
+   * Minutos até a credencial provisória expirar — negativo já expirou, e
+   * `null` significa **sem prazo** (proteção desligada, ou senha escolhida
+   * pela própria pessoa).
+   *
+   * Vem calculado da consulta, e não da tela, para que a lista e a
+   * autenticação leiam a mesma função do domínio. Uma tela que refizesse a
+   * conta poderia dizer "expira em 2 h" para uma conta que o login já recusa.
+   */
+  minutosAteExpirarCredencial: number | null;
 }
 
 export async function listarUsuarios(): Promise<LinhaUsuario[]> {
@@ -38,15 +50,21 @@ export async function listarUsuarios(): Promise<LinhaUsuario[]> {
       papel: true,
       ativo: true,
       trocaSenhaObrigatoria: true,
+      credencialEmitidaEm: true,
     },
   });
 
   const administradoresAtivos = usuarios.filter(eAdministradorEfetivo);
+  const politica = await lerPoliticaDeSenha();
+  const agora = new Date();
 
-  return usuarios.map((usuario) => ({
+  return usuarios.map(({ credencialEmitidaEm, ...usuario }) => ({
     ...usuario,
     unicoAdministradorAtivo:
       administradoresAtivos.length === 1 && administradoresAtivos[0]?.id === usuario.id,
+    minutosAteExpirarCredencial: usuario.trocaSenhaObrigatoria
+      ? minutosAteExpirarCredencial(credencialEmitidaEm, agora, politica)
+      : null,
   }));
 }
 

@@ -1,7 +1,7 @@
 import type { ResumoDePolitica } from "@/dominio/usuarios/resumo-politicas";
 
 /**
- * Faixa de panorama da T35 — o estado das quatro proteções, acima das abas.
+ * Faixa de panorama da T35 — o estado das cinco proteções, acima das abas.
  *
  * **Por que existe.** As abas organizam, mas escondem: sem esta faixa, quem
  * administra o portal pode nunca abrir a aba "Bloqueios" e nunca descobrir que
@@ -56,6 +56,7 @@ function Celula({ resumo, bloqueados }: { resumo: ResumoDePolitica; bloqueados?:
 
 export function FaixaPanorama({
   senha,
+  credencial,
   sessao,
   login,
   origem,
@@ -63,6 +64,7 @@ export function FaixaPanorama({
   origensBloqueadas,
 }: {
   senha: ResumoDePolitica;
+  credencial: ResumoDePolitica;
   sessao: ResumoDePolitica;
   login: ResumoDePolitica;
   origem: ResumoDePolitica;
@@ -70,8 +72,16 @@ export function FaixaPanorama({
   origensBloqueadas: number;
 }) {
   return (
-    <div className="kpi-row" aria-label="Panorama das configurações de segurança" role="group">
+    <div
+      className="kpi-row kpi-row-5"
+      aria-label="Panorama das configurações de segurança"
+      role="group"
+    >
       <Celula resumo={senha} />
+      {/* Ao lado da Senha, e não no detalhe dela: é a única proteção da aba
+          que pode deixar alguém DE FORA, e isso não pode depender de quem leu
+          a linha inteira até o fim. */}
+      <Celula resumo={credencial} />
       <Celula resumo={sessao} />
       <Celula resumo={login} bloqueados={contasBloqueadas} />
       <Celula resumo={origem} bloqueados={origensBloqueadas} />

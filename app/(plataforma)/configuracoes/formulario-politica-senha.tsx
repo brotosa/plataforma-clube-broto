@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   COMPRIMENTO_MIN_MAXIMO,
   COMPRIMENTO_MIN_MINIMO,
+  CREDENCIAL_HORAS_MAXIMO,
+  CREDENCIAL_HORAS_MINIMO,
   HISTORICO_MAXIMO,
   VALIDADE_DIAS_MAXIMO,
   VALIDADE_DIAS_MINIMO,
@@ -123,6 +125,32 @@ export function FormularioPoliticaSenha({ inicial }: { inicial: PoliticaDeSenha 
             <b>0 desliga</b> a troca periódica. Ligada, aceita de {VALIDADE_DIAS_MINIMO} a{" "}
             {VALIDADE_DIAS_MAXIMO} dias — passado o prazo, a próxima entrada exige trocar a senha.
             Quem nunca trocou desde a implantação não vence até a primeira troca.
+          </span>
+        </div>
+
+        <div className="field" style={{ marginTop: 6 }}>
+          <label htmlFor={`${idBase}-credencial`}>
+            Validade da credencial provisória (horas)
+          </label>
+          <input
+            id={`${idBase}-credencial`}
+            className="input"
+            type="number"
+            min={0}
+            max={CREDENCIAL_HORAS_MAXIMO}
+            value={politica.credencialProvisoriaHoras}
+            style={{ width: 120 }}
+            onChange={(evento) =>
+              atualizar("credencialProvisoriaHoras", Number(evento.target.value) as never)
+            }
+          />
+          <span className="cap" style={{ marginTop: 4 }}>
+            <b>0 desliga</b> — a senha provisória vale para sempre, que é o comportamento de
+            sempre. Ligada, aceita de {CREDENCIAL_HORAS_MINIMO} a {CREDENCIAL_HORAS_MAXIMO} horas
+            contadas da emissão; passado o prazo, a pessoa não entra mais com ela e o Administrador
+            precisa emitir outra em Usuários → Acesso → Redefinir credencial. Vale só para a senha
+            que a plataforma sorteia — a senha escolhida pela própria pessoa segue a validade
+            acima. Credencial emitida antes desta configuração existir não tem prazo.
           </span>
         </div>
       </div>

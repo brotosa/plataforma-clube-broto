@@ -117,6 +117,7 @@ describe.skipIf(!temBanco)("Configurações — política de senha (PR A)", () =
       exigeSimbolo: false,
       historicoN: 3,
       validadeDias: 0,
+      credencialProvisoriaHoras: 0,
     });
 
     const depois = await lerPoliticaDeSenha();

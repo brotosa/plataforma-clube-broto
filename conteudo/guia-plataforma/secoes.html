@@ -407,7 +407,7 @@
   <h2><span class="gd-num">4.9</span> Configurações do portal</h2>
   <p class="gd-lead">A seção anterior sobre configuração, a 4.6, cuida das réguas do negócio. Esta cuida de outra coisa: <strong>como a porta se tranca</strong>.</p>
 
-  <p>Restrito ao <strong>Administrador</strong> e ao <strong>Administrador da Plataforma</strong>, o módulo guarda quatro ajustes — e todos valem para todo mundo, inclusive para quem os alterou. Cada mudança fica registrada na auditoria, com o valor anterior e o novo.</p>
+  <p>Restrito ao <strong>Administrador</strong> e ao <strong>Administrador da Plataforma</strong>, o módulo guarda cinco ajustes — e todos valem para todo mundo, inclusive para quem os alterou. Cada mudança fica registrada na auditoria, com o valor anterior e o novo.</p>
 
   <h3>Política de senha</h3>
   <p>Quantos caracteres uma senha precisa ter, quais tipos de caractere são exigidos (maiúscula, minúscula, número, símbolo), quantas senhas anteriores não podem ser repetidas e de quantos em quantos dias a senha vence. A tela de troca de senha <strong>mostra a exigência vigente</strong>: se a política apertar, o aviso aperta junto, sem ninguém reescrever texto.</p>
@@ -420,6 +420,11 @@
       <p>Nem a atual, nem as antigas. O que fica guardado é uma marca matemática que serve para <strong>conferir</strong> e não serve para <strong>ler</strong> — inclusive no histórico que impede a repetição. É por isso que o Administrador emite credencial provisória, mas não conhece a senha de ninguém: não há onde consultá-la.</p>
     </div>
   </div>
+
+  <h3>Validade da credencial provisória</h3>
+  <p>Este é o único ajuste da tela que não trata da senha que você escolheu, e sim da que a <strong>plataforma sorteou</strong> — aquela que o Administrador emite ao criar, reativar ou redefinir uma conta, e que alguém precisa transmitir por mensagem, telefone ou bilhete. Essa senha vive um tempo fora da plataforma, e é aí que ela corre risco.</p>
+  <p>Ligado, o ajuste dá a ela um prazo em horas, contado da emissão. Passado o prazo, quem tiver a mensagem antiga não entra mais — nem quem deveria: a saída é o Administrador emitir outra, em <em>Usuários &rarr; Acesso &rarr; Redefinir credencial</em>. A tela de login diz exatamente isso a quem esbarrar no prazo, para ninguém ficar insistindo na senha certa achando que errou. Na lista de Usuários, cada conta com credencial provisória mostra quanto falta — ou que já expirou.</p>
+  <p>Nasce desligado, e por um motivo que vale declarar: é a única proteção da tela capaz de deixar alguém <strong>de fora</strong> sem que essa pessoa tenha feito nada errado. Quem já tem credencial provisória emitida antes deste ajuste existir não ganha prazo nenhum — o relógio só começa a contar nas emissões seguintes.</p>
 
   <h3>Tempo de sessão</h3>
   <p>Depois de quanto tempo <strong>sem atividade</strong> a sessão se encerra. A contagem é deslizante: cada ação sua reinicia o relógio, e o contador ao lado do sino mostra quanto falta — ele fica âmbar quando o fim se aproxima. Se o tempo acabar, a plataforma leva você de volta ao login explicando o motivo. O que já foi salvo permanece; o que estava pela metade em um formulário, não.</p>

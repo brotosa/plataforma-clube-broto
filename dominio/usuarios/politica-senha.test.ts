@@ -10,6 +10,10 @@ import {
   senhaVenceu,
   VALIDADE_DIAS_MINIMO,
   VALIDADE_DIAS_MAXIMO,
+  CREDENCIAL_HORAS_MINIMO,
+  CREDENCIAL_HORAS_MAXIMO,
+  credencialProvisoriaExpirou,
+  minutosAteExpirarCredencial,
 } from "./politica-senha";
 
 const COM_TUDO: PoliticaDeSenha = {
@@ -20,6 +24,7 @@ const COM_TUDO: PoliticaDeSenha = {
   exigeSimbolo: true,
   historicoN: 5,
   validadeDias: 0,
+  credencialProvisoriaHoras: 0,
 };
 
 describe("política de senha — validar os valores que o Admin salva", () => {
@@ -109,5 +114,90 @@ describe("validade periódica da senha (configurável e desligável)", () => {
     expect(validarPoliticaDeSenha(com(VALIDADE_DIAS_MINIMO - 1))).toHaveLength(1);
     expect(validarPoliticaDeSenha(com(VALIDADE_DIAS_MAXIMO + 1))).toHaveLength(1);
     expect(validarPoliticaDeSenha(com(-1))).toHaveLength(1);
+  });
+});
+
+/**
+ * Validade da CREDENCIAL PROVISÓRIA — a senha que a plataforma sorteia e que
+ * alguém precisa transmitir.
+ *
+ * O que estes testes seguram é a distinção entre os dois relógios. A
+ * `validadeDias` governa a senha que a pessoa escolheu e só ela conhece; esta
+ * governa a que existiu em trânsito, numa mensagem ou num bilhete. Confundir
+ * os dois teria consequência em qualquer direção: ou a senha definitiva
+ * expiraria em horas, ou a provisória nunca expiraria — que é o estado de
+ * antes desta fase.
+ */
+describe("credencial provisória — a validade da senha emitida", () => {
+  const LIGADA: PoliticaDeSenha = { ...POLITICA_SENHA_PADRAO, credencialProvisoriaHoras: 24 };
+  const AGORA = new Date("2026-09-16T12:00:00Z");
+  const HA_DUAS_HORAS = new Date("2026-09-16T10:00:00Z");
+  const HA_DOIS_DIAS = new Date("2026-09-14T12:00:00Z");
+
+  it("com a proteção DESLIGADA, nada expira — nem credencial antiga", () => {
+    expect(credencialProvisoriaExpirou(HA_DOIS_DIAS, AGORA, POLITICA_SENHA_PADRAO)).toBe(false);
+    expect(minutosAteExpirarCredencial(HA_DOIS_DIAS, AGORA, POLITICA_SENHA_PADRAO)).toBeNull();
+  });
+
+  /*
+   * O caso que a migration precisa que seja verdade. `credencial_emitida_em`
+   * nasce NULA em toda linha existente, inclusive nas que estão com a troca
+   * exigida agora. Se nulo contasse como expirado, ligar a proteção trancaria
+   * essas contas de uma vez — o mesmo erro que `senhaAlteradaEm` evita do
+   * outro lado, e o motivo de os dois nulos significarem "sem prazo".
+   */
+  it("sem data de emissão não há prazo, mesmo com a proteção ligada", () => {
+    expect(credencialProvisoriaExpirou(null, AGORA, LIGADA)).toBe(false);
+    expect(credencialProvisoriaExpirou(undefined, AGORA, LIGADA)).toBe(false);
+    expect(minutosAteExpirarCredencial(null, AGORA, LIGADA)).toBeNull();
+  });
+
+  it("dentro do prazo não expira, e devolve quanto falta", () => {
+    expect(credencialProvisoriaExpirou(HA_DUAS_HORAS, AGORA, LIGADA)).toBe(false);
+    expect(minutosAteExpirarCredencial(HA_DUAS_HORAS, AGORA, LIGADA)).toBe(22 * 60);
+  });
+
+  it("passado o prazo expira, e o restante fica negativo", () => {
+    expect(credencialProvisoriaExpirou(HA_DOIS_DIAS, AGORA, LIGADA)).toBe(true);
+    expect(minutosAteExpirarCredencial(HA_DOIS_DIAS, AGORA, LIGADA)).toBe(-24 * 60);
+  });
+
+  it("no instante exato do limite já está expirada — o prazo é fechado", () => {
+    const emitida = new Date(AGORA.getTime() - 24 * 60 * 60_000);
+    expect(credencialProvisoriaExpirou(emitida, AGORA, LIGADA)).toBe(true);
+  });
+
+  it("data inválida não expira nada", () => {
+    expect(credencialProvisoriaExpirou(new Date("bagunça"), AGORA, LIGADA)).toBe(false);
+  });
+
+  it("aceita 0 e a faixa, recusa fora dela nomeando a causa", () => {
+    expect(validarPoliticaDeSenha({ ...POLITICA_SENHA_PADRAO, credencialProvisoriaHoras: 0 })).toEqual([]);
+    expect(
+      validarPoliticaDeSenha({
+        ...POLITICA_SENHA_PADRAO,
+        credencialProvisoriaHoras: CREDENCIAL_HORAS_MINIMO,
+      }),
+    ).toEqual([]);
+    expect(
+      validarPoliticaDeSenha({
+        ...POLITICA_SENHA_PADRAO,
+        credencialProvisoriaHoras: CREDENCIAL_HORAS_MAXIMO,
+      }),
+    ).toEqual([]);
+
+    const acima = validarPoliticaDeSenha({
+      ...POLITICA_SENHA_PADRAO,
+      credencialProvisoriaHoras: CREDENCIAL_HORAS_MAXIMO + 1,
+    });
+    expect(acima).toHaveLength(1);
+    expect(acima[0]).toMatch(/credencial provisória/i);
+
+    const negativa = validarPoliticaDeSenha({
+      ...POLITICA_SENHA_PADRAO,
+      credencialProvisoriaHoras: -1,
+    });
+    expect(negativa).toHaveLength(1);
+    expect(negativa[0]).toMatch(/negativa/i);
   });
 });

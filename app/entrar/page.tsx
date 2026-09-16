@@ -3,7 +3,10 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { auth, signIn } from "@/infra/auth";
-import { emailEstaBloqueado } from "@/infra/casos-de-uso/bloqueio-login";
+import {
+  credencialProvisoriaExpirada,
+  emailEstaBloqueado,
+} from "@/infra/casos-de-uso/bloqueio-login";
 import { origemEstaBloqueada } from "@/infra/casos-de-uso/bloqueio-origem";
 import { obterOrigemDaRequisicao } from "@/infra/identidade/origem-requisicao";
 
@@ -34,6 +37,13 @@ async function autenticar(dados: FormData) {
       // mesmo com a conta livre — a mensagem precisa dizer qual é o caso.
       if (await origemEstaBloqueada(await obterOrigemDaRequisicao())) {
         redirect("/entrar?erro=origem");
+      }
+      // Credencial provisória vencida. Vem depois dos bloqueios de propósito:
+      // bloqueio passa sozinho com o tempo, este não passa — só outra emissão
+      // resolve —, então perder o bloqueio para esta mensagem mandaria a
+      // pessoa atrás do Administrador quando bastava esperar.
+      if (email && (await credencialProvisoriaExpirada(email))) {
+        redirect("/entrar?erro=credencial-expirada");
       }
       redirect("/entrar?erro=credenciais");
     }
@@ -148,6 +158,24 @@ export default async function PaginaEntrar({
           >
             Este endereço de rede está temporariamente bloqueado por tentativas repetidas. Aguarde o
             tempo de bloqueio ou peça ao Administrador da Plataforma para liberar.
+          </p>
+        ) : null}
+
+        {erro === "credencial-expirada" ? (
+          <p
+            role="alert"
+            className="cap"
+            style={{
+              color: "var(--erro-texto-aaa)",
+              background: "var(--erro-claro)",
+              border: "1px solid var(--erro)",
+              borderRadius: "var(--r-sm)",
+              padding: "10px 12px",
+              margin: "0 0 16px",
+            }}
+          >
+            A senha provisória desta conta expirou. Peça ao Administrador para emitir uma nova —
+            insistir nesta não vai funcionar.
           </p>
         ) : null}
 

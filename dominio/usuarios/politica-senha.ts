@@ -22,6 +22,18 @@ export interface PoliticaDeSenha {
   historicoN: number;
   /** Validade da senha em dias — **0 desativa** a troca periódica. */
   validadeDias: number;
+  /**
+   * Validade da **credencial provisória** em horas — **0 desativa**.
+   *
+   * É outro assunto que a `validadeDias`, e a diferença é quem escolheu a
+   * senha. A validade periódica governa a senha que a **pessoa** escolheu e
+   * que só ela conhece; esta governa a senha que a **plataforma sorteou** e
+   * que alguém teve de transmitir — por mensagem, por telefone, por bilhete.
+   * Essa senha existe em trânsito, fora do controle da plataforma, e hoje
+   * vale para sempre: uma conta criada e nunca usada fica com credencial
+   * válida indefinidamente, e quem tiver a mensagem entra meses depois.
+   */
+  credencialProvisoriaHoras: number;
 }
 
 /** Padrão do domínio — usado quando ainda não há linha de configuração. */
@@ -35,6 +47,10 @@ export const POLITICA_SENHA_PADRAO: PoliticaDeSenha = {
   // 0 = sem troca periódica. Padrão desligado: ligar é decisão do
   // Administrador, nunca efeito colateral de uma entrega.
   validadeDias: 0,
+  // 0 = credencial provisória não expira, que é o comportamento de sempre.
+  // Ligar isto pode deixar alguém de fora, então nasce desligado como toda
+  // proteção desta tela.
+  credencialProvisoriaHoras: 0,
 };
 
 // Limites de sanidade dos PRÓPRIOS valores da política (o que o Admin salva).
@@ -50,6 +66,17 @@ export const HISTORICO_MAXIMO = 24;
  */
 export const VALIDADE_DIAS_MINIMO = 30;
 export const VALIDADE_DIAS_MAXIMO = 730;
+/**
+ * Validade da credencial provisória, em horas. **0 é desligado.**
+ *
+ * O mínimo é 1 e não 30 como o da senha escolhida, porque aqui prazo curto é
+ * legítimo: o Administrador cria a conta e transmite a senha na mesma
+ * conversa, e uma janela de poucas horas é exatamente o que se quer. O teto
+ * de 720 h (30 dias) existe para que "expira" continue significando alguma
+ * coisa — acima disso a proteção vira decoração.
+ */
+export const CREDENCIAL_HORAS_MINIMO = 1;
+export const CREDENCIAL_HORAS_MAXIMO = 720;
 
 /**
  * Valida os VALORES que o Administrador tenta salvar (não uma senha). Recusa
@@ -80,6 +107,18 @@ export function validarPoliticaDeSenha(politica: PoliticaDeSenha): string[] {
     );
   }
 
+  const credencial = politica.credencialProvisoriaHoras;
+  if (!Number.isInteger(credencial) || credencial < 0) {
+    erros.push("A validade da credencial provisória não pode ser negativa (use 0 para desligar).");
+  } else if (
+    credencial !== 0 &&
+    (credencial < CREDENCIAL_HORAS_MINIMO || credencial > CREDENCIAL_HORAS_MAXIMO)
+  ) {
+    erros.push(
+      `A validade da credencial provisória deve ser 0 (desligada) ou entre ${CREDENCIAL_HORAS_MINIMO} e ${CREDENCIAL_HORAS_MAXIMO} horas.`,
+    );
+  }
+
   return erros;
 }
 
@@ -100,6 +139,47 @@ export function senhaVenceu(
   if (!(alteradaEm instanceof Date) || Number.isNaN(alteradaEm.getTime())) return false;
   const limiteMs = politica.validadeDias * 24 * 60 * 60_000;
   return agora.getTime() - alteradaEm.getTime() > limiteMs;
+}
+
+/**
+ * Quanto falta para a credencial provisória expirar, em minutos.
+ *
+ * Devolve `null` quando **não há prazo** — proteção desligada, ou credencial
+ * que não foi emitida pela plataforma (`emitidaEm` nulo). Negativo significa
+ * expirada, e o quanto já passou; a tela usa o sinal para escolher a palavra.
+ *
+ * Separada de `credencialProvisoriaVenceu` de propósito: o login precisa de
+ * um sim/não e a T27 precisa do número. Derivar um do outro na tela criaria
+ * duas opiniões sobre a mesma conta.
+ */
+export function minutosAteExpirarCredencial(
+  emitidaEm: Date | null | undefined,
+  agora: Date,
+  politica: PoliticaDeSenha,
+): number | null {
+  if (!politica.credencialProvisoriaHoras || politica.credencialProvisoriaHoras <= 0) return null;
+  if (!(emitidaEm instanceof Date) || Number.isNaN(emitidaEm.getTime())) return null;
+  const limite = emitidaEm.getTime() + politica.credencialProvisoriaHoras * 60 * 60_000;
+  return Math.round((limite - agora.getTime()) / 60_000);
+}
+
+/**
+ * A credencial provisória expirou? Função pura, e a autoridade do login.
+ *
+ * Duas ausências significam **não expirou**, e as duas são deliberadas:
+ * a proteção desligada (`0`), e `emitidaEm` nulo — que é o estado de toda
+ * conta que já existia quando a coluna nasceu, e de toda senha que a **própria
+ * pessoa** escolheu. Tratar nulo como expirado trancaria a base inteira no
+ * primeiro deploy, exatamente o erro que a coluna `senhaAlteradaEm` já evita
+ * do outro lado.
+ */
+export function credencialProvisoriaExpirou(
+  emitidaEm: Date | null | undefined,
+  agora: Date,
+  politica: PoliticaDeSenha,
+): boolean {
+  const restam = minutosAteExpirarCredencial(emitidaEm, agora, politica);
+  return restam !== null && restam <= 0;
 }
 
 // Reconhecedores por classe. Unicode-aware: letra maiúscula/minúscula acentuada

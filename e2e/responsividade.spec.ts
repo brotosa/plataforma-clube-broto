@@ -740,12 +740,18 @@ test.describe("responsividade a 380px — Onda 15", () => {
     await entrar(page, ADMIN);
     await page.goto("/configuracoes");
 
-    // O `.kpi-row` colapsa para uma coluna abaixo de 560px — as quatro células
+    // O `.kpi-row` colapsa para uma coluna abaixo de 560px — as cinco células
     // continuam presentes, empilhadas, e nenhuma delas vaza a largura.
+    //
+    // A quinta (credencial provisória) entrou com o modificador `.kpi-row-5`,
+    // que troca o `repeat(4,…)` por `repeat(5,…)` no desktop. Este teste é
+    // quem garante que o modificador não esqueceu as consultas de mídia: sem
+    // elas, cinco colunas de 76px a 380px estourariam a largura, e é a
+    // asserção de borda direita abaixo que reprovaria.
     const faixa = page.getByRole("group", { name: "Panorama das configurações de segurança" });
     await expect(faixa).toBeVisible();
     const celulas = faixa.locator(".kpi-cel");
-    await expect(celulas).toHaveCount(4);
+    await expect(celulas).toHaveCount(5);
     for (const celula of await celulas.all()) {
       const caixa = await celula.boundingBox();
       expect((caixa?.x ?? 0) + (caixa?.width ?? 0), "borda direita da célula").toBeLessThanOrEqual(
