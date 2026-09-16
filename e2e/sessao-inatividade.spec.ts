@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { decode, encode } from "next-auth/jwt";
 import { entrar, resolverDoArquivoEnv } from "./ajudantes";
 
@@ -58,10 +58,20 @@ test("o heartbeat persiste a marca de atividade no cookie", async ({ page }) => 
   const primeiro = await lerToken(page.context());
   expect(typeof primeiro?.ultimaAtividade).toBe("number");
 
-  // Atividade real: o heartbeat só dispara se houver. Um clique basta.
-  await page.mouse.move(200, 200);
-  await page.mouse.down();
-  await page.mouse.up();
+  /*
+   * Atividade real, e num alvo INERTE: o heartbeat só dispara se houver.
+   *
+   * Era um clique na coordenada cega (200, 200), que cai sobre a lateral e
+   * às vezes acerta um link. Quando acertava, a navegação remontava a
+   * sentinela e zerava a marca de atividade pendente — o pulso seguinte não
+   * tinha o que enviar, o cookie não andava, e o teste falhava por um motivo
+   * que nada tem a ver com o que ele afirma. Medido no mesmo commit: uma
+   * falha e uma aprovação em duas execuções seguidas.
+   *
+   * O título da página é `pointerdown` como qualquer outro e não leva a
+   * lugar nenhum.
+   */
+  await page.getByRole("heading", { level: 1, name: "O Clube hoje" }).click();
 
   // Espera ATIVA, não `waitForTimeout` cego: o pulso é de 60s, mas cravar o
   // instante deixa o teste instável (já aconteceu). Consultando o cookie de
@@ -130,4 +140,102 @@ test("sessão com atividade recente NÃO é derrubada — a cerca não é um fal
   await page.goto("/aliados");
   await expect(page).toHaveURL(/\/aliados/);
   await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+});
+
+/**
+ * Espera a sentinela estar VIVA, não apenas presente.
+ *
+ * O contador vem no HTML do servidor: `toHaveCount(1)` passa antes de o
+ * JavaScript assumir a página, e nesse intervalo não há ouvinte de
+ * `visibilitychange` nenhum — o evento é disparado no vazio e o teste falha
+ * por corrida, não por defeito. Prova de vida é o texto ANDAR, que só o tique
+ * de 1 s do cliente faz.
+ */
+async function esperarSentinelaViva(pagina: Page) {
+  const contador = pagina.locator(".sessao-contador");
+  await expect(contador).toHaveCount(1);
+  const inicial = await contador.textContent();
+  await expect
+    .poll(async () => contador.textContent(), {
+      message: "a sentinela deveria estar hidratada (o contador anda a cada segundo)",
+      timeout: 15_000,
+      intervals: [250],
+    })
+    .not.toBe(inicial);
+}
+
+/**
+ * A ABA ESQUECIDA — o relato de produção, reproduzido.
+ *
+ * "Deixo a aba aberta, volto horas ou dias depois e continuo logado."
+ *
+ * O mecanismo: navegador congela e descarta aba em segundo plano, e **timer
+ * de aba congelada não roda**. O tique de 1 s que deveria perceber o
+ * vencimento simplesmente não acontece enquanto ninguém olha. Ao voltar,
+ * `visibilitychange` dispara ANTES do próximo tique — e a versão anterior da
+ * sentinela tratava isso como atividade, reiniciando a janela para "agora +
+ * 30 min". O tempo em que não houve ninguém era perdoado, e a sessão
+ * continuava viva sem que o servidor fosse consultado.
+ *
+ * **Como se simula congelamento**, que é a parte difícil: `page.clock` com
+ * `setFixedTime` adianta o `Date.now()` do navegador **sem executar os
+ * timers pendentes** — que é exatamente o que o congelamento faz. Adiantar o
+ * relógio com `fastForward` seria o oposto: rodaria o tique 2.400 vezes e o
+ * componente perceberia o vencimento pelo caminho que nesta situação não
+ * existe.
+ *
+ * O teste também não navega nem clica, de propósito: qualquer navegação já
+ * derrubaria a sessão pelo servidor, e é por isso que o defeito passou
+ * despercebido — quem navega não vê, quem só volta para a aba vê.
+ */
+test("voltar a uma aba congelada NÃO rejuvenesce a sessão", async ({ page }) => {
+  await page.clock.install();
+  await entrar(page, ADMIN);
+  await expect(page.getByRole("heading", { level: 1, name: "O Clube hoje" })).toBeVisible();
+  await esperarSentinelaViva(page);
+
+  /*
+   * A aba congela por 12 horas. `setFixedTime` adianta o `Date.now()` do
+   * navegador **sem** executar os temporizadores que teriam disparado no
+   * caminho — que é a definição de aba congelada.
+   *
+   * `pauseAt` + `resume` foi tentado e descartado: ao retomar, o tique
+   * recuperado percebia o vencimento sozinho, e o teste passava COM e SEM a
+   * correção — deixava de discriminar, que é o pior defeito que um teste
+   * pode ter. Aqui o `visibilitychange` chega antes de qualquer tique, que é
+   * exatamente a corrida que a correção existe para resolver.
+   */
+  await page.clock.setFixedTime(new Date(Date.now() + 12 * 60 * 60_000));
+
+  // A pessoa volta para a aba. Nenhuma navegação, nenhum clique.
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+
+  /*
+   * `toHaveURL` e não `waitForURL`: a saída é um redirecionamento de server
+   * action, que o Next executa como navegação SOFT — não há evento `load`
+   * novo, e o `waitForURL` esperaria um sinal que não vem enquanto a URL já
+   * mudou há segundos.
+   */
+  await expect(page).toHaveURL(/\/entrar\?expirada=1/, { timeout: 15_000 });
+  await expect(page.getByText(/Sua sessão expirou por inatividade/)).toBeVisible();
+});
+
+/**
+ * O contraponto, sem o qual o teste acima seria satisfeito por um componente
+ * que simplesmente desloga a cada troca de aba: com a ausência CURTA, voltar
+ * à aba mantém a pessoa trabalhando.
+ */
+test("voltar a uma aba recente mantém a sessão — a correção não é um facão", async ({ page }) => {
+  await page.clock.install();
+  await entrar(page, ADMIN);
+  await expect(page.getByRole("heading", { level: 1, name: "O Clube hoje" })).toBeVisible();
+  await esperarSentinelaViva(page);
+
+  // Dois minutos de ausência, bem dentro dos 30 da política.
+  await page.clock.setFixedTime(new Date(Date.now() + 2 * 60_000));
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+
+  await page.waitForTimeout(3_000);
+  await expect(page).toHaveURL(/localhost:3000\/$/);
+  await expect(page.getByRole("heading", { level: 1, name: "O Clube hoje" })).toBeVisible();
 });

@@ -17,7 +17,13 @@ export const { auth: middleware } = NextAuth({
     signIn: "/entrar",
   },
   session: {
+    // O MESMO teto de `config-base.ts`, repetido porque este arquivo é
+    // autocontido de propósito (o empacotador de Edge Functions rejeita
+    // import local aqui). Divergir faria o edge aceitar token que o runtime
+    // Node já considera vencido — e o gate do middleware é o primeiro a
+    // olhar o cookie.
     strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60,
   },
   providers: [],
   callbacks: {
