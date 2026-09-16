@@ -17,6 +17,34 @@ import { encerrarPorInatividade, registrarAtividade } from "./sessao-acoes";
  * atividade, a cada `HEARTBEAT_MS` o cliente avisa o servidor, que reinicia a
  * marca `ultimaAtividade`. O heartbeat só dispara COM atividade — sem isso
  * seria um keep-alive que nunca deixa a sessão expirar.
+ *
+ * ── A CORREÇÃO DA ABA ESQUECIDA ─────────────────────────────────────────
+ *
+ * Relato de produção: "deixo a aba aberta, volto horas ou dias depois e
+ * continuo logado". O mecanismo:
+ *
+ * Navegador congela e descarta aba em segundo plano, e **timer de aba
+ * congelada não roda**. O tique de 1 s que deveria perceber o vencimento
+ * simplesmente não acontece enquanto ninguém olha. Quando a pessoa volta,
+ * `visibilitychange` dispara PRIMEIRO — antes do próximo tique — e a versão
+ * anterior deste componente tratava isso como atividade, reiniciando
+ * `expiraEmRef` para "agora + 30 min". A janela era rejuvenescida por um
+ * tempo em que **não houve ninguém**, e o tique nunca chegava a ver o
+ * vencimento que já tinha ocorrido.
+ *
+ * Duas mudanças, e a ordem importa:
+ *
+ *  1. **Voltar a uma aba cujo prazo acabou não é atividade.** O prazo acabou
+ *     enquanto ninguém estava lá; renovar seria premiar a ausência. Se a
+ *     janela local já venceu, encerra em vez de renovar.
+ *
+ *  2. **Quem decide é o servidor, e ele é consultado na volta.** O relógio
+ *     local pode estar adiantado, atrasado ou parado — é memória de uma aba
+ *     que passou a noite congelada. Ao reaparecer, a sentinela pergunta ao
+ *     servidor (`registrarAtividade`, que passa pelo `auth()` e portanto
+ *     pela conferência de inatividade); recusa significa sessão morta, e a
+ *     saída é limpa e explicada em vez de uma tela que parece viva até o
+ *     primeiro clique.
  */
 
 /** De quanto em quanto o cliente avisa o servidor (só se houve atividade). */
@@ -45,7 +73,24 @@ export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) 
 
   useEffect(() => {
     if (!ligado) return;
+
+    /** Encerra uma única vez, desarmando os timers. */
+    function encerrar() {
+      if (encerrandoRef.current) return;
+      encerrandoRef.current = true;
+      window.clearInterval(tique);
+      window.clearInterval(pulso);
+      void encerrarPorInatividade();
+    }
+
     function marcarAtividade() {
+      if (encerrandoRef.current) return;
+      // O prazo já tinha acabado: isto não é atividade que renova, é alguém
+      // chegando depois do fim. Renovar aqui é o defeito da aba esquecida.
+      if (Date.now() >= expiraEmRef.current) {
+        encerrar();
+        return;
+      }
       expiraEmRef.current = Date.now() + tempoSessaoMs;
       atividadePendenteRef.current = true;
     }
@@ -62,21 +107,51 @@ export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) 
     for (const evento of eventos) {
       document.addEventListener(evento, marcarAtividade, { passive: true });
     }
-    // Voltar o foco à aba conta como atividade (a pessoa retomou o trabalho).
-    function aoVoltar() {
-      if (document.visibilityState === "visible") marcarAtividade();
+    /*
+     * Voltar o foco à aba: a pessoa retomou o trabalho, mas o relógio local
+     * é memória de uma aba que pode ter passado a noite congelada — então
+     * quem responde se a sessão ainda vale é o SERVIDOR, não este ref.
+     *
+     * `registrarAtividade` passa por `auth()` e, portanto, pela conferência
+     * de inatividade do callback `jwt`: se a marca do cookie já estourou o
+     * intervalo, ele devolve recusa e a saída é limpa. Só depois de o
+     * servidor aceitar é que a janela local se renova.
+     *
+     * **Sem atalho por tempo, e isso foi aprendido tentando.** A primeira
+     * versão pulava a consulta quando o servidor tinha sido confirmado há
+     * menos de um minuto, para poupar requisição de quem alterna muito de
+     * aba. Só que esse "há menos de um minuto" é medido pelo mesmo relógio
+     * que passou a noite congelado — e o atalho reabria exatamente o buraco
+     * que esta função existe para fechar. O custo de perguntar sempre é uma
+     * requisição por volta à aba, do tamanho de uma navegação qualquer.
+     */
+    async function aoVoltar() {
+      if (document.visibilityState !== "visible") return;
+      if (encerrandoRef.current) return;
+      if (Date.now() >= expiraEmRef.current) {
+        encerrar();
+        return;
+      }
+      const resposta = await registrarAtividade();
+      if (encerrandoRef.current) return;
+      if (!resposta.ok) {
+        encerrar();
+        return;
+      }
+      expiraEmRef.current = Date.now() + tempoSessaoMs;
+      // A marca do servidor acabou de ser reiniciada: o próximo pulso não
+      // precisa repeti-la.
+      atividadePendenteRef.current = false;
     }
-    document.addEventListener("visibilitychange", aoVoltar);
+    const aoVisibilidadeMudar = () => void aoVoltar();
+    document.addEventListener("visibilitychange", aoVisibilidadeMudar);
 
     // Tique de 1s: atualiza o texto e, ao zerar, encerra uma única vez.
     const tique = window.setInterval(() => {
       const restante = expiraEmRef.current - Date.now();
       setRestanteMs(restante);
-      if (restante <= 0 && !encerrandoRef.current) {
-        encerrandoRef.current = true;
-        window.clearInterval(tique);
-        window.clearInterval(pulso);
-        void encerrarPorInatividade();
+      if (restante <= 0) {
+        encerrar();
       }
     }, 1000);
 
@@ -84,7 +159,12 @@ export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) 
     const pulso = window.setInterval(() => {
       if (atividadePendenteRef.current && !encerrandoRef.current) {
         atividadePendenteRef.current = false;
-        void registrarAtividade();
+        void registrarAtividade().then((resposta) => {
+          // Recusa aqui significa que o servidor já considerou a sessão
+          // morta — a saída é limpa e explicada, em vez de esperar o próximo
+          // clique esbarrar num redirecionamento seco.
+          if (!resposta.ok) encerrar();
+        });
       }
     }, HEARTBEAT_MS);
 
@@ -92,7 +172,7 @@ export function SentinelaDeSessao({ tempoSessaoMs }: { tempoSessaoMs: number }) 
       for (const evento of eventos) {
         document.removeEventListener(evento, marcarAtividade);
       }
-      document.removeEventListener("visibilitychange", aoVoltar);
+      document.removeEventListener("visibilitychange", aoVisibilidadeMudar);
       window.clearInterval(tique);
       window.clearInterval(pulso);
     };
