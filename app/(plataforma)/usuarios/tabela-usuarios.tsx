@@ -4,6 +4,7 @@ import { useActionState, useId, useMemo, useState } from "react";
 import type { Papel } from "@prisma/client";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import { podeExecutar, temAcessoTotal } from "@/dominio/autorizacao/permissoes";
+import { JANELA_ONLINE_MIN, rotuloDePresenca } from "@/dominio/usuarios/presenca";
 import { MENSAGEM_ULTIMO_ADMINISTRADOR } from "@/dominio/usuarios/regras";
 import type { LinhaUsuario } from "@/infra/consultas/usuarios";
 import { ErrosDoFormulario, MensagemDeSucesso } from "../aliados/formularios";
@@ -84,6 +85,53 @@ const ESTADO_INICIAL: EstadoUsuarios = {};
  * O número vem da consulta, que o calcula pela mesma função do domínio que o
  * login usa. A tela só escolhe a palavra.
  */
+/**
+ * A pílula de presença, ao lado da de situação.
+ *
+ * As duas respondem perguntas diferentes e por isso ficam lado a lado, não
+ * empilhadas: **Ativo** é permissão — a conta pode entrar —, **On-line** é
+ * fato — a conta entrou há pouco. Uma conta inativa e "vista há 2 meses" conta
+ * uma história; inativa e "nunca acessou", outra bem diferente.
+ *
+ * A pílula carrega só o RÓTULO, e o "visto há" desce para a legenda. Levar a
+ * frase inteira para dentro dela custou caro na primeira tentativa: "Offline ·
+ * visto há 3 dias" não cabia ao lado de "Ativo", as duas quebravam uma sob a
+ * outra e a linha voltava a crescer — desfazendo, numa tela, o aperto que a
+ * faixa única de ações tinha acabado de conquistar.
+ *
+ * Mas o "visto há" **aparece sempre**, inclusive junto do On-line: a
+ * classificação é uma inferência (atividade dentro de uma janela), e mostrar o
+ * dado observado ao lado da conclusão é o que impede a tela de prometer mais
+ * do que mede — não existe conexão aberta para observar numa plataforma HTTP.
+ *
+ * `NUNCA` é a exceção: a frase já é o rótulo inteiro, e repetir
+ * "Nunca acessou · nunca acessou" seria ruído.
+ */
+function Presencinha({ usuario }: { usuario: LinhaUsuario }) {
+  if (usuario.presenca === "NUNCA") {
+    return (
+      <span className="pill pill-neutra" title="Esta conta nunca entrou na plataforma.">
+        Nunca acessou
+      </span>
+    );
+  }
+
+  const online = usuario.presenca === "ONLINE";
+  return (
+    <span
+      className={online ? "pill pill-ok" : "pill pill-neutra"}
+      title={
+        online
+          ? `Atividade nos últimos ${JANELA_ONLINE_MIN} minutos. ${usuario.ultimoAcesso}.`
+          : `Sem atividade nos últimos ${JANELA_ONLINE_MIN} minutos. ${usuario.ultimoAcesso}.`
+      }
+    >
+      {online ? <i aria-hidden="true" /> : null}
+      {rotuloDePresenca(usuario.presenca)} · {usuario.ultimoAcesso}
+    </span>
+  );
+}
+
 function PrazoDaCredencial({ minutos }: { minutos: number | null }) {
   if (minutos === null) return null;
 
@@ -579,7 +627,10 @@ export function TabelaUsuarios({
           <caption className="sr-oculto">Usuários internos da plataforma</caption>
           <thead>
             <tr>
-              <th style={{ width: "26%" }}>Usuário</th>
+              {/* 22% e não 26%: a coluna Situação passou a abrigar duas
+                  pílulas lado a lado, e o espaço sai de onde sobrava — nomes
+                  já quebram em duas linhas de qualquer jeito. */}
+              <th style={{ width: "22%" }}>Usuário</th>
               <th>E-mail</th>
               <th>Papel</th>
               <th>Situação</th>
@@ -621,10 +672,13 @@ export function TabelaUsuarios({
                     </span>
                   </td>
                   <td data-label="Situação">
-                    <span className={usuario.ativo ? "pill pill-ok" : "pill pill-neutra"}>
-                      <i aria-hidden="true" />
-                      {usuario.ativo ? "Ativo" : "Inativo"}
-                    </span>
+                    <div className="pill-par">
+                      <span className={usuario.ativo ? "pill pill-ok" : "pill pill-neutra"}>
+                        <i aria-hidden="true" />
+                        {usuario.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                      <Presencinha usuario={usuario} />
+                    </div>
                     {usuario.trocaSenhaObrigatoria ? (
                       <>
                         <span className="cap" style={{ display: "block", marginTop: 2 }}>

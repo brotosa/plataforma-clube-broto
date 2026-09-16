@@ -51,6 +51,20 @@ describe.skipIf(!temBanco)("carga inicial — staging, conferência e efetivaç�
     await prisma.stagingSolucaoImportada.deleteMany();
     await prisma.stagingOfertaImportada.deleteMany();
     await prisma.importacao.deleteMany();
+    /*
+     * Mesma história das duas de cima, um módulo adiante: a suíte e2ê de
+     * Campanhas & Cestas monta cesta e campanha com as ofertas da base e as
+     * deixa gravadas, então o `oferta.deleteMany()` bate em
+     * `cesta_ofertas_oferta_id_fkey`. A suíte de integração de campanhas
+     * limpa o que ela mesma cria, no `afterAll` — a e2e não, porque ali o
+     * dado É o estado da tela.
+     *
+     * As duas tabelas são de ligação e não guardam nada próprio: apagá-las
+     * junto com as ofertas é consistente com o que esta limpeza já faz, que
+     * é zerar a base de negócio inteira antes de recarregá-la.
+     */
+    await prisma.cestaOferta.deleteMany();
+    await prisma.campanhaOferta.deleteMany();
     await prisma.oferta.deleteMany();
     await prisma.solucaoCultura.deleteMany();
     await prisma.solucaoUf.deleteMany();

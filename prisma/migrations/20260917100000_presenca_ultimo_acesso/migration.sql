@@ -1,0 +1,11 @@
+-- Marca de presença por conta (indicador On-line/Offline da T27).
+--
+-- Estritamente aditiva e sobre base POVOADA: coluna opcional, nenhuma linha
+-- existente tocada.
+--
+-- Nasce NULA de propósito, e nulo significa **nunca acessou** — não "acessou
+-- há muito tempo". Preenchê-la com `now()` num backfill afirmaria que a base
+-- inteira esteve on-line no instante do deploy, que é falso para todo mundo
+-- e apagaria justamente o dado mais útil ao Administrador: a conta criada e
+-- nunca usada.
+ALTER TABLE "usuarios" ADD COLUMN "ultimo_acesso_em" TIMESTAMP(3);

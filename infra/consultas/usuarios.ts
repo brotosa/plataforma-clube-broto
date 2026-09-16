@@ -2,6 +2,11 @@ import type { Papel } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
 import { eAdministradorEfetivo } from "@/dominio/usuarios/regras";
 import { minutosAteExpirarCredencial } from "@/dominio/usuarios/politica-senha";
+import {
+  type Presenca,
+  classificarPresenca,
+  descreverUltimoAcesso,
+} from "@/dominio/usuarios/presenca";
 import { lerPoliticaDeSenha } from "@/infra/casos-de-uso/configuracoes";
 import { classificarSensibilidade } from "@/dominio/auditoria/extrato";
 
@@ -34,6 +39,16 @@ export interface LinhaUsuario {
    * conta poderia dizer "expira em 2 h" para uma conta que o login já recusa.
    */
   minutosAteExpirarCredencial: number | null;
+  /**
+   * Presença: `ONLINE`, `OFFLINE` ou `NUNCA` (conta jamais usada).
+   *
+   * Classificada aqui, e não na tela, porque a janela do que conta como
+   * on-line é regra e não estilo — duas telas que a calculassem por conta
+   * própria poderiam discordar sobre a mesma conta no mesmo instante.
+   */
+  presenca: Presenca;
+  /** "visto há 12 min", "visto ontem", "nunca acessou". */
+  ultimoAcesso: string;
 }
 
 export async function listarUsuarios(): Promise<LinhaUsuario[]> {
@@ -51,6 +66,7 @@ export async function listarUsuarios(): Promise<LinhaUsuario[]> {
       ativo: true,
       trocaSenhaObrigatoria: true,
       credencialEmitidaEm: true,
+      ultimoAcessoEm: true,
     },
   });
 
@@ -58,13 +74,15 @@ export async function listarUsuarios(): Promise<LinhaUsuario[]> {
   const politica = await lerPoliticaDeSenha();
   const agora = new Date();
 
-  return usuarios.map(({ credencialEmitidaEm, ...usuario }) => ({
+  return usuarios.map(({ credencialEmitidaEm, ultimoAcessoEm, ...usuario }) => ({
     ...usuario,
     unicoAdministradorAtivo:
       administradoresAtivos.length === 1 && administradoresAtivos[0]?.id === usuario.id,
     minutosAteExpirarCredencial: usuario.trocaSenhaObrigatoria
       ? minutosAteExpirarCredencial(credencialEmitidaEm, agora, politica)
       : null,
+    presenca: classificarPresenca(ultimoAcessoEm, agora),
+    ultimoAcesso: descreverUltimoAcesso(ultimoAcessoEm, agora),
   }));
 }
 
