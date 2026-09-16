@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/infra/prisma/cliente";
+import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import {
   ErroDeLayoutTelemetria,
@@ -16,6 +17,21 @@ import { type Ator, ErroDeValidacao } from "./contexto";
  * UNIQUE(idVoucher, tipo) e relatório pós-carga. Telemetria é fato imutável
  * (RN07): a reimportação nunca edita — só ignora duplicatas.
  */
+
+/**
+ * Entidade da trilha para esta importação.
+ *
+ * Nasceu numa varredura de auditoria: esta importação gravava procedência em
+ * `Importacao` (autor, arquivo, linhas ok/erro) e **não aparecia na T28** — a
+ * trilha da RN49 não a via. A da operadora (Onda 12) sempre apareceu, com
+ * `ImportacaoTelemetria`. Duas importações de telemetria, e só uma visível
+ * para quem audita: quem procurasse encontraria uma e concluiria que a outra
+ * não aconteceu.
+ *
+ * O nome distingue as duas de propósito: esta é a do layout da Onda 1
+ * (Minutrade → Broto, por voucher), aquela é a dos quatro relatórios da F20.
+ */
+const ENTIDADE_IMPORTACAO = "ImportacaoTelemetriaVoucher";
 
 export interface RelatorioTelemetria {
   importacaoId: string;
@@ -115,6 +131,34 @@ export async function importarTelemetria(
             : Prisma.JsonNull,
       },
     });
+    /*
+     * A trilha, no mesmo desenho da importação da operadora (F20): evento de
+     * ATO, escrito à mão, e não diff de campos. O diff genérico não serviria
+     * aqui — não há estado anterior de uma importação que acabou de nascer, e
+     * o que importa registrar é o que ENTROU, não o que mudou.
+     *
+     * Sem dado de dentro do arquivo: nome, contagens e o identificador. O CPF
+     * que a carga hasheia nunca atravessa esta chamada — a disciplina é a
+     * mesma da RN69.
+     */
+    await criarGravadorPrisma(tx).gravar([
+      {
+        entidade: ENTIDADE_IMPORTACAO,
+        entidadeId: importacao.id,
+        campo: "importacao",
+        valorAnterior: null,
+        valorNovo: JSON.stringify({
+          nomeArquivo: arquivo.nomeArquivo,
+          totalLinhas: linhas.length,
+          importados,
+          duplicados,
+          emQuarentena: quarentena.length,
+          semVinculoOferta,
+        }),
+        autorId: ator.id,
+      },
+    ]);
+
     return {
       importacaoId: importacao.id,
       totalLinhas: linhas.length,
