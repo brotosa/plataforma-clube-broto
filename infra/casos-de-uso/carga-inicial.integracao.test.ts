@@ -39,6 +39,17 @@ describe.skipIf(!temBanco)("carga inicial — staging, conferência e efetivaç�
     await prisma.avaliacaoScout.deleteMany();
     await prisma.dossieExecucao.deleteMany();
     await prisma.dossie.deleteMany();
+    /*
+     * As duas filas de staging das importações de catálogo (F3) faltavam
+     * aqui, e a ausência só aparece quando a suíte e2e roda ANTES desta: ela
+     * importa soluções e ofertas, deixa as linhas de staging, e o
+     * `importacao.deleteMany()` abaixo bate na FK
+     * `staging_solucoes_importadas_importacao_id_fkey`. No CI os dois jobs
+     * usam bancos separados e a ordem nunca acontece — localmente, acontece
+     * toda vez, e o teste que falha não tem relação nenhuma com a causa.
+     */
+    await prisma.stagingSolucaoImportada.deleteMany();
+    await prisma.stagingOfertaImportada.deleteMany();
     await prisma.importacao.deleteMany();
     await prisma.oferta.deleteMany();
     await prisma.solucaoCultura.deleteMany();
