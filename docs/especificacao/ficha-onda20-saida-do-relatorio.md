@@ -3,7 +3,7 @@
 
 Extensão da **T36**, sem tela nova. O resultado que hoje só sai em CSV passa a sair também em **HTML calibrado para impressão**, em **XLSX** e pela **área de transferência**. Onda de duas fases: a **F28** entrega os formatos, e a **F29** — que **não** tem via livre — trataria do agendamento e do envio. Sobre a versão **1.5.0**.
 
-> **Ficha antes do código.** Nada foi implementado. A numeração **RN83–RN85** é proposta: a Superintendência pode recusá-la ou renomeá-la sem custo de retrabalho.
+> **Ficha antes do código.** Nada foi implementado. A numeração **RN83–RN85** foi **adotada pela TI Broto em 17/09** e permanece sujeita à Superintendência, nos mesmos termos da Onda 17.
 
 > **Onda antecipada, e o número é o de origem.** A §7 da ficha da Onda 17 distribuiu o pedido de "um BI de verdade" entre as Ondas 18 (painel), 19 (interatividade) e 20 (distribuição). Esta é a **20**, trazida para a frente porque foi o que a TI pediu com todas as letras — "quero outros formatos, tipo pdf, html" —, e porque nada nela depende das outras duas: exportar um relatório não precisa de painel nem de clique-para-filtrar. O repositório já tem precedente: a **Onda 5 foi antecipada** e executada na F11, antes da Onda 4. O número é o de origem; a ordem de execução é outra coisa.
 
@@ -131,9 +131,11 @@ A infraestrutura de agendamento, essa sim, já existe: o job diário roda por ro
 
 ## 7. Pendências declaradas — o que esta ficha NÃO resolve
 
-1. **O teto da RN79 na saída.** 5.000 linhas por padrão, 50.000 no máximo. Para HTML, 50.000 linhas é um documento que trava o navegador ao imprimir; para XLSX, é confortável. **Teto por formato** é proposta desta ficha e precisa de número: sugerido 5.000 para HTML, o teto cheio para XLSX e CSV. Não implementar nada até haver número validado.
+1. ~~**O teto da RN79 na saída.**~~ **FECHADA em 17/09 pela TI:** teto por formato adotado — **5.000 linhas para HTML**, **o teto cheio da RN79 para XLSX e CSV**. O HTML é o único que precisa de número próprio, porque é o único que um navegador precisa paginar para imprimir; os outros dois são consumidos por programa. Reversível: é uma constante nomeada.
 2. **Cópia em navegador sem permissão de área de transferência.** A API exige contexto seguro e, em alguns navegadores, gesto do usuário. Havendo recusa, a saída é oferecer o TSV num campo selecionável — nunca falhar em silêncio (RN55).
 3. **Nome do arquivo.** Hoje é `relatorio-<assunto>-<data>`. Relatório salvo poderia usar o próprio nome, que é mais útil para quem recebe — e mais revelador, porque nome de arquivo viaja em anexo e em pasta compartilhada. Decisão da Superintendência.
+
+   **Enquanto não houver decisão, o comportamento atual permanece** — e ele é o mais conservador dos dois: `relatorio-<assunto>-<data>` não revela o recorte que a pessoa montou. Trocar por algo que revela mais é uma escolha que precisa ser feita, não herdada.
 4. **O HTML não é acessível offline ao leitor de tela da mesma forma que a rota.** O documento autônomo do Guia já resolveu isso uma vez; convém reusar a mesma abordagem, não inventar outra.
 
 ---

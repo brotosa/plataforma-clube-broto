@@ -3,7 +3,7 @@
 
 Extensão da **T36**, sem tela nova e **sem migration**. O resultado que hoje só sai em tabela passa a poder ser desenhado: sete tipos de visualização, ajustes por tipo, e as recusas que impedem o desenho de afirmar o que o número não sustenta. Onda de **uma fase (F27)**. Sobre a versão **1.5.0**.
 
-> **Ficha antes do código, como manda o rito da casa.** Nada foi implementado. A numeração **RN80–RN82** é proposta: a Superintendência pode recusá-la ou renomeá-la sem custo de retrabalho.
+> **Ficha antes do código, como manda o rito da casa.** A numeração **RN80–RN82** foi **adotada pela TI Broto em 17/09**, com a F27 já em produção. Permanece sujeita à Superintendência: renomear uma RN é edição de documento, não retrabalho de código — as regras são referenciadas por nome no texto e por comportamento nos testes, nunca por número em identificador.
 
 > **O pedido de origem foi maior que esta ficha.** A TI pediu, em 17/09, que o Gerador se comparasse a um Power BI. A resposta honesta está na §7: parte disso é alcançável e está distribuída entre esta onda e as três seguintes; parte é **deliberadamente recusada**, porque desfaria as garantias que fazem o módulo poder tocar a carteira de assinantes.
 
@@ -90,7 +90,9 @@ Quatro recusas, cada uma com a causa escrita (RN55):
 
 **Um painel de ajustes**, com os controles do tipo escolhido.
 
-> **Divergência da implementação, declarada.** Esta ficha propôs o painel **à direita** do desenho, virando uma linha **acima** dele a 380px. A F27 o construiu **abaixo do desenho, em qualquer largura**, por dois motivos apurados ao montar a tela: a coluna da prévia não é larga nem no desktop, e um painel lateral espremeria o gráfico contra o eixo; e a leitura natural é desenho primeiro, controle depois — o controle existe para mexer no que já se está vendo. Como esta ficha é v0.1 e está para validação, isto é proposta contra proposta, não desobediência a contrato aprovado. Preferindo-se o painel lateral, a mudança é de CSS e de um teste (`e2e/responsividade.spec.ts`, "Onda 17").
+> **Divergência resolvida em 17/09 — vale o que foi construído.** Esta ficha propôs o painel **à direita** do desenho, virando uma linha **acima** dele a 380px. A F27 o construiu **abaixo do desenho, em qualquer largura**, por dois motivos apurados ao montar a tela: a coluna da prévia não é larga nem no desktop, e um painel lateral espremeria o gráfico contra o eixo; e a leitura natural é desenho primeiro, controle depois — o controle existe para mexer no que já se está vendo.
+>
+> **A TI decidiu pelo que está construído**, e o texto de §4 acima foi corrigido para descrevê-lo. A divergência fica registrada aqui, e não apagada, porque a proposta original era desta própria ficha: quem a ler daqui a um ano precisa saber que houve escolha, não descuido. Voltar ao painel lateral continua sendo mudança de CSS e de um teste (`e2e/responsividade.spec.ts`, "Onda 17").
 
 **O desenho, e a tabela abaixo dele.** A 380px o gráfico ocupa a largura inteira, e a tabela permanece visível — esconder a tabela para "ganhar espaço" no celular seria perder justamente a alternativa textual do desenho (RN81).
 

@@ -1,6 +1,8 @@
 # Pendências consolidadas — todas as perguntas abertas
 **Plataforma de Administração e Gestão do Clube Broto** · levantado em 17/09/2026 · versão 1.5.0
 
+**Atualizado em 17/09 à noite:** quatro itens da §5 foram fechados pela TI. Restam **27** — 26 dependentes de terceiros, com mensagens prontas em `consultas-a-terceiros.md`, e uma que depende de observação, não de decisão (§5.3).
+
 Levantamento de **todo** `[A CONFIRMAR]` das 18 fichas, agrupado por **quem responde**. Cada item traz o que acontece **hoje**, sem a resposta — porque nenhuma delas está travando a plataforma: todas têm comportamento definido e declarado. Responder melhora; não responder não quebra.
 
 > **Como este documento se relaciona com as fichas.** Ele não substitui nenhuma: a ficha da onda continua sendo a fonte da verdade. Este é um índice para que as perguntas possam ser levadas às reuniões certas sem alguém ter de varrer dezoito documentos. Respondida uma pergunta, a resposta vai **para a ficha de origem**, e a linha aqui é riscada.
@@ -155,24 +157,26 @@ Oito perguntas, e sete delas cabem numa reunião. É o bloco que mais destrava c
 
 Estas não dependem de ninguém de fora. São do autor das fichas e da Superintendência, e responder **agora** não custa nada porque nada foi construído em cima delas.
 
-**5.1 · Validar as fichas das Ondas 16, 17 e 20 e as numerações RN75–RN85.**
-Todas propostas. Recusar ou renumerar agora não custa retrabalho; depois, custa.
+**5.1 · ~~Validar as fichas das Ondas 16, 17 e 20 e as numerações RN75–RN85.~~ FECHADA em 17/09.**
+Adotadas pela TI Broto. Permanecem sujeitas à Superintendência, e isso não é ressalva de fachada: **renomear uma RN é edição de documento, não retrabalho de código** — as regras são referenciadas por nome no texto e por comportamento nos testes, nunca por número em identificador. A numeração vigente vai da **RN01 à RN85**.
 
-**5.2 · A divergência de layout da F27.**
-A ficha da Onda 17 §4 propôs o painel de ajustes **à direita** do gráfico; foi construído **abaixo**, em qualquer largura. Está declarado na ficha e no teste. Preferindo o lateral: mudança de CSS e de um teste.
+**5.2 · ~~A divergência de layout da F27.~~ FECHADA em 17/09 — vale o que foi construído.**
+Os ajustes ficam **abaixo** do gráfico, em qualquer largura. A §4 da ficha da Onda 17 foi corrigida para descrever o que existe, e a divergência ficou **registrada e não apagada**: quem ler a ficha daqui a um ano precisa saber que houve escolha, não descuido.
 
-**5.3 · O relato "não consigo gerar relatório".**
-Nunca reproduzido. Testado com o papel de acesso total, clicando no cartão e não por URL: a tela monta, a tabela vem com dado, sem erro de console nem HTTP de falha. A hipótese é que o layout quebrado da T36 — corrigido desde então — tenha impedido o uso. **Segue em aberto**, e o que falta é o ponto exato em que a tela para.
+**5.3 · O relato "não consigo gerar relatório" — aberta, e eu não consigo fechá-la sozinho.**
+Nunca reproduzido. Testado com o papel de acesso total, clicando no cartão e não por URL: a tela monta, a tabela vem com dado, sem erro de console nem HTTP de falha. A hipótese é que o layout quebrado da T36 — corrigido desde então — tenha impedido o uso.
 
-**5.4 · O vermelho no selo Offline da T27.**
-Pedido e implementado; a ressalva levantada não foi fechada.
+**É a única pendência desta lista que não é falta de decisão, e sim falta de observação.** Fechá-la por dedução seria pior que deixá-la aberta: eu declararia resolvido um defeito que talvez continue lá, e ninguém voltaria a olhar. O que destrava: em que ponto exatamente a tela para — a URL, o que aparece, e se algo sai no console do navegador.
 
-**5.5 · Nome do arquivo exportado.**
-Hoje `relatorio-<assunto>-<data>`. Relatório salvo poderia usar o próprio nome — mais útil para quem recebe, e mais revelador, porque nome de arquivo viaja em anexo e em pasta compartilhada.
+**5.4 · O vermelho no selo Offline da T27 — aberta.**
+Pedido e implementado. A ressalva levantada na entrega não foi fechada, e ela é de desenho: o vermelho da plataforma é reservado a **falha**, e estar offline não é falha — é estado normal de quem não está usando o sistema agora. Gastar a cor de erro nele enfraquece a cor onde ela importa. Fica como está até haver decisão.
+
+**5.5 · Nome do arquivo exportado — continua aberta, e o padrão atual é o conservador.**
+Hoje `relatorio-<assunto>-<data>`. Relatório salvo poderia usar o próprio nome — mais útil para quem recebe, e **mais revelador**, porque nome de arquivo viaja em anexo e em pasta compartilhada. Enquanto não houver decisão, **permanece o atual**: ele não revela o recorte que a pessoa montou, e passar a revelar é escolha que precisa ser feita, não herdada.
 *Origem:* Onda 20 §7.3.
 
-**5.6 · Teto de linhas por formato de exportação.**
-A RN79 dá 5.000 por padrão e 50.000 no máximo. Para HTML, 50.000 linhas travam o navegador na impressão; para XLSX é confortável. Proposta: **5.000 para HTML, teto cheio para XLSX e CSV**. Precisa de número validado antes de a F28 começar.
+**5.6 · ~~Teto de linhas por formato de exportação.~~ FECHADA em 17/09 pela TI.**
+**5.000 linhas para HTML; o teto cheio da RN79 para XLSX e CSV.** O HTML é o único que precisa de número próprio, porque é o único que um navegador precisa paginar para imprimir — os outros dois são consumidos por programa. Reversível: é uma constante nomeada. **A F28 deixa de estar bloqueada.**
 *Origem:* Onda 20 §7.1.
 
 ---
