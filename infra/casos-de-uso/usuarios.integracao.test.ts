@@ -2,7 +2,10 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { compare } from "bcryptjs";
 import { ErroDeAutorizacao } from "@/dominio/autorizacao/permissoes";
-import { MENSAGEM_ULTIMO_ADMINISTRADOR } from "@/dominio/usuarios/regras";
+import {
+  MENSAGEM_CONFIRMAR_ACESSO_TOTAL,
+  MENSAGEM_ULTIMO_ADMINISTRADOR,
+} from "@/dominio/usuarios/regras";
 import { ErroDeValidacao, type Ator } from "./contexto";
 import {
   atualizarUsuario,
@@ -567,6 +570,107 @@ describe.skipIf(!temBanco)("T27 — gestão de usuários (RN46, RN47)", () => {
       // A trilha registra QUANDO houve emissão, nunca o quê: nem a senha, nem
       // o hash dela.
       expect(evento?.valorNovo ?? "").not.toContain("$2");
+    });
+  });
+  /**
+   * Conceder acesso total exige confirmação — e o SERVIDOR é quem cobra.
+   *
+   * A tela trava o botão até a caixa ser marcada, e isso resolve o clique
+   * distraído, que é o risco real. Mas trava só o navegador: um POST montado
+   * à mão, um formulário reenviado, um script — nenhum passa pela tela. Se a
+   * conferência vivesse só lá, ela seria decoração com aparência de controle,
+   * que é pior que não ter controle nenhum, porque dá confiança falsa.
+   *
+   * Estes casos rodam **abaixo** da interface, chamando o caso de uso direto.
+   * É a única forma de provar que a recusa não depende do botão.
+   */
+  describe("confirmação de acesso total", () => {
+    it("recusa criar com acesso total sem confirmação, nomeando o que fazer", async () => {
+      await expect(
+        criarUsuario(admin, {
+          nome: "Total Sem Confirmar",
+          email: `total-sem-confirmar${SUFIXO}`,
+          papel: "ADMINISTRADOR_PLATAFORMA",
+        }),
+      ).rejects.toThrow(MENSAGEM_CONFIRMAR_ACESSO_TOTAL);
+
+      // E não deixou rastro: a recusa acontece antes de qualquer escrita.
+      const criado = await prisma.usuario.findUnique({
+        where: { email: `total-sem-confirmar${SUFIXO}` },
+      });
+      expect(criado).toBeNull();
+    });
+
+    it("cria com acesso total quando a confirmação vem", async () => {
+      const { id } = await criarUsuario(admin, {
+        nome: "Total Confirmado",
+        email: `total-confirmado${SUFIXO}`,
+        papel: "ADMINISTRADOR_PLATAFORMA",
+        confirmacaoAcessoTotal: true,
+      });
+      const criado = await prisma.usuario.findUnique({ where: { id } });
+      expect(criado?.papel).toBe("ADMINISTRADOR_PLATAFORMA");
+    });
+
+    it("recusa promover a acesso total sem confirmação, e o papel não muda", async () => {
+      const alvo = await criarDireto("Promovido Sem Confirmar", "LEITURA");
+
+      await expect(
+        atualizarUsuario(admin, alvo.id, {
+          nome: alvo.nome,
+          papel: "ADMINISTRADOR_PLATAFORMA",
+        }),
+      ).rejects.toThrow(ErroDeValidacao);
+
+      const depois = await prisma.usuario.findUnique({ where: { id: alvo.id } });
+      expect(depois?.papel).toBe("LEITURA");
+    });
+
+    it("promove quando a confirmação vem, e a época avança (RN47)", async () => {
+      const alvo = await criarDireto("Promovido Confirmado", "LEITURA");
+
+      await atualizarUsuario(admin, alvo.id, {
+        nome: alvo.nome,
+        papel: "ADMINISTRADOR_PLATAFORMA",
+        confirmacaoAcessoTotal: true,
+      });
+
+      const depois = await prisma.usuario.findUnique({ where: { id: alvo.id } });
+      expect(depois?.papel).toBe("ADMINISTRADOR_PLATAFORMA");
+      // Trocar o papel derruba a sessão: o papel viaja no token.
+      expect(depois?.sessaoEpoca).toBeGreaterThan(alvo.sessaoEpoca);
+    });
+
+    /*
+     * O caso que o desenho existe para proteger. Sem esta asserção, uma
+     * implementação que cobrasse confirmação em TODA gravação de um usuário
+     * com acesso total passaria em todos os testes acima — e transformaria a
+     * edição do nome dele num ritual, que é como se ensina alguém a marcar
+     * sem ler.
+     */
+    it("editar quem JÁ tem acesso total não pede confirmação nenhuma", async () => {
+      const alvo = await criarDireto("Ja Total", "ADMINISTRADOR_PLATAFORMA");
+
+      await atualizarUsuario(admin, alvo.id, {
+        nome: "Ja Total Renomeado",
+        papel: "ADMINISTRADOR_PLATAFORMA",
+      });
+
+      const depois = await prisma.usuario.findUnique({ where: { id: alvo.id } });
+      expect(depois?.nome).toBe("Ja Total Renomeado");
+      expect(depois?.papel).toBe("ADMINISTRADOR_PLATAFORMA");
+    });
+
+    it("rebaixar quem tinha acesso total não pede confirmação", async () => {
+      // Tirar poder não é o risco desta regra; e a RN46 já cuida de não
+      // sobrar ninguém.
+      await criarDireto("Outro Total", "ADMINISTRADOR_PLATAFORMA");
+      const alvo = await criarDireto("Rebaixado", "ADMINISTRADOR_PLATAFORMA");
+
+      await atualizarUsuario(admin, alvo.id, { nome: alvo.nome, papel: "LEITURA" });
+
+      const depois = await prisma.usuario.findUnique({ where: { id: alvo.id } });
+      expect(depois?.papel).toBe("LEITURA");
     });
   });
 });
