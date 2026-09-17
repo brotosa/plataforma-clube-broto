@@ -142,6 +142,10 @@ model Usuario {
   // Configurações (política de senha) — histórico de hashes anteriores.
   historicoSenhas SenhaHistorico[]
 
+  // Onda 16 (F24) — Gerador de relatórios.
+  relatoriosSalvos     RelatorioSalvo[]    @relation("relatoriosSalvos")
+  execucoesDeRelatorio ExecucaoRelatorio[] @relation("execucoesDeRelatorio")
+
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
   /// cada troca de papel, para provar que não é o último.
   @@index([papel, ativo])
@@ -2756,4 +2760,106 @@ model ArquivoArmazenado {
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   @@map("arquivos_armazenados")
+}
+
+// ---------------------------------------------------------------------
+// Onda 16 (F24) — Gerador de relatórios (RN75–RN79)
+// ---------------------------------------------------------------------
+
+/// Visibilidade de um relatório salvo (ficha §2).
+///
+/// Duas opções e não três: `PRIVADO` é o padrão porque a maior parte do que
+/// se monta é rascunho de uma pergunta, e `TIME` significa "quem puder ver o
+/// assunto". Não existe compartilhamento com pessoa nomeada — seria uma lista
+/// de controle de acesso paralela ao RBAC, com todo o custo de mantê-la em
+/// dia e a garantia de divergir dele.
+enum VisibilidadeRelatorio {
+  PRIVADO
+  TIME
+}
+
+/// Um relatório que alguém guardou para reabrir.
+///
+/// **Guarda a DEFINIÇÃO, jamais o resultado** — a mesma decisão da RN33 para
+/// segmentos, e pelo mesmo motivo: resultado guardado envelhece em silêncio.
+/// Um número correto em julho continua parecendo correto em setembro, e não
+/// há nada na tela que denuncie. Recalcula-se a cada abertura.
+///
+/// **E é por isso que a permissão de quem ABRE é o que vale (RN76).** Como o
+/// que está guardado é a pergunta e não a resposta, executar com a credencial
+/// de quem abre é a leitura natural — e é o que impede que um relatório
+/// compartilhado vire caminho lateral para dado que a pessoa não alcança.
+model RelatorioSalvo {
+  id           String                @id @default(cuid())
+  nome         String
+  /// Slug do assunto no catálogo (`dominio/relatorios/catalogo.ts`), que é
+  /// código e não tabela — daí ser texto e não chave estrangeira. Assunto
+  /// que saia do catálogo faz o relatório recusar ao abrir, com o motivo.
+  assuntoSlug  String                @map("assunto_slug")
+  /// A definição declarativa: linhas, colunas, valores, filtros, ordenação.
+  /// Revalidada a cada leitura — um relatório salvo hoje pode ser aberto
+  /// depois de o catálogo perder um campo, e nesse dia o que está aqui é,
+  /// para todos os efeitos, entrada não confiável.
+  definicao    Json
+  autorId      String                @map("autor_id")
+  visibilidade VisibilidadeRelatorio @default(PRIVADO)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor     Usuario             @relation("relatoriosSalvos", fields: [autorId], references: [id])
+  execucoes ExecucaoRelatorio[]
+
+  /// A galeria lê por autor (prateleira "Meus") e por visibilidade ("Do time").
+  @@index([autorId, atualizadoEm])
+  @@index([visibilidade, atualizadoEm])
+  @@map("relatorios_salvos")
+}
+
+/// RN78 — a trilha operacional do módulo: toda execução fica registrada.
+///
+/// **Não substitui a trilha da RN49, acompanha.** A auditoria registra o ato
+/// de negócio; esta tabela registra o uso, com o que a auditoria não carrega:
+/// quantas linhas voltaram e quanto tempo levou. É o que responde "por que o
+/// banco estava lento às 15h" e "este relatório de 40 mil linhas é gerado
+/// toda semana?", perguntas que a trilha não foi feita para responder.
+///
+/// Append-only, no mesmo desenho de `relatorios_patrocinador` (Onda 12).
+model ExecucaoRelatorio {
+  id          String  @id @default(cuid())
+  /// Nulo quando a execução veio do construtor sem ter sido salva — que é a
+  /// maior parte delas. Guardar a definição do jeito que ela estava é o que
+  /// permite reconstruir o que foi consultado mesmo sem relatório salvo.
+  relatorioId String? @map("relatorio_id")
+  assuntoSlug String  @map("assunto_slug")
+  definicao   Json
+  /// Quantas linhas o resultado trouxe. Com o teto atingido, `truncado` diz
+  /// que havia mais — sem essa distinção, um número no teto seria
+  /// indistinguível de um resultado completo que por acaso deu aquilo.
+  linhas      Int
+  truncado    Boolean @default(false)
+  duracaoMs   Int     @map("duracao_ms")
+  /// Exigida quando o assunto alcança dado pessoal (RN78), pelo caminho que
+  /// a RN35 já criou para a exportação de assinantes. Nula nos assuntos
+  /// operacionais — exigir finalidade para contar ofertas seria cerimônia
+  /// sem proteção, e cerimônia sem proteção ensina a ignorá-la.
+  finalidade  String?
+  /// Execução que terminou em recusa (teto, permissão, campo fora do
+  /// catálogo) também é registrada, com a causa. Consulta que falha é
+  /// justamente a que alguém vai querer explicar depois.
+  erro        String?
+  autorId     String  @map("autor_id")
+  /// Exportação em CSV, e não prévia nem execução em tela. É o recorte que
+  /// interessa quando se pergunta o que saiu da plataforma.
+  exportou    Boolean @default(false)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  relatorio RelatorioSalvo? @relation(fields: [relatorioId], references: [id], onDelete: SetNull)
+  autor     Usuario         @relation("execucoesDeRelatorio", fields: [autorId], references: [id])
+
+  @@index([autorId, criadoEm])
+  @@index([relatorioId, criadoEm])
+  @@index([criadoEm])
+  @@map("execucoes_relatorio")
 }

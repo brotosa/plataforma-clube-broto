@@ -1327,3 +1327,100 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
    duas pílulas lado a lado não cabem em 380px. */
 .pill-par{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
 @media (max-width:760px){.pill-par{flex-wrap:wrap}}
+
+/* ===== T36 · Gerador de relatórios (Onda 16 — F24) =====================
+   Sem protótipo próprio: a Onda 16 nasceu depois do v10.1, e a ficha §6
+   registra que a posição na lateral e o ícone são proposta de Design. As
+   superfícies abaixo reusam o vocabulário já existente — cartão, borda,
+   azul-lightest para seleção, pill para chip — e não introduzem cor nova.
+
+   A geometria vira classe, e não estilo inline, pela convenção da Onda 14:
+   inline é invisível às cercas, e esta tela repete três grades. */
+
+/* Três colunas: campos, gavetas, resultado. A do meio é a que manda — é
+   onde a pessoa monta —, e por isso leva a fração maior. Abaixo de 1100px
+   o resultado desce para a linha de baixo, porque tabela espremida em
+   240px não é leitura, é enigma. */
+.rel-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:var(--sp-4);align-items:start}
+@media (max-width:900px){.rel-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Painel de campos: rola sozinho, para que a lista longa de um assunto não
+   empurre as gavetas para fora da tela. O teto é de viewport e não de
+   pixels fixos, senão em tela baixa o painel some por baixo da dobra. */
+.rel-campos{max-height:min(70vh,640px);overflow-y:auto;padding:var(--sp-2)}
+.rel-grupo{font:var(--font-body-caption-bold);color:var(--paragrafo-aaa);
+  text-transform:uppercase;letter-spacing:.04em;padding:10px 8px 4px}
+.rel-campo{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:6px 8px;border-radius:var(--r-xs);font:var(--font-body-caption-regular);color:var(--preto)}
+.rel-campo:hover{background:var(--azul-lightest)}
+.rel-campo[data-indisponivel="sim"]{opacity:.55}
+.rel-campo-nome{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rel-campo-nome strong{font:var(--font-body-caption-bold)}
+.rel-campo-tipo{font:var(--font-body-smaller-regular);color:var(--paragrafo-aaa)}
+/* Os três destinos ficam SEMPRE no DOM, e não só no hover: o caminho por
+   teclado não pode depender de passar o mouse. Escondê-los visualmente até
+   o foco tiraria a descoberta de quem navega por Tab. */
+.rel-destinos{display:flex;gap:3px;flex:none}
+.rel-destino{width:26px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--borda);border-radius:var(--r-xs);background:var(--branco);
+  font:var(--font-body-smaller-bold);color:var(--azul-texto-aaa);cursor:pointer}
+.rel-destino:hover{background:var(--azul-claro)}
+.rel-destino[disabled]{opacity:.4;cursor:not-allowed}
+
+/* Gavetas. A borda tracejada é o convite ao arrasto; o estado de recepção
+   troca para sólida, porque tracejado mais forte não se distingue de
+   tracejado normal em tela pequena. */
+.rel-gavetas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-3)}
+@media (max-width:760px){.rel-gavetas{grid-template-columns:minmax(0,1fr)}}
+.rel-gaveta{border:1px dashed var(--borda);border-radius:var(--r-sm);padding:10px;
+  min-height:92px;background:var(--off)}
+.rel-gaveta[data-recebendo="sim"]{border-style:solid;border-color:var(--azul);background:var(--azul-lightest)}
+.rel-gaveta h3{font:var(--font-body-caption-bold);color:var(--paragrafo-aaa);
+  text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.rel-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rel-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 9px;
+  background:var(--branco);border:1px solid var(--azul-claro);border-radius:var(--r-pill);
+  font:var(--font-body-caption-regular);color:var(--preto);max-width:100%}
+.rel-chip strong{font:var(--font-body-caption-bold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel-chip select{height:22px;padding:0 4px;font:var(--font-body-smaller-regular);
+  border:1px solid var(--borda);border-radius:var(--r-xs);background:var(--branco);color:var(--preto)}
+.rel-chip-sair{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:50%;background:none;color:var(--paragrafo-aaa);cursor:pointer;font-size:14px;line-height:1}
+.rel-chip-sair:hover{background:var(--borda);color:var(--preto)}
+.rel-gaveta-vazia{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
+
+/* Barra de filtros: uma linha por filtro, com campo/operador/valor. Usa a
+   régua de 14px do .form-grid, que a Onda 14 fixou como a da casa. */
+.rel-filtro{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;
+  border-bottom:1px solid var(--borda)}
+.rel-filtro:last-of-type{border-bottom:0}
+.rel-filtro select,.rel-filtro input{height:32px;padding:0 8px;font:var(--font-body-caption-regular);
+  border:1px solid var(--borda);border-radius:var(--r-xs);background:var(--branco);color:var(--preto);min-width:0}
+.rel-filtro .rel-filtro-campo{flex:1 1 180px}
+.rel-filtro .rel-filtro-valor{flex:1 1 140px}
+
+/* Resultado. O cabeçalho gruda ao rolar, senão numa tabela de 50 linhas a
+   pessoa perde de vista qual coluna está lendo — que é o defeito que mata
+   a utilidade de um relatório cruzado. */
+.rel-resultado{overflow:auto;max-height:min(62vh,560px)}
+.rel-resultado table{width:100%;border-collapse:collapse}
+.rel-resultado thead th{position:sticky;top:0;z-index:1;background:var(--branco);
+  border-bottom:1px solid var(--borda);text-align:left;padding:9px 12px;
+  font:var(--font-body-caption-bold);color:var(--preto);white-space:nowrap}
+.rel-resultado td{padding:8px 12px;border-bottom:1px solid var(--borda);
+  font:var(--font-body-caption-regular);color:var(--preto)}
+.rel-resultado td.num{text-align:right;font-variant-numeric:tabular-nums}
+/* Célula sem cruzamento: traço, nunca zero (RN53). A cor mais clara é o que
+   permite distinguir, de relance, o vazio do valor — sem depender só do
+   glifo, que some numa tabela densa. */
+.rel-vazia{color:var(--paragrafo-aaa)}
+
+/* Cartões de assunto da abertura. */
+.rel-assuntos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-4)}
+.rel-assunto{display:block;padding:var(--sp-4);border:1px solid var(--borda);border-radius:var(--r-md);
+  background:var(--branco);color:var(--preto);text-decoration:none}
+.rel-assunto:hover{border-color:var(--azul);background:var(--azul-lightest)}
+.rel-assunto h3{font:var(--font-headline-element-title);margin:0 0 6px}
+.rel-assunto p{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);margin:0}
+
+@media (prefers-reduced-motion:reduce){.rel-assunto,.rel-gaveta{transition:none}}
