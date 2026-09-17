@@ -33,10 +33,26 @@ import { compilarRelatorio } from "@/dominio/relatorios/compilador";
  * Que o resultado está certo. Ele prova que a consulta **roda**, que é
  * exatamente o degrau em que os três defeitos moravam. Corretude de número é
  * assunto dos testes de unidade do compilador e do pivô.
+ *
+ * ## A guarda de banco, e por que ela é PARCIAL
+ *
+ * O CI roda `pnpm test` duas vezes: uma no job de unidade, sem Postgres, e
+ * outra no job de e2e, com ele. A convenção da casa para atravessar isso é
+ * `describe.skipIf(!temBanco)` — sem ela, o job de unidade quebra com
+ * "Environment variable not found: DATABASE_URL", que foi exatamente o que
+ * aconteceu quando este arquivo entrou.
+ *
+ * A guarda cobre **só a matriz**, que é a parte que consulta o banco. Os dois
+ * grupos abaixo dela não consultam nada: leem o SQL que o compilador escreve.
+ * Guardar o arquivo inteiro os tiraria do job de unidade sem necessidade — e
+ * são justamente eles que provam a semântica do dia inteiro, que é o defeito
+ * mais caro dos três.
  */
 
+const temBanco = Boolean(process.env.DATABASE_URL);
+
 afterAll(async () => {
-  await prisma.$disconnect();
+  if (temBanco) await prisma.$disconnect();
 });
 
 /** Um valor plausível para cada tipo — o conteúdo não importa, o tipo sim. */
@@ -81,7 +97,7 @@ const CASOS: Caso[] = ASSUNTOS.flatMap((assunto) =>
     ),
 );
 
-describe("todo filtro do catálogo roda no banco (tipo × operador)", () => {
+describe.skipIf(!temBanco)("todo filtro do catálogo roda no banco (tipo × operador)", () => {
   /*
    * O guarda contra a cegueira: se a montagem dos casos parar de enumerar —
    * por um refactor do catálogo, por um filtro que passe a ser montado de
