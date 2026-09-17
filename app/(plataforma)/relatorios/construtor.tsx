@@ -14,6 +14,7 @@ import {
 } from "@/dominio/relatorios/catalogo";
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
+import { ROTULOS_DE_FORMATO, type FormatoDeSaida } from "@/dominio/relatorios/saida";
 import {
   AJUSTES_DO_TIPO,
   ROTULOS_DE_VISUALIZACAO,
@@ -163,6 +164,9 @@ export function Construtor({
   const [visibilidade, setVisibilidade] = useState<VisibilidadeRelatorio>("PRIVADO");
   const [aviso, setAviso] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  /** O TSV quando o navegador recusa a área de transferência (ficha §7.2). */
+  const [textoParaCopiar, setTextoParaCopiar] = useState<string | null>(null);
   /*
    * RN78 — a finalidade de quem consulta dado pessoal.
    *
@@ -311,8 +315,16 @@ export function Construtor({
     );
   }
 
-  async function aoExportar() {
+  /**
+   * RN83 — a saída, em qualquer formato, **pela mesma rota**.
+   *
+   * O que muda entre um item do menu e outro é o valor de `formato` e o que
+   * se faz com a resposta. Nenhum formato ganha caminho próprio até o dado:
+   * permissão, finalidade, teto e trilha continuam sendo do caso de uso.
+   */
+  async function aoSair(formato: FormatoDeSaida) {
     setAviso(null);
+    setMenuAberto(false);
     setExportando(true);
     try {
       const resposta = await fetch("/relatorios/exportar", {
@@ -324,30 +336,101 @@ export function Construtor({
           definicao,
           relatorioId: relatorioAberto?.id,
           finalidade: finalidade.trim() || undefined,
+          formato,
+          nome: relatorioAberto?.nome,
+          // O desenho que está na tela, para o documento levá-lo junto. Só no
+          // HTML: o XLSX não embute SVG, e o CSV é dado, não desenho.
+          svg: formato === "HTML" ? svgDoGrafico() : undefined,
         }),
       });
       if (!resposta.ok) {
         setAviso(await resposta.text());
         return;
       }
-      const nomeArquivo =
-        /filename="([^"]+)"/.exec(resposta.headers.get("Content-Disposition") ?? "")?.[1] ??
-        "relatorio.csv";
-      const blob = await resposta.blob();
-      const url = URL.createObjectURL(blob);
-      const ancora = document.createElement("a");
-      ancora.href = url;
-      ancora.download = nomeArquivo;
-      ancora.click();
-      URL.revokeObjectURL(url);
-      if (resposta.headers.get("X-Relatorio-Truncado") === "true") {
+
+      const cortado = resposta.headers.get("X-Relatorio-Truncado") === "true";
+      const linhas = resposta.headers.get("X-Relatorio-Linhas");
+
+      if (formato === "AREA_TRANSFERENCIA") {
+        await copiar(await resposta.text(), linhas);
+      } else if (formato === "HTML") {
+        abrirParaImpressao(await resposta.text());
+      } else {
+        baixar(await resposta.blob(), resposta.headers.get("Content-Disposition"));
+      }
+
+      if (cortado) {
         setAviso(
-          `O arquivo saiu com ${resposta.headers.get("X-Relatorio-Linhas")} linhas e foi cortado no teto. Estreite um filtro para levar tudo.`,
+          `A saída teve ${linhas} linhas e foi cortada no teto deste formato. Estreite um filtro para levar tudo.`,
         );
       }
     } finally {
       setExportando(false);
     }
+  }
+
+  /**
+   * O SVG do gráfico, lido do DOM.
+   *
+   * Lido, e não remontado: o desenho que a pessoa está vendo é o que deve ir
+   * ao documento. Remontá-lo aqui abriria a chance de o arquivo sair
+   * diferente da tela — que é o defeito mais difícil de perceber, porque o
+   * arquivo é conferido longe de onde foi pedido.
+   */
+  function svgDoGrafico(): string | undefined {
+    const elemento = document.querySelector(".rel-grafico svg");
+    return elemento?.outerHTML;
+  }
+
+  async function copiar(texto: string, linhas: string | null) {
+    /*
+     * A API de área de transferência exige contexto seguro e, em alguns
+     * navegadores, gesto do usuário. Falhar em silêncio seria o pior
+     * resultado: a pessoa colaria o conteúdo anterior sem perceber.
+     *
+     * Na recusa, o texto vai para um campo selecionável — ela copia à mão, e
+     * a saída já está registrada na trilha de qualquer jeito (RN84).
+     */
+    try {
+      await navigator.clipboard.writeText(texto);
+      setAviso(`${linhas ?? ""} linhas copiadas. Cole numa planilha para ver em colunas.`.trim());
+    } catch {
+      setTextoParaCopiar(texto);
+      setAviso(
+        "Seu navegador não liberou a área de transferência. O conteúdo está no campo abaixo — selecione e copie.",
+      );
+    }
+  }
+
+  function abrirParaImpressao(html: string) {
+    /*
+     * Blob e `noopener`, não `document.write`.
+     *
+     * O documento carrega o gráfico que veio da tela, e abri-lo numa janela
+     * que compartilha origem com a plataforma o deixaria alcançar esta
+     * sessão. Blob dá a ele uma origem própria, e `noopener` corta o
+     * `window.opener` — mesmo com o SVG já higienizado no servidor, não há
+     * motivo para depender de uma proteção só.
+     */
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const janela = window.open(url, "_blank", "noopener");
+    if (!janela) {
+      setAviso(
+        "O navegador bloqueou a janela do documento. Libere as janelas para este endereço e peça de novo.",
+      );
+    }
+    // Tarde o bastante para a janela ter lido, cedo o bastante para não vazar.
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  function baixar(blob: Blob, disposicao: string | null) {
+    const nomeArquivo = /filename="([^"]+)"/.exec(disposicao ?? "")?.[1] ?? "relatorio";
+    const url = URL.createObjectURL(blob);
+    const ancora = document.createElement("a");
+    ancora.href = url;
+    ancora.download = nomeArquivo;
+    ancora.click();
+    URL.revokeObjectURL(url);
   }
 
   const grupos = useMemo(() => {
@@ -624,14 +707,13 @@ export function Construtor({
               >
                 Salvar
               </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm btn-xs"
-                onClick={aoExportar}
-                disabled={vazio || exportando}
-              >
-                {exportando ? "Exportando…" : "Exportar (CSV)"}
-              </button>
+              <MenuDeSaida
+                aberto={menuAberto}
+                aoAlternar={setMenuAberto}
+                aoEscolher={aoSair}
+                ocupado={exportando}
+                desabilitado={vazio}
+              />
               {relatorioAberto?.meu ? (
                 <button
                   type="button"
@@ -681,6 +763,26 @@ export function Construtor({
                 {aviso}
               </p>
             ) : null}
+            {textoParaCopiar !== null ? (
+              /*
+               * O recuo da cópia (ficha da Onda 20 §7.2).
+               *
+               * A API de área de transferência exige contexto seguro e, em
+               * alguns navegadores, gesto do usuário. Sem este campo, a
+               * recusa seria silenciosa e a pessoa colaria o conteúdo
+               * anterior sem perceber — que é pior que não copiar (RN55).
+               */
+              <label className="rel-copiar">
+                <span className="sr-oculto">Conteúdo para copiar</span>
+                <textarea
+                  id="rel-texto-para-copiar"
+                  readOnly
+                  rows={4}
+                  value={textoParaCopiar}
+                  onFocus={(evento) => evento.currentTarget.select()}
+                />
+              </label>
+            ) : null}
             <Resultado
               previa={previa}
               vazio={vazio}
@@ -692,6 +794,81 @@ export function Construtor({
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * O menu de saída (RN83, RN84).
+ *
+ * ## Menu, e não quatro botões
+ *
+ * Quatro botões lado a lado dariam o mesmo peso visual a quatro coisas que
+ * não têm a mesma frequência, e empurrariam "Salvar" e "Apagar" para fora da
+ * linha em tela estreita. O menu mantém uma entrada só e ordena por uso.
+ *
+ * ## `<details>` nativo, e não um popover de mão
+ *
+ * Abre e fecha por teclado, fecha com Esc e anuncia o estado ao leitor de
+ * tela sem uma linha de JavaScript. Um popover escrito à mão precisaria
+ * reimplementar as três coisas, e é onde acessibilidade costuma se perder.
+ *
+ * ## A ordem dos itens é o que muda em relação à F24
+ *
+ * O CSV deixa de ser o único e vira o último — continua ali, com o mesmo
+ * comportamento, para quem já o usa. Na frente vêm os que respondem ao que
+ * se pediu: o documento que se imprime e a planilha de verdade.
+ */
+function MenuDeSaida({
+  aberto,
+  aoAlternar,
+  aoEscolher,
+  ocupado,
+  desabilitado,
+}: {
+  aberto: boolean;
+  aoAlternar: (aberto: boolean) => void;
+  aoEscolher: (formato: FormatoDeSaida) => void;
+  ocupado: boolean;
+  desabilitado: boolean;
+}) {
+  // A ordem de uso, não a de declaração: o documento e a planilha na frente.
+  const ordem: ReadonlyArray<FormatoDeSaida> = [
+    "HTML",
+    "XLSX",
+    "AREA_TRANSFERENCIA",
+    "CSV",
+  ];
+
+  return (
+    <details
+      className="rel-saida"
+      open={aberto && !desabilitado}
+      onToggle={(evento) => aoAlternar((evento.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary
+        className="btn btn-ghost btn-sm btn-xs"
+        aria-disabled={desabilitado || ocupado}
+        // `tabIndex` negativo tira do caminho do teclado quando não há o que
+        // exportar — `<summary>` não honra `disabled`, que é de `<button>`.
+        tabIndex={desabilitado ? -1 : 0}
+      >
+        {ocupado ? "Gerando…" : "Exportar"}
+      </summary>
+      <div className="rel-saida-itens" role="menu">
+        {ordem.map((formato) => (
+          <button
+            key={formato}
+            type="button"
+            role="menuitem"
+            className="rel-saida-it"
+            disabled={desabilitado || ocupado}
+            onClick={() => aoEscolher(formato)}
+          >
+            {ROTULOS_DE_FORMATO[formato]}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 

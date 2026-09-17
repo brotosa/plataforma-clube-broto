@@ -1799,6 +1799,44 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .rel-numerao-v{font-size:34px;line-height:38px}
 }
 
+/* ===== T36 · menu de saída (Onda 20 — F28) =====
+   `<details>` nativo em vez de popover escrito à mão: abre e fecha por
+   teclado, fecha com Esc e anuncia o estado ao leitor de tela sem uma linha
+   de JavaScript. O marcador padrão sai — o `<summary>` aqui se apresenta
+   como botão, e o triângulo do navegador denunciaria que não é. */
+.rel-saida{position:relative;display:inline-block}
+.rel-saida>summary{list-style:none;cursor:pointer;user-select:none}
+.rel-saida>summary::-webkit-details-marker{display:none}
+.rel-saida>summary[aria-disabled="true"]{opacity:1;color:var(--cinza);
+  cursor:not-allowed;pointer-events:none}
+.rel-saida-itens{position:absolute;right:0;top:calc(100% + 4px);z-index:20;
+  min-width:210px;display:flex;flex-direction:column;padding:4px;
+  background:var(--branco);border:1px solid var(--borda);
+  border-radius:var(--r-sm);box-shadow:0 6px 20px rgba(40,35,19,.14)}
+.rel-saida-it{display:block;width:100%;text-align:left;border:0;
+  background:transparent;cursor:pointer;padding:8px 10px;
+  border-radius:var(--r-xs);color:var(--preto);
+  font:var(--font-body-caption-regular);
+  transition:background var(--dur-1) var(--ease)}
+.rel-saida-it:hover:not([disabled]){background:var(--azul-lightest);
+  color:var(--azul-texto-aaa)}
+.rel-saida-it[disabled]{color:var(--cinza);cursor:not-allowed}
+
+/* O recuo da cópia: quando o navegador recusa a área de transferência, o
+   TSV aparece aqui para a pessoa selecionar à mão. Falhar em silêncio seria
+   pior — ela colaria o conteúdo anterior sem perceber (RN55). */
+.rel-copiar{display:block;margin-top:10px}
+.rel-copiar textarea{width:100%;resize:vertical;padding:8px 10px;
+  border:1px solid var(--borda);border-radius:var(--r-sm);
+  background:var(--off);color:var(--preto);
+  font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+
+@media (max-width:760px){
+  /* Ancorado à direita da tela, e não do botão: numa coluna estreita o menu
+     sairia da área visível e a pessoa teria de rolar para o lado. */
+  .rel-saida-itens{right:auto;left:0;min-width:min(260px,calc(100vw - 48px))}
+}
+
 </style>
 <style>
 html{scroll-behavior:smooth}
