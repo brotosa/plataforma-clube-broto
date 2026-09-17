@@ -443,3 +443,117 @@ test.describe.serial("F25 — Funil, Campanhas e Patrocinadores", () => {
     }
   });
 });
+
+/**
+ * F26 — os três sensíveis, e a negativa da RN76 com DUAS contas.
+ *
+ * O teste que mais importa aqui não é o caminho feliz: é o de baixo, onde
+ * Leitura abre a mesma tela que o Gestor e **vê menos assuntos**. A garantia
+ * foi declarada na F24, repetida na F25 e não pôde ser exercitada em nenhuma
+ * das duas, porque todos os assuntos até aqui eram de alcance aberto.
+ */
+test.describe.serial("F26 — Telemetria, Assinantes e Auditoria", () => {
+  test("a negativa da RN76: Leitura vê menos assuntos que o Gestor", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios");
+    await expect(page.getByRole("heading", { name: "Assinantes" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Telemetria · extrato de resgates" }),
+    ).toBeVisible();
+
+    await entrar(page, "leitura@dev.clubebroto.local");
+    await page.goto("/relatorios");
+    // Sem cadeado e sem "peça acesso": o assunto simplesmente não existe
+    // para quem não o alcança.
+    await expect(page.getByRole("heading", { name: "Assinantes" })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Telemetria · extrato de resgates" }),
+    ).toHaveCount(0);
+    // O contraponto que impede o teste de passar por engano — se a tela
+    // estivesse vazia ou quebrada, as asserções acima passariam iguais.
+    await expect(
+      page.getByRole("heading", { name: "Telemetria · contadores por oferta" }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Auditoria" })).toBeVisible();
+  });
+
+  test("RN78: sem finalidade a prévia não sai, e com ela o número vem", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=assinantes");
+
+    await page.getByRole("button", { name: "Pôr UF em Linhas" }).click();
+    // O estado é "falta um passo", não erro: a pessoa não fez nada errado.
+    await expect(page.getByText(/Declare a finalidade da consulta/)).toBeVisible();
+    await expect(page.locator(".rel-resultado table")).toHaveCount(0);
+
+    await page.getByLabel("Finalidade da consulta").fill("conferência do e2e da F26");
+
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    const medida = tabela.locator("tbody tr").first().locator("td.num").first();
+    expect(Number((await medida.innerText()).replace(/\./g, "").trim())).toBeGreaterThan(0);
+  });
+
+  test("a finalidade declarada fica na trilha operacional (RN78)", async ({ page }) => {
+    const antes = await prisma.execucaoRelatorio.count({
+      where: { finalidade: { contains: "trilha do e2e" } },
+    });
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=assinantes");
+    await page.getByRole("button", { name: "Pôr UF em Linhas" }).click();
+    await page.getByLabel("Finalidade da consulta").fill("trilha do e2e da F26");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    // O que a RN78 promete não é o campo na tela — é o registro do texto.
+    await expect
+      .poll(
+        () =>
+          prisma.execucaoRelatorio.count({
+            where: { finalidade: { contains: "trilha do e2e" } },
+          }),
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(antes);
+  });
+
+  test("Auditoria recusa sem período, e aceita com ele", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=auditoria");
+
+    await page.getByRole("button", { name: "Pôr Entidade em Linhas" }).click();
+    // A recusa É a interface (RN55): ela diz por que, não só que não pode.
+    await expect(page.getByText(/só cresce/)).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Acrescentar filtro" }).click();
+    await page.getByLabel("Campo do filtro").selectOption("au-data");
+    await page.getByLabel("Operador do filtro").selectOption("maior_ou_igual");
+    await page.getByLabel("Valor do filtro").fill("2026-01-01");
+
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    const medida = tabela.locator("tbody tr").first().locator("td.num").first();
+    expect(Number((await medida.innerText()).replace(/\./g, "").trim())).toBeGreaterThan(0);
+  });
+
+  test("os campos que não entram aparecem apagados, com o motivo (RN77)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    await page.goto("/relatorios?assunto=assinantes");
+    await expect(page.getByText("Nome, contato e CPF", { exact: true })).toBeVisible();
+    await expect(page.getByText(/nem em claro nem como hash/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pôr Nome, contato e CPF em/ })).toHaveCount(0);
+
+    await page.goto("/relatorios?assunto=auditoria");
+    await expect(page.getByText("Valor anterior e valor novo", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pôr Valor anterior/ })).toHaveCount(0);
+  });
+
+  test("axe-core (AAA) sem violações nos assuntos sensíveis", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    for (const slug of ["telemetria-catalogo", "telemetria-resgates", "assinantes", "auditoria"]) {
+      await page.goto(`/relatorios?assunto=${slug}`);
+      await semViolacoesAxe(page);
+    }
+  });
+});

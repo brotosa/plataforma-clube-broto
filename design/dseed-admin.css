@@ -1552,3 +1552,16 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .confirma-acesso-l{display:flex;align-items:flex-start;gap:8px;cursor:pointer;
   font:var(--font-body-caption-bold);color:var(--preto)}
 .confirma-acesso-l input{margin:1px 0 0;width:16px;height:16px;flex:none;cursor:pointer}
+
+/* ===== T36 · finalidade da consulta (RN78) ==============================
+   Só aparece nos assuntos que alcançam dado pessoal, dentro do painel de
+   prévia e acima do resultado — é o que destrava o número, então mora onde
+   a pessoa procura quando a tabela não vem.
+
+   Fundo de atenção e não de erro: nada deu errado, falta um passo. Vermelho
+   aqui ensinaria a tratar uma consulta legítima como falha, e gastaria a cor
+   que a plataforma reserva para impedimento. */
+.rel-finalidade{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;
+  padding:12px 14px;border:1px solid var(--alerta);background:var(--alerta-claro);
+  border-radius:var(--r-sm)}
+.rel-finalidade .input{height:34px}
