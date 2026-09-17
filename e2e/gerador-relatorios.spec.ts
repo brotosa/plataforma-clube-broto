@@ -42,6 +42,46 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await expect(page.getByRole("heading", { name: "Rede de Aliados" })).toBeVisible();
   });
 
+  test("a abertura lidera com os relatórios prontos, e um deles abre montado", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios");
+
+    /*
+     * A garantia desta tela, e a razão de ela ter mudado: os modelos do
+     * catálogo existiam desde a F24 e só apareciam DENTRO do construtor — isto
+     * é, depois de a pessoa já ter escolhido um assunto. Agora estão na
+     * abertura, e um clique precisa entregar o número, não um formulário
+     * vazio com o nome certo no alto.
+     */
+    await expect(page.getByRole("heading", { name: "Relatórios prontos" })).toBeVisible();
+    await page.getByRole("heading", { name: "Ofertas publicadas por aliado" }).click();
+
+    await expect(page).toHaveURL(/assunto=ofertas&modelo=ofertas-por-aliado/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Ofertas publicadas por aliado" }),
+    ).toBeVisible();
+
+    // Montado de verdade: o chip do modelo está na gaveta e a tabela veio com
+    // número. Sem esta asserção, o teste passaria com o construtor em branco.
+    await expect(page.getByRole("button", { name: /Tirar Aliado de Linhas/ })).toBeVisible();
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    const medida = tabela.locator("tbody tr").first().locator("td.num").first();
+    expect(Number((await medida.innerText()).replace(/\./g, "").trim())).toBeGreaterThan(0);
+  });
+
+  test("modelo desconhecido abre o construtor vazio, não uma tela de erro", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=inventado-por-um-link-velho");
+
+    // O que a pessoa queria — montar um relatório de ofertas — continua
+    // possível. Falhar aqui seria punir alguém por um favorito antigo.
+    await expect(page.getByRole("heading", { level: 1, name: "Ofertas do Clube" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pôr Situação em Linhas" })).toBeVisible();
+  });
+
   test("montar por teclado produz número — o arrasto não é o único caminho", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/relatorios?assunto=ofertas");
