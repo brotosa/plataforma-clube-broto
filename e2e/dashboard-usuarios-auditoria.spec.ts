@@ -703,16 +703,30 @@ test("T27 — a presença distingue on-line, offline e quem nunca acessou", asyn
   try {
     await entrar(page, ADMIN);
 
+    /*
+     * A pílula tem DUAS opções desde 17/09, por decisão da TI: On-line e
+     * Offline. O "visto há" saiu dela e vive no `title`; "Nunca acessou"
+     * deixou de ser um terceiro rótulo — quem nunca entrou está offline, e o
+     * que o distingue de um offline antigo continua no `title` e na legenda.
+     *
+     * O teste mudou de forma, não de intenção: ele continua provando que os
+     * três estados do domínio chegam distintos à tela. Só que agora dois
+     * deles compartilham a palavra e se separam pelo texto de apoio — que é
+     * exatamente o que se pediu, e o que precisa continuar valendo.
+     */
     const linhaOnline = await abrirLinhaDoUsuario(page, online.email);
-    await expect(linhaOnline.getByText("On-line · agora")).toBeVisible();
+    await expect(linhaOnline.getByText("On-line", { exact: true })).toBeVisible();
 
     const linhaOffline = await abrirLinhaDoUsuario(page, offline.email);
-    await expect(linhaOffline.getByText("Offline · há 3 dias")).toBeVisible();
+    await expect(linhaOffline.getByText("Offline", { exact: true })).toBeVisible();
+    await expect(linhaOffline.locator('[title*="há 3 dias"]')).toHaveCount(1);
 
     const linhaNunca = await abrirLinhaDoUsuario(page, nunca.email);
-    await expect(linhaNunca.getByText("Nunca acessou")).toBeVisible();
-    // Nunca acessou NÃO é um offline antigo: os dois rótulos são exclusivos.
-    await expect(linhaNunca.getByText(/^Offline/)).toHaveCount(0);
+    await expect(linhaNunca.getByText("Offline", { exact: true })).toBeVisible();
+    // O fato não se perdeu ao sair da pílula: quem nunca entrou continua
+    // distinguível de quem entrou e sumiu.
+    await expect(linhaNunca.locator('[title*="nunca entrou"]')).toHaveCount(1);
+    await expect(linhaNunca.locator('[title*="há"]')).toHaveCount(0);
 
     await semViolacoesAxe(page);
   } finally {

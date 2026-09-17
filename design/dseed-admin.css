@@ -117,6 +117,13 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pill-erro{background:var(--erro-claro);color:var(--erro-texto-aaa)}.pill-erro i{background:var(--erro)}
 .pill-info{background:var(--azul-lightest);color:var(--azul-texto-aaa);border-color:var(--azul-claro)}
 .pill-neutra{background:var(--off);color:var(--paragrafo-aaa);border-color:var(--borda)}
+/* O ponto da pílula neutra. Ele FALTAVA, e a falta não era invisível: em
+   "Inativo" (T27) o `<i>` era renderizado sempre, herdava `width:7px` do
+   `.pill i` e ficava SEM cor — 7px de ponto transparente mais 6px de `gap`,
+   isto é, 13px de vazio empurrando o texto para a direita. Ao lado de
+   "Ativo", que tem o ponto verde, a palavra parecia descentralizada.
+   Relatado pela TI, olhando a tela. */
+.pill-neutra i{background:var(--paragrafo-aaa)}
 .pill-pendente{background:var(--branco);color:var(--paragrafo-aaa);border:1px dashed var(--cinza)}
 /* Onda 15 — o degrau mais forte da pílula de papel (T27), para o ACESSO TOTAL.
    A hierarquia da coluna Papel tem três níveis: `pill-neutra` para quem não

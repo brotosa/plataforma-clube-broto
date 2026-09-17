@@ -111,26 +111,37 @@ const ESTADO_INICIAL: EstadoUsuarios = {};
  * "Nunca acessou · nunca acessou" seria ruído.
  */
 function Presencinha({ usuario }: { usuario: LinhaUsuario }) {
-  if (usuario.presenca === "NUNCA") {
-    return (
-      <span className="pill pill-neutra" title="Esta conta nunca entrou na plataforma.">
-        Nunca acessou
-      </span>
-    );
-  }
-
+  /*
+   * DUAS opções na pílula: On-line e Offline. Decisão da TI em 17/09, e ela
+   * substitui o desenho anterior, que trazia três rótulos e o "visto há"
+   * dentro da pílula ("Offline · há 3 dias", "Nunca acessou").
+   *
+   * **"Nunca acessou" vira Offline na pílula, e não some.** Quem nunca entrou
+   * está offline — isso é verdade —, e o que a distingue de um offline antigo
+   * continua dito, em dois lugares que não custam altura de linha: a legenda
+   * abaixo do selo e o `title`. Perder o fato seria desfazer o que a coluna
+   * existe para mostrar; guardá-lo fora da pílula é o que a TI pediu.
+   *
+   * **O "visto há" saiu da pílula** pelo mesmo pedido. Ele continua no
+   * `title`, então o dado observado segue ao alcance de quem quiser conferir
+   * a inferência — a classificação é uma janela de atividade, não uma conexão
+   * aberta, e a plataforma não deve prometer mais do que mede.
+   */
   const online = usuario.presenca === "ONLINE";
+  const nunca = usuario.presenca === "NUNCA";
   return (
     <span
-      className={online ? "pill pill-ok" : "pill pill-neutra"}
+      className={online ? "pill pill-ok" : "pill pill-erro"}
       title={
-        online
-          ? `Atividade nos últimos ${JANELA_ONLINE_MIN} minutos. ${usuario.ultimoAcesso}.`
-          : `Sem atividade nos últimos ${JANELA_ONLINE_MIN} minutos. ${usuario.ultimoAcesso}.`
+        nunca
+          ? "Esta conta nunca entrou na plataforma."
+          : online
+            ? `Atividade nos últimos ${JANELA_ONLINE_MIN} minutos. ${usuario.ultimoAcesso}.`
+            : `Sem atividade nos últimos ${JANELA_ONLINE_MIN} minutos. ${usuario.ultimoAcesso}.`
       }
     >
-      {online ? <i aria-hidden="true" /> : null}
-      {rotuloDePresenca(usuario.presenca)} · {usuario.ultimoAcesso}
+      <i aria-hidden="true" />
+      {online ? rotuloDePresenca("ONLINE") : rotuloDePresenca("OFFLINE")}
     </span>
   );
 }
