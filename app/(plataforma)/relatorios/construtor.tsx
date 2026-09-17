@@ -150,8 +150,20 @@ export function Construtor({
   const [visibilidade, setVisibilidade] = useState<VisibilidadeRelatorio>("PRIVADO");
   const [aviso, setAviso] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
+  /*
+   * RN78 — a finalidade de quem consulta dado pessoal.
+   *
+   * Vive aqui e não no caso de uso porque o caso de uso já a EXIGE desde a
+   * F24: ele recusa a execução sem ela, com a mensagem certa. O que faltava
+   * era o lugar de declará-la — sem este campo, os assuntos de dado pessoal
+   * montavam, travavam no erro e não ofereciam saída nenhuma.
+   */
+  const [finalidade, setFinalidade] = useState("");
 
   const idNome = useId();
+  const idFinalidade = useId();
+  const exigeFinalidade = assunto.contemDadoPessoal;
+  const finalidadePendente = exigeFinalidade && finalidade.trim().length === 0;
   const camposPorSlug = useMemo(
     () => new Map(assunto.campos.map((campo) => [campo.slug, campo])),
     [assunto.campos],
@@ -177,10 +189,21 @@ export function Construtor({
       setPrevia({ carregando: false });
       return;
     }
+    /*
+     * Sem finalidade declarada a prévia nem sai — e isso é desenho, não
+     * atalho. Deixá-la disparar produziria a recusa do servidor a cada campo
+     * arrastado: a pessoa veria uma mensagem de erro vermelha enquanto monta,
+     * aprenderia a ignorá-la, e a exigência viraria ruído. O estado correto
+     * aqui não é erro, é "falta um passo".
+     */
+    if (finalidadePendente) {
+      setPrevia({ carregando: false });
+      return;
+    }
     const meu = ++serial.current;
     setPrevia((atual) => ({ ...atual, carregando: true }));
     const relogio = setTimeout(async () => {
-      const resposta = await preverRelatorio(definicao);
+      const resposta = await preverRelatorio(definicao, finalidade.trim() || undefined);
       if (meu !== serial.current) return;
       if (!resposta.ok) {
         setPrevia({ carregando: false, erro: resposta.erro });
@@ -195,7 +218,7 @@ export function Construtor({
       });
     }, ATRASO_PREVIA_MS);
     return () => clearTimeout(relogio);
-  }, [definicao, vazio]);
+  }, [definicao, vazio, finalidade, finalidadePendente]);
 
   const jaUsado = useCallback(
     (slug: string) =>
@@ -260,7 +283,13 @@ export function Construtor({
       const resposta = await fetch("/relatorios/exportar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ definicao, relatorioId: relatorioAberto?.id }),
+        // A mesma finalidade da prévia: um texto só, declarado uma vez, que
+        // acompanha tanto o que aparece na tela quanto o que sai em arquivo.
+        body: JSON.stringify({
+          definicao,
+          relatorioId: relatorioAberto?.id,
+          finalidade: finalidade.trim() || undefined,
+        }),
       });
       if (!resposta.ok) {
         setAviso(await resposta.text());
@@ -583,12 +612,41 @@ export function Construtor({
             </div>
           </div>
           <div style={{ padding: "16px" }}>
+            {/*
+              RN78 — o campo da finalidade, acima do resultado e só nos
+              assuntos que alcançam dado pessoal. Ele fica DENTRO do painel de
+              prévia, e não no topo da tela, porque é o que destrava o número:
+              o lugar onde a pessoa procura quando a tabela não vem.
+
+              O texto declarado viaja com a execução e fica na trilha
+              operacional — é o mesmo caminho da exportação de listas da RN35,
+              reusado e não duplicado.
+            */}
+            {exigeFinalidade ? (
+              <div className="rel-finalidade">
+                <label className="cap" htmlFor={idFinalidade}>
+                  Finalidade da consulta
+                </label>
+                <input
+                  id={idFinalidade}
+                  className="input"
+                  value={finalidade}
+                  onChange={(evento) => setFinalidade(evento.target.value)}
+                  placeholder="Ex.: dimensionar a campanha de renovação do 2º semestre"
+                  aria-describedby={`${idFinalidade}-ajuda`}
+                />
+                <p id={`${idFinalidade}-ajuda`} className="cap" style={{ margin: 0 }}>
+                  Este assunto alcança dado pessoal. A finalidade fica registrada na trilha
+                  junto de quem consultou e quando (RN78).
+                </p>
+              </div>
+            ) : null}
             {aviso ? (
               <p className="aviso-inline" role="status">
                 {aviso}
               </p>
             ) : null}
-            <Resultado previa={previa} vazio={vazio} />
+            <Resultado previa={previa} vazio={vazio} finalidadePendente={finalidadePendente} />
           </div>
         </section>
       </div>
@@ -717,6 +775,7 @@ function LinhaDeFiltro({
 function Resultado({
   previa,
   vazio,
+  finalidadePendente,
 }: {
   previa: {
     carregando: boolean;
@@ -727,11 +786,25 @@ function Resultado({
     duracaoMs?: number;
   };
   vazio: boolean;
+  finalidadePendente: boolean;
 }) {
   if (vazio) {
     return (
       <p className="rel-gaveta-vazia">
         Ponha um campo em Linhas, Colunas ou Valores para ver o resultado.
+      </p>
+    );
+  }
+  /*
+   * RN78 — falta um passo, e não deu erro. A distinção importa: erro ensina
+   * a pessoa que ela fez algo errado; aqui ela não fez. O texto aponta para
+   * o campo que resolve, e a prévia espera.
+   */
+  if (finalidadePendente) {
+    return (
+      <p className="rel-gaveta-vazia">
+        Este assunto alcança dado pessoal. Declare a finalidade da consulta, no campo acima,
+        para ver o resultado.
       </p>
     );
   }

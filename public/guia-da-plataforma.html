@@ -276,6 +276,13 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pill-erro{background:var(--erro-claro);color:var(--erro-texto-aaa)}.pill-erro i{background:var(--erro)}
 .pill-info{background:var(--azul-lightest);color:var(--azul-texto-aaa);border-color:var(--azul-claro)}
 .pill-neutra{background:var(--off);color:var(--paragrafo-aaa);border-color:var(--borda)}
+/* O ponto da pílula neutra. Ele FALTAVA, e a falta não era invisível: em
+   "Inativo" (T27) o `<i>` era renderizado sempre, herdava `width:7px` do
+   `.pill i` e ficava SEM cor — 7px de ponto transparente mais 6px de `gap`,
+   isto é, 13px de vazio empurrando o texto para a direita. Ao lado de
+   "Ativo", que tem o ponto verde, a palavra parecia descentralizada.
+   Relatado pela TI, olhando a tela. */
+.pill-neutra i{background:var(--paragrafo-aaa)}
 .pill-pendente{background:var(--branco);color:var(--paragrafo-aaa);border:1px dashed var(--cinza)}
 /* Onda 15 — o degrau mais forte da pílula de papel (T27), para o ACESSO TOTAL.
    A hierarquia da coluna Papel tem três níveis: `pill-neutra` para quem não
@@ -1512,7 +1519,18 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .rel-campo{display:flex;align-items:center;justify-content:space-between;gap:6px;
   padding:6px 8px;border-radius:var(--r-xs);font:var(--font-body-caption-regular);color:var(--preto)}
 .rel-campo:hover{background:var(--azul-lightest)}
-.rel-campo[data-indisponivel="sim"]{opacity:.55}
+/* Campo indisponível (RN77): apagado, e ainda LEGÍVEL.
+   `opacity:.55` era o jeito óbvio e estava errado. Opacidade dilui o texto
+   contra o fundo: o `--preto` do nome virava #89867d (3,63:1) e o
+   `--paragrafo-aaa` do tipo virava #a09e9a (2,67:1) — os dois abaixo do piso
+   de 4,5:1 do AA, quanto mais do 7:1 do AAA que esta plataforma exige.
+   Entrou na F24, atravessou a F25 e só apareceu na F26, quando o axe passou
+   a varrer um assunto cujo campo indisponível fica no alto da lista.
+   O apagamento agora é COR, escolhida para passar: o campo continua
+   visivelmente secundário, e quem precisa lê. */
+.rel-campo[data-indisponivel="sim"]{background:var(--off)}
+.rel-campo[data-indisponivel="sim"] .rel-campo-nome strong,
+.rel-campo[data-indisponivel="sim"] .rel-campo-tipo{color:var(--paragrafo-aaa)}
 .rel-campo-nome{display:flex;flex-direction:column;gap:1px;min-width:0}
 .rel-campo-nome strong{font:var(--font-body-caption-bold)}
 .rel-campo-tipo{font:var(--font-body-smaller-regular);color:var(--paragrafo-aaa)}
@@ -1704,6 +1722,19 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .confirma-acesso-l{display:flex;align-items:flex-start;gap:8px;cursor:pointer;
   font:var(--font-body-caption-bold);color:var(--preto)}
 .confirma-acesso-l input{margin:1px 0 0;width:16px;height:16px;flex:none;cursor:pointer}
+
+/* ===== T36 · finalidade da consulta (RN78) ==============================
+   Só aparece nos assuntos que alcançam dado pessoal, dentro do painel de
+   prévia e acima do resultado — é o que destrava o número, então mora onde
+   a pessoa procura quando a tabela não vem.
+
+   Fundo de atenção e não de erro: nada deu errado, falta um passo. Vermelho
+   aqui ensinaria a tratar uma consulta legítima como falha, e gastaria a cor
+   que a plataforma reserva para impedimento. */
+.rel-finalidade{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;
+  padding:12px 14px;border:1px solid var(--alerta);background:var(--alerta-claro);
+  border-radius:var(--r-sm)}
+.rel-finalidade .input{height:34px}
 
 </style>
 <style>

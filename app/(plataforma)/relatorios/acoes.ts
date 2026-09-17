@@ -58,10 +58,23 @@ export interface RespostaDaPrevia {
  * cada campo arrastado castigaria o banco para mostrar uma tela que ninguém
  * vai ler inteira.
  */
-export async function preverRelatorio(definicao: unknown): Promise<RespostaDaPrevia> {
+export async function preverRelatorio(
+  definicao: unknown,
+  finalidade?: string,
+): Promise<RespostaDaPrevia> {
   try {
     const ator = await atorDaSessao();
-    const resultado = await executarRelatorio(ator, definicao, { teto: LINHAS_DA_PREVIA });
+    /*
+     * A finalidade atravessa desde a PRÉVIA, e não só na exportação (RN78).
+     * A prévia é execução como qualquer outra: ela roda a consulta e mostra
+     * o resultado na tela. Exigi-la só na saída em arquivo protegeria o
+     * arquivo e deixaria o dado aparecer de graça — que é o contrário do que
+     * a regra quer.
+     */
+    const resultado = await executarRelatorio(ator, definicao, {
+      teto: LINHAS_DA_PREVIA,
+      finalidade,
+    });
     return {
       ok: true,
       tabela: resultado.tabela,

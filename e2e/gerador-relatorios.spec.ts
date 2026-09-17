@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { expect, test } from "@playwright/test";
 
+import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sinteticas";
+import { cifrarCpf, hashCpf } from "../infra/assinantes/protecao-cpf";
 import { entrar, resolverDatabaseUrl, semViolacoesAxe } from "./ajudantes";
 
 /**
@@ -439,6 +441,194 @@ test.describe.serial("F25 — Funil, Campanhas e Patrocinadores", () => {
     await entrar(page, "gestor@dev.clubebroto.local");
     for (const caso of casos) {
       await page.goto(`/relatorios?assunto=${caso.slug}`);
+      await semViolacoesAxe(page);
+    }
+  });
+});
+
+/**
+ * F26 — os três sensíveis, e a negativa da RN76 com DUAS contas.
+ *
+ * O teste que mais importa aqui não é o caminho feliz: é o de baixo, onde
+ * Leitura abre a mesma tela que o Gestor e **vê menos assuntos**. A garantia
+ * foi declarada na F24, repetida na F25 e não pôde ser exercitada em nenhuma
+ * das duas, porque todos os assuntos até aqui eram de alcance aberto.
+ */
+test.describe.serial("F26 — Telemetria, Assinantes e Auditoria", () => {
+  /*
+   * Fixture própria, e não resíduo. A primeira versão destes testes passou o
+   * assunto Assinantes por acaso: a base de desenvolvimento tinha 2.000
+   * assinantes, e a suíte completa de desktop os apaga no caminho. Rodando
+   * este arquivo depois dela, a prévia devolveu "nenhum registro" — com a
+   * finalidade já declarada, isto é, no ponto exato em que o teste deveria
+   * estar provando que o número vem.
+   *
+   * **Dado de pessoa física aqui é sempre sintético**, gerado e marcado como
+   * tal, com CPF formado algoritmicamente (regra do CLAUDE.md, refinamento da
+   * Onda 5). Nunca haverá dado real de PF neste repositório.
+   */
+  const MARCA_F26 = "[E2E-F26]";
+  const SINTETICOS_F26 = gerarAssinantesSinteticos(6, 97);
+
+  async function limparF26() {
+    const ids = (
+      await prisma.assinante.findMany({
+        where: { nome: { startsWith: MARCA_F26 } },
+        select: { id: true },
+      })
+    ).map((item) => item.id);
+    await prisma.assinatura.deleteMany({ where: { assinanteId: { in: ids } } });
+    await prisma.assinante.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  test.beforeAll(async () => {
+    await limparF26();
+    for (const [indice, sintetico] of SINTETICOS_F26.entries()) {
+      const assinante = await prisma.assinante.create({
+        data: {
+          nome: `${MARCA_F26} ${sintetico.nome}`,
+          cpfHash: hashCpf(sintetico.cpf),
+          cpfCifrado: cifrarCpf(sintetico.cpf),
+          uf: sintetico.uf,
+          municipio: sintetico.municipio ?? "Sorriso",
+          preferencia: "AGRICULTURA",
+          statusBase: "ATIVO",
+        },
+        select: { id: true },
+      });
+      await prisma.assinatura.create({
+        data: {
+          assinanteId: assinante.id,
+          plano: indice % 2 === 0 ? "MENSAL" : "ANUAL",
+        },
+      });
+    }
+  });
+
+  test.afterAll(async () => {
+    await limparF26();
+  });
+
+  test("a negativa da RN76: Leitura vê menos assuntos que o Gestor", async ({ page }) => {
+    /*
+     * `exact` em tudo, e a razão vale nota: sem ele, "Assinantes" casa também
+     * com o relatório pronto "Assinantes ativos por UF", e o teste reprova
+     * por ambiguidade em vez de por defeito. A colisão foi útil — ela mostrou
+     * que a abertura tem DOIS lugares por onde um assunto pode vazar, e o
+     * segundo é o que ninguém lembraria de conferir.
+     */
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios");
+    await expect(page.getByRole("heading", { name: "Assinantes", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Telemetria · extrato de resgates", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Assinantes ativos por UF", exact: true }),
+    ).toBeVisible();
+
+    await entrar(page, "leitura@dev.clubebroto.local");
+    await page.goto("/relatorios");
+    // Sem cadeado e sem "peça acesso": o assunto simplesmente não existe
+    // para quem não o alcança.
+    await expect(page.getByRole("heading", { name: "Assinantes", exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Telemetria · extrato de resgates", exact: true }),
+    ).toHaveCount(0);
+    /*
+     * E os RELATÓRIOS PRONTOS do assunto escondido somem junto. Este é o
+     * vazamento que a abertura nova criou e que o desenho antigo não tinha:
+     * o cartão do assunto some, mas as três perguntas prontas dele ficariam
+     * na grade, anunciando pelo nome o que a pessoa não pode ver — e um
+     * clique devolveria a recusa do servidor em vez de nada.
+     */
+    await expect(
+      page.getByRole("heading", { name: "Assinantes ativos por UF", exact: true }),
+    ).toHaveCount(0);
+    // O contraponto que impede o teste de passar por engano — se a tela
+    // estivesse vazia ou quebrada, as asserções acima passariam iguais.
+    await expect(
+      page.getByRole("heading", { name: "Telemetria · contadores por oferta", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Auditoria", exact: true })).toBeVisible();
+  });
+
+  test("RN78: sem finalidade a prévia não sai, e com ela o número vem", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=assinantes");
+
+    await page.getByRole("button", { name: "Pôr UF em Linhas" }).click();
+    // O estado é "falta um passo", não erro: a pessoa não fez nada errado.
+    await expect(page.getByText(/Declare a finalidade da consulta/)).toBeVisible();
+    await expect(page.locator(".rel-resultado table")).toHaveCount(0);
+
+    await page.getByLabel("Finalidade da consulta").fill("conferência do e2e da F26");
+
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    const medida = tabela.locator("tbody tr").first().locator("td.num").first();
+    expect(Number((await medida.innerText()).replace(/\./g, "").trim())).toBeGreaterThan(0);
+  });
+
+  test("a finalidade declarada fica na trilha operacional (RN78)", async ({ page }) => {
+    const antes = await prisma.execucaoRelatorio.count({
+      where: { finalidade: { contains: "trilha do e2e" } },
+    });
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=assinantes");
+    await page.getByRole("button", { name: "Pôr UF em Linhas" }).click();
+    await page.getByLabel("Finalidade da consulta").fill("trilha do e2e da F26");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    // O que a RN78 promete não é o campo na tela — é o registro do texto.
+    await expect
+      .poll(
+        () =>
+          prisma.execucaoRelatorio.count({
+            where: { finalidade: { contains: "trilha do e2e" } },
+          }),
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(antes);
+  });
+
+  test("Auditoria recusa sem período, e aceita com ele", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=auditoria");
+
+    await page.getByRole("button", { name: "Pôr Entidade em Linhas" }).click();
+    // A recusa É a interface (RN55): ela diz por que, não só que não pode.
+    await expect(page.getByText(/só cresce/)).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Acrescentar filtro" }).click();
+    await page.getByLabel("Campo do filtro").selectOption("au-data");
+    await page.getByLabel("Operador do filtro").selectOption("maior_ou_igual");
+    await page.getByLabel("Valor do filtro").fill("2026-01-01");
+
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    const medida = tabela.locator("tbody tr").first().locator("td.num").first();
+    expect(Number((await medida.innerText()).replace(/\./g, "").trim())).toBeGreaterThan(0);
+  });
+
+  test("os campos que não entram aparecem apagados, com o motivo (RN77)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    await page.goto("/relatorios?assunto=assinantes");
+    await expect(page.getByText("Nome, contato e CPF", { exact: true })).toBeVisible();
+    await expect(page.getByText(/nem em claro nem como hash/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pôr Nome, contato e CPF em/ })).toHaveCount(0);
+
+    await page.goto("/relatorios?assunto=auditoria");
+    await expect(page.getByText("Valor anterior e valor novo", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pôr Valor anterior/ })).toHaveCount(0);
+  });
+
+  test("axe-core (AAA) sem violações nos assuntos sensíveis", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    for (const slug of ["telemetria-catalogo", "telemetria-resgates", "assinantes", "auditoria"]) {
+      await page.goto(`/relatorios?assunto=${slug}`);
       await semViolacoesAxe(page);
     }
   });

@@ -39,9 +39,14 @@
 
 import type {
   DestinacaoOferta,
+  EstadoUsuarioAssinante,
   NaturezaOferta,
   OrigemPublicoCampanha,
+  PerfilAssinatura,
+  PlanoAssinatura,
+  PreferenciaAssinante,
   StatusAvaliacao,
+  StatusBaseAssinante,
   StatusOferta,
   StatusPatrocinador,
   TipoMetaCampanha,
@@ -115,6 +120,41 @@ const ROTULOS_ORIGEM_PUBLICO: Readonly<Record<OrigemPublicoCampanha, string>> = 
 const ROTULOS_STATUS_PATROCINADOR: Readonly<Record<StatusPatrocinador, string>> = {
   ATIVO: "Ativo",
   ENCERRADO: "Encerrado",
+};
+
+/** Os cinco da F26. Mesmo critério: exaustivos por construção. */
+const ROTULOS_STATUS_BASE: Readonly<Record<StatusBaseAssinante, string>> = {
+  ATIVO: "Ativo",
+  FORA_DA_BASE: "Fora da base",
+};
+
+const ROTULOS_PREFERENCIA: Readonly<Record<PreferenciaAssinante, string>> = {
+  AGRICULTURA: "Agricultura",
+  PECUARIA: "Pecuária",
+  AMBOS: "Ambos",
+};
+
+/**
+ * RN63 — o de-para declarado, e os rótulos são os da fonte, não apelidos.
+ * `Promocional Broto` é o que o valor `Broto` da coluna nativa vira; trocar
+ * o nome aqui desencontraria a tela do que a operadora manda.
+ */
+const ROTULOS_PERFIL_ASSINATURA: Readonly<Record<PerfilAssinatura, string>> = {
+  PATROCINADA: "Patrocinada",
+  PROMOCIONAL_BROTO: "Promocional Broto",
+  AUTOASSINATURA: "Autoassinatura",
+};
+
+/** RN63 — estado do usuário **não é perfil**; são dois campos, de propósito. */
+const ROTULOS_ESTADO_USUARIO: Readonly<Record<EstadoUsuarioAssinante, string>> = {
+  CADASTRADO: "Cadastrado",
+  FREEMIUM: "Freemium",
+  ASSINANTE: "Assinante",
+};
+
+const ROTULOS_PLANO: Readonly<Record<PlanoAssinatura, string>> = {
+  MENSAL: "Mensal",
+  ANUAL: "Anual",
 };
 
 /**
@@ -242,6 +282,23 @@ export interface CampoRelatorio {
    * usado** (RN77). Texto para gente ler, não código de erro.
    */
   indisponivel?: string;
+  /**
+   * Nenhum relatório deste assunto roda sem um filtro **neste** campo.
+   *
+   * Existe por causa da Auditoria, e a ficha §3 nomeia o risco por extenso:
+   * *"consulta sem teto sobre a trilha — tabela que só cresce — é a forma
+   * mais provável de alguém derrubar a produção sem má intenção"*. Ninguém
+   * precisa de má-fé: basta arrastar "Entidade" para Linhas e esperar, e a
+   * varredura vai até o primeiro evento gravado na F1.
+   *
+   * **Não é a mesma coisa que o teto da RN79.** O teto limita o que VOLTA;
+   * a tabela inteira já foi lida antes de a primeira linha sair. Só o
+   * filtro de período limita o que o banco *visita*.
+   *
+   * A mensagem é do campo, não genérica: quem declara a exigência é quem
+   * sabe por que ela existe (mesmo desenho de `indisponivel`).
+   */
+  filtroObrigatorio?: string;
 }
 
 export interface JuncaoRelatorio {
@@ -1671,12 +1728,696 @@ const PATROCINADORES: AssuntoRelatorio = {
   ],
 };
 
+// ---------------------------------------------------------------------
+// Assuntos 6 e 7 — Telemetria da operadora (F26)
+// ---------------------------------------------------------------------
+
+/**
+ * **São DOIS assuntos, e não um com campos separados.**
+ *
+ * A ficha §3 pede que o contador agregado e o evento nominal sejam "campos
+ * distintos que nenhuma agregação reúne" (RN68). Lendo o schema, um assunto
+ * só não é difícil — é **impossível sem mentir**: `contadores_oferta_
+ * telemetria` tem uma linha por oferta e `eventos_resgate_telemetria` tem
+ * uma linha por resgate por pessoa. Não há chave que os junte sem produzir
+ * produto cartesiano, e o número que sairia disso seria plausível e errado.
+ *
+ * Com dois assuntos a separação deixa de ser regra a lembrar e passa a ser
+ * **estrutura**: o compilador monta uma consulta por assunto, então 227 e 38
+ * não têm por onde cair na mesma tabela. É a diferença entre uma cerca e um
+ * aviso — e esta casa já escolheu cerca todas as vezes.
+ *
+ * O preço é honesto e está aqui escrito: quem quiser os dois números lado a
+ * lado vai abrir dois relatórios. Era exatamente essa a intenção.
+ */
+const TELEMETRIA_CATALOGO: AssuntoRelatorio = {
+  slug: "telemetria-catalogo",
+  rotulo: "Telemetria · contadores por oferta",
+  descricao:
+    "O retrato acumulado que a operadora publica por oferta: resgates e compras, com a data do arquivo que os produziu. Sem dado de pessoa.",
+  permissao: "VISUALIZAR",
+  contemDadoPessoal: false,
+  raiz: { tabela: "contadores_oferta_telemetria", alias: "co" },
+  juncoes: {
+    oferta: { sql: "JOIN ofertas o ON o.id = co.oferta_id" },
+    solucao: { sql: "JOIN solucoes s ON s.id = o.solucao_id", depende: "oferta" },
+    aliado: { sql: "JOIN empresas e ON e.id = s.empresa_id", depende: "solucao" },
+  },
+  campos: [
+    {
+      slug: "tc-oferta",
+      rotulo: "Oferta",
+      grupo: "Oferta",
+      tipo: "TEXTO",
+      sql: "o.titulo",
+      requer: ["oferta"],
+      operadores: ["igual", "diferente", "contem"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tc-aliado",
+      rotulo: "Aliado",
+      grupo: "Oferta",
+      tipo: "TEXTO",
+      sql: "e.nome_fantasia",
+      requer: ["aliado"],
+      operadores: ["igual", "diferente", "contem"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tc-natureza",
+      rotulo: "Natureza da oferta",
+      grupo: "Oferta",
+      tipo: "LISTA",
+      sql: "o.natureza::text",
+      requer: ["oferta"],
+      operadores: ["igual", "diferente"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos<NaturezaOferta>(ROTULO_NATUREZA),
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      /*
+       * O 227 da RN68. O rótulo diz "de catálogo" e não apenas "resgates"
+       * de propósito: é o nome que impede alguém de lê-lo como o total de
+       * resgates da plataforma, que ele não é.
+       */
+      slug: "tc-resgates",
+      rotulo: "Resgates (contador de catálogo)",
+      grupo: "Contadores",
+      tipo: "NUMERO",
+      sql: "co.resgates",
+      operadores: ["igual", "maior_ou_igual", "menor_ou_igual", "entre"],
+      agregacoes: ["SOMA", "MEDIA", "MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tc-compras",
+      rotulo: "Compras (contador de catálogo)",
+      grupo: "Contadores",
+      tipo: "NUMERO",
+      sql: "co.compras",
+      operadores: ["igual", "maior_ou_igual", "menor_ou_igual", "entre"],
+      agregacoes: ["SOMA", "MEDIA", "MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      /*
+       * A data do arquivo é parte do número, não enfeite (RN67): o contador
+       * é um RETRATO, e um retrato sem data não diz de quando fala. Nula
+       * quando o arquivo não a declara — e nulo aqui é o estado honesto.
+       */
+      slug: "tc-data-arquivo",
+      rotulo: "Data do retrato",
+      grupo: "Contadores",
+      tipo: "DATA",
+      sql: "co.data_arquivo",
+      operadores: ["igual", "maior_ou_igual", "menor_ou_igual", "entre", "vazio", "preenchido"],
+      agregacoes: ["MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+  ],
+  modelos: [
+    {
+      slug: "tc-resgates-por-aliado",
+      nome: "Resgates de catálogo por aliado",
+      descricao: "O acumulado que a operadora publica, somado por aliado.",
+      definicao: {
+        linhas: ["tc-aliado"],
+        colunas: [],
+        valores: [{ campo: "tc-resgates", agregacao: "SOMA" }],
+        filtros: [],
+      },
+    },
+    {
+      slug: "tc-ofertas-sem-resgate",
+      nome: "Ofertas sem nenhum resgate",
+      descricao: "O que está publicado e não saiu do lugar.",
+      definicao: {
+        linhas: ["tc-aliado", "tc-oferta"],
+        colunas: [],
+        valores: [{ campo: "tc-resgates", agregacao: "MAXIMO" }],
+        filtros: [{ campo: "tc-resgates", operador: "igual", valores: ["0"] }],
+      },
+    },
+    {
+      slug: "tc-por-natureza",
+      nome: "Resgates por natureza da oferta",
+      descricao: "Benefício e cupom, no contador da operadora.",
+      definicao: {
+        linhas: ["tc-natureza"],
+        colunas: [],
+        valores: [{ campo: "tc-resgates", agregacao: "SOMA" }],
+        filtros: [],
+      },
+    },
+  ],
+};
+
+/**
+ * O outro lado da RN68: o extrato nominal, uma linha por resgate por pessoa.
+ *
+ * **Contém dado pessoal**, e não pela metade: cada linha É um ato de uma
+ * pessoa identificada. O assunto existe porque a pergunta de negócio é
+ * legítima — quando, o quê, onde, quanto —, mas nenhuma coluna identifica
+ * quem: sem nome, sem e-mail, sem telefone, sem CPF e **sem `cpf_hash`**.
+ *
+ * O hash merece a frase inteira, porque é o que parece inofensivo: ele é
+ * determinístico e estável entre cargas (RN36), então exportá-lo permite
+ * cruzar duas listas e reidentificar sem nunca ver um CPF. Hash não é
+ * anonimização; é pseudonimização, e a diferença é exatamente esta.
+ */
+const TELEMETRIA_RESGATES: AssuntoRelatorio = {
+  slug: "telemetria-resgates",
+  rotulo: "Telemetria · extrato de resgates",
+  descricao:
+    "Os eventos nominais que a operadora envia: quando, que produto, em que seller e por quanto. Agregado por período, produto e região — nunca por pessoa.",
+  permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
+  contemDadoPessoal: true,
+  raiz: { tabela: "eventos_resgate_telemetria", alias: "ev" },
+  juncoes: {
+    // O assinante entra para dar REGIÃO e PERFIL, nunca identidade. As
+    // colunas de PF não existem no catálogo, então não há o que escolher.
+    assinante: { sql: "JOIN assinantes a ON a.id = ev.assinante_id" },
+    oferta: { sql: "LEFT JOIN ofertas o ON o.id = ev.oferta_id" },
+  },
+  campos: [
+    {
+      slug: "tr-data",
+      rotulo: "Data do resgate",
+      grupo: "Evento",
+      tipo: "DATA",
+      sql: "ev.data_evento",
+      operadores: ["igual", "maior_ou_igual", "menor_ou_igual", "entre"],
+      agregacoes: ["MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tr-produto",
+      rotulo: "Produto",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "ev.produto",
+      operadores: ["igual", "diferente", "contem"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      /*
+       * Texto e não lista fechada, de propósito: o dicionário de valores é
+       * `[A CONFIRMAR — Minutrade]`, e uma lista escrita de memória aqui
+       * recusaria o valor novo que chegar na próxima carga. É a mesma
+       * decisão que o schema já tomou ao não fazer disto um enum.
+       */
+      slug: "tr-tipo-oferta",
+      rotulo: "Tipo de oferta (como a operadora nomeia)",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "ev.tipo_oferta",
+      operadores: ["igual", "diferente", "contem", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tr-seller",
+      rotulo: "Seller",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "ev.seller",
+      operadores: ["igual", "diferente", "contem", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      /*
+       * O "V" do RFV (RN36). Nulo quando o formato antigo não trazia a
+       * coluna, e ausência é ausência (RN53) — a média ignora a linha em
+       * vez de contá-la como zero, que é o que `avg` já faz.
+       */
+      slug: "tr-valor",
+      rotulo: "Valor do resgate",
+      grupo: "Evento",
+      tipo: "DINHEIRO",
+      sql: "ev.valor",
+      operadores: ["maior_ou_igual", "menor_ou_igual", "entre", "vazio", "preenchido"],
+      agregacoes: ["SOMA", "MEDIA", "MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tr-oferta",
+      rotulo: "Oferta da plataforma",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "o.titulo",
+      requer: ["oferta"],
+      operadores: ["igual", "diferente", "contem", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "tr-uf",
+      rotulo: "UF do assinante",
+      grupo: "Quem resgatou",
+      tipo: "TEXTO",
+      sql: "a.uf",
+      requer: ["assinante"],
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "tr-perfil",
+      rotulo: "Perfil de assinatura",
+      grupo: "Quem resgatou",
+      tipo: "LISTA",
+      sql: "a.perfil_assinatura::text",
+      requer: ["assinante"],
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos(ROTULOS_PERFIL_ASSINATURA),
+      sensibilidade: "PESSOAL",
+    },
+    {
+      /*
+       * RN77, e o campo que mais gente vai procurar aqui. "Quantas pessoas
+       * distintas resgataram" é legítimo e o dado está no banco — mas
+       * `count(DISTINCT assinante_id)` sobre um recorte estreito é
+       * exatamente a contagem que reidentifica: filtre um seller, um dia e
+       * um produto, veja "1", e você sabe quem foi sem nunca ter visto um
+       * nome. A contagem por pessoa fica para o dia em que houver piso de
+       * agregação, que é decisão de negócio e não desta fase.
+       */
+      slug: "tr-assinantes-distintos",
+      rotulo: "Assinantes distintos",
+      grupo: "Quem resgatou",
+      tipo: "NUMERO",
+      sql: "NULL::int",
+      operadores: [],
+      agregacoes: [],
+      sensibilidade: "PESSOAL",
+      indisponivel:
+        "Contar pessoas distintas num recorte estreito devolve 1, e 1 identifica alguém sem mostrar nome nenhum. Entra quando houver piso de agregação, que é decisão de negócio.",
+    },
+  ],
+  modelos: [
+    {
+      slug: "tr-por-mes",
+      nome: "Resgates por produto",
+      descricao: "O que mais sai, no extrato nominal.",
+      definicao: {
+        linhas: ["tr-produto"],
+        colunas: [],
+        valores: [{ campo: "tr-data", agregacao: "QUANTOS" }],
+        filtros: [],
+      },
+    },
+    {
+      slug: "tr-por-uf",
+      nome: "Resgates por UF",
+      descricao: "Onde o Clube está sendo usado.",
+      definicao: {
+        linhas: ["tr-uf"],
+        colunas: [],
+        valores: [{ campo: "tr-data", agregacao: "QUANTOS" }],
+        filtros: [],
+      },
+    },
+    {
+      slug: "tr-valor-por-seller",
+      nome: "Valor resgatado por seller",
+      descricao: "Quanto cada seller entregou, quando o valor veio no arquivo.",
+      definicao: {
+        linhas: ["tr-seller"],
+        colunas: [],
+        valores: [{ campo: "tr-valor", agregacao: "SOMA" }],
+        filtros: [{ campo: "tr-valor", operador: "preenchido", valores: [] }],
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------
+// Assunto 8 — Assinantes (F26)
+// ---------------------------------------------------------------------
+
+/**
+ * A carteira, em agregado — e **nenhuma coluna que identifique alguém**.
+ *
+ * Não há nome, e-mail, telefone, CPF cifrado nem `cpf_hash`. Isso não é
+ * esquecimento nem excesso de zelo: é o que separa "quantos assinantes
+ * anuais há no Paraná" de "quem são eles". A primeira pergunta é de gestão
+ * e o Gerador responde; a segunda tem caminho próprio desde a Onda 5 — a
+ * exportação com finalidade da RN35, que é auditada linha a linha.
+ *
+ * **Alcance: Gestor e Administrador** (`VISUALIZAR_DADOS_PESSOAIS_PLENOS`),
+ * por decisão da TI em 17/09. A ficha da Onda 5 diz que contagens e
+ * agregados são de todos os papéis, e numa tela FIXA isso é seguro. Aqui
+ * não é a mesma coisa, e a assimetria é a mesma que a RN77 já descreve: a
+ * T18 oferece recortes que alguém escolheu; o construtor oferece todos, e
+ * um recorte estreito o bastante devolve contagem 1 — que identifica uma
+ * pessoa sem exibir uma letra do nome dela.
+ *
+ * Trocar o alcance é uma linha. Devolver um dado que saiu não é.
+ */
+const ASSINANTES: AssuntoRelatorio = {
+  slug: "assinantes",
+  rotulo: "Assinantes",
+  descricao:
+    "A carteira em agregado: plano, perfil, situação, região e vencimento. Sem nome, sem contato e sem CPF — listagem nominal só pela exportação com finalidade.",
+  permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
+  contemDadoPessoal: true,
+  raiz: { tabela: "assinantes", alias: "a" },
+  juncoes: {
+    assinatura: { sql: "LEFT JOIN assinaturas asg ON asg.assinante_id = a.id" },
+  },
+  campos: [
+    {
+      slug: "as-uf",
+      rotulo: "UF",
+      grupo: "Região",
+      tipo: "TEXTO",
+      sql: "a.uf",
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-municipio",
+      rotulo: "Município",
+      grupo: "Região",
+      tipo: "TEXTO",
+      sql: "a.municipio",
+      operadores: ["igual", "diferente", "contem", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-situacao",
+      rotulo: "Situação na base",
+      grupo: "Assinante",
+      tipo: "LISTA",
+      sql: "a.status_base::text",
+      operadores: ["igual", "diferente"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos(ROTULOS_STATUS_BASE),
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-preferencia",
+      rotulo: "Preferência",
+      grupo: "Assinante",
+      tipo: "LISTA",
+      sql: "a.preferencia::text",
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos(ROTULOS_PREFERENCIA),
+      sensibilidade: "PESSOAL",
+    },
+    {
+      /*
+       * RN63 — perfil e estado são coisas diferentes, e o catálogo os
+       * mantém em campos separados pelo mesmo motivo que o schema: juntá-los
+       * inventaria uma categoria que a fonte não tem. Ambos nulos na base
+       * de hoje, porque vêm do relatório da operadora.
+       */
+      slug: "as-perfil",
+      rotulo: "Perfil de assinatura",
+      grupo: "Assinante",
+      tipo: "LISTA",
+      sql: "a.perfil_assinatura::text",
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos(ROTULOS_PERFIL_ASSINATURA),
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-estado-usuario",
+      rotulo: "Estado no funil de ativação",
+      grupo: "Assinante",
+      tipo: "LISTA",
+      sql: "a.estado_usuario::text",
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos(ROTULOS_ESTADO_USUARIO),
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-plano",
+      rotulo: "Plano",
+      grupo: "Assinatura",
+      tipo: "LISTA",
+      sql: "asg.plano::text",
+      requer: ["assinatura"],
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      valores: opcoesDeRotulos(ROTULOS_PLANO),
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-vencimento",
+      rotulo: "Vencimento",
+      grupo: "Assinatura",
+      tipo: "DATA",
+      sql: "asg.vencimento",
+      requer: ["assinatura"],
+      operadores: [
+        "igual",
+        "maior_ou_igual",
+        "menor_ou_igual",
+        "entre",
+        "vazio",
+        "preenchido",
+        "nos_proximos_dias",
+      ],
+      agregacoes: ["MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-preco",
+      rotulo: "Preço da assinatura",
+      grupo: "Assinatura",
+      tipo: "DINHEIRO",
+      sql: "asg.preco",
+      requer: ["assinatura"],
+      operadores: ["maior_ou_igual", "menor_ou_igual", "entre", "vazio", "preenchido"],
+      agregacoes: ["SOMA", "MEDIA", "MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "PESSOAL",
+    },
+    {
+      slug: "as-metodo-pagamento",
+      rotulo: "Método de pagamento",
+      grupo: "Assinatura",
+      tipo: "TEXTO",
+      sql: "asg.metodo_pagamento",
+      requer: ["assinatura"],
+      operadores: ["igual", "diferente", "vazio", "preenchido"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "PESSOAL",
+    },
+    /*
+     * RN77 aplicada ao que NÃO entra, e o motivo escrito para quem vier
+     * procurar. Sem esta entrada, quem abrisse o assunto concluiria que a
+     * plataforma não guarda contato de assinante — e concluiria errado.
+     */
+    {
+      slug: "as-identificacao",
+      rotulo: "Nome, contato e CPF",
+      grupo: "Assinante",
+      tipo: "TEXTO",
+      sql: "NULL::text",
+      operadores: [],
+      agregacoes: [],
+      sensibilidade: "PESSOAL",
+      indisponivel:
+        "O Gerador responde quantos, não quem. Listagem nominal sai apenas pela exportação com finalidade da carteira (RN35), que é auditada linha a linha. O CPF nunca sai, nem em claro nem como hash — hash é estável entre cargas e reidentifica por cruzamento.",
+    },
+  ],
+  modelos: [
+    {
+      slug: "as-por-uf",
+      nome: "Assinantes ativos por UF",
+      descricao: "Onde está a carteira.",
+      definicao: {
+        linhas: ["as-uf"],
+        colunas: [],
+        valores: [{ campo: "as-situacao", agregacao: "QUANTOS" }],
+        filtros: [{ campo: "as-situacao", operador: "igual", valores: ["ATIVO"] }],
+      },
+    },
+    {
+      slug: "as-plano-por-preferencia",
+      nome: "Plano por preferência",
+      descricao: "Mensal e anual, cruzados com agricultura e pecuária.",
+      definicao: {
+        linhas: ["as-preferencia"],
+        colunas: ["as-plano"],
+        valores: [{ campo: "as-situacao", agregacao: "QUANTOS" }],
+        filtros: [],
+      },
+    },
+    {
+      slug: "as-vencendo",
+      nome: "Assinaturas a vencer em 30 dias",
+      descricao: "Quantas vencem no próximo mês, por UF.",
+      definicao: {
+        linhas: ["as-uf"],
+        colunas: [],
+        valores: [{ campo: "as-situacao", agregacao: "QUANTOS" }],
+        filtros: [{ campo: "as-vencimento", operador: "nos_proximos_dias", valores: ["30"] }],
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------
+// Assunto 9 — Auditoria (F26)
+// ---------------------------------------------------------------------
+
+/**
+ * A trilha da RN49, lida em agregado — com **filtro de período obrigatório**.
+ *
+ * É o único assunto do catálogo que exige um filtro para rodar, e a ficha §3
+ * nomeia o porquê: consulta sem recorte sobre a tabela que mais cresce é a
+ * forma mais provável de alguém derrubar a produção sem má intenção. O teto
+ * da RN79 não resolve isso — ele limita o que volta, e a varredura já
+ * aconteceu. Só a data limita o que o banco visita, e há índice para ela.
+ *
+ * **Valor anterior e valor novo não entram.** São texto livre serializado, e
+ * o que cabe ali depende da entidade auditada: a troca do e-mail de um
+ * usuário grava o e-mail; a correção do nome de um assinante grava o nome.
+ * Num construtor livre isso vira o caminho oblíquo para ler dado pessoal sem
+ * passar por assunto nenhum que o declare. A T28 continua exibindo os dois,
+ * evento a evento, para quem audita — com o acesso pontual que aquela tela
+ * já tem. Ler quem-mexeu-em-quê agregado não exige lê-los.
+ */
+const AUDITORIA: AssuntoRelatorio = {
+  slug: "auditoria",
+  rotulo: "Auditoria",
+  descricao:
+    "Quem mexeu em quê, em agregado: por entidade, por campo, por autor e por período. Exige um recorte de datas — a trilha só cresce.",
+  permissao: "VISUALIZAR_AUDITORIA",
+  contemDadoPessoal: false,
+  raiz: { tabela: "auditoria_eventos", alias: "ae" },
+  juncoes: {
+    autor: { sql: "JOIN usuarios ua ON ua.id = ae.autor_id" },
+  },
+  campos: [
+    {
+      slug: "au-data",
+      rotulo: "Data do evento",
+      grupo: "Evento",
+      tipo: "DATA",
+      sql: "ae.criado_em",
+      operadores: ["maior_ou_igual", "menor_ou_igual", "entre"],
+      agregacoes: ["MINIMO", "MAXIMO", "QUANTOS"],
+      sensibilidade: "OPERACIONAL",
+      filtroObrigatorio:
+        "a trilha de auditoria só cresce, e sem recorte de datas a consulta varre todos os eventos desde a implantação. Escolha um período — de, até, ou entre duas datas.",
+    },
+    {
+      slug: "au-entidade",
+      rotulo: "Entidade",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "ae.entidade",
+      operadores: ["igual", "diferente", "contem"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "au-campo",
+      rotulo: "Campo alterado",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "ae.campo",
+      operadores: ["igual", "diferente", "contem"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "au-autor",
+      rotulo: "Autor",
+      grupo: "Autor",
+      tipo: "TEXTO",
+      sql: "ua.nome",
+      requer: ["autor"],
+      operadores: ["igual", "diferente", "contem"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "au-papel",
+      rotulo: "Papel do autor",
+      grupo: "Autor",
+      tipo: "TEXTO",
+      sql: "ua.papel::text",
+      requer: ["autor"],
+      operadores: ["igual", "diferente"],
+      agregacoes: ["QUANTOS", "QUANTOS_DISTINTOS"],
+      sensibilidade: "OPERACIONAL",
+    },
+    {
+      slug: "au-valores",
+      rotulo: "Valor anterior e valor novo",
+      grupo: "Evento",
+      tipo: "TEXTO",
+      sql: "NULL::text",
+      operadores: [],
+      agregacoes: [],
+      sensibilidade: "PESSOAL",
+      indisponivel:
+        "São texto livre e carregam o que a entidade auditada guardava — inclusive nome, e-mail ou telefone de uma pessoa. No construtor virariam um caminho para ler dado pessoal sem passar por um assunto que o declare. A tela de Auditoria (T28) continua exibindo os dois, evento a evento.",
+    },
+  ],
+  modelos: [
+    {
+      slug: "au-por-entidade-30d",
+      nome: "Alterações por entidade, últimos 30 dias",
+      descricao: "Onde a operação mexeu no último mês.",
+      definicao: {
+        linhas: ["au-entidade"],
+        colunas: [],
+        valores: [{ campo: "au-campo", agregacao: "QUANTOS" }],
+        filtros: [{ campo: "au-data", operador: "maior_ou_igual", valores: ["2026-08-18"] }],
+      },
+    },
+    {
+      slug: "au-por-autor-30d",
+      nome: "Alterações por autor, últimos 30 dias",
+      descricao: "Quem mexeu, e em quantas entidades diferentes.",
+      definicao: {
+        linhas: ["au-autor"],
+        colunas: [],
+        valores: [{ campo: "au-entidade", agregacao: "QUANTOS_DISTINTOS" }],
+        filtros: [{ campo: "au-data", operador: "maior_ou_igual", valores: ["2026-08-18"] }],
+      },
+    },
+    {
+      slug: "au-papel-por-entidade",
+      nome: "Papel × entidade, últimos 30 dias",
+      descricao: "Que papel mexe em que parte da plataforma.",
+      definicao: {
+        linhas: ["au-papel"],
+        colunas: ["au-entidade"],
+        valores: [{ campo: "au-campo", agregacao: "QUANTOS" }],
+        filtros: [{ campo: "au-data", operador: "maior_ou_igual", valores: ["2026-08-18"] }],
+      },
+    },
+  ],
+};
+
 export const ASSUNTOS: ReadonlyArray<AssuntoRelatorio> = [
   OFERTAS,
   ALIADOS,
   FUNIL,
   CAMPANHAS,
   PATROCINADORES,
+  TELEMETRIA_CATALOGO,
+  TELEMETRIA_RESGATES,
+  ASSINANTES,
+  AUDITORIA,
 ];
 
 export function assuntoPorSlug(slug: string): AssuntoRelatorio | undefined {

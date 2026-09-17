@@ -325,6 +325,29 @@ function juncoesQueMultiplicam(
   return [...ativas].filter((chave) => assunto.juncoes[chave]?.multiplica);
 }
 
+/**
+ * O molde que cada tipo do catálogo exige no parâmetro. Ver `bind`, abaixo.
+ *
+ * `Record<TipoCampo, …>` é exaustivo de propósito: acrescentar um tipo ao
+ * catálogo não compila enquanto a decisão não for tomada aqui. `null` é a
+ * decisão "não precisa de molde", escrita, e não o esquecimento.
+ *
+ * `LISTA` não precisa porque a expressão do campo já termina em `::text` —
+ * é assim que os enums entram no catálogo. `DINHEIRO` e `NUMERO` usam
+ * `numeric`, que compara com `integer`, `decimal` e `real` sem perder
+ * precisão nem o índice.
+ */
+const MOLDE_DO_TIPO: Readonly<Record<CampoRelatorio["tipo"], string | null>> = {
+  TEXTO: null,
+  LISTA: null,
+  BOOLEANO: "::boolean",
+  NUMERO: "::numeric",
+  DINHEIRO: "::numeric",
+  // Datas têm tratamento próprio em `compilarFiltro`, porque além do tipo
+  // elas têm a semântica do dia inteiro. O molde aqui é o do início do dia.
+  DATA: "::timestamp",
+};
+
 function compilarFiltro(
   assunto: AssuntoRelatorio,
   filtro: FiltroDeRelatorio,
@@ -364,30 +387,86 @@ function compilarFiltro(
   /**
    * O marcador de parâmetro, com o molde do tipo quando o banco precisa dele.
    *
-   * **Booleano precisa.** O driver manda todo valor de filtro como texto, e
-   * `pendente_republicacao = $1` com `$1 = 'true'` faz o Postgres recusar a
-   * consulta inteira: *operator does not exist: boolean = text*. Não é erro de
-   * segurança nem número errado — é a consulta não rodar.
+   * **O driver manda TODO valor de filtro como texto**, e o Postgres recusa a
+   * consulta inteira quando a coluna não é texto: *operator does not exist:
+   * boolean = text*, *integer = text*, *timestamp without time zone >= text*.
+   * Não é erro de segurança nem número errado — é a consulta não rodar.
    *
-   * O defeito nasceu na F24 e sobreviveu a 30 testes de unidade e a 9 e2e
-   * porque **nenhum deles filtrou por um campo booleano**: os três campos de
-   * sim/não do catálogo existiam para agrupar, e agrupar não passa por aqui.
-   * Apareceu na F25, ao rodar contra a base um modelo que filtra "aprovação
-   * registrada = não". A cobertura nova está em `compilador.test.ts`.
+   * **Este defeito foi descoberto três vezes, uma por fase, e sempre do mesmo
+   * jeito: rodando contra a base povoada.** Booleano na F25, porque nenhum
+   * modelo filtrava sim/não — os três campos de sim/não existiam para
+   * agrupar, e agrupar não passa por aqui. Data e número na F26, porque
+   * nenhum modelo filtrava data com "de"/"até" (os que filtravam data usavam
+   * `nos_proximos_dias`, que compila para `CURRENT_DATE + make_interval` e
+   * nunca compara com texto) nem número com "é"/"entre".
    *
-   * O `::boolean` é texto do compilador, decidido pelo TIPO declarado no
-   * catálogo — nunca pelo valor digitado. A RN75 continua inteira.
+   * Nas três vezes os testes de unidade seguiram verdes, e seguiriam para
+   * sempre: eles conferem o TEXTO gerado, e texto errado de SQL só falha
+   * quando um banco tenta executá-lo.
+   *
+   * Por isso o molde deixou de ser um `if` por tipo e virou `MOLDE_DO_TIPO`,
+   * **exaustivo por construção**: tipo novo no catálogo obriga uma decisão
+   * aqui em vez de cair em silêncio no caminho sem molde. E há um teste que
+   * percorre a matriz inteira de tipo × operador — a cegueira não era falta
+   * de teste, era teste que não enumerava as combinações.
+   *
+   * O molde é texto do compilador, decidido pelo TIPO declarado no catálogo,
+   * nunca pelo valor digitado. A RN75 continua inteira.
    */
   const bind = (valor: string | number) => {
     parametros.push(valor);
-    return campo.tipo === "BOOLEANO"
-      ? `$${parametros.length}::boolean`
-      : `$${parametros.length}`;
+    const molde = MOLDE_DO_TIPO[campo.tipo];
+    return molde ? `$${parametros.length}${molde}` : `$${parametros.length}`;
   };
+
+  /*
+   * ------------------------------------------------------------------
+   * Datas: o dia inteiro, e sem perder o índice
+   * ------------------------------------------------------------------
+   *
+   * Dois problemas se resolvem aqui, e o segundo é o perigoso.
+   *
+   * **1. O tipo.** O driver manda todo valor de filtro como texto, e
+   * `criado_em >= $1` com `$1 = '2026-08-18'` faz o Postgres recusar a
+   * consulta: *operator does not exist: timestamp without time zone >= text*.
+   * Nenhum modelo até a F26 havia filtrado data com "de", "até" ou "entre" —
+   * os que filtravam data usavam `nos_proximos_dias`, que compila para
+   * `CURRENT_DATE + make_interval` e nunca compara com texto. Mesma cegueira
+   * do filtro booleano descoberto na F25: uma combinação de operador e tipo
+   * que nenhum caminho exercitava.
+   *
+   * **2. O fim do dia.** O catálogo chama de `DATA` tanto coluna `date`
+   * quanto `timestamp`. Em `date`, `col <= '18/08'` inclui o dia 18; em
+   * `timestamp`, o mesmo texto vira meia-noite e **exclui o dia 18 inteiro**
+   * — 23 horas e 59 minutos de eventos somem de um relatório que a pessoa
+   * pediu "até 18 de agosto". Número plausível e errado, que é o pior defeito
+   * possível aqui.
+   *
+   * A saída é limitar pelo **início do dia seguinte, exclusivo**. Vale igual
+   * para os dois tipos, e o mais importante: mantém a coluna nua de um lado
+   * da comparação, então o índice continua servindo. Escrever
+   * `col::date <= $1` também acertaria a semântica e **perderia o índice** —
+   * justamente no assunto (Auditoria) cujo filtro obrigatório existe para
+   * evitar varredura.
+   */
+  // `bind` já põe `::timestamp` nos campos de data (MOLDE_DO_TIPO), que é o
+  // início do dia. O fim precisa do molde próprio, `::date + 1`.
+  const inicioDoDia = (valor: string) => bind(valor);
+  const fimDoDiaExclusivo = (valor: string) => {
+    parametros.push(valor);
+    return `($${parametros.length}::date + 1)`;
+  };
+  const eData = campo.tipo === "DATA";
 
   switch (filtro.operador) {
     case "igual":
-      return `${campo.sql} = ${bind(filtro.valores[0]!)}`;
+      // Num `timestamp`, `= '18/08'` só casaria com a meia-noite exata: o
+      // operador "é" sobre data significa "naquele dia", nunca "naquele
+      // instante".
+      return eData
+        ? `${campo.sql} >= ${inicioDoDia(filtro.valores[0]!)} AND ` +
+            `${campo.sql} < ${fimDoDiaExclusivo(filtro.valores[0]!)}`
+        : `${campo.sql} = ${bind(filtro.valores[0]!)}`;
     case "diferente":
       // `IS DISTINCT FROM` e não `<>`: com `<>`, linha de valor nulo sai do
       // resultado sem aparecer em lado nenhum, e "não é X" passa a esconder
@@ -399,11 +478,20 @@ function compilarFiltro(
       // não há risco: são metacaracteres de LIKE, não de SQL.
       return `${campo.sql} ILIKE ${bind(`%${filtro.valores[0]!}%`)}`;
     case "maior_ou_igual":
-      return `${campo.sql} >= ${bind(filtro.valores[0]!)}`;
+      return eData
+        ? `${campo.sql} >= ${inicioDoDia(filtro.valores[0]!)}`
+        : `${campo.sql} >= ${bind(filtro.valores[0]!)}`;
     case "menor_ou_igual":
-      return `${campo.sql} <= ${bind(filtro.valores[0]!)}`;
+      return eData
+        ? `${campo.sql} < ${fimDoDiaExclusivo(filtro.valores[0]!)}`
+        : `${campo.sql} <= ${bind(filtro.valores[0]!)}`;
     case "entre":
-      return `${campo.sql} BETWEEN ${bind(filtro.valores[0]!)} AND ${bind(filtro.valores[1]!)}`;
+      // Sem `BETWEEN` quando é data: ele é inclusivo nas duas pontas, e a
+      // ponta de cima precisa ser exclusiva para o dia final entrar inteiro.
+      return eData
+        ? `${campo.sql} >= ${inicioDoDia(filtro.valores[0]!)} AND ` +
+            `${campo.sql} < ${fimDoDiaExclusivo(filtro.valores[1]!)}`
+        : `${campo.sql} BETWEEN ${bind(filtro.valores[0]!)} AND ${bind(filtro.valores[1]!)}`;
     case "vazio":
       return `${campo.sql} IS NULL`;
     case "preenchido":
@@ -415,12 +503,22 @@ function compilarFiltro(
           `"${campo.rotulo} nos próximos (dias)" espera um número de 0 a 3650.`,
         ]);
       }
-      // `::int` porque o driver binda número JS como bigint, e
-      // `make_interval` não aceita bigint — a mesma pedra do compilador de
-      // segmentos (RN33), anotada lá pelo mesmo motivo.
+      /*
+       * Este parâmetro **não é do tipo do campo** — é uma contagem de dias,
+       * num campo de data. Por isso ele escapa do `bind` e do
+       * `MOLDE_DO_TIPO`: com o molde do campo, o número sairia como
+       * `$1::timestamp` e o banco recusaria com "cannot cast type bigint to
+       * timestamp". Apareceu ao rodar o modelo "Assinaturas a vencer em 30
+       * dias" logo depois de o molde por tipo entrar.
+       *
+       * O `::int` é o que este valor precisa: o driver binda número JS como
+       * bigint, e `make_interval` não aceita bigint — a mesma pedra do
+       * compilador de segmentos (RN33), anotada lá pelo mesmo motivo.
+       */
+      parametros.push(Math.trunc(dias));
       return (
         `${campo.sql} >= CURRENT_DATE AND ` +
-        `${campo.sql} <= CURRENT_DATE + make_interval(days => ${bind(Math.trunc(dias))}::int)`
+        `${campo.sql} <= CURRENT_DATE + make_interval(days => $${parametros.length}::int)`
       );
     }
     default: {
@@ -537,6 +635,33 @@ export function compilarRelatorio(
     const campo = campoPorSlug(assunto, filtro.campo);
     if (campo) registrarJuncoes(campo);
   });
+
+  /*
+   * O filtro obrigatório é cobrado ANTES de o SQL ser montado, e a
+   * conferência é sobre a definição inteira — não só sobre os campos que
+   * entraram nas gavetas. Um relatório de Auditoria agrupado por "Entidade",
+   * sem nenhuma data em lugar nenhum, é exatamente o caso perigoso: ele
+   * parece inofensivo na tela e varre a tabela toda no banco.
+   *
+   * `vazio` e `preenchido` não contam como filtro de período: `criado_em IS
+   * NOT NULL` é verdade para todas as linhas e não recorta nada. Aceitá-los
+   * satisfaria a regra na letra e a desfaria na prática — que é pior que não
+   * ter a regra, porque dá a sensação de proteção.
+   */
+  const OPERADORES_QUE_NAO_RECORTAM: ReadonlyArray<OperadorRelatorio> = ["vazio", "preenchido"];
+  const exigencias = assunto.campos.filter((campo) => campo.filtroObrigatorio);
+  const faltantes = exigencias.filter(
+    (campo) =>
+      !definicao.filtros.some(
+        (filtro) =>
+          filtro.campo === campo.slug && !OPERADORES_QUE_NAO_RECORTAM.includes(filtro.operador),
+      ),
+  );
+  if (faltantes.length > 0) {
+    throw new ErroDeRelatorioInvalido(
+      faltantes.map((campo) => `${campo.rotulo}: ${campo.filtroObrigatorio}`),
+    );
+  }
 
   const multiplicadoras = juncoesQueMultiplicam(assunto, necessarias);
 

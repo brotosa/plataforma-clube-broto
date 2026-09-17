@@ -80,6 +80,39 @@ const POR_SLUG: Readonly<Record<string, IdentidadeDeAssunto>> = {
     curto: "Patrocínio",
     icone: "M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5M3.5 12.5h17M4.5 7.5h15v11h-15z",
   },
+  /*
+   * Os quatro da F26. **Os dois de telemetria ficam em famílias de cor
+   * distantes de propósito** — ardósia e vinho —, e não em tons vizinhos da
+   * mesma família. Eles são irmãos conceituais, e é exatamente por isso: a
+   * RN68 existe para impedir que alguém os confunda, e vesti-los parecidos
+   * trabalharia contra a regra que o catálogo separou em dois assuntos para
+   * tornar estrutural.
+   */
+  "telemetria-catalogo": {
+    cor: "#2E4057",
+    corClara: "#F1F4F8",
+    curto: "Contadores",
+    icone: "M4 19.5h16M8 16.5V11M12.5 16.5V6.5M17 16.5v-3.5",
+  },
+  "telemetria-resgates": {
+    cor: "#7A1F3D",
+    corClara: "#FCF1F4",
+    curto: "Resgates",
+    icone: "M6 3.5h12v17l-3-1.7-3 1.7-3-1.7-3 1.7ZM9.5 8.5h5M9.5 12.5h5",
+  },
+  assinantes: {
+    cor: "#5A5000",
+    corClara: "#F8F7EC",
+    curto: "Carteira",
+    icone:
+      "M9.6 10.8a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3.5 19.2a6.1 6.1 0 0 1 12.2 0M16.4 10.2a2.5 2.5 0 1 0 0-5M18.2 19.2a5 5 0 0 0-2.4-4.3",
+  },
+  auditoria: {
+    cor: "#44403C",
+    corClara: "#F5F4F2",
+    curto: "Trilha",
+    icone: "M12 3.5 5 6.2v5c0 4.2 2.9 7.6 7 9.3 4.1-1.7 7-5.1 7-9.3v-5ZM9.3 12l2 2 3.4-3.7",
+  },
 };
 
 export function identidadeDoAssunto(slug: string): IdentidadeDeAssunto {

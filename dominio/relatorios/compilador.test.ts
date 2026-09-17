@@ -2,18 +2,26 @@ import { describe, expect, it } from "vitest";
 import {
   DestinacaoOferta,
   EstadoCampanha,
+  EstadoUsuarioAssinante,
   EstagioEmpresa,
   NaturezaOferta,
   OrigemEmpresa,
   OrigemPublicoCampanha,
+  PerfilAssinatura,
+  PlanoAssinatura,
+  PreferenciaAssinante,
   RecomendacaoAvaliacao,
   StatusAvaliacao,
+  StatusBaseAssinante,
   StatusDossie,
   StatusOferta,
   StatusPatrocinador,
   TipoMetaCampanha,
 } from "@prisma/client";
 
+import type { Papel } from "@prisma/client";
+
+import { podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { ASSUNTOS, assuntoPorSlug, campoPorSlug } from "./catalogo";
 import {
   ErroDeRelatorioInvalido,
@@ -452,6 +460,14 @@ describe("os valores fechados são os do banco, não os que alguém lembrou", ()
     { assunto: "campanhas", campo: "campanha-origem-publico", valores: OrigemPublicoCampanha },
     { assunto: "campanhas", campo: "meta-tipo", valores: TipoMetaCampanha },
     { assunto: "patrocinadores", campo: "patrocinador-status", valores: StatusPatrocinador },
+    // F26
+    { assunto: "telemetria-catalogo", campo: "tc-natureza", valores: NaturezaOferta },
+    { assunto: "telemetria-resgates", campo: "tr-perfil", valores: PerfilAssinatura },
+    { assunto: "assinantes", campo: "as-situacao", valores: StatusBaseAssinante },
+    { assunto: "assinantes", campo: "as-preferencia", valores: PreferenciaAssinante },
+    { assunto: "assinantes", campo: "as-perfil", valores: PerfilAssinatura },
+    { assunto: "assinantes", campo: "as-estado-usuario", valores: EstadoUsuarioAssinante },
+    { assunto: "assinantes", campo: "as-plano", valores: PlanoAssinatura },
   ];
 
   it.each(enumsPorCampo)("$campo casa com o enum do Prisma", ({ assunto, campo, valores }) => {
@@ -619,6 +635,14 @@ describe("RN76 — cada assunto declara a ação que a plataforma já usa", () =
     { slug: "funil", permissao: "VISUALIZAR_FUNIL" },
     { slug: "campanhas", permissao: "VISUALIZAR" },
     { slug: "patrocinadores", permissao: "VISUALIZAR_PATROCINADORES" },
+    // F26 — os três sensíveis. Os dois de dado pessoal ficam com a ação que
+    // a Onda 5 já usa para PF pleno: Gestor e Administrador, por decisão da
+    // TI em 17/09. O contador de catálogo não tem dado de pessoa e fica
+    // aberto; a Auditoria segue a leitura de todos que a RN48 determina.
+    { slug: "telemetria-catalogo", permissao: "VISUALIZAR" },
+    { slug: "telemetria-resgates", permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS" },
+    { slug: "assinantes", permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS" },
+    { slug: "auditoria", permissao: "VISUALIZAR_AUDITORIA" },
   ])("$slug exige $permissao", ({ slug, permissao }) => {
     expect(assuntoPorSlug(slug)!.permissao).toBe(permissao);
   });
@@ -626,6 +650,62 @@ describe("RN76 — cada assunto declara a ação que a plataforma já usa", () =
   it("a lista acima cobre todos os assuntos do catálogo", () => {
     // Sem isto, um assunto novo entraria sem que ninguém conferisse a ação
     // dele — e a conferência que conta é justamente a do assunto novo.
-    expect(ASSUNTOS.length).toBe(5);
+    expect(ASSUNTOS.length).toBe(9);
+  });
+});
+
+/**
+ * RN76 — a NEGATIVA, finalmente com prova.
+ *
+ * A F24 declarou esta garantia no arquivo de e2e e não conseguiu exercitá-la:
+ * os dois assuntos dela exigiam `VISUALIZAR`, que todo papel tem. A F25
+ * repetiu a promessa e também não cumpriu — conferindo a matriz, descobri que
+ * `VISUALIZAR_FUNIL` e `VISUALIZAR_PATROCINADORES` estão concedidas aos sete
+ * papéis nomeados, e o oitavo tem acesso total: na prática, todo mundo.
+ *
+ * Com a F26 isso muda pela primeira vez. Assinantes e Telemetria · extrato
+ * exigem `VISUALIZAR_DADOS_PESSOAIS_PLENOS`, que é de Gestor e Administrador
+ * — então `assuntosVisiveis` passa a devolver listas DIFERENTES para contas
+ * diferentes, que é o que a regra sempre quis dizer.
+ *
+ * O teste é de domínio e de fato: ele lê a matriz de permissões real, não uma
+ * cópia. Se alguém abrir `VISUALIZAR_DADOS_PESSOAIS_PLENOS` para mais papéis,
+ * é uma decisão de governança legítima — e este teste avisa que ela também
+ * abriu os dois assuntos do Gerador, que é justamente o efeito colateral que
+ * ninguém lembra de checar.
+ */
+describe("RN76 — assunto fora do alcance não aparece", () => {
+  const alcanca = (papel: Papel, slug: string) =>
+    podeExecutar(papel, assuntoPorSlug(slug)!.permissao);
+
+  it("Leitura não alcança os assuntos de dado pessoal, e alcança os demais", () => {
+    expect(alcanca("LEITURA", "assinantes")).toBe(false);
+    expect(alcanca("LEITURA", "telemetria-resgates")).toBe(false);
+    // O contraponto que impede o teste de passar por engano: se ele
+    // reprovasse tudo para Leitura, a asserção acima seria vácua.
+    expect(alcanca("LEITURA", "ofertas")).toBe(true);
+    expect(alcanca("LEITURA", "auditoria")).toBe(true);
+    expect(alcanca("LEITURA", "telemetria-catalogo")).toBe(true);
+  });
+
+  it("Gestor e Administrador alcançam; os papéis do funil, não", () => {
+    for (const papel of ["GESTOR", "ADMIN", "ADMINISTRADOR_PLATAFORMA"] as Papel[]) {
+      expect(alcanca(papel, "assinantes"), papel).toBe(true);
+    }
+    for (const papel of ["ANALISTA_SCOUT", "COMERCIAL", "APROVADOR"] as Papel[]) {
+      expect(alcanca(papel, "assinantes"), papel).toBe(false);
+    }
+  });
+
+  it("a lista visível é MENOR para quem alcança menos", () => {
+    /*
+     * A asserção que vale por todas: duas contas abrindo a mesma tela veem
+     * catálogos de tamanhos diferentes. Enquanto isto for falso, a RN76 é
+     * uma promessa sem consequência observável.
+     */
+    const visiveis = (papel: Papel) =>
+      ASSUNTOS.filter((assunto) => podeExecutar(papel, assunto.permissao)).length;
+    expect(visiveis("LEITURA")).toBeLessThan(visiveis("GESTOR"));
+    expect(visiveis("GESTOR")).toBe(ASSUNTOS.length);
   });
 });
