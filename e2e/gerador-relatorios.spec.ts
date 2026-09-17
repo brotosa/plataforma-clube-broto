@@ -259,6 +259,101 @@ test.describe.serial("F25 — Funil, Campanhas e Patrocinadores", () => {
     { slug: "patrocinadores", titulo: "Patrocinadores", dimensao: "Patrocinador" },
   ];
 
+  /*
+   * A fixture existe porque a primeira versão destes testes **passou por
+   * acaso**: campanhas e vínculos de patrocínio ficaram na base como resíduo
+   * de outras suítes, e ao rodar este arquivo sozinho — depois de aquelas
+   * limparem o que criaram — a prévia devolveu "Nenhum registro atende a
+   * estes filtros" e a tabela nunca apareceu.
+   *
+   * A base povoada de desenvolvimento tem aliados e ofertas de verdade, então
+   * Ofertas, Rede e Funil se sustentam sozinhos. Campanha e vínculo, não: o
+   * seed não cria nenhum dos dois. Depender de resíduo é depender da ordem de
+   * execução, que é exatamente o tipo de teste que reprova na máquina de
+   * outra pessoa e passa na sua.
+   */
+  const MARCA_F25 = "[E2E-F25]";
+
+  async function limparF25() {
+    const campanhas = await prisma.campanha.findMany({
+      where: { nome: { startsWith: MARCA_F25 } },
+      select: { id: true },
+    });
+    const ids = campanhas.map((campanha) => campanha.id);
+    await prisma.metaCampanha.deleteMany({ where: { campanhaId: { in: ids } } });
+    await prisma.campanha.deleteMany({ where: { id: { in: ids } } });
+
+    const patrocinadores = await prisma.patrocinador.findMany({
+      where: { razaoSocial: { startsWith: MARCA_F25 } },
+      select: { id: true },
+    });
+    const idsPatrocinador = patrocinadores.map((patrocinador) => patrocinador.id);
+    await prisma.vinculoPatrocinio.deleteMany({
+      where: { patrocinadorId: { in: idsPatrocinador } },
+    });
+    await prisma.contratoPatrocinio.deleteMany({
+      where: { patrocinadorId: { in: idsPatrocinador } },
+    });
+    await prisma.patrocinador.deleteMany({ where: { id: { in: idsPatrocinador } } });
+  }
+
+  test.beforeAll(async () => {
+    await limparF25();
+    const autor = await prisma.usuario.findFirstOrThrow({
+      where: { email: "gestor@dev.clubebroto.local" },
+      select: { id: true },
+    });
+
+    /*
+     * Duas metas de NÍVEIS diferentes de propósito: é o que faz o teste do
+     * rótulo com atribuição valer alguma coisa. Com uma meta só, "por oferta"
+     * apareceria por sorte.
+     */
+    await prisma.campanha.create({
+      data: {
+        nome: `${MARCA_F25} campanha de prova`,
+        estado: "ATIVA",
+        autorId: autor.id,
+        vigenciaInicio: new Date("2026-08-01T00:00:00.000Z"),
+        vigenciaFim: new Date("2026-08-31T00:00:00.000Z"),
+        metas: {
+          create: [
+            { tipo: "RESGATES", alvo: 100 },
+            { tipo: "CONVERSAO_PCT", alvo: 5 },
+          ],
+        },
+      },
+    });
+
+    const patrocinador = await prisma.patrocinador.create({
+      /*
+       * CNPJ sintético com dígitos verificadores válidos, e **distinto** dos
+       * das outras suítes: a primeira versão copiou o do `[E2E-F22]`, que
+       * fica na base, e a criação morreu na restrição de unicidade — o teste
+       * reprovou por colisão de fixture, não por defeito do produto.
+       */
+      data: { razaoSocial: `${MARCA_F25} Patrocinadora de prova`, cnpj: "11222333000424" },
+      select: { id: true },
+    });
+    await prisma.contratoPatrocinio.create({
+      data: { patrocinadorId: patrocinador.id, assinaturasAdquiridas: 50 },
+    });
+    const assinante = await prisma.assinante.findFirst({ select: { id: true } });
+    if (assinante) {
+      await prisma.vinculoPatrocinio.create({
+        data: {
+          patrocinadorId: patrocinador.id,
+          assinanteId: assinante.id,
+          inicio: new Date("2026-08-01T00:00:00.000Z"),
+        },
+      });
+    }
+  });
+
+  test.afterAll(async () => {
+    await limparF25();
+  });
+
   for (const caso of casos) {
     test(`${caso.titulo} monta e devolve número`, async ({ page }) => {
       await entrar(page, "gestor@dev.clubebroto.local");
