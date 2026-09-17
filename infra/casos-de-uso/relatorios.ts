@@ -17,6 +17,7 @@ import {
   validarEstruturaDefinicao,
 } from "@/dominio/relatorios/compilador";
 import { type TabelaPivotada, pivotar, tabelaParaCsv } from "@/dominio/relatorios/pivo";
+import { type Visualizacao, validarVisualizacao } from "@/dominio/relatorios/visualizacao";
 import { executarConsultaDeRelatorio } from "@/infra/consultas/relatorios";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
@@ -301,12 +302,31 @@ export async function salvarRelatorio(
   // relatório não salvo, porque aparece na prateleira e falha só ao abrir.
   await executarConsultaDeRelatorio(definicao, { teto: 1 });
 
+  /*
+   * O que se GUARDA é maior do que o que se COMPILA, e a diferença é o ponto.
+   *
+   * `validarEstruturaDefinicao` reconstrói o objeto só com as chaves que o
+   * compilador conhece — é o que impede chave estranha de chegar ao SQL, e
+   * por isso ela não deve aprender sobre visualização. O efeito colateral,
+   * quando a F27 acrescentou o bloco, foi o desenho escolhido ser descartado
+   * em silêncio no salvamento: a tela mostrava barras, o banco guardava a
+   * definição sem elas, e a reabertura voltava em tabela sem nada explicando.
+   *
+   * A visualização é, portanto, validada à parte (`validarVisualizacao`, que
+   * também recorta o que não pertence ao tipo) e anexada só na hora de gravar.
+   * Quem compila continua recebendo apenas a definição estreita.
+   */
+  const visualizacao = validarVisualizacao(
+    (dados.definicao as { visualizacao?: unknown } | null)?.visualizacao,
+  );
+  const definicaoGuardada = { ...definicao, visualizacao };
+
   const criado = await prisma.$transaction(async (tx) => {
     const relatorio = await tx.relatorioSalvo.create({
       data: {
         nome,
         assuntoSlug: definicao.assunto,
-        definicao: definicao as unknown as Prisma.InputJsonValue,
+        definicao: definicaoGuardada as unknown as Prisma.InputJsonValue,
         autorId: ator.id,
         visibilidade: dados.visibilidade ?? "PRIVADO",
       },
@@ -483,7 +503,24 @@ export async function listarRelatorios(ator: Ator): Promise<{
 export async function abrirRelatorio(
   ator: Ator,
   id: string,
-): Promise<{ id: string; nome: string; definicao: DefinicaoRelatorio; meu: boolean }> {
+): Promise<{
+  id: string;
+  nome: string;
+  definicao: DefinicaoRelatorio;
+  /**
+   * RN80 — o desenho escolhido, que viaja no MESMO JSONB da definição.
+   *
+   * Ele é lido aqui, e não em `validarEstruturaDefinicao`, para não criar
+   * ciclo de módulo: `visualizacao` importa `pivo`, que importa `compilador`.
+   * O compilador não precisa saber que existe gráfico — ele monta SQL, e
+   * desenho não muda uma vírgula de SQL.
+   *
+   * Relatório salvo antes da Onda 17 não tem o bloco e recebe o padrão
+   * (tabela), sem migração de dados e sem backfill.
+   */
+  visualizacao: Visualizacao;
+  meu: boolean;
+}> {
   const relatorio = await prisma.relatorioSalvo.findUnique({ where: { id } });
   if (!relatorio) {
     throw new ErroDeValidacao(["Relatório não encontrado."]);
@@ -497,10 +534,12 @@ export async function abrirRelatorio(
   const definicao = validarEstruturaDefinicao(relatorio.definicao);
   exigirAssuntoAlcancavel(ator, definicao.assunto);
 
+  const bruto = relatorio.definicao as { visualizacao?: unknown } | null;
   return {
     id: relatorio.id,
     nome: relatorio.nome,
     definicao,
+    visualizacao: validarVisualizacao(bruto?.visualizacao),
     meu: relatorio.autorId === ator.id,
   };
 }

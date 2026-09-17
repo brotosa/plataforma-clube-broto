@@ -14,6 +14,17 @@ import {
 } from "@/dominio/relatorios/catalogo";
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
+import {
+  AJUSTES_DO_TIPO,
+  ROTULOS_DE_VISUALIZACAO,
+  TIPOS_DE_VISUALIZACAO,
+  type AjustesDeVisualizacao,
+  type Visualizacao,
+  formaDoResultado,
+  tipoEfetivo,
+  tiposDisponiveis,
+} from "@/dominio/relatorios/visualizacao";
+import { GraficoDoRelatorio } from "./grafico";
 import { ErrosDoFormulario } from "../aliados/formularios";
 import {
   apagarRelatorioAction,
@@ -120,6 +131,8 @@ export interface DefinicaoInicial {
   colunas: ReadonlyArray<string>;
   valores: ReadonlyArray<ValorEscolhido>;
   filtros: ReadonlyArray<FiltroEscolhido>;
+  /** Ausente = tabela. Todo relatório salvo antes da Onda 17 cai aqui. */
+  visualizacao?: Visualizacao;
 }
 
 export function Construtor({
@@ -159,6 +172,14 @@ export function Construtor({
    * montavam, travavam no erro e não ofereciam saída nenhuma.
    */
   const [finalidade, setFinalidade] = useState("");
+  /*
+   * RN80 — o tipo ESCOLHIDO, que não é necessariamente o exibido. Quando a
+   * forma do resultado deixa de comportá-lo, a tela mostra tabela e guarda a
+   * escolha: ela volta assim que a forma comportar de novo. Ver `tipoEfetivo`.
+   */
+  const [visual, setVisual] = useState<Visualizacao>(
+    inicial?.visualizacao ?? { tipo: "TABELA", ajustes: {} },
+  );
 
   const idNome = useId();
   const idFinalidade = useId();
@@ -169,9 +190,19 @@ export function Construtor({
     [assunto.campos],
   );
 
+  /*
+   * A visualização entra na definição para ser SALVA junto, e fica de fora do
+   * gatilho da prévia: trocar de barras para rosca não muda uma vírgula do
+   * SQL, e recalcular a consulta a cada clique no alternador castigaria o
+   * banco por uma decisão que é só de desenho.
+   */
   const definicao = useMemo(
     () => ({ assunto: assunto.slug, linhas, colunas, valores, filtros }),
     [assunto.slug, linhas, colunas, valores, filtros],
+  );
+  const definicaoParaSalvar = useMemo(
+    () => ({ ...definicao, visualizacao: visual }),
+    [definicao, visual],
   );
 
   const vazio = linhas.length === 0 && colunas.length === 0 && valores.length === 0;
@@ -268,7 +299,11 @@ export function Construtor({
 
   async function aoSalvar() {
     setAviso(null);
-    const resposta = await salvarRelatorioAction({ nome, definicao, visibilidade });
+    const resposta = await salvarRelatorioAction({
+      nome,
+      definicao: definicaoParaSalvar,
+      visibilidade,
+    });
     setAviso(
       resposta.ok
         ? `Relatório "${nome}" salvo em ${visibilidade === "TIME" ? "Do time" : "Meus relatórios"}.`
@@ -646,7 +681,13 @@ export function Construtor({
                 {aviso}
               </p>
             ) : null}
-            <Resultado previa={previa} vazio={vazio} finalidadePendente={finalidadePendente} />
+            <Resultado
+              previa={previa}
+              vazio={vazio}
+              finalidadePendente={finalidadePendente}
+              visual={visual}
+              aoTrocarVisual={setVisual}
+            />
           </div>
         </section>
       </div>
@@ -776,6 +817,8 @@ function Resultado({
   previa,
   vazio,
   finalidadePendente,
+  visual,
+  aoTrocarVisual,
 }: {
   previa: {
     carregando: boolean;
@@ -787,6 +830,8 @@ function Resultado({
   };
   vazio: boolean;
   finalidadePendente: boolean;
+  visual: Visualizacao;
+  aoTrocarVisual: (visual: Visualizacao) => void;
 }) {
   if (vazio) {
     return (
@@ -821,12 +866,93 @@ function Resultado({
     return <p className="rel-gaveta-vazia">Nenhum registro atende a estes filtros.</p>;
   }
 
+  /*
+   * RN80 — a forma do RESULTADO decide, não a definição. Duas dimensões cujo
+   * cruzamento devolveu uma coluna só não são, na prática, um cruzamento.
+   */
+  const forma = formaDoResultado(tabela, { truncado: previa.truncado });
+  const disponiveis = tiposDisponiveis(forma);
+  const exibido = tipoEfetivo(visual.tipo, forma);
+  const recusa = disponiveis.find((item) => item.tipo === visual.tipo && !item.disponivel);
+
   return (
     <>
-      <div className="rel-resultado" aria-busy={previa.carregando}>
+      <div className="rel-tipos" role="group" aria-label="Tipo de visualização">
+        {TIPOS_DE_VISUALIZACAO.map((tipo) => {
+          const item = disponiveis.find((candidato) => candidato.tipo === tipo)!;
+          return (
+            <button
+              key={tipo}
+              type="button"
+              className="rel-tipo"
+              aria-pressed={visual.tipo === tipo}
+              disabled={!item.disponivel}
+              /* O motivo fica no `title` E no bloco abaixo quando é o tipo
+                 escolhido: no `title` para quem passa o mouse decidindo, no
+                 bloco para quem já escolheu e não entendeu por que veio
+                 tabela. */
+              title={item.motivo ?? ROTULOS_DE_VISUALIZACAO[tipo]}
+              onClick={() => aoTrocarVisual({ tipo, ajustes: {} })}
+            >
+              {ROTULOS_DE_VISUALIZACAO[tipo]}
+            </button>
+          );
+        })}
+      </div>
+
+      {recusa ? (
+        <p className="rel-recusa" role="status">
+          <strong>{ROTULOS_DE_VISUALIZACAO[visual.tipo]}</strong> não serve para o que está
+          montado: {recusa.motivo} A tabela continua abaixo.
+        </p>
+      ) : null}
+
+      {exibido !== "TABELA" ? (
+        <>
+          <GraficoDoRelatorio
+            tabela={tabela}
+            visual={{ ...visual, tipo: exibido }}
+            rotularCategoria={(linha) =>
+              linha.chaves
+                .map((chave, posicao) =>
+                  rotularDimensao(chave, tabela.dimensoes[posicao]?.rotulosDeValor),
+                )
+                .join(" · ")
+            }
+          />
+          <Ajustes
+            visual={{ ...visual, tipo: exibido }}
+            aoTrocar={(ajustes) => aoTrocarVisual({ ...visual, ajustes })}
+          />
+        </>
+      ) : null}
+
+      {/*
+       * O contêiner rola (`overflow:auto` com teto de altura), e região que
+       * rola precisa receber foco: sem `tabindex`, quem navega por teclado
+       * não alcança as linhas abaixo do corte — só o mouse chega lá.
+       *
+       * O defeito é da F24 e esteve em produção desde então. Ele não aparecia
+       * porque as três varreduras axe anteriores escaneiam o construtor
+       * **vazio**: sem prévia carregada não há tabela, sem tabela não há
+       * rolagem, e sem rolagem a regra não se aplica. A primeira varredura com
+       * resultado na tela é a da F27, e foi ela que o encontrou.
+       *
+       * `role="region"` com nome existe para o leitor de tela anunciar onde o
+       * foco parou — um `<div>` focalizável e mudo é pior que nenhum.
+       */}
+      <div
+        className="rel-resultado"
+        aria-busy={previa.carregando}
+        tabIndex={0}
+        role="region"
+        aria-label="Resultado do relatório — role para ver as demais linhas"
+      >
         <table>
           <caption className="sr-oculto">
-            Prévia do relatório, sobre uma amostra dos registros
+            {exibido === "TABELA"
+              ? "Prévia do relatório, sobre uma amostra dos registros"
+              : "Os mesmos números do gráfico acima, em tabela"}
           </caption>
           <thead>
             <tr>
@@ -881,5 +1007,106 @@ function Resultado({
         {previa.duracaoMs !== undefined ? ` Consulta em ${previa.duracaoMs} ms.` : ""}
       </p>
     </>
+  );
+}
+
+/**
+ * Os ajustes do tipo escolhido (RN80).
+ *
+ * Cada tipo mostra só os seus — `AJUSTES_DO_TIPO` é a fonte, e o painel não
+ * tem lista própria. Sem isso, acrescentar um ajuste a um tipo exigiria
+ * lembrar de mexer em dois lugares, e o segundo é o que se esquece.
+ */
+function Ajustes({
+  visual,
+  aoTrocar,
+}: {
+  visual: Visualizacao;
+  aoTrocar: (ajustes: AjustesDeVisualizacao) => void;
+}) {
+  const admitidos = AJUSTES_DO_TIPO[visual.tipo];
+  if (admitidos.length === 0) return null;
+  const atual = visual.ajustes;
+  const trocar = (parcial: AjustesDeVisualizacao) => aoTrocar({ ...atual, ...parcial });
+
+  return (
+    <div className="rel-ajustes">
+      {admitidos.includes("ordenar") ? (
+        <label className="rel-ajuste">
+          Ordenar por
+          <select
+            value={atual.ordenar ?? "MAIOR"}
+            onChange={(evento) =>
+              trocar({ ordenar: evento.target.value as AjustesDeVisualizacao["ordenar"] })
+            }
+          >
+            <option value="MAIOR">maior valor</option>
+            <option value="MENOR">menor valor</option>
+            <option value="ROTULO">ordem do resultado</option>
+          </select>
+        </label>
+      ) : null}
+
+      {admitidos.includes("limite") ? (
+        <label className="rel-ajuste">
+          Mostrar até
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={atual.limite ?? ""}
+            placeholder="todas"
+            onChange={(evento) => {
+              const bruto = Number(evento.target.value);
+              // Campo vazio tira o limite; fora da faixa não vira borda.
+              trocar({
+                limite: Number.isFinite(bruto) && bruto >= 1 && bruto <= 50 ? bruto : undefined,
+              });
+            }}
+          />
+          categorias
+        </label>
+      ) : null}
+
+      {admitidos.includes("empilhamento") ? (
+        <label className="rel-ajuste">
+          Séries
+          <select
+            value={atual.empilhamento ?? "AGRUPADO"}
+            onChange={(evento) =>
+              trocar({
+                empilhamento: evento.target.value as AjustesDeVisualizacao["empilhamento"],
+              })
+            }
+          >
+            <option value="AGRUPADO">lado a lado</option>
+            <option value="EMPILHADO">empilhadas</option>
+            <option value="CEM_POR_CENTO">empilhadas em 100%</option>
+          </select>
+        </label>
+      ) : null}
+
+      {admitidos.includes("rotulosDeDado") ? (
+        <label className="rel-ajuste">
+          <input
+            type="checkbox"
+            checked={atual.rotulosDeDado !== false}
+            onChange={(evento) => trocar({ rotulosDeDado: evento.target.checked })}
+          />
+          Mostrar os valores
+        </label>
+      ) : null}
+
+      {admitidos.includes("marcadores") ? (
+        <label className="rel-ajuste">
+          <input
+            type="checkbox"
+            checked={atual.marcadores !== false}
+            onChange={(evento) => trocar({ marcadores: evento.target.checked })}
+          />
+          Marcar os pontos
+        </label>
+      ) : null}
+    </div>
   );
 }
