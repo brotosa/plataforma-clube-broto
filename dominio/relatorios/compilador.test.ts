@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   DestinacaoOferta,
+  EstadoCampanha,
   EstagioEmpresa,
   NaturezaOferta,
   OrigemEmpresa,
+  OrigemPublicoCampanha,
+  RecomendacaoAvaliacao,
+  StatusAvaliacao,
+  StatusDossie,
   StatusOferta,
+  StatusPatrocinador,
+  TipoMetaCampanha,
 } from "@prisma/client";
 
 import { ASSUNTOS, assuntoPorSlug, campoPorSlug } from "./catalogo";
@@ -435,6 +442,16 @@ describe("os valores fechados são os do banco, não os que alguém lembrou", ()
     { assunto: "ofertas", campo: "oferta-destinacao", valores: DestinacaoOferta },
     { assunto: "aliados", campo: "aliado-estagio", valores: EstagioEmpresa },
     { assunto: "aliados", campo: "aliado-origem", valores: OrigemEmpresa },
+    // F25
+    { assunto: "funil", campo: "empresa-estagio", valores: EstagioEmpresa },
+    { assunto: "funil", campo: "empresa-origem", valores: OrigemEmpresa },
+    { assunto: "funil", campo: "avaliacao-recomendacao", valores: RecomendacaoAvaliacao },
+    { assunto: "funil", campo: "avaliacao-situacao", valores: StatusAvaliacao },
+    { assunto: "funil", campo: "dossie-situacao", valores: StatusDossie },
+    { assunto: "campanhas", campo: "campanha-estado", valores: EstadoCampanha },
+    { assunto: "campanhas", campo: "campanha-origem-publico", valores: OrigemPublicoCampanha },
+    { assunto: "campanhas", campo: "meta-tipo", valores: TipoMetaCampanha },
+    { assunto: "patrocinadores", campo: "patrocinador-status", valores: StatusPatrocinador },
   ];
 
   it.each(enumsPorCampo)("$campo casa com o enum do Prisma", ({ assunto, campo, valores }) => {
@@ -474,5 +491,141 @@ describe("resumo legível", () => {
     expect(resumo).toContain("Ofertas do Clube");
     expect(resumo).toContain("por Aliado");
     expect(resumo).toContain("1 filtro");
+  });
+});
+
+/*
+ * ---------------------------------------------------------------------
+ * F25 — os três assuntos novos
+ * ---------------------------------------------------------------------
+ */
+
+describe("filtro de campo booleano — o defeito que a F24 não exercitou", () => {
+  /*
+   * A F24 entregou três campos de sim/não e NENHUM caminho que os filtrasse:
+   * eles serviam para agrupar, e agrupar não passa pelo compilador de filtro.
+   * O resultado é que `pendente_republicacao = $1` ia para o banco com o
+   * parâmetro em texto, e o Postgres recusava a CONSULTA INTEIRA com
+   * "operator does not exist: boolean = text". Não era número errado — era a
+   * tela não funcionar.
+   *
+   * Apareceu ao rodar contra a base o modelo da F25 que filtra "aprovação
+   * externa registrada = não". Os 30 testes de unidade da F24 continuavam
+   * verdes, e continuariam para sempre.
+   */
+  it("o marcador leva o molde do tipo, e o valor continua sendo parâmetro", () => {
+    const compilado = compilarRelatorio(
+      validarEstruturaDefinicao({
+        assunto: "campanhas",
+        linhas: ["campanha-nome"],
+        colunas: [],
+        valores: [],
+        filtros: [
+          { campo: "campanha-aprovacao-registrada", operador: "igual", valores: ["false"] },
+        ],
+      }),
+    );
+    expect(compilado.sql).toContain("::boolean");
+    // O molde é do compilador; o valor segue no bind, como manda a RN75.
+    expect(compilado.sql).not.toContain("false");
+    expect(compilado.parametros).toContain("false");
+  });
+
+  it("campo que não é booleano não ganha molde nenhum", () => {
+    const compilado = compilarRelatorio(
+      validarEstruturaDefinicao({
+        ...definicaoBase,
+        filtros: [{ campo: "oferta-status", operador: "igual", valores: ["PUBLICADA"] }],
+      }),
+    );
+    expect(compilado.sql).not.toContain("::boolean");
+  });
+});
+
+describe("RN43 — o tipo de meta nunca aparece sem o nível de atribuição", () => {
+  /*
+   * A garantia não é estética. Num construtor livre, "Resgates" e
+   * "Conversão %" caem na mesma coluna e alguém soma os alvos — misturando
+   * contagem de voucher com percentual. O nível colado ao rótulo não impede a
+   * soma; faz a mistura ficar visível na própria célula.
+   */
+  const campo = campoPorSlug(assuntoPorSlug("campanhas")!, "meta-tipo")!;
+
+  it("cada opção traz o nível que a medição exige", () => {
+    const porValor = new Map(campo.valores!.map((opcao) => [opcao.valor, opcao.rotulo]));
+    expect(porValor.get("RESGATES")).toContain("por oferta");
+    expect(porValor.get("CONVERSAO_PCT")).toContain("por público");
+  });
+
+  it("nenhuma opção fica sem nível", () => {
+    const semNivel = campo.valores!.filter((opcao) => !opcao.rotulo.includes("·"));
+    expect(semNivel, "meta sem nível de atribuição no rótulo").toEqual([]);
+  });
+});
+
+describe("RN62/RN44 — o que os assuntos novos se recusam a calcular", () => {
+  /*
+   * Os dois campos abaixo existem no catálogo para serem VISTOS (RN77): quem
+   * procura saldo e realizado precisa saber por que não estão lá, senão abre
+   * chamado — ou, pior, monta uma aproximação por fora.
+   */
+  it.each([
+    { assunto: "patrocinadores", campo: "patrocinador-saldo", motivo: /RN62/ },
+    { assunto: "campanhas", campo: "campanha-realizado", motivo: /RN43/ },
+  ])("$campo está declarado indisponível, com o motivo escrito", ({ assunto, campo, motivo }) => {
+    const definicao = campoPorSlug(assuntoPorSlug(assunto)!, campo)!;
+    expect(definicao.indisponivel).toMatch(motivo);
+    expect(() =>
+      compilarRelatorio(
+        validarEstruturaDefinicao({
+          assunto,
+          linhas: [],
+          colunas: [],
+          valores: [{ campo, agregacao: "SOMA" }],
+          filtros: [],
+        }),
+      ),
+    ).toThrow(ErroDeRelatorioInvalido);
+  });
+
+  it("nenhum campo do catálogo refaz a subtração do saldo", () => {
+    /*
+     * A cerca `saldo-derivado` varre `app/`, `infra/` e `dominio/` procurando
+     * a subtração. Esta asserção é a mesma pergunta feita de dentro: o
+     * catálogo é o lugar onde a tentação é maior, porque bastaria uma
+     * expressão a mais num campo para o número aparecer — e ele apareceria
+     * como zero justamente quando as adquiridas não estivessem confirmadas.
+     */
+    const suspeitos = ASSUNTOS.flatMap((assunto) =>
+      assunto.campos
+        .filter((campo) => /adquiridas\s*-/i.test(campo.sql))
+        .map((campo) => `${assunto.slug}/${campo.slug}`),
+    );
+    expect(suspeitos).toEqual([]);
+  });
+});
+
+describe("RN76 — cada assunto declara a ação que a plataforma já usa", () => {
+  /*
+   * O Gerador entrega o que a pessoa já alcança, nunca mais e nunca menos. A
+   * conferência é contra a matriz de permissões de verdade: `Acao` que não
+   * exista lá não compilaria, mas uma ação EXISTENTE e errada — pedir
+   * `MODELAR_CAMPANHA` para ler campanhas, por exemplo — compila e esconde o
+   * assunto de quem tem direito a ele.
+   */
+  it.each([
+    { slug: "ofertas", permissao: "VISUALIZAR" },
+    { slug: "aliados", permissao: "VISUALIZAR" },
+    { slug: "funil", permissao: "VISUALIZAR_FUNIL" },
+    { slug: "campanhas", permissao: "VISUALIZAR" },
+    { slug: "patrocinadores", permissao: "VISUALIZAR_PATROCINADORES" },
+  ])("$slug exige $permissao", ({ slug, permissao }) => {
+    expect(assuntoPorSlug(slug)!.permissao).toBe(permissao);
+  });
+
+  it("a lista acima cobre todos os assuntos do catálogo", () => {
+    // Sem isto, um assunto novo entraria sem que ninguém conferisse a ação
+    // dele — e a conferência que conta é justamente a do assunto novo.
+    expect(ASSUNTOS.length).toBe(5);
   });
 });
