@@ -633,3 +633,114 @@ test.describe.serial("F26 — Telemetria, Assinantes e Auditoria", () => {
     }
   });
 });
+
+/**
+ * F27 — a visualização (RN80–RN82).
+ *
+ * Os testes que importam aqui são os de RECUSA. O caminho feliz — clicar em
+ * "Barras" e ver barras — falha ruidosamente se quebrar; a recusa falha em
+ * silêncio, desenhando algo plausível e errado, e é para isso que ela existe.
+ */
+test.describe.serial("F27 — escolher o desenho, e as recusas", () => {
+  test("o alternador troca a tabela por barras, e a tabela continua abaixo", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Barras", exact: true }).click();
+
+    // O desenho aparece...
+    await expect(page.locator(".rel-grafico svg rect").first()).toBeVisible();
+    // ...e a tabela NÃO sai (RN81): ela é a alternativa textual do gráfico.
+    await expect(page.locator(".rel-resultado table")).toBeVisible();
+  });
+
+  test("linha é recusada sem dimensão de data, e o motivo explica (RN80)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    /*
+     * Aliado não é uma sequência: ligar "AGROMOVE" a "Checkplant" afirmaria
+     * uma progressão que não existe. O botão fica apagado — e VISÍVEL, para
+     * quem procura entender por que não pode (RN77).
+     */
+    const linha = page.getByRole("button", { name: "Linha", exact: true });
+    await expect(linha).toBeVisible();
+    await expect(linha).toBeDisabled();
+    await expect(linha).toHaveAttribute("title", /continuidade/);
+  });
+
+  test("rosca é recusada com categorias demais, e o motivo traz o número", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    // 21 aliados — bem acima do teto de 6 fatias.
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    const rosca = page.getByRole("button", { name: "Rosca", exact: true });
+    await expect(rosca).toBeDisabled();
+    await expect(rosca).toHaveAttribute("title", /fatias/);
+  });
+
+  test("com poucas categorias a rosca abre, e mostra o total", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    // Natureza tem 3 valores: cabe na rosca.
+    await page.goto("/relatorios?assunto=ofertas");
+    await page.getByRole("button", { name: "Pôr Natureza em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Rosca", exact: true }).click();
+    await expect(page.locator(".rel-grafico svg path").first()).toBeVisible();
+    await expect(page.getByText("total", { exact: true })).toBeVisible();
+  });
+
+  test("os ajustes do tipo aparecem, e só os dele (RN80)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Barras", exact: true }).click();
+    await expect(page.getByLabel(/Ordenar por/)).toBeVisible();
+    await expect(page.getByLabel(/Mostrar os valores/)).toBeVisible();
+    // "Séries" é de colunas cruzadas, não de barras.
+    await expect(page.getByLabel(/^Séries/)).toHaveCount(0);
+
+    // O limite corta categorias, e a tabela continua inteira.
+    await page.getByLabel(/Mostrar até/).fill("3");
+    await expect(page.locator(".rel-grafico svg rect")).toHaveCount(3);
+    await expect(page.locator(".rel-resultado tbody tr").nth(3)).toBeVisible();
+  });
+
+  test("o desenho escolhido é salvo e volta ao reabrir", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Barras", exact: true }).click();
+
+    const nome = `${MARCA} com barras`;
+    await page.getByLabel("Nome do relatório").fill(nome);
+    await page.getByRole("button", { name: "Salvar", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("salvo");
+
+    await page.goto("/relatorios");
+    await page.getByRole("heading", { name: nome, exact: true }).click();
+
+    // O que prova a persistência: o gráfico está lá antes de qualquer clique.
+    await expect(page.locator(".rel-grafico svg rect").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Barras", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("axe-core (AAA) sem violações com o gráfico na tela", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    for (const tipo of ["Barras", "Colunas"]) {
+      await page.getByRole("button", { name: tipo, exact: true }).click();
+      await expect(page.locator(".rel-grafico svg").first()).toBeVisible();
+      await semViolacoesAxe(page);
+    }
+  });
+});

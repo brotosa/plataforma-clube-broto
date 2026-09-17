@@ -302,12 +302,31 @@ export async function salvarRelatorio(
   // relatório não salvo, porque aparece na prateleira e falha só ao abrir.
   await executarConsultaDeRelatorio(definicao, { teto: 1 });
 
+  /*
+   * O que se GUARDA é maior do que o que se COMPILA, e a diferença é o ponto.
+   *
+   * `validarEstruturaDefinicao` reconstrói o objeto só com as chaves que o
+   * compilador conhece — é o que impede chave estranha de chegar ao SQL, e
+   * por isso ela não deve aprender sobre visualização. O efeito colateral,
+   * quando a F27 acrescentou o bloco, foi o desenho escolhido ser descartado
+   * em silêncio no salvamento: a tela mostrava barras, o banco guardava a
+   * definição sem elas, e a reabertura voltava em tabela sem nada explicando.
+   *
+   * A visualização é, portanto, validada à parte (`validarVisualizacao`, que
+   * também recorta o que não pertence ao tipo) e anexada só na hora de gravar.
+   * Quem compila continua recebendo apenas a definição estreita.
+   */
+  const visualizacao = validarVisualizacao(
+    (dados.definicao as { visualizacao?: unknown } | null)?.visualizacao,
+  );
+  const definicaoGuardada = { ...definicao, visualizacao };
+
   const criado = await prisma.$transaction(async (tx) => {
     const relatorio = await tx.relatorioSalvo.create({
       data: {
         nome,
         assuntoSlug: definicao.assunto,
-        definicao: definicao as unknown as Prisma.InputJsonValue,
+        definicao: definicaoGuardada as unknown as Prisma.InputJsonValue,
         autorId: ator.id,
         visibilidade: dados.visibilidade ?? "PRIVADO",
       },
