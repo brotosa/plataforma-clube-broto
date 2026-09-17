@@ -17,6 +17,7 @@ import {
   resumirPoliticaDeSenha,
   resumirPoliticaDeSessao,
 } from "@/dominio/usuarios/resumo-politicas";
+import { historicoDasConfiguracoes } from "@/infra/consultas/configuracoes";
 import { FormularioPoliticaSenha } from "./formulario-politica-senha";
 import { FormularioTempoSessao } from "./formulario-tempo-sessao";
 import { FormularioBloqueioLogin } from "./formulario-bloqueio-login";
@@ -62,6 +63,22 @@ const ABA_PADRAO: AbaId = "senha";
  * `infra/arquitetura/navegacao-por-query.test.ts`, onde esta tela está
  * declarada.
  */
+/**
+ * A legenda de histórico sob cada formulário — o mesmo lugar e o mesmo tom
+ * que o Parametrizador usa na T17 (`.pm-hist`).
+ *
+ * Fica **depois** do formulário de propósito: a pergunta "isto mudou?" vem
+ * depois de ler o que está valendo, não antes. Posta acima, competiria com o
+ * próprio campo pela atenção de quem veio configurar.
+ */
+function LegendaDeHistorico({ texto }: { texto: string }) {
+  return (
+    <p className="cap pm-hist" style={{ marginTop: 8 }}>
+      {texto}
+    </p>
+  );
+}
+
 export default async function PaginaConfiguracoes({
   searchParams,
 }: {
@@ -89,15 +106,26 @@ export default async function PaginaConfiguracoes({
    * bloqueadas" atrás de uma aba derrotaria o propósito da faixa. As listas são
    * curtas por natureza (quase sempre vazias), então não há o que economizar.
    */
-  const [politica, politicaSessao, politicaLogin, bloqueados, politicaOrigem, origens] =
-    await Promise.all([
-      lerPoliticaDeSenha(),
-      lerPoliticaDeSessao(),
-      lerPoliticaDeLogin(),
-      listarLoginsBloqueados(),
-      lerPoliticaDeOrigem(),
-      listarOrigensBloqueadas(),
-    ]);
+  const [
+    politica,
+    politicaSessao,
+    politicaLogin,
+    bloqueados,
+    politicaOrigem,
+    origens,
+    historico,
+  ] = await Promise.all([
+    lerPoliticaDeSenha(),
+    lerPoliticaDeSessao(),
+    lerPoliticaDeLogin(),
+    listarLoginsBloqueados(),
+    lerPoliticaDeOrigem(),
+    listarOrigensBloqueadas(),
+    // Uma consulta só para os quatro grupos: a trilha é lida uma vez e
+    // repartida em memória. Quatro consultas dariam o mesmo resultado e
+    // quadruplicariam o custo de uma tela que se abre o tempo todo.
+    historicoDasConfiguracoes(),
+  ]);
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
@@ -153,6 +181,7 @@ export default async function PaginaConfiguracoes({
           </p>
 
           <FormularioPoliticaSenha inicial={politica} />
+          <LegendaDeHistorico texto={historico.SENHA} />
 
           <h3 className="h-el" style={{ margin: "28px 0 4px", fontSize: "1rem" }}>
             Aplicar a política à base existente
@@ -178,6 +207,7 @@ export default async function PaginaConfiguracoes({
           </p>
 
           <FormularioTempoSessao inicial={politicaSessao} />
+          <LegendaDeHistorico texto={historico.SESSAO} />
         </>
       ) : null}
 
@@ -192,6 +222,7 @@ export default async function PaginaConfiguracoes({
           </p>
 
           <FormularioBloqueioLogin inicial={politicaLogin} />
+          <LegendaDeHistorico texto={historico.LOGIN} />
 
           <h3 className="h-el" style={{ margin: "20px 0 4px", fontSize: "1rem" }}>
             Contas bloqueadas
@@ -220,6 +251,7 @@ export default async function PaginaConfiguracoes({
           </p>
 
           <FormularioBloqueioOrigem inicial={politicaOrigem} />
+          <LegendaDeHistorico texto={historico.ORIGEM} />
 
           <h3 className="h-el" style={{ margin: "20px 0 4px", fontSize: "1rem" }}>
             Endereços bloqueados
