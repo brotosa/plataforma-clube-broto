@@ -2,12 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   DestinacaoOferta,
   EstadoCampanha,
+  EstadoUsuarioAssinante,
   EstagioEmpresa,
   NaturezaOferta,
   OrigemEmpresa,
   OrigemPublicoCampanha,
+  PerfilAssinatura,
+  PlanoAssinatura,
+  PreferenciaAssinante,
   RecomendacaoAvaliacao,
   StatusAvaliacao,
+  StatusBaseAssinante,
   StatusDossie,
   StatusOferta,
   StatusPatrocinador,
@@ -452,6 +457,14 @@ describe("os valores fechados são os do banco, não os que alguém lembrou", ()
     { assunto: "campanhas", campo: "campanha-origem-publico", valores: OrigemPublicoCampanha },
     { assunto: "campanhas", campo: "meta-tipo", valores: TipoMetaCampanha },
     { assunto: "patrocinadores", campo: "patrocinador-status", valores: StatusPatrocinador },
+    // F26
+    { assunto: "telemetria-catalogo", campo: "tc-natureza", valores: NaturezaOferta },
+    { assunto: "telemetria-resgates", campo: "tr-perfil", valores: PerfilAssinatura },
+    { assunto: "assinantes", campo: "as-situacao", valores: StatusBaseAssinante },
+    { assunto: "assinantes", campo: "as-preferencia", valores: PreferenciaAssinante },
+    { assunto: "assinantes", campo: "as-perfil", valores: PerfilAssinatura },
+    { assunto: "assinantes", campo: "as-estado-usuario", valores: EstadoUsuarioAssinante },
+    { assunto: "assinantes", campo: "as-plano", valores: PlanoAssinatura },
   ];
 
   it.each(enumsPorCampo)("$campo casa com o enum do Prisma", ({ assunto, campo, valores }) => {
@@ -619,6 +632,14 @@ describe("RN76 — cada assunto declara a ação que a plataforma já usa", () =
     { slug: "funil", permissao: "VISUALIZAR_FUNIL" },
     { slug: "campanhas", permissao: "VISUALIZAR" },
     { slug: "patrocinadores", permissao: "VISUALIZAR_PATROCINADORES" },
+    // F26 — os três sensíveis. Os dois de dado pessoal ficam com a ação que
+    // a Onda 5 já usa para PF pleno: Gestor e Administrador, por decisão da
+    // TI em 17/09. O contador de catálogo não tem dado de pessoa e fica
+    // aberto; a Auditoria segue a leitura de todos que a RN48 determina.
+    { slug: "telemetria-catalogo", permissao: "VISUALIZAR" },
+    { slug: "telemetria-resgates", permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS" },
+    { slug: "assinantes", permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS" },
+    { slug: "auditoria", permissao: "VISUALIZAR_AUDITORIA" },
   ])("$slug exige $permissao", ({ slug, permissao }) => {
     expect(assuntoPorSlug(slug)!.permissao).toBe(permissao);
   });
@@ -626,6 +647,6 @@ describe("RN76 — cada assunto declara a ação que a plataforma já usa", () =
   it("a lista acima cobre todos os assuntos do catálogo", () => {
     // Sem isto, um assunto novo entraria sem que ninguém conferisse a ação
     // dele — e a conferência que conta é justamente a do assunto novo.
-    expect(ASSUNTOS.length).toBe(5);
+    expect(ASSUNTOS.length).toBe(9);
   });
 });
