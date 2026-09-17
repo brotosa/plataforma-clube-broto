@@ -1360,7 +1360,18 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .rel-campo{display:flex;align-items:center;justify-content:space-between;gap:6px;
   padding:6px 8px;border-radius:var(--r-xs);font:var(--font-body-caption-regular);color:var(--preto)}
 .rel-campo:hover{background:var(--azul-lightest)}
-.rel-campo[data-indisponivel="sim"]{opacity:.55}
+/* Campo indisponível (RN77): apagado, e ainda LEGÍVEL.
+   `opacity:.55` era o jeito óbvio e estava errado. Opacidade dilui o texto
+   contra o fundo: o `--preto` do nome virava #89867d (3,63:1) e o
+   `--paragrafo-aaa` do tipo virava #a09e9a (2,67:1) — os dois abaixo do piso
+   de 4,5:1 do AA, quanto mais do 7:1 do AAA que esta plataforma exige.
+   Entrou na F24, atravessou a F25 e só apareceu na F26, quando o axe passou
+   a varrer um assunto cujo campo indisponível fica no alto da lista.
+   O apagamento agora é COR, escolhida para passar: o campo continua
+   visivelmente secundário, e quem precisa lê. */
+.rel-campo[data-indisponivel="sim"]{background:var(--off)}
+.rel-campo[data-indisponivel="sim"] .rel-campo-nome strong,
+.rel-campo[data-indisponivel="sim"] .rel-campo-tipo{color:var(--paragrafo-aaa)}
 .rel-campo-nome{display:flex;flex-direction:column;gap:1px;min-width:0}
 .rel-campo-nome strong{font:var(--font-body-caption-bold)}
 .rel-campo-tipo{font:var(--font-body-smaller-regular);color:var(--paragrafo-aaa)}
