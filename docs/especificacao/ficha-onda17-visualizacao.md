@@ -1,7 +1,7 @@
 # Ficha de Módulo — Onda 17: Visualização do Gerador
 **Plataforma de Administração e Gestão do Clube Broto** · v0.1 para validação · 17/09/2026
 
-Extensão da **T36**, sem tela nova e **sem migration**. O resultado que hoje só sai em tabela passa a poder ser desenhado: sete tipos de visualização, ajustes por tipo, e as recusas que impedem o desenho de afirmar o que o número não sustenta. Onda de **uma fase (F27)**. Sobre a versão **1.6.0**.
+Extensão da **T36**, sem tela nova e **sem migration**. O resultado que hoje só sai em tabela passa a poder ser desenhado: sete tipos de visualização, ajustes por tipo, e as recusas que impedem o desenho de afirmar o que o número não sustenta. Onda de **uma fase (F27)**. Sobre a versão **1.5.0**.
 
 > **Ficha antes do código, como manda o rito da casa.** Nada foi implementado. A numeração **RN80–RN82** é proposta: a Superintendência pode recusá-la ou renomeá-la sem custo de retrabalho.
 

@@ -1,7 +1,7 @@
 # Ficha de Módulo — Onda 20 (antecipada): Saída do relatório
 **Plataforma de Administração e Gestão do Clube Broto** · v0.1 para validação · 17/09/2026
 
-Extensão da **T36**, sem tela nova. O resultado que hoje só sai em CSV passa a sair também em **HTML calibrado para impressão**, em **XLSX** e pela **área de transferência**. Onda de duas fases: a **F28** entrega os formatos, e a **F29** — que **não** tem via livre — trataria do agendamento e do envio. Sobre a versão **1.7.0**.
+Extensão da **T36**, sem tela nova. O resultado que hoje só sai em CSV passa a sair também em **HTML calibrado para impressão**, em **XLSX** e pela **área de transferência**. Onda de duas fases: a **F28** entrega os formatos, e a **F29** — que **não** tem via livre — trataria do agendamento e do envio. Sobre a versão **1.5.0**.
 
 > **Ficha antes do código.** Nada foi implementado. A numeração **RN83–RN85** é proposta: a Superintendência pode recusá-la ou renomeá-la sem custo de retrabalho.
 
