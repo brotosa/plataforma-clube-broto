@@ -87,13 +87,13 @@ export default async function PaginaDeRelatorios({
 
   if (visiveis.length === 0) {
     return (
-      <>
-        <h1 className="h1">Gerador de relatórios</h1>
-        <p className="aviso-inline" role="status">
+      <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+        <h1 className="h-page">Gerador de relatórios</h1>
+        <p className="aviso-inline" role="status" style={{ marginTop: 14 }}>
           Seu papel ainda não alcança nenhum assunto de relatório. O Gerador não amplia o que
           você já vê na plataforma — ele reorganiza.
         </p>
-      </>
+      </div>
     );
   }
 
@@ -102,12 +102,11 @@ export default async function PaginaDeRelatorios({
     const assunto = visiveis.find((item) => item.slug === salvo.definicao.assunto);
     if (assunto) {
       return (
-        <>
-          <h1 className="h1">{salvo.nome}</h1>
-          <p className="sub">
-            {assunto.rotulo} ·{" "}
-            <a href="/relatorios">voltar à galeria</a>
-          </p>
+        <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+          <h1 className="h-page">{salvo.nome}</h1>
+          <div className="cap" style={{ margin: "4px 0 18px" }}>
+            {assunto.rotulo} · <a href="/relatorios">voltar à galeria</a>
+          </div>
           <Construtor
             assunto={serializar(assunto)}
             inicial={{
@@ -121,7 +120,7 @@ export default async function PaginaDeRelatorios({
             }}
             relatorioAberto={{ id: salvo.id, nome: salvo.nome, meu: salvo.meu }}
           />
-        </>
+        </div>
       );
     }
   }
@@ -132,28 +131,28 @@ export default async function PaginaDeRelatorios({
 
   if (assuntoEscolhido) {
     return (
-      <>
-        <h1 className="h1">{assuntoEscolhido.rotulo}</h1>
-        <p className="sub">
+      <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+        <h1 className="h-page">{assuntoEscolhido.rotulo}</h1>
+        <div className="cap" style={{ margin: "4px 0 18px" }}>
           {assuntoEscolhido.descricao} · <a href="/relatorios">trocar de assunto</a>
-        </p>
+        </div>
         <Construtor assunto={serializar(assuntoEscolhido)} />
-      </>
+      </div>
     );
   }
 
   const { meus, doTime } = await listarRelatorios(ator);
 
   return (
-    <>
-      <h1 className="h1">Gerador de relatórios</h1>
-      <p className="sub">
+    <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
+      <h1 className="h-page">Gerador de relatórios</h1>
+      <div className="cap" style={{ margin: "4px 0 22px", maxWidth: "88ch" }}>
         Escolha um assunto e monte a pergunta. O Gerador não acrescenta dado nenhum — ele
         reorganiza o que a plataforma já tem, com o que o seu papel alcança.
-      </p>
+      </div>
 
       <section aria-labelledby="titulo-assuntos" style={{ marginBottom: 24 }}>
-        <h2 id="titulo-assuntos" className="h2">
+        <h2 id="titulo-assuntos" className="h-el">
           Assuntos
         </h2>
         <div className="rel-assuntos">
@@ -180,7 +179,7 @@ export default async function PaginaDeRelatorios({
         vazia="Ninguém compartilhou relatório com o time ainda."
         itens={doTime}
       />
-    </>
+    </div>
   );
 }
 
@@ -202,7 +201,7 @@ function Prateleira({
 }) {
   return (
     <section aria-labelledby={`titulo-${titulo}`} style={{ marginBottom: 24 }}>
-      <h2 id={`titulo-${titulo}`} className="h2">
+      <h2 id={`titulo-${titulo}`} className="h-el">
         {titulo}
       </h2>
       {itens.length === 0 ? (

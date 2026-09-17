@@ -101,12 +101,13 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await page.getByRole("button", { name: "Pôr Score de scouting em Valores" }).click();
     await page.getByLabel("Medida de Score de scouting").selectOption("MEDIA");
 
-    // `.aviso-erro` e não `getByRole("alert")`: o Next mantém um
-    // `<div role="alert">` próprio para anunciar navegação, e ele casaria
-    // junto. Mirar a classe da mensagem é o que distingue as duas.
-    await expect(page.locator(".aviso-erro")).toContainText(/ficariam infladas/, {
-      timeout: 20_000,
-    });
+    // Localizado pelo TEXTO, e não por `getByRole("alert")` sozinho: o Next
+    // mantém um `<div role="alert">` próprio para anunciar navegação, e ele
+    // casaria junto. Antes isto mirava uma classe `.aviso-erro` que eu havia
+    // inventado e que não existe no CSS — o localizador funcionava, e a
+    // mensagem aparecia sem o estilo de erro. A recusa agora usa o
+    // `ErrosDoFormulario` que a plataforma já tinha.
+    await expect(page.getByText(/ficariam infladas/)).toBeVisible({ timeout: 20_000 });
   });
 
   test("salvar põe na prateleira e abrir recarrega a definição", async ({ page }) => {
