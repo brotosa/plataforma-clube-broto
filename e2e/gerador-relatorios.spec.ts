@@ -42,6 +42,46 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await expect(page.getByRole("heading", { name: "Rede de Aliados" })).toBeVisible();
   });
 
+  test("a abertura lidera com os relatórios prontos, e um deles abre montado", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios");
+
+    /*
+     * A garantia desta tela, e a razão de ela ter mudado: os modelos do
+     * catálogo existiam desde a F24 e só apareciam DENTRO do construtor — isto
+     * é, depois de a pessoa já ter escolhido um assunto. Agora estão na
+     * abertura, e um clique precisa entregar o número, não um formulário
+     * vazio com o nome certo no alto.
+     */
+    await expect(page.getByRole("heading", { name: "Relatórios prontos" })).toBeVisible();
+    await page.getByRole("heading", { name: "Ofertas publicadas por aliado" }).click();
+
+    await expect(page).toHaveURL(/assunto=ofertas&modelo=ofertas-por-aliado/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Ofertas publicadas por aliado" }),
+    ).toBeVisible();
+
+    // Montado de verdade: o chip do modelo está na gaveta e a tabela veio com
+    // número. Sem esta asserção, o teste passaria com o construtor em branco.
+    await expect(page.getByRole("button", { name: /Tirar Aliado de Linhas/ })).toBeVisible();
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    const medida = tabela.locator("tbody tr").first().locator("td.num").first();
+    expect(Number((await medida.innerText()).replace(/\./g, "").trim())).toBeGreaterThan(0);
+  });
+
+  test("modelo desconhecido abre o construtor vazio, não uma tela de erro", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=inventado-por-um-link-velho");
+
+    // O que a pessoa queria — montar um relatório de ofertas — continua
+    // possível. Falhar aqui seria punir alguém por um favorito antigo.
+    await expect(page.getByRole("heading", { level: 1, name: "Ofertas do Clube" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pôr Situação em Linhas" })).toBeVisible();
+  });
+
   test("montar por teclado produz número — o arrasto não é o único caminho", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/relatorios?assunto=ofertas");
@@ -181,14 +221,25 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
  * RN76 — a metade que só se prova com duas contas.
  *
  * O relatório é compartilhado por quem pode ver o assunto; outra pessoa o
- * abre e a consulta roda com a permissão DELA. Hoje os dois assuntos da F24
- * exigem `VISUALIZAR`, que todo papel tem, então o que se pode provar aqui é
- * que o compartilhado aparece para o outro e abre — a negativa por papel só
- * ganhará teste quando a F26 trouxer um assunto de alcance restrito.
+ * abre e a consulta roda com a permissão DELA. O que se pode provar aqui é
+ * que o compartilhado aparece para o outro e abre; a **negativa** — assunto
+ * que some para quem não o alcança — continua sem teste.
+ *
+ * **A F25 não a destravou, e o registro do porquê importa.** A expectativa
+ * era que `VISUALIZAR_FUNIL` e `VISUALIZAR_PATROCINADORES` fossem de alcance
+ * restrito. Não são: as duas estão concedidas aos sete papéis nomeados da
+ * matriz, e o oitavo tem acesso total — na prática, todo mundo. Campanhas
+ * ficou em `VISUALIZAR` pelo mesmo motivo, porque a T22 não fecha a leitura
+ * da lista a papel nenhum.
+ *
+ * Não há, hoje, nenhum papel que perca um assunto do Gerador. A negativa só
+ * ganha teste na F26, com Assinantes: `VISUALIZAR_DADOS_PESSOAIS_PLENOS` é de
+ * Gestor e Administrador, e é aí que `assuntosVisiveis` passa a devolver
+ * listas diferentes para contas diferentes.
  *
  * Deixar isto escrito importa mais que o teste: quem for implementar a F26
- * precisa saber que esta é a garantia a exercitar, e que ela ainda não está
- * exercitada.
+ * precisa saber que esta é a garantia a exercitar, que ela ainda não está
+ * exercitada, e que a matriz de permissões já foi conferida duas vezes.
  */
 test.describe.serial("RN76 — relatório do time", () => {
   test("o que é compartilhado aparece para outra conta", async ({ page }) => {
@@ -225,5 +276,170 @@ test.describe.serial("RN76 — relatório do time", () => {
     await entrar(page, "leitura@dev.clubebroto.local");
     await page.goto("/relatorios");
     await expect(page.getByRole("heading", { name: nome })).toHaveCount(0);
+  });
+});
+
+/**
+ * F25 — os três assuntos novos, contra o banco de verdade.
+ *
+ * A asserção que interessa é a mesma da F24 e pelo mesmo motivo: **há linha e
+ * há número**. Tudo o mais — gavetas, chips, layout, ausência de erro no
+ * console — passa com a consulta devolvendo zero linhas, e um assunto cujo
+ * SQL não roda é indistinguível de um assunto sem dado.
+ *
+ * E ela não é hipotética aqui. Três defeitos desta fase só apareceram ao
+ * rodar contra a base: uma coluna que o Prisma criou em camelCase sem `@map`,
+ * e o filtro de campo booleano, que a F24 deixou quebrado porque nenhum
+ * caminho dela filtrava por sim/não.
+ */
+test.describe.serial("F25 — Funil, Campanhas e Patrocinadores", () => {
+  const casos = [
+    { slug: "funil", titulo: "Funil de prospecção", dimensao: "Estágio" },
+    { slug: "campanhas", titulo: "Campanhas e Cestas", dimensao: "Estado" },
+    { slug: "patrocinadores", titulo: "Patrocinadores", dimensao: "Patrocinador" },
+  ];
+
+  /*
+   * A fixture existe porque a primeira versão destes testes **passou por
+   * acaso**: campanhas e vínculos de patrocínio ficaram na base como resíduo
+   * de outras suítes, e ao rodar este arquivo sozinho — depois de aquelas
+   * limparem o que criaram — a prévia devolveu "Nenhum registro atende a
+   * estes filtros" e a tabela nunca apareceu.
+   *
+   * A base povoada de desenvolvimento tem aliados e ofertas de verdade, então
+   * Ofertas, Rede e Funil se sustentam sozinhos. Campanha e vínculo, não: o
+   * seed não cria nenhum dos dois. Depender de resíduo é depender da ordem de
+   * execução, que é exatamente o tipo de teste que reprova na máquina de
+   * outra pessoa e passa na sua.
+   */
+  const MARCA_F25 = "[E2E-F25]";
+
+  async function limparF25() {
+    const campanhas = await prisma.campanha.findMany({
+      where: { nome: { startsWith: MARCA_F25 } },
+      select: { id: true },
+    });
+    const ids = campanhas.map((campanha) => campanha.id);
+    await prisma.metaCampanha.deleteMany({ where: { campanhaId: { in: ids } } });
+    await prisma.campanha.deleteMany({ where: { id: { in: ids } } });
+
+    const patrocinadores = await prisma.patrocinador.findMany({
+      where: { razaoSocial: { startsWith: MARCA_F25 } },
+      select: { id: true },
+    });
+    const idsPatrocinador = patrocinadores.map((patrocinador) => patrocinador.id);
+    await prisma.vinculoPatrocinio.deleteMany({
+      where: { patrocinadorId: { in: idsPatrocinador } },
+    });
+    await prisma.contratoPatrocinio.deleteMany({
+      where: { patrocinadorId: { in: idsPatrocinador } },
+    });
+    await prisma.patrocinador.deleteMany({ where: { id: { in: idsPatrocinador } } });
+  }
+
+  test.beforeAll(async () => {
+    await limparF25();
+    const autor = await prisma.usuario.findFirstOrThrow({
+      where: { email: "gestor@dev.clubebroto.local" },
+      select: { id: true },
+    });
+
+    /*
+     * Duas metas de NÍVEIS diferentes de propósito: é o que faz o teste do
+     * rótulo com atribuição valer alguma coisa. Com uma meta só, "por oferta"
+     * apareceria por sorte.
+     */
+    await prisma.campanha.create({
+      data: {
+        nome: `${MARCA_F25} campanha de prova`,
+        estado: "ATIVA",
+        autorId: autor.id,
+        vigenciaInicio: new Date("2026-08-01T00:00:00.000Z"),
+        vigenciaFim: new Date("2026-08-31T00:00:00.000Z"),
+        metas: {
+          create: [
+            { tipo: "RESGATES", alvo: 100 },
+            { tipo: "CONVERSAO_PCT", alvo: 5 },
+          ],
+        },
+      },
+    });
+
+    const patrocinador = await prisma.patrocinador.create({
+      /*
+       * CNPJ sintético com dígitos verificadores válidos, e **distinto** dos
+       * das outras suítes: a primeira versão copiou o do `[E2E-F22]`, que
+       * fica na base, e a criação morreu na restrição de unicidade — o teste
+       * reprovou por colisão de fixture, não por defeito do produto.
+       */
+      data: { razaoSocial: `${MARCA_F25} Patrocinadora de prova`, cnpj: "11222333000424" },
+      select: { id: true },
+    });
+    await prisma.contratoPatrocinio.create({
+      data: { patrocinadorId: patrocinador.id, assinaturasAdquiridas: 50 },
+    });
+    const assinante = await prisma.assinante.findFirst({ select: { id: true } });
+    if (assinante) {
+      await prisma.vinculoPatrocinio.create({
+        data: {
+          patrocinadorId: patrocinador.id,
+          assinanteId: assinante.id,
+          inicio: new Date("2026-08-01T00:00:00.000Z"),
+        },
+      });
+    }
+  });
+
+  test.afterAll(async () => {
+    await limparF25();
+  });
+
+  for (const caso of casos) {
+    test(`${caso.titulo} monta e devolve número`, async ({ page }) => {
+      await entrar(page, "gestor@dev.clubebroto.local");
+      await page.goto(`/relatorios?assunto=${caso.slug}`);
+
+      await expect(page.getByRole("heading", { level: 1, name: caso.titulo })).toBeVisible();
+      await page.getByRole("button", { name: `Pôr ${caso.dimensao} em Linhas` }).click();
+
+      const tabela = page.locator(".rel-resultado table");
+      await expect(tabela).toBeVisible({ timeout: 20_000 });
+
+      const primeiraMedida = tabela.locator("tbody tr").first().locator("td.num").first();
+      await expect(primeiraMedida).toBeVisible();
+      const texto = (await primeiraMedida.innerText()).replace(/\./g, "").trim();
+      expect(Number(texto)).toBeGreaterThan(0);
+    });
+  }
+
+  test("o tipo de meta chega à tela com o nível de atribuição (RN43)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=campanhas");
+
+    // O rótulo é o do catálogo, derivado de NIVEL_EXIGIDO — se alguém trocar
+    // a lista por texto escrito à mão, o nível some e este teste reprova.
+    await page.getByRole("button", { name: "Pôr Tipo de meta em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/por oferta/).first()).toBeVisible();
+  });
+
+  test("saldo e realizado aparecem apagados, com o motivo (RN62/RN44)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+
+    await page.goto("/relatorios?assunto=patrocinadores");
+    await expect(page.getByText("Saldo de vagas", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pôr Saldo de vagas em/ })).toHaveCount(0);
+
+    await page.goto("/relatorios?assunto=campanhas");
+    await expect(page.getByText("Realizado das metas", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pôr Realizado das metas em/ })).toHaveCount(0);
+  });
+
+  test("axe-core (AAA) sem violações nos três assuntos novos", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    for (const caso of casos) {
+      await page.goto(`/relatorios?assunto=${caso.slug}`);
+      await semViolacoesAxe(page);
+    }
   });
 });

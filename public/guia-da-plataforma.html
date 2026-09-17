@@ -1574,15 +1574,114 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
    glifo, que some numa tabela densa. */
 .rel-vazia{color:var(--paragrafo-aaa)}
 
-/* Cartões de assunto da abertura. */
-.rel-assuntos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-4)}
-.rel-assunto{display:block;padding:var(--sp-4);border:1px solid var(--borda);border-radius:var(--r-md);
-  background:var(--branco);color:var(--preto);text-decoration:none}
-.rel-assunto:hover{border-color:var(--azul);background:var(--azul-lightest)}
-.rel-assunto h3{font:var(--font-headline-element-title);margin:0 0 6px}
-.rel-assunto p{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);margin:0}
+/* ===== T36 · abertura do Gerador =======================================
+   Os assuntos numa fileira compacta, e os relatórios PRONTOS logo abaixo.
 
-@media (prefers-reduced-motion:reduce){.rel-assunto,.rel-gaveta{transition:none}}
+   A ordem é o ponto. Até aqui a abertura só oferecia assuntos, e escolher um
+   assunto não é o que ninguém quer fazer: é o pedágio antes da pergunta. Os
+   quinze modelos já existiam no catálogo desde a F24 e só apareciam DENTRO do
+   construtor — isto é, depois de a pessoa já ter atravessado o pedágio. Agora
+   eles são a grade principal, e o assunto continua sendo a porta de quem vai
+   montar do zero.
+
+   --tom e --tom-claro chegam por `style` inline, do catálogo. É a exceção que
+   a convenção da Onda 14 admite: valor que muda POR ITEM não cabe em classe,
+   e cinco classes de cor seriam cinco lugares para esquecer de atualizar
+   quando entrar o sexto assunto. A geometria, que se repete, é classe. */
+.rel-assuntos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--sp-3)}
+@media (max-width:1100px){.rel-assuntos{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}}
+
+/* O halo: um brilho da cor do assunto sob o cursor, com a posição escrita em
+   --mx/--my pelo `SeguidorDeHalo`. Sem JavaScript ele fica parado no centro,
+   que é um estado perfeitamente bom — nada na tela depende dele. */
+.rel-assunto{position:relative;overflow:hidden;isolation:isolate;
+  display:flex;flex-direction:column;gap:7px;padding:14px;
+  border:1px solid var(--borda);border-radius:var(--r-lg);
+  background:var(--branco);color:var(--preto);text-decoration:none;
+  transition:transform var(--dur-1) var(--ease),box-shadow var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease)}
+.rel-assunto::before{content:"";position:absolute;inset:-40%;z-index:-1;opacity:0;
+  background:radial-gradient(200px circle at var(--mx,50%) var(--my,50%),var(--tom) 0%,transparent 62%);
+  transition:opacity var(--dur-2) var(--ease)}
+/* `:focus-visible` anda junto com `:hover` em TODA regra daqui para baixo.
+   O halo nasce de `pointermove`, que teclado nenhum dispara: sem espelhar o
+   estado, quem navega por Tab receberia a versão pobre da mesma tela. */
+.rel-assunto:hover,.rel-assunto:focus-visible{transform:translateY(-3px);
+  box-shadow:var(--shadow-lg);border-color:var(--tom)}
+.rel-assunto:hover::before,.rel-assunto:focus-visible::before{opacity:.16}
+/* O sublinhado global do `a:hover` (topo deste arquivo) tem especificidade
+   0-1-1 e vencia o `text-decoration:none` do cartão, que tem 0-1-0 — o
+   cabeçalho E o parágrafo inteiro saíam sublinhados em produção. A intenção
+   já estava escrita; faltava o peso para valer. */
+.rel-assunto:hover,.rel-assunto:focus-visible,
+.rel-assunto:hover h3,.rel-assunto:hover p{text-decoration:none}
+.rel-assunto-ic{width:32px;height:32px;border-radius:9px;flex:none;
+  display:grid;place-items:center;background:var(--tom-claro);color:var(--tom);
+  transition:transform var(--dur-1) var(--ease),background var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease)}
+.rel-assunto:hover .rel-assunto-ic,.rel-assunto:focus-visible .rel-assunto-ic{
+  transform:rotate(-6deg) scale(1.08);background:var(--tom);color:var(--branco)}
+.rel-assunto h3{font:var(--font-body-base-bold);font-family:var(--font-family-headline);margin:0}
+.rel-assunto p{font:var(--font-body-smaller-regular);color:var(--paragrafo-aaa);margin:0;flex-grow:1}
+.rel-assunto-pe{display:flex;align-items:center;justify-content:space-between;
+  font:var(--font-body-smaller-bold);color:var(--tom)}
+.rel-assunto-seta{transition:transform var(--dur-1) var(--ease)}
+.rel-assunto:hover .rel-assunto-seta,.rel-assunto:focus-visible .rel-assunto-seta{
+  transform:translateX(4px)}
+
+/* Os relatórios prontos. A faixa de 3px na lateral é o que amarra a linha ao
+   assunto sem repetir o nome dele em corpo grande. */
+.rel-prontos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:980px){.rel-prontos{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}}
+.rel-pronto{display:flex;flex-direction:column;gap:3px;padding:12px 14px;
+  border:1px solid var(--borda);border-left:3px solid var(--tom);border-radius:var(--r-sm);
+  background:var(--branco);color:var(--preto);text-decoration:none;
+  transition:transform var(--dur-1) var(--ease),box-shadow var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease)}
+.rel-pronto:hover,.rel-pronto:focus-visible{transform:translateX(2px);
+  box-shadow:var(--shadow);background:var(--tom-claro);text-decoration:none}
+.rel-pronto:hover h3,.rel-pronto:hover p{text-decoration:none}
+.rel-pronto-et{font:var(--font-body-smaller-bold);letter-spacing:.07em;
+  text-transform:uppercase;color:var(--tom)}
+.rel-pronto h3{font:var(--font-body-caption-bold);font-family:var(--font-family-headline);margin:0}
+.rel-pronto p{font:var(--font-body-smaller-regular);color:var(--paragrafo-aaa);margin:0}
+/* "Montar do zero" fecha a grade: quem não achou a pergunta pronta tem para
+   onde ir, e o tracejado diz que ali não há resposta guardada — há trabalho. */
+.rel-montar{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px;border:1px dashed var(--cinza);border-radius:var(--r-sm);
+  font:var(--font-body-caption-bold);color:var(--azul-texto-aaa);text-decoration:none;
+  transition:background var(--dur-1) var(--ease)}
+.rel-montar:hover,.rel-montar:focus-visible{background:var(--azul-lightest);text-decoration:none}
+
+/* As prateleiras "Meus relatórios" e "Do time". Geometria do cartão de
+   assunto ANTES da Mescla A — sem halo, sem ícone e sem cor de catálogo,
+   porque um relatório salvo não pertence a um assunto só por dentro: ele
+   pertence, mas quem o nomeia é a pessoa, e vesti-lo com a cor do assunto
+   competiria com o nome que ela escolheu. */
+.rel-salvos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-4)}
+.rel-salvo{display:block;padding:var(--sp-4);border:1px solid var(--borda);border-radius:var(--r-md);
+  background:var(--branco);color:var(--preto);text-decoration:none;
+  transition:transform var(--dur-1) var(--ease),box-shadow var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease)}
+.rel-salvo:hover,.rel-salvo:focus-visible{border-color:var(--azul);background:var(--azul-lightest);
+  transform:translateY(-2px);box-shadow:var(--shadow);text-decoration:none}
+.rel-salvo:hover h3,.rel-salvo:hover p{text-decoration:none}
+.rel-salvo h3{font:var(--font-headline-element-title);margin:0 0 6px}
+.rel-salvo p{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);margin:0}
+
+/* Movimento reduzido: tudo parado, nada ausente. O halo some (é decoração
+   pura), e cartão e ícone ficam no estado de repouso — que já mostra ícone,
+   nome, resumo e contagem de campos. */
+@media (prefers-reduced-motion:reduce){
+  .rel-assunto,.rel-assunto-ic,.rel-assunto-seta,.rel-pronto,.rel-montar,
+  .rel-salvo,.rel-gaveta{transition:none}
+  .rel-assunto::before{display:none}
+  .rel-assunto:hover,.rel-assunto:focus-visible,
+  .rel-pronto:hover,.rel-pronto:focus-visible,
+  .rel-salvo:hover,.rel-salvo:focus-visible{transform:none}
+  .rel-assunto:hover .rel-assunto-ic,.rel-assunto:focus-visible .rel-assunto-ic{transform:none}
+  .rel-assunto:hover .rel-assunto-seta,.rel-assunto:focus-visible .rel-assunto-seta{transform:none}
+}
 
 /* ===== T27 · confirmação de acesso total (pós-homologação) ==============
    O bloco que aparece quando o papel escolhido concede acesso total.

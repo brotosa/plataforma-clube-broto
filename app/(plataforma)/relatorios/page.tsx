@@ -8,6 +8,8 @@ import {
   listarRelatorios,
 } from "@/infra/casos-de-uso/relatorios";
 import { Construtor, type AssuntoSerializado } from "./construtor";
+import { SeguidorDeHalo } from "./halo";
+import { identidadeDoAssunto, relatoriosProntos } from "./identidade";
 
 /**
  * T36 — Gerador de relatórios (Onda 16, ficha §4).
@@ -75,7 +77,7 @@ function serializar(assunto: AssuntoRelatorio): AssuntoSerializado {
 export default async function PaginaDeRelatorios({
   searchParams,
 }: {
-  searchParams: Promise<{ assunto?: string; relatorio?: string }>;
+  searchParams: Promise<{ assunto?: string; relatorio?: string; modelo?: string }>;
 }) {
   const sessao = await auth();
   if (!sessao?.user) {
@@ -130,44 +132,151 @@ export default async function PaginaDeRelatorios({
     : undefined;
 
   if (assuntoEscolhido) {
+    /*
+     * `?modelo=` abre o construtor com o relatório pronto JÁ APLICADO — é o
+     * que faz o cartão da abertura entregar um número em um clique, em vez de
+     * levar a pessoa a uma tela onde ela ainda teria de achar o mesmo modelo.
+     *
+     * Slug desconhecido não é erro: abre o construtor vazio. A alternativa
+     * seria uma tela de falha por causa de um link velho — e o que a pessoa
+     * queria, montar um relatório daquele assunto, continua perfeitamente
+     * possível.
+     */
+    const modelo = parametros.modelo
+      ? assuntoEscolhido.modelos.find((item) => item.slug === parametros.modelo)
+      : undefined;
+
     return (
       <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
-        <h1 className="h-page">{assuntoEscolhido.rotulo}</h1>
+        <h1 className="h-page">{modelo ? modelo.nome : assuntoEscolhido.rotulo}</h1>
         <div className="cap" style={{ margin: "4px 0 18px" }}>
-          {assuntoEscolhido.descricao} · <a href="/relatorios">trocar de assunto</a>
+          {modelo ? `${assuntoEscolhido.rotulo} · ${modelo.descricao}` : assuntoEscolhido.descricao}{" "}
+          · <a href="/relatorios">trocar de assunto</a>
         </div>
-        <Construtor assunto={serializar(assuntoEscolhido)} />
+        <Construtor
+          assunto={serializar(assuntoEscolhido)}
+          {...(modelo
+            ? {
+                inicial: {
+                  linhas: [...modelo.definicao.linhas],
+                  colunas: [...modelo.definicao.colunas],
+                  valores: modelo.definicao.valores.map((valor) => ({ ...valor })),
+                  filtros: modelo.definicao.filtros.map((filtro) => ({
+                    ...filtro,
+                    valores: [...filtro.valores],
+                  })),
+                },
+              }
+            : {})}
+        />
       </div>
     );
   }
 
   const { meus, doTime } = await listarRelatorios(ator);
+  const prontos = relatoriosProntos(visiveis);
 
   return (
     <div className="tela" style={{ padding: "26px 32px 40px", maxWidth: 1240 }}>
       <h1 className="h-page">Gerador de relatórios</h1>
       <div className="cap" style={{ margin: "4px 0 22px", maxWidth: "88ch" }}>
-        Escolha um assunto e monte a pergunta. O Gerador não acrescenta dado nenhum — ele
-        reorganiza o que a plataforma já tem, com o que o seu papel alcança.
+        Comece por um relatório pronto, ou escolha um assunto e monte a pergunta. O Gerador não
+        acrescenta dado nenhum — ele reorganiza o que a plataforma já tem, com o que o seu papel
+        alcança.
       </div>
 
       <section aria-labelledby="titulo-assuntos" style={{ marginBottom: 24 }}>
         <h2 id="titulo-assuntos" className="h-el">
           Assuntos
         </h2>
+        {/* O halo vive aqui dentro; sem JavaScript, os cartões seguem inteiros. */}
+        <SeguidorDeHalo alvo=".rel-assuntos" />
         <div className="rel-assuntos">
-          {visiveis.map((assunto) => (
-            <a
-              key={assunto.slug}
-              className="rel-assunto"
-              href={`/relatorios?assunto=${encodeURIComponent(assunto.slug)}`}
-            >
-              <h3>{assunto.rotulo}</h3>
-              <p>{assunto.descricao}</p>
-            </a>
-          ))}
+          {visiveis.map((assunto) => {
+            const identidade = identidadeDoAssunto(assunto.slug);
+            const usaveis = assunto.campos.filter((campo) => !campo.indisponivel).length;
+            return (
+              <a
+                key={assunto.slug}
+                className="rel-assunto"
+                href={`/relatorios?assunto=${encodeURIComponent(assunto.slug)}`}
+                style={
+                  {
+                    "--tom": identidade.cor,
+                    "--tom-claro": identidade.corClara,
+                  } as React.CSSProperties
+                }
+              >
+                <span className="rel-assunto-ic" aria-hidden="true">
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d={identidade.icone} />
+                  </svg>
+                </span>
+                <h3>{assunto.rotulo}</h3>
+                <p>{assunto.descricao}</p>
+                {/*
+                 * A contagem de campos é o dado que responde "dá para
+                 * perguntar o que eu preciso com este aqui?" — a dúvida real
+                 * de quem escolhe. Sai do próprio catálogo, e os
+                 * indisponíveis (RN77) ficam de fora: prometer um campo que
+                 * não pode ser usado seria pior que não prometer nada.
+                 */}
+                <span className="rel-assunto-pe">
+                  <span>{usaveis} campos</span>
+                  <span className="rel-assunto-seta" aria-hidden="true">
+                    →
+                  </span>
+                </span>
+              </a>
+            );
+          })}
         </div>
       </section>
+
+      {prontos.length > 0 ? (
+        <section aria-labelledby="titulo-prontos" style={{ marginBottom: 24 }}>
+          <h2 id="titulo-prontos" className="h-el">
+            Relatórios prontos
+          </h2>
+          <div className="cap" style={{ margin: "2px 0 12px", maxWidth: "88ch" }}>
+            Perguntas que a plataforma já sabe responder. Abrem no construtor com tudo montado —
+            dá para mudar o que quiser depois.
+          </div>
+          <div className="rel-prontos">
+            {prontos.map((pronto) => (
+              <a
+                key={`${pronto.assuntoSlug}/${pronto.modeloSlug}`}
+                className="rel-pronto"
+                href={`/relatorios?assunto=${encodeURIComponent(
+                  pronto.assuntoSlug,
+                )}&modelo=${encodeURIComponent(pronto.modeloSlug)}`}
+                style={
+                  {
+                    "--tom": pronto.identidade.cor,
+                    "--tom-claro": pronto.identidade.corClara,
+                  } as React.CSSProperties
+                }
+              >
+                <span className="rel-pronto-et">{pronto.identidade.curto}</span>
+                <h3>{pronto.nome}</h3>
+                <p>{pronto.descricao}</p>
+              </a>
+            ))}
+            <a className="rel-montar" href={`/relatorios?assunto=${visiveis[0]!.slug}`}>
+              + Montar do zero
+            </a>
+          </div>
+        </section>
+      ) : null}
 
       <Prateleira
         titulo="Meus relatórios"
@@ -207,11 +316,19 @@ function Prateleira({
       {itens.length === 0 ? (
         <p className="rel-gaveta-vazia">{vazia}</p>
       ) : (
-        <div className="rel-assuntos">
+        /*
+         * Classe própria, e não a dos assuntos. Elas eram a mesma até aqui, e
+         * a Mescla A separou os caminhos: o cartão de assunto passou a ter
+         * halo, ícone e cor vinda do catálogo. Um relatório salvo não tem cor
+         * nenhuma — reusar a classe deixaria `--tom` sem valor, e o
+         * `border-color:var(--tom)` do hover simplesmente não aplicaria,
+         * silenciosamente, como todo valor inválido em CSS.
+         */
+        <div className="rel-salvos">
           {itens.map((item) => (
             <a
               key={item.id}
-              className="rel-assunto"
+              className="rel-salvo"
               href={`/relatorios?relatorio=${encodeURIComponent(item.id)}`}
             >
               <h3>{item.nome}</h3>

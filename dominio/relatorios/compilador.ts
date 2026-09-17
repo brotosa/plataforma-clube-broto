@@ -361,9 +361,28 @@ function compilarFiltro(
    * só aparecem como `$n`. Nenhum ramo interpola `filtro.valores` no texto —
    * é isto que a cerca `relatorio-sem-sql-livre` lê.
    */
+  /**
+   * O marcador de parâmetro, com o molde do tipo quando o banco precisa dele.
+   *
+   * **Booleano precisa.** O driver manda todo valor de filtro como texto, e
+   * `pendente_republicacao = $1` com `$1 = 'true'` faz o Postgres recusar a
+   * consulta inteira: *operator does not exist: boolean = text*. Não é erro de
+   * segurança nem número errado — é a consulta não rodar.
+   *
+   * O defeito nasceu na F24 e sobreviveu a 30 testes de unidade e a 9 e2e
+   * porque **nenhum deles filtrou por um campo booleano**: os três campos de
+   * sim/não do catálogo existiam para agrupar, e agrupar não passa por aqui.
+   * Apareceu na F25, ao rodar contra a base um modelo que filtra "aprovação
+   * registrada = não". A cobertura nova está em `compilador.test.ts`.
+   *
+   * O `::boolean` é texto do compilador, decidido pelo TIPO declarado no
+   * catálogo — nunca pelo valor digitado. A RN75 continua inteira.
+   */
   const bind = (valor: string | number) => {
     parametros.push(valor);
-    return `$${parametros.length}`;
+    return campo.tipo === "BOOLEANO"
+      ? `$${parametros.length}::boolean`
+      : `$${parametros.length}`;
   };
 
   switch (filtro.operador) {
