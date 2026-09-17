@@ -1576,3 +1576,66 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   padding:12px 14px;border:1px solid var(--alerta);background:var(--alerta-claro);
   border-radius:var(--r-sm)}
 .rel-finalidade .input{height:34px}
+
+/* ===== T36 · visualização (Onda 17, RN80–RN82) =========================
+   As seis cores de série. Escuras porque recebem rótulo por cima e ao lado,
+   e porque uma marca de gráfico precisa de 3:1 contra o fundo (WCAG 1.4.11)
+   — a mesma régua que já governa as cores de assunto da F25/F26.
+
+   Cor NUNCA é o único canal (RN81): a série também tem nome na legenda, e a
+   ausência tem hachura própria, não uma cor a menos. */
+:root{
+  --rel-serie-1:#3242C4; --rel-serie-2:#14603D; --rel-serie-3:#7A3E00;
+  --rel-serie-4:#4A1F7A; --rel-serie-5:#0A4F5C; --rel-serie-6:#7A1F3D;
+}
+
+.rel-grafico{width:100%;min-height:60px;margin-bottom:14px}
+.rel-legenda{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px}
+.rel-legenda-item{display:inline-flex;align-items:center;gap:6px;
+  font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
+.rel-legenda-item strong{color:var(--preto)}
+.rel-legenda-item i{width:10px;height:10px;border-radius:2px;flex:none}
+/* A hachura da lacuna na legenda, com a MESMA aparência da marca no desenho —
+   se as duas divergirem, a legenda deixa de explicar o que está na tela. */
+.rel-legenda-lacuna{border:1px dashed var(--cinza);background:transparent}
+.rel-legenda-pct{font-variant-numeric:tabular-nums}
+
+/* O alternador de tipo. Tipo recusado fica apagado e continua VISÍVEL, com o
+   motivo no `title` — some seria pior, porque quem não o vê conclui que ele
+   não existe (mesma disciplina do campo indisponível, RN77). */
+.rel-tipos{display:flex;gap:3px;background:var(--off);border:1px solid var(--borda);
+  border-radius:var(--r-sm);padding:3px;flex-wrap:wrap}
+.rel-tipo{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;
+  border:0;background:transparent;cursor:pointer;color:var(--paragrafo-aaa);
+  font:var(--font-body-caption-regular);
+  transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease)}
+.rel-tipo:hover:not([disabled]){background:var(--azul-lightest);color:var(--azul-texto-aaa)}
+.rel-tipo[aria-pressed="true"]{background:var(--branco);color:var(--preto);
+  font:var(--font-body-caption-bold);box-shadow:0 1px 2px rgba(40,35,19,.10)}
+.rel-tipo[disabled]{color:var(--cinza);cursor:not-allowed}
+
+/* O motivo da recusa, abaixo do alternador. Não é erro — é explicação de por
+   que aquele desenho não serve para o que está montado. */
+.rel-recusa{margin:10px 0 0;padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--azul-lightest);border:1px solid var(--azul-claro);
+  font:var(--font-body-caption-regular);color:var(--preto)}
+
+/* Os ajustes do tipo escolhido. */
+.rel-ajustes{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;
+  padding:10px 0 2px;border-top:1px dashed var(--borda);margin-top:12px}
+.rel-ajuste{display:inline-flex;align-items:center;gap:6px;
+  font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
+.rel-ajuste select,.rel-ajuste input[type="number"]{height:28px;padding:0 6px;
+  font:var(--font-body-caption-regular);border:1px solid var(--borda);
+  border-radius:var(--r-xs);background:var(--branco);color:var(--preto)}
+.rel-ajuste input[type="number"]{width:64px}
+
+.rel-numerao{display:flex;flex-direction:column;gap:2px;padding:18px 0 8px}
+.rel-numerao-v{font:700 44px/48px var(--font-family-headline);color:var(--rel-serie-1);
+  font-variant-numeric:tabular-nums}
+.rel-numerao-r{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
+
+@media (max-width:760px){
+  .rel-tipos{width:100%}
+  .rel-numerao-v{font-size:34px;line-height:38px}
+}

@@ -119,6 +119,10 @@ export default async function PaginaDeRelatorios({
                 ...filtro,
                 valores: [...filtro.valores],
               })),
+              visualizacao: {
+                tipo: salvo.visualizacao.tipo,
+                ajustes: { ...salvo.visualizacao.ajustes },
+              },
             }}
             relatorioAberto={{ id: salvo.id, nome: salvo.nome, meu: salvo.meu }}
           />

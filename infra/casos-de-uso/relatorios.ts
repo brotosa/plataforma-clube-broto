@@ -17,6 +17,7 @@ import {
   validarEstruturaDefinicao,
 } from "@/dominio/relatorios/compilador";
 import { type TabelaPivotada, pivotar, tabelaParaCsv } from "@/dominio/relatorios/pivo";
+import { type Visualizacao, validarVisualizacao } from "@/dominio/relatorios/visualizacao";
 import { executarConsultaDeRelatorio } from "@/infra/consultas/relatorios";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
@@ -483,7 +484,24 @@ export async function listarRelatorios(ator: Ator): Promise<{
 export async function abrirRelatorio(
   ator: Ator,
   id: string,
-): Promise<{ id: string; nome: string; definicao: DefinicaoRelatorio; meu: boolean }> {
+): Promise<{
+  id: string;
+  nome: string;
+  definicao: DefinicaoRelatorio;
+  /**
+   * RN80 — o desenho escolhido, que viaja no MESMO JSONB da definição.
+   *
+   * Ele é lido aqui, e não em `validarEstruturaDefinicao`, para não criar
+   * ciclo de módulo: `visualizacao` importa `pivo`, que importa `compilador`.
+   * O compilador não precisa saber que existe gráfico — ele monta SQL, e
+   * desenho não muda uma vírgula de SQL.
+   *
+   * Relatório salvo antes da Onda 17 não tem o bloco e recebe o padrão
+   * (tabela), sem migração de dados e sem backfill.
+   */
+  visualizacao: Visualizacao;
+  meu: boolean;
+}> {
   const relatorio = await prisma.relatorioSalvo.findUnique({ where: { id } });
   if (!relatorio) {
     throw new ErroDeValidacao(["Relatório não encontrado."]);
@@ -497,10 +515,12 @@ export async function abrirRelatorio(
   const definicao = validarEstruturaDefinicao(relatorio.definicao);
   exigirAssuntoAlcancavel(ator, definicao.assunto);
 
+  const bruto = relatorio.definicao as { visualizacao?: unknown } | null;
   return {
     id: relatorio.id,
     nome: relatorio.nome,
     definicao,
+    visualizacao: validarVisualizacao(bruto?.visualizacao),
     meu: relatorio.autorId === ator.id,
   };
 }
