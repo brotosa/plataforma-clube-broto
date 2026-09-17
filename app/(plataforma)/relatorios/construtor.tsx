@@ -927,7 +927,27 @@ function Resultado({
         </>
       ) : null}
 
-      <div className="rel-resultado" aria-busy={previa.carregando}>
+      {/*
+       * O contêiner rola (`overflow:auto` com teto de altura), e região que
+       * rola precisa receber foco: sem `tabindex`, quem navega por teclado
+       * não alcança as linhas abaixo do corte — só o mouse chega lá.
+       *
+       * O defeito é da F24 e esteve em produção desde então. Ele não aparecia
+       * porque as três varreduras axe anteriores escaneiam o construtor
+       * **vazio**: sem prévia carregada não há tabela, sem tabela não há
+       * rolagem, e sem rolagem a regra não se aplica. A primeira varredura com
+       * resultado na tela é a da F27, e foi ela que o encontrou.
+       *
+       * `role="region"` com nome existe para o leitor de tela anunciar onde o
+       * foco parou — um `<div>` focalizável e mudo é pior que nenhum.
+       */}
+      <div
+        className="rel-resultado"
+        aria-busy={previa.carregando}
+        tabIndex={0}
+        role="region"
+        aria-label="Resultado do relatório — role para ver as demais linhas"
+      >
         <table>
           <caption className="sr-oculto">
             {exibido === "TABELA"
