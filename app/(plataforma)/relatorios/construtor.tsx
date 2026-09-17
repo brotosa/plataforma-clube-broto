@@ -14,6 +14,7 @@ import {
 } from "@/dominio/relatorios/catalogo";
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
+import { ErrosDoFormulario } from "../aliados/formularios";
 import {
   apagarRelatorioAction,
   preverRelatorio,
@@ -298,8 +299,8 @@ export function Construtor({
   return (
     <div className="rel-grid">
       <section className="card" aria-labelledby="titulo-campos">
-        <div className="card-h">
-          <h2 id="titulo-campos" className="card-t">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "14px 16px", borderBottom: "1px solid var(--borda)" }}>
+          <h2 id="titulo-campos" className="h-el" style={{ margin: 0 }}>
             Campos
           </h2>
         </div>
@@ -353,8 +354,8 @@ export function Construtor({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
         <section className="card" aria-labelledby="titulo-montagem">
-          <div className="card-h">
-            <h2 id="titulo-montagem" className="card-t">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "14px 16px", borderBottom: "1px solid var(--borda)" }}>
+            <h2 id="titulo-montagem" className="h-el" style={{ margin: 0 }}>
               Montagem
             </h2>
             {assunto.modelos.length > 0 ? (
@@ -373,7 +374,7 @@ export function Construtor({
               </div>
             ) : null}
           </div>
-          <div className="card-b">
+          <div style={{ padding: "16px" }}>
             <div className="rel-gavetas">
               {(["linhas", "colunas", "valores"] as const).map((gaveta) => {
                 const conteudo =
@@ -510,8 +511,8 @@ export function Construtor({
         </section>
 
         <section className="card" aria-labelledby="titulo-resultado">
-          <div className="card-h">
-            <h2 id="titulo-resultado" className="card-t">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "14px 16px", borderBottom: "1px solid var(--borda)" }}>
+            <h2 id="titulo-resultado" className="h-el" style={{ margin: 0 }}>
               Prévia
             </h2>
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -581,7 +582,7 @@ export function Construtor({
               ) : null}
             </div>
           </div>
-          <div className="card-b">
+          <div style={{ padding: "16px" }}>
             {aviso ? (
               <p className="aviso-inline" role="status">
                 {aviso}
@@ -737,11 +738,7 @@ function Resultado({
   if (previa.erro) {
     // A mensagem vem do compilador e é instrutiva de propósito (RN55): ela
     // diz qual campo, qual operador e o que fazer.
-    return (
-      <p className="aviso-inline aviso-erro" role="alert">
-        {previa.erro}
-      </p>
-    );
+    return <ErrosDoFormulario erros={[previa.erro]} />;
   }
   if (!previa.tabela) {
     return <p className="rel-gaveta-vazia">Calculando…</p>;
