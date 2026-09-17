@@ -1,0 +1,15 @@
+-- F28 (RN84) — como o dado saiu, e não só se saiu.
+--
+-- ESTRITAMENTE ADITIVA sobre base povoada: coluna nova, anulável, sem
+-- padrão e sem backfill. Nenhuma linha existente é tocada.
+--
+-- Sem DEFAULT de propósito. Um `DEFAULT 'CSV'` pareceria conveniente e
+-- afirmaria sobre o passado uma coisa que a plataforma nunca registrou —
+-- execução de TELA passaria a constar como exportação em CSV. A leitura
+-- correta do histórico é: `exportou = true` com formato nulo significa CSV,
+-- que era o único formato antes desta fase.
+--
+-- Texto e não enum: enum no Postgres exige migration para acrescentar valor,
+-- e formato de saída é justamente o que tende a ganhar mais um. O conjunto
+-- válido é cobrado em `dominio/relatorios/saida.ts`.
+ALTER TABLE "execucoes_relatorio" ADD COLUMN "formato" TEXT;

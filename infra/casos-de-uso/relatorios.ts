@@ -17,6 +17,13 @@ import {
   validarEstruturaDefinicao,
 } from "@/dominio/relatorios/compilador";
 import { type TabelaPivotada, pivotar, tabelaParaCsv } from "@/dominio/relatorios/pivo";
+import {
+  type FormatoDeSaida,
+  type Procedencia,
+  TETO_POR_FORMATO,
+  descreverFiltros,
+  nomeDoArquivo,
+} from "@/dominio/relatorios/saida";
 import { type Visualizacao, validarVisualizacao } from "@/dominio/relatorios/visualizacao";
 import { executarConsultaDeRelatorio } from "@/infra/consultas/relatorios";
 import { type Ator, ErroDeValidacao } from "./contexto";
@@ -108,8 +115,19 @@ export interface OpcoesDeExecucao {
   relatorioId?: string;
   /** Exigida quando o assunto alcança dado pessoal (RN78). */
   finalidade?: string;
-  /** Marca a execução como exportação em CSV na trilha operacional. */
+  /** Marca a execução como saída de dado na trilha operacional. */
   exportacao?: boolean;
+  /**
+   * RN84 — **como** o dado saiu.
+   *
+   * `exportacao` responde "saiu da plataforma?" e continua sendo a pergunta
+   * de auditoria; esta responde "saiu como?". As duas convivem de propósito:
+   * estreitar a primeira para caber num enum trocaria um dado bom por um
+   * mais bonito, e quebraria a leitura de tudo que foi gravado antes desta
+   * fase — onde `exportou = true` com formato nulo significa CSV, que era o
+   * único que havia.
+   */
+  formato?: FormatoDeSaida;
 }
 
 /**
@@ -134,6 +152,7 @@ async function registrarExecucao(dados: {
   finalidade?: string;
   erro?: string;
   exportou: boolean;
+  formato?: FormatoDeSaida;
 }): Promise<void> {
   try {
     await prisma.execucaoRelatorio.create({
@@ -148,6 +167,7 @@ async function registrarExecucao(dados: {
         erro: dados.erro ?? null,
         autorId: dados.ator.id,
         exportou: dados.exportou,
+        formato: dados.formato ?? null,
       },
     });
   } catch {
@@ -195,6 +215,7 @@ export async function executarRelatorio(
           ? erro.message
           : "falha ao executar a consulta",
       exportou: opcoes.exportacao ?? false,
+      formato: opcoes.formato,
     });
     throw erro;
   }
@@ -221,39 +242,105 @@ export async function executarRelatorio(
 }
 
 /**
- * Exportação em CSV.
+ * RN83 — a saída, em qualquer formato.
  *
- * **Não é atalho para nada** (RN76, ficha §3): passa pelo mesmo
- * `executarRelatorio`, com a mesma conferência de permissão, a mesma
- * exigência de finalidade e o mesmo teto. A única diferença é que a trilha
- * operacional marca `exportou`, que é o recorte de quem pergunta o que saiu
- * da plataforma.
+ * **Não é atalho para nada**, e esta é a metade da RN83 que vive aqui: todo
+ * formato passa pelo mesmo `executarRelatorio`, com a mesma conferência de
+ * permissão (RN76), a mesma exigência de finalidade (RN78) e a mesma trilha.
+ * O que muda entre um formato e outro é o **teto** e o **renderizador** —
+ * nada mais.
+ *
+ * O defeito que o desenho existe para impedir tem nome: uma rota de XLSX que
+ * monte a própria consulta "porque a planilha precisa de todas as linhas".
+ * No dia em que isso acontecer, o alcance por papel deixa de valer para quem
+ * souber pedir em `.xlsx`.
+ *
+ * Devolve a tabela e a procedência; **quem transforma em bytes é o chamador**,
+ * e de propósito: o XLSX é assíncrono e o HTML precisa do SVG que só a tela
+ * tem. Empurrar os dois para dentro daqui traria a renderização para o caso
+ * de uso, que é o oposto do que a RN83 pede.
+ */
+export interface SaidaDeRelatorio {
+  tabela: TabelaPivotada;
+  procedencia: Procedencia;
+  titulo: string;
+  nomeArquivo: string;
+  linhas: number;
+  truncado: boolean;
+}
+
+export async function prepararSaidaDeRelatorio(
+  ator: Ator,
+  definicaoBruta: unknown,
+  formato: FormatoDeSaida,
+  opcoes: Omit<OpcoesDeExecucao, "exportacao" | "teto" | "formato"> & {
+    /** Nome de quem gerou, para a procedência do arquivo. */
+    autor: string;
+    /** Nome do relatório salvo, quando a saída veio de um. */
+    nome?: string;
+  },
+): Promise<SaidaDeRelatorio> {
+  const resultado = await executarRelatorio(ator, definicaoBruta, {
+    relatorioId: opcoes.relatorioId,
+    finalidade: opcoes.finalidade,
+    exportacao: true,
+    formato,
+    teto: TETO_POR_FORMATO[formato],
+  });
+
+  const definicao = validarEstruturaDefinicao(definicaoBruta);
+  const titulo = opcoes.nome?.trim() || resultado.resumo;
+
+  return {
+    tabela: resultado.tabela,
+    titulo,
+    nomeArquivo: nomeDoArquivo(definicao, EXTENSAO_POR_FORMATO[formato]),
+    linhas: resultado.total,
+    truncado: resultado.truncado,
+    procedencia: {
+      assunto: resultado.resumo,
+      filtros: descreverFiltros(definicao),
+      autor: opcoes.autor,
+      geradoEm: new Date(),
+      finalidade: opcoes.finalidade?.trim() || undefined,
+      linhas: resultado.total,
+      truncado: resultado.truncado,
+      teto: TETO_POR_FORMATO[formato],
+    },
+  };
+}
+
+const EXTENSAO_POR_FORMATO: Readonly<Record<FormatoDeSaida, string>> = {
+  CSV: "csv",
+  XLSX: "xlsx",
+  HTML: "html",
+  AREA_TRANSFERENCIA: "txt",
+};
+
+/**
+ * Exportação em CSV — o caminho que existe desde a F24.
+ *
+ * Passou a ser um caso particular de `prepararSaidaDeRelatorio`, e continua
+ * exportado com a mesma assinatura porque a rota e os testes que o chamam não
+ * têm razão para mudar. O CSV não carrega procedência por dentro: ele é o
+ * formato de **máquina**, e uma linha de aviso no topo quebraria quem o
+ * consome (RN85).
  */
 export async function exportarRelatorioCsv(
   ator: Ator,
   definicaoBruta: unknown,
-  opcoes: Omit<OpcoesDeExecucao, "exportacao" | "teto"> = {},
+  opcoes: Omit<OpcoesDeExecucao, "exportacao" | "teto" | "formato"> = {},
 ): Promise<{ csv: string; nomeArquivo: string; linhas: number; truncado: boolean }> {
-  const resultado = await executarRelatorio(ator, definicaoBruta, {
+  const saida = await prepararSaidaDeRelatorio(ator, definicaoBruta, "CSV", {
     ...opcoes,
-    exportacao: true,
+    autor: ator.id,
   });
 
-  const definicao = validarEstruturaDefinicao(definicaoBruta);
-  const assunto = assuntoPorSlug(definicao.assunto);
-  const carimbo = new Date().toISOString().slice(0, 10);
-  const base = (assunto?.rotulo ?? definicao.assunto)
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
-
   return {
-    csv: tabelaParaCsv(resultado.tabela),
-    nomeArquivo: `relatorio-${base}-${carimbo}.csv`,
-    linhas: resultado.total,
-    truncado: resultado.truncado,
+    csv: tabelaParaCsv(saida.tabela),
+    nomeArquivo: saida.nomeArquivo,
+    linhas: saida.linhas,
+    truncado: saida.truncado,
   };
 }
 

@@ -2849,9 +2849,21 @@ model ExecucaoRelatorio {
   /// justamente a que alguém vai querer explicar depois.
   erro        String?
   autorId     String  @map("autor_id")
-  /// Exportação em CSV, e não prévia nem execução em tela. É o recorte que
+  /// Saída de dado, e não prévia nem execução em tela. É o recorte que
   /// interessa quando se pergunta o que saiu da plataforma.
   exportou    Boolean @default(false)
+  /// RN84 — COMO o dado saiu: "CSV" | "HTML" | "XLSX" | "AREA_TRANSFERENCIA".
+  ///
+  /// Nulo em execução de tela. Nulo COM `exportou = true` significa CSV, que
+  /// era o único formato antes da F28 — daí a coluna ser anulável em vez de
+  /// ter padrão: preencher as linhas existentes num backfill afirmaria sobre
+  /// o passado uma coisa que a plataforma nunca registrou.
+  ///
+  /// Texto e não enum de propósito. Enum no Postgres exige migration para
+  /// acrescentar valor, e formato de saída é justamente o que tende a ganhar
+  /// um a mais; o conjunto válido é cobrado em `dominio/relatorios/saida.ts`,
+  /// que é onde ele já vive.
+  formato     String?
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
