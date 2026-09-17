@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { Papel } from "@prisma/client";
+import { temAcessoTotal } from "@/dominio/autorizacao/permissoes";
 import {
+  MENSAGEM_CONFIRMAR_ACESSO_TOTAL,
   MENSAGEM_ULTIMO_ADMINISTRADOR,
   MENSAGENS_DE_REVOGACAO,
   avaliarMudancaDeUsuario,
   eAdministradorEfetivo,
+  exigeConfirmacaoDeAcessoTotal,
   exigeNovaEpocaDeSessao,
   motivoDaRevogacao,
   outrosAdministradoresAtivos,
@@ -231,5 +235,79 @@ describe("RN47 — validade da sessão do portador do token", () => {
   it("cada motivo tem mensagem institucional própria", () => {
     expect(MENSAGENS_DE_REVOGACAO.INATIVADO).toContain("Administrador da Plataforma");
     expect(MENSAGENS_DE_REVOGACAO.ACESSO_ALTERADO).toContain("Entre novamente");
+  });
+});
+
+/**
+ * Conceder acesso total exige confirmação explícita.
+ *
+ * O caso que mais importa aqui é o NEGATIVO: editar quem já tem acesso total
+ * não pode pedir cerimônia. Uma implementação ingênua — "o papel novo é
+ * total? então confirme" — passaria no caminho feliz e transformaria toda
+ * edição daquele usuário num ritual, que é o jeito conhecido de ensinar
+ * alguém a marcar sem ler.
+ */
+describe("confirmação de acesso total", () => {
+  it("exige confirmação ao promover um papel comum a acesso total", () => {
+    expect(exigeConfirmacaoDeAcessoTotal("LEITURA", "ADMINISTRADOR_PLATAFORMA")).toBe(true);
+    expect(exigeConfirmacaoDeAcessoTotal("GESTOR", "ADMINISTRADOR_PLATAFORMA")).toBe(true);
+  });
+
+  it("exige confirmação ao promover o Administrador, que é o vizinho na lista", () => {
+    // É o erro mais provável da tela: os dois itens são adjacentes no seletor
+    // e os nomes começam igual.
+    expect(exigeConfirmacaoDeAcessoTotal("ADMIN", "ADMINISTRADOR_PLATAFORMA")).toBe(true);
+  });
+
+  it("exige confirmação ao criar alguém já com acesso total", () => {
+    expect(exigeConfirmacaoDeAcessoTotal(null, "ADMINISTRADOR_PLATAFORMA")).toBe(true);
+  });
+
+  it("NÃO exige ao editar quem já tem acesso total", () => {
+    expect(exigeConfirmacaoDeAcessoTotal("ADMINISTRADOR_PLATAFORMA", "ADMINISTRADOR_PLATAFORMA"))
+      .toBe(false);
+  });
+
+  it("NÃO exige ao rebaixar quem tinha acesso total", () => {
+    // Tirar poder não é o risco que esta regra cobre — e a RN46 já protege o
+    // caso de sobrar ninguém.
+    expect(exigeConfirmacaoDeAcessoTotal("ADMINISTRADOR_PLATAFORMA", "LEITURA")).toBe(false);
+    expect(exigeConfirmacaoDeAcessoTotal("ADMINISTRADOR_PLATAFORMA", "ADMIN")).toBe(false);
+  });
+
+  it("NÃO exige em nenhuma troca entre papéis comuns", () => {
+    const comuns: Papel[] = [
+      "GESTOR",
+      "ANALISTA",
+      "ANALISTA_SCOUT",
+      "COMERCIAL",
+      "APROVADOR",
+      "LEITURA",
+      "ADMIN",
+    ];
+    for (const de of comuns) {
+      for (const para of comuns) {
+        expect(exigeConfirmacaoDeAcessoTotal(de, para), `${de} → ${para}`).toBe(false);
+      }
+    }
+  });
+
+  /*
+   * A cerca contra o defeito da Onda 15: a regra pergunta pela CAPACIDADE, e
+   * não pelo nome do papel. Se um dia outro papel ganhar acesso total, ele
+   * passa a exigir confirmação sozinho — sem ninguém lembrar de vir aqui.
+   */
+  it("vale para qualquer papel de acesso total, não para um nome escolhido a dedo", () => {
+    const totais = (["GESTOR", "ANALISTA", "ANALISTA_SCOUT", "COMERCIAL", "APROVADOR",
+      "LEITURA", "ADMIN", "ADMINISTRADOR_PLATAFORMA"] as Papel[]).filter(temAcessoTotal);
+    expect(totais.length, "nenhum papel de acesso total — a cerca ficou cega").toBeGreaterThan(0);
+    for (const papel of totais) {
+      expect(exigeConfirmacaoDeAcessoTotal("LEITURA", papel), papel).toBe(true);
+    }
+  });
+
+  it("a mensagem diz o que fazer, e não só o que houve", () => {
+    expect(MENSAGEM_CONFIRMAR_ACESSO_TOTAL).toContain("toda ação da plataforma");
+    expect(MENSAGEM_CONFIRMAR_ACESSO_TOTAL).toMatch(/[Mm]arque a confirmação/);
   });
 });

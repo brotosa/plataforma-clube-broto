@@ -5,7 +5,10 @@ import type { Papel } from "@prisma/client";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import { podeExecutar, temAcessoTotal } from "@/dominio/autorizacao/permissoes";
 import { JANELA_ONLINE_MIN, rotuloDePresenca } from "@/dominio/usuarios/presenca";
-import { MENSAGEM_ULTIMO_ADMINISTRADOR } from "@/dominio/usuarios/regras";
+import {
+  exigeConfirmacaoDeAcessoTotal,
+  MENSAGEM_ULTIMO_ADMINISTRADOR,
+} from "@/dominio/usuarios/regras";
 import type { LinhaUsuario } from "@/infra/consultas/usuarios";
 import { ErrosDoFormulario, MensagemDeSucesso } from "../aliados/formularios";
 import {
@@ -205,6 +208,20 @@ function FormularioUsuario({
     usuario ? acaoAtualizarUsuario : acaoCriarUsuario,
     ESTADO_INICIAL,
   );
+  const [papelEscolhido, setPapelEscolhido] = useState<Papel>(usuario?.papel ?? "LEITURA");
+  const [confirmado, setConfirmado] = useState(false);
+  const idConfirmacao = useId();
+
+  /*
+   * A cerimônia aparece só quando é CONCESSÃO — a mesma condição que o
+   * servidor cobra, vinda da mesma função do domínio. Editar o nome de quem
+   * já tem acesso total não pede nada: cerimônia repetida sem motivo ensina a
+   * marcar sem ler, e aí deixa de confirmar qualquer coisa.
+   */
+  const exigeConfirmacao = exigeConfirmacaoDeAcessoTotal(
+    usuario?.papel ?? null,
+    papelEscolhido,
+  );
 
   return (
     <div className="card" style={{ padding: "20px 22px", marginBottom: 18 }}>
@@ -252,6 +269,13 @@ function FormularioUsuario({
             className="select"
             aria-describedby="usuario-papel-ajuda"
             defaultValue={usuario?.papel ?? "LEITURA"}
+            onChange={(evento) => {
+              setPapelEscolhido(evento.target.value as Papel);
+              // Trocar o papel desmarca a confirmação: marcada para um papel
+              // e aproveitada para outro, ela confirmaria uma concessão que
+              // ninguém leu.
+              setConfirmado(false);
+            }}
           >
             {PAPEIS.map((papel) => (
               <option key={papel} value={papel}>
@@ -277,8 +301,49 @@ function FormularioUsuario({
             <strong>acesso total</strong>: pode toda ação do sistema.
           </p>
         </div>
+        {exigeConfirmacao ? (
+          <div className="confirma-acesso" role="group" aria-labelledby={`${idConfirmacao}-t`}>
+            <p id={`${idConfirmacao}-t`} className="confirma-acesso-t">
+              Este papel dá acesso total
+            </p>
+            <p className="confirma-acesso-p">
+              {usuario ? usuario.nome : "O novo usuário"} passará a poder{" "}
+              <strong>toda ação da plataforma</strong> — inclusive as que forem criadas depois —,
+              em todos os módulos e sem depender de nenhuma outra permissão. É a atribuição de
+              maior consequência desta tela.
+            </p>
+            <label className="confirma-acesso-l" htmlFor={idConfirmacao}>
+              <input
+                id={idConfirmacao}
+                type="checkbox"
+                name="confirmacaoAcessoTotal"
+                value="sim"
+                checked={confirmado}
+                onChange={(evento) => setConfirmado(evento.target.checked)}
+              />
+              <span>Confirmo que quero conceder acesso total.</span>
+            </label>
+          </div>
+        ) : null}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="submit" className="btn btn-azul" disabled={pendente}>
+          {/*
+            Travar o botão é o ponto: a nota que existia antes podia ser lida
+            de relance e ignorada, e quem usa a tela toda semana parava de
+            enxergá-la. Isto não dá para não ver, porque impede de gravar.
+
+            E o servidor recusa de todo jeito — a tela é conveniência, não é a
+            garantia. Mesma divisão que a RN46 já usa logo acima.
+          */}
+          <button
+            type="submit"
+            className="btn btn-azul"
+            disabled={pendente || (exigeConfirmacao && !confirmado)}
+            title={
+              exigeConfirmacao && !confirmado
+                ? "Marque a confirmação de acesso total para gravar."
+                : undefined
+            }
+          >
             {pendente ? "Gravando…" : usuario ? "Gravar alterações" : "Criar usuário"}
           </button>
           <button type="button" className="btn btn-ghost" onClick={aoFechar}>

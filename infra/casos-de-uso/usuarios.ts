@@ -8,7 +8,9 @@ import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
 import { exigirPermissao } from "@/dominio/autorizacao/permissoes";
 import {
   avaliarMudancaDeUsuario,
+  exigeConfirmacaoDeAcessoTotal,
   exigeNovaEpocaDeSessao,
+  MENSAGEM_CONFIRMAR_ACESSO_TOTAL,
   type MudancaDeUsuario,
 } from "@/dominio/usuarios/regras";
 import { validarSenhaContraPolitica } from "@/dominio/usuarios/politica-senha";
@@ -109,7 +111,19 @@ export interface UsuarioCriado {
 /** Cria um usuário interno com credencial provisória (ficha §3). */
 export async function criarUsuario(
   ator: Ator,
-  dados: { nome: string; email: string; papel: string },
+  dados: {
+    nome: string;
+    email: string;
+    papel: string;
+    /**
+     * Marcada pela pessoa quando o papel escolhido concede acesso total.
+     *
+     * Chega como dado da requisição e **é conferida aqui**, não só na tela: a
+     * confirmação da interface impede o clique distraído, e esta impede o
+     * POST montado à mão. Uma sem a outra é decoração.
+     */
+    confirmacaoAcessoTotal?: boolean;
+  },
 ): Promise<UsuarioCriado> {
   exigirPermissao(ator.papel, "GERIR_USUARIOS");
 
@@ -118,6 +132,10 @@ export async function criarUsuario(
     throw new ErroDeValidacao(analise.error.issues.map((problema) => problema.message));
   }
   const papel = analise.data.papel as Papel;
+
+  if (exigeConfirmacaoDeAcessoTotal(null, papel) && !dados.confirmacaoAcessoTotal) {
+    throw new ErroDeValidacao([MENSAGEM_CONFIRMAR_ACESSO_TOTAL]);
+  }
 
   const jaExiste = await prisma.usuario.findUnique({
     where: { email: analise.data.email },
@@ -165,7 +183,7 @@ export async function criarUsuario(
 export async function atualizarUsuario(
   ator: Ator,
   usuarioId: string,
-  dados: { nome: string; papel: string; ativo?: boolean },
+  dados: { nome: string; papel: string; ativo?: boolean; confirmacaoAcessoTotal?: boolean },
 ): Promise<void> {
   exigirPermissao(ator.papel, "GERIR_USUARIOS");
 
@@ -184,6 +202,19 @@ export async function atualizarUsuario(
       papel: analise.data.papel as Papel,
       ...(dados.ativo === undefined ? {} : { ativo: dados.ativo }),
     };
+
+    /*
+     * A conferência precisa do papel ANTERIOR, e por isso mora dentro da
+     * transação, depois da leitura: só aqui se sabe se isto é uma concessão
+     * (papel comum → acesso total) ou a edição do nome de quem já o tinha. A
+     * segunda não pede cerimônia nenhuma — ver o comentário da regra.
+     */
+    if (
+      exigeConfirmacaoDeAcessoTotal(anterior.papel, mudanca.papel!) &&
+      !dados.confirmacaoAcessoTotal
+    ) {
+      throw new ErroDeValidacao([MENSAGEM_CONFIRMAR_ACESSO_TOTAL]);
+    }
 
     const todos = await retratoParaRN46(tx, usuarioId);
     const erros = avaliarMudancaDeUsuario({ alvo: anterior, mudanca, todos });

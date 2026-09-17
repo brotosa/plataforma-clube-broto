@@ -59,6 +59,7 @@ export async function acaoCriarUsuario(
       nome: String(dados.get("nome") ?? ""),
       email: String(dados.get("email") ?? ""),
       papel: String(dados.get("papel") ?? ""),
+      confirmacaoAcessoTotal: dados.get("confirmacaoAcessoTotal") === "sim",
     });
     revalidatePath("/usuarios");
     return {
@@ -79,6 +80,10 @@ export async function acaoAtualizarUsuario(
     await atualizarUsuario(ator, String(dados.get("usuarioId") ?? ""), {
       nome: String(dados.get("nome") ?? ""),
       papel: String(dados.get("papel") ?? ""),
+      // Caixa desmarcada não vem no FormData, então ausência é "não
+      // confirmado" — que é o padrão seguro. Comparar com a string evita
+      // que um valor inesperado ("false", "0") seja lido como verdadeiro.
+      confirmacaoAcessoTotal: dados.get("confirmacaoAcessoTotal") === "sim",
     });
     revalidatePath("/usuarios");
     return { sucesso: "Usuário atualizado." };

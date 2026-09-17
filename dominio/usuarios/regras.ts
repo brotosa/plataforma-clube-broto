@@ -1,5 +1,5 @@
 import type { Papel } from "@prisma/client";
-import { podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { podeExecutar, temAcessoTotal } from "@/dominio/autorizacao/permissoes";
 
 /**
  * Regras puras da gestão de usuários (Onda 6, ficha §3 e §5).
@@ -104,6 +104,42 @@ export function avaliarMudancaDeUsuario(parametros: {
   }
   return erros;
 }
+
+/**
+ * Conceder acesso total exige confirmação explícita.
+ *
+ * **O risco que isto fecha, e por que a nota não bastava.** Os dois papéis de
+ * administração têm nomes parecidos — "Administrador" e "Administrador da
+ * Plataforma" — e poderes muito diferentes: o segundo pode toda ação do
+ * sistema, inclusive as criadas depois dele. Na lista do seletor eles ficam
+ * **vizinhos**, então errar o item concede a plataforma inteira com um clique.
+ *
+ * A Onda 15 mitigou isso com uma nota ao lado do campo, e a nota é o que se
+ * podia fazer na hora. Mas nota se lê uma vez e depois vira paisagem: quem usa
+ * a tela toda semana para de enxergá-la, e é justamente quem mais mexe ali.
+ * Uma confirmação não vira paisagem, porque **bloqueia** — não dá para
+ * concedê-la sem ter feito um ato a mais, de propósito.
+ *
+ * **Só na CONCESSÃO, e isto é a parte que importa do desenho.** Editar o nome
+ * de quem já tem acesso total não pede nada: se pedisse, a pessoa veria a
+ * cerimônia em toda edição daquele usuário, aprenderia a marcá-la sem ler, e a
+ * confirmação passaria a não confirmar coisa alguma. Cerimônia que se repete
+ * sem motivo ensina a ignorá-la — e aí vale menos que a nota que ela veio
+ * substituir.
+ *
+ * `papelAnterior` nulo é criação: usuário que já nasce com acesso total corre
+ * exatamente o mesmo risco de clique errado.
+ */
+export function exigeConfirmacaoDeAcessoTotal(
+  papelAnterior: Papel | null,
+  papelNovo: Papel,
+): boolean {
+  if (!temAcessoTotal(papelNovo)) return false;
+  return papelAnterior === null || !temAcessoTotal(papelAnterior);
+}
+
+export const MENSAGEM_CONFIRMAR_ACESSO_TOTAL =
+  "Conceder acesso total exige confirmação: este papel pode toda ação da plataforma, inclusive as que forem criadas depois. Marque a confirmação no formulário e grave de novo.";
 
 /**
  * RN47 — a mudança exige nova época de sessão?

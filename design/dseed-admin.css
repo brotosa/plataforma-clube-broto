@@ -1424,3 +1424,25 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .rel-assunto p{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);margin:0}
 
 @media (prefers-reduced-motion:reduce){.rel-assunto,.rel-gaveta{transition:none}}
+
+/* ===== T27 · confirmação de acesso total (pós-homologação) ==============
+   O bloco que aparece quando o papel escolhido concede acesso total.
+
+   Usa o alerta de ATENÇÃO (laranja), e não o de erro: nada deu errado — o
+   que se pede é leitura antes de um ato de consequência. Vermelho aqui
+   ensinaria a tratar concessão legítima como falha, e gastaria a cor que a
+   tela reserva para credencial expirada, logo ali na mesma lista.
+
+   O laranja da marca NUNCA é cor de texto (regra do fix AAA da F5): entra só
+   como borda e fundo claro, com o texto no preto da marca. */
+.confirma-acesso{border:1px solid var(--alerta);background:var(--alerta-claro);
+  border-radius:var(--r-sm);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.confirma-acesso-t{margin:0;font:var(--font-body-label-bold);color:var(--preto)}
+.confirma-acesso-p{margin:0;font:var(--font-body-caption-regular);color:var(--preto);max-width:68ch}
+/* A caixa e o texto formam um alvo só: o `<label>` embrulha o `<input>`, e
+   clicar em qualquer palavra marca. Alvo de 16px sozinho é pequeno demais
+   para dedo, e este é o clique que a tela mais precisa que seja deliberado —
+   mas deliberado não quer dizer difícil de acertar. */
+.confirma-acesso-l{display:flex;align-items:flex-start;gap:8px;cursor:pointer;
+  font:var(--font-body-caption-bold);color:var(--preto)}
+.confirma-acesso-l input{margin:1px 0 0;width:16px;height:16px;flex:none;cursor:pointer}

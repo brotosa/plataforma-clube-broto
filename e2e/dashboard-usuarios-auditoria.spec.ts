@@ -196,6 +196,77 @@ test("T27 — o Administrador cria usuário e recebe a senha provisória uma vez
 });
 
 /**
+ * T27 — conceder acesso total exige confirmação.
+ *
+ * Os dois papéis de administração são vizinhos no seletor e têm nomes que
+ * começam igual; errar o item concede a plataforma inteira com um clique. A
+ * Onda 15 mitigou com uma nota ao lado do campo, e nota vira paisagem para
+ * quem usa a tela toda semana. A confirmação não vira: ela **impede de
+ * gravar**.
+ *
+ * O que estes casos prendem é o par — a cerimônia aparece na CONCESSÃO e
+ * **não aparece** na edição de quem já tem o papel. O segundo é o que
+ * protege o desenho: cerimônia repetida sem motivo ensina a marcar sem ler.
+ */
+test("T27 — conceder acesso total pede confirmação, e o botão fica travado sem ela", async ({
+  page,
+}) => {
+  const marca = runId();
+  await entrar(page, ADMIN);
+  await page.goto("/usuarios");
+
+  await page.getByRole("button", { name: "+ Novo usuário" }).click();
+  await page.getByLabel("Nome completo").fill(`Total E2E ${marca}`);
+  await page.getByLabel("E-mail corporativo").fill(`total-${marca}@e2e.local`);
+
+  // Papel comum: nenhuma cerimônia, e o botão está livre.
+  await page.getByLabel("Papel", { exact: true }).selectOption("LEITURA");
+  await expect(page.getByText("Este papel dá acesso total")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Criar usuário" })).toBeEnabled();
+
+  // Acesso total: o bloco aparece e o botão trava.
+  await page.getByLabel("Papel", { exact: true }).selectOption("ADMINISTRADOR_PLATAFORMA");
+  await expect(page.getByText("Este papel dá acesso total")).toBeVisible();
+  await expect(page.getByText("toda ação da plataforma")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Criar usuário" })).toBeDisabled();
+
+  // Marcar destrava.
+  await page.getByLabel("Confirmo que quero conceder acesso total.").check();
+  await expect(page.getByRole("button", { name: "Criar usuário" })).toBeEnabled();
+
+  // Trocar o papel depois de marcar desmarca: a confirmação é daquela
+  // concessão, não um crédito que se leva adiante.
+  await page.getByLabel("Papel", { exact: true }).selectOption("ADMIN");
+  await expect(page.getByText("Este papel dá acesso total")).toHaveCount(0);
+  await page.getByLabel("Papel", { exact: true }).selectOption("ADMINISTRADOR_PLATAFORMA");
+  await expect(page.getByRole("button", { name: "Criar usuário" })).toBeDisabled();
+
+  await page.getByLabel("Confirmo que quero conceder acesso total.").check();
+  await page.getByRole("button", { name: "Criar usuário" }).click();
+  await expect(page.getByText("Senha provisória:")).toBeVisible();
+});
+
+test("T27 — editar quem já tem acesso total não pede confirmação", async ({ page }) => {
+  await entrar(page, ADMIN);
+  await page.goto("/usuarios");
+
+  // A conta de acesso total do seed, que nasce sem detentores mas existe
+  // como papel — aqui basta uma linha que já o tenha.
+  await page.getByLabel("Buscar por nome ou e-mail").fill("acessototal@dev.clubebroto.local");
+  const linha = page.getByRole("row", { name: /acessototal@dev\.clubebroto\.local/ });
+  await expect(linha).toBeVisible();
+  await linha.getByRole("button", { name: "Editar" }).click();
+
+  // O formulário abre com o papel já em acesso total, e NÃO há cerimônia:
+  // editar o nome de quem já o tem não é concessão.
+  await expect(page.getByLabel("Papel", { exact: true })).toHaveValue(
+    "ADMINISTRADOR_PLATAFORMA",
+  );
+  await expect(page.getByText("Este papel dá acesso total")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Gravar alterações" })).toBeEnabled();
+});
+
+/**
  * T27 — a linha compacta e o rodapé de paginação (Onda 15).
  *
  * O que este teste prende não é a aparência, é a **regra de corte**: `Editar` e
