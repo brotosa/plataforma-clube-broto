@@ -121,6 +121,65 @@ test("Administrador ajusta o tempo de sessão e salva", async ({ page }) => {
   await expect(page.getByLabel("Tempo de sessão (minutos)")).toHaveValue("20");
 });
 
+/**
+ * O histórico sob cada formulário (pós-homologação).
+ *
+ * A T35 mostrava o estado vigente e mais nada: quem abria via que a sessão cai
+ * em 30 minutos e não via se isso era o padrão desde a implantação ou algo que
+ * alguém apertou ontem. Numa tela de segurança essa é a pergunta que mais se
+ * faz depois de um incidente, e a única resposta era abrir a Auditoria e ler
+ * evento a evento.
+ *
+ * O dado já existia desde a F23; faltava a leitura.
+ */
+test("o histórico aparece sob o formulário depois de uma alteração", async ({ page }) => {
+  await restaurarPadrao();
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes?aba=sessao");
+
+  // Antes de qualquer alteração: a frase é a da ausência, e ela é
+  // informativa — "sem alteração" não é o mesmo que "sem histórico".
+  await expect(page.getByText("sem alteração desde a implantação").first()).toBeVisible();
+
+  await page.getByLabel("Tempo de sessão (minutos)").fill("45");
+  await page.getByRole("button", { name: "Salvar tempo de sessão" }).click();
+  await expect(page.getByText("Tempo de sessão salvo")).toBeVisible();
+  await page.reload();
+
+  // Agora diz o quê, de quanto para quanto, por quem e quando.
+  const legenda = page.getByText(/Inatividade: .* → 45 min/);
+  await expect(legenda).toBeVisible();
+  await expect(legenda).toContainText("Administrador");
+
+  await restaurarPadrao();
+});
+
+/**
+ * O vocabulário do histórico é o da faixa de panorama.
+ *
+ * Seria absurdo a faixa escrever "Desligado" no alto da tela e a legenda
+ * escrever "0" três centímetros abaixo, falando do mesmo número. A regra da
+ * ficha v0.3 vale para a tela inteira, não só para a faixa.
+ */
+test("proteção desligada aparece como palavra também no histórico", async ({ page }) => {
+  await restaurarPadrao();
+  await entrar(page, ADMIN);
+  await page.goto("/configuracoes?aba=bloqueios");
+
+  // O bloqueio por origem nasce desligado; ligar e desligar deixa o rastro.
+  await page.getByLabel("Falhas por endereço antes de bloquear").fill("10");
+  await page.getByRole("button", { name: "Salvar bloqueio por origem" }).click();
+  await expect(page.getByText("Bloqueio por origem salvo")).toBeVisible();
+
+  await page.getByLabel("Falhas por endereço antes de bloquear").fill("0");
+  await page.getByRole("button", { name: "Salvar bloqueio por origem" }).click();
+  await expect(page.getByText("Bloqueio por origem salvo")).toBeVisible();
+  await page.reload();
+
+  await expect(page.getByText(/→ Desligado/).first()).toBeVisible();
+  await restaurarPadrao();
+});
+
 test("Administrador ajusta o bloqueio por login e vê a lista de bloqueados vazia", async ({ page }) => {
   await entrar(page, ADMIN);
   await page.goto("/configuracoes?aba=bloqueios");
