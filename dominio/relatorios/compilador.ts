@@ -538,6 +538,33 @@ export function compilarRelatorio(
     if (campo) registrarJuncoes(campo);
   });
 
+  /*
+   * O filtro obrigatório é cobrado ANTES de o SQL ser montado, e a
+   * conferência é sobre a definição inteira — não só sobre os campos que
+   * entraram nas gavetas. Um relatório de Auditoria agrupado por "Entidade",
+   * sem nenhuma data em lugar nenhum, é exatamente o caso perigoso: ele
+   * parece inofensivo na tela e varre a tabela toda no banco.
+   *
+   * `vazio` e `preenchido` não contam como filtro de período: `criado_em IS
+   * NOT NULL` é verdade para todas as linhas e não recorta nada. Aceitá-los
+   * satisfaria a regra na letra e a desfaria na prática — que é pior que não
+   * ter a regra, porque dá a sensação de proteção.
+   */
+  const OPERADORES_QUE_NAO_RECORTAM: ReadonlyArray<OperadorRelatorio> = ["vazio", "preenchido"];
+  const exigencias = assunto.campos.filter((campo) => campo.filtroObrigatorio);
+  const faltantes = exigencias.filter(
+    (campo) =>
+      !definicao.filtros.some(
+        (filtro) =>
+          filtro.campo === campo.slug && !OPERADORES_QUE_NAO_RECORTAM.includes(filtro.operador),
+      ),
+  );
+  if (faltantes.length > 0) {
+    throw new ErroDeRelatorioInvalido(
+      faltantes.map((campo) => `${campo.rotulo}: ${campo.filtroObrigatorio}`),
+    );
+  }
+
   const multiplicadoras = juncoesQueMultiplicam(assunto, necessarias);
 
   const projecao: ColunaProjetada[] = [];
