@@ -839,3 +839,51 @@ test.describe("responsividade a 380px — Onda 16", () => {
     await semViolacoesAxe(page);
   });
 });
+
+test.describe("responsividade a 380px — Onda 17", () => {
+  const GESTOR = "gestor@dev.clubebroto.local";
+
+  /*
+   * O gráfico é a coisa mais fácil de estourar a largura: SVG não encolhe
+   * sozinho, e um desenho de 600px dentro de uma coluna de 348px empurraria
+   * a PÁGINA inteira para o lado — que é justamente o que esta suíte proíbe.
+   *
+   * DIVERGÊNCIA DECLARADA em relação à ficha da Onda 17, §4. Ela propôs o
+   * painel de ajustes "à direita do desenho" no desktop, virando "uma linha
+   * acima dele" a 380px. O que foi construído põe os ajustes **abaixo do
+   * desenho em qualquer largura**, por dois motivos: a coluna da prévia não é
+   * larga nem no desktop, e um painel lateral espremeria o gráfico contra o
+   * eixo; e a leitura natural é desenho primeiro, controle depois — o controle
+   * existe para mexer no que já se está vendo.
+   *
+   * A ficha é v0.1 e está para validação, então isto é proposta contra
+   * proposta, não desobediência a contrato aprovado. Se a Superintendência
+   * preferir o painel lateral, é mudança de CSS e deste teste.
+   */
+  test("T36: o gráfico cabe na largura, e os ajustes ficam abaixo dele", async ({ page }) => {
+    await entrar(page, GESTOR);
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Barras", exact: true }).click();
+    const svg = page.locator(".rel-grafico svg").first();
+    await expect(svg).toBeVisible();
+
+    const caixaSvg = await svg.boundingBox();
+    expect((caixaSvg?.x ?? 0) + (caixaSvg?.width ?? 0), "borda direita do gráfico")
+      .toBeLessThanOrEqual(380);
+
+    const caixaAjustes = await page.locator(".rel-ajustes").boundingBox();
+    expect(caixaAjustes?.y ?? 0, "os ajustes vêm depois do desenho").toBeGreaterThan(
+      caixaSvg?.y ?? 0,
+    );
+
+    // A tabela continua abaixo do gráfico (RN81) — inclusive no celular, onde
+    // a tentação de escondê-la para "ganhar espaço" seria justamente perder a
+    // alternativa textual do desenho.
+    await expect(page.locator(".rel-resultado table")).toBeVisible();
+
+    await semRolagemHorizontal(page);
+    await semViolacoesAxe(page);
+  });
+});

@@ -88,9 +88,11 @@ Quatro recusas, cada uma com a causa escrita (RN55):
 
 **Um alternador no cabeçalho do painel de prévia:** Tabela · Barras · Colunas · Linha · Área · Rosca · Número. O tipo vigente fica marcado; os indisponíveis, apagados com o motivo no `title`.
 
-**Um painel de ajustes**, à direita do desenho, com os controles do tipo escolhido. Fechado por padrão em telas estreitas.
+**Um painel de ajustes**, com os controles do tipo escolhido.
 
-**O desenho, e a tabela abaixo dele.** A 380px o gráfico ocupa a largura inteira e o painel de ajustes vira uma linha acima dele.
+> **Divergência da implementação, declarada.** Esta ficha propôs o painel **à direita** do desenho, virando uma linha **acima** dele a 380px. A F27 o construiu **abaixo do desenho, em qualquer largura**, por dois motivos apurados ao montar a tela: a coluna da prévia não é larga nem no desktop, e um painel lateral espremeria o gráfico contra o eixo; e a leitura natural é desenho primeiro, controle depois — o controle existe para mexer no que já se está vendo. Como esta ficha é v0.1 e está para validação, isto é proposta contra proposta, não desobediência a contrato aprovado. Preferindo-se o painel lateral, a mudança é de CSS e de um teste (`e2e/responsividade.spec.ts`, "Onda 17").
+
+**O desenho, e a tabela abaixo dele.** A 380px o gráfico ocupa a largura inteira, e a tabela permanece visível — esconder a tabela para "ganhar espaço" no celular seria perder justamente a alternativa textual do desenho (RN81).
 
 **Nada muda na galeria, nas gavetas, nos filtros ou na exportação em CSV.**
 
