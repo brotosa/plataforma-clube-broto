@@ -88,7 +88,21 @@ test.beforeAll(async () => {
       },
     });
   }
-  const gestor = await prisma.usuario.findFirstOrThrow({ where: { papel: "GESTOR" } });
+  /*
+   * Pelo E-MAIL, e não por `findFirst({ papel: "GESTOR" })`.
+   *
+   * Há OITO contas com papel GESTOR na base de testes, e `findFirst` sem
+   * `orderBy` não garante qual volta. Localmente veio `gestor@dev`; no CI
+   * veio outra — e como o painel da segunda suíte é PRIVADO, `abrirPainel`
+   * recusou para quem abriu, a página não montou bloco nenhum e o teste
+   * falhou procurando um aviso que não tinha onde existir.
+   *
+   * O defeito era do teste, não do produto: quem abre precisa ser o AUTOR,
+   * e "qualquer conta com este papel" não é a mesma coisa que "esta conta".
+   */
+  const gestor = await prisma.usuario.findUniqueOrThrow({
+    where: { email: "gestor@dev.clubebroto.local" },
+  });
   const painel = await prisma.painel.create({
     data: {
       nome: `${MARCA} Segunda-feira`,
@@ -208,6 +222,101 @@ test.describe.serial("T37 — o painel, e as duas recusas que importam", () => {
     await page.goto(`/paineis?painel=${painelId}`);
     await expect(
       page.getByRole("region", { name: `${MARCA} Ofertas por aliado` }).locator("table"),
+    ).toBeVisible({ timeout: 20_000 });
+    await semViolacoesAxe(page);
+  });
+});
+
+test.describe.serial("T37 — RN89: o filtro por eixo, e o que ele NÃO alcança", () => {
+  let comFiltroId = "";
+
+  test.beforeAll(async () => {
+    await prisma.painel.deleteMany({ where: { nome: { startsWith: `${MARCA} filtrado` } } });
+    // Pelo e-mail, e não pelo papel — ver o comentário na primeira suíte: há
+  // oito contas GESTOR, e este painel é PRIVADO, então o autor precisa ser
+  // exatamente quem abre.
+  const gestor = await prisma.usuario.findUniqueOrThrow({
+    where: { email: "gestor@dev.clubebroto.local" },
+  });
+    const painel = await prisma.painel.create({
+      data: {
+        nome: `${MARCA} filtrado`,
+        visibilidade: "PRIVADO",
+        autorId: gestor.id,
+        /*
+         * O par que prova a regra: Auditoria DECLARA o eixo Período
+         * (`au-data`), e Assinantes NÃO declara — a única data dela é o
+         * vencimento, que é futuro. Lado a lado, um bloco é filtrado e o
+         * outro não, que é exatamente a situação que a RN89 existe para
+         * tornar visível.
+         */
+        blocos: [
+          {
+            titulo: `${MARCA} Auditoria por entidade`,
+            definicao: {
+              assunto: "auditoria",
+              linhas: ["au-entidade"],
+              colunas: [],
+              valores: [{ campo: "au-entidade", agregacao: "QUANTOS" }],
+              filtros: [
+                { campo: "au-data", operador: "maior_ou_igual", valores: ["2000-01-01"] },
+              ],
+            },
+            visualizacao: { tipo: "TABELA", ajustes: {} },
+            largura: "METADE",
+          },
+          BLOCO_ASSINANTES,
+        ],
+        filtro: { periodo: { de: "2020-01-01", ate: "2030-12-31" } },
+      },
+      select: { id: true },
+    });
+    comFiltroId = painel.id;
+  });
+
+  test.afterAll(async () => {
+    await prisma.execucaoRelatorio.updateMany({
+      where: { painelId: comFiltroId },
+      data: { painelId: null },
+    });
+    await prisma.painel.deleteMany({ where: { id: comFiltroId } });
+  });
+
+  test("o bloco que NÃO comporta o eixo avisa, e diz qual", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${comFiltroId}`);
+
+    const semEixo = page.getByRole("region", { name: `${MARCA} Assinantes por UF` });
+    await expect(semEixo.getByRole("note")).toContainText("Período");
+    // E diz o que a pessoa está vendo, não só que o filtro falhou.
+    await expect(semEixo.getByRole("note")).toContainText("conjunto inteiro");
+  });
+
+  test("o bloco que comporta o eixo NÃO avisa — o aviso não é decorativo", async ({ page }) => {
+    /*
+     * A asserção que dá sentido à anterior. Um aviso que aparecesse em todo
+     * bloco não informaria nada: a pessoa aprenderia a ignorá-lo, e no dia
+     * em que ele importasse ela não o leria.
+     */
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${comFiltroId}`);
+
+    const comEixo = page.getByRole("region", { name: `${MARCA} Auditoria por entidade` });
+    await expect(comEixo.locator("table")).toBeVisible({ timeout: 20_000 });
+    await expect(comEixo.getByRole("note")).toHaveCount(0);
+  });
+
+  test("o filtro vigente aparece no alto do painel", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${comFiltroId}`);
+    await expect(page.locator(".pn-filtro")).toContainText("Período");
+  });
+
+  test("axe-core (AAA) com o filtro e o aviso na tela", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${comFiltroId}`);
+    await expect(
+      page.getByRole("region", { name: `${MARCA} Auditoria por entidade` }).locator("table"),
     ).toBeVisible({ timeout: 20_000 });
     await semViolacoesAxe(page);
   });

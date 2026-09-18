@@ -2,6 +2,7 @@ import { auth } from "@/infra/auth";
 import { redirect } from "next/navigation";
 
 import { abrirPainel, listarPaineis } from "@/infra/casos-de-uso/paineis";
+import { ROTULOS_DE_EIXO, type FiltroDoPainel } from "@/dominio/relatorios/eixos";
 import { BlocoDoPainel, type BlocoSerializado } from "./bloco";
 
 /**
@@ -97,6 +98,7 @@ async function PainelAberto({
       ? { visualizacao: "visualizacao" in bloco ? bloco.visualizacao : undefined }
       : {}),
     ...("resumo" in bloco ? { resumo: bloco.resumo } : {}),
+    ...("naoAplicados" in bloco ? { naoAplicados: bloco.naoAplicados } : {}),
   }));
 
   return (
@@ -107,11 +109,46 @@ async function PainelAberto({
         <a href="/paineis">voltar aos painéis</a>
       </div>
 
+      <FiltroDoPainelNaTela filtro={painel.filtro} />
+
       <div className="pn-grade">
         {blocos.map((bloco, indice) => (
           <BlocoDoPainel key={indice} painelId={painel.id} indice={indice} bloco={bloco} />
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * O filtro vigente do painel (RN89).
+ *
+ * **Exibido, e não editável nesta fase.** O filtro é gravado com o painel, e
+ * mexer nele aqui exigiria decidir se a mudança vale só para esta sessão ou
+ * para todo mundo que abre — pergunta que a F31 não precisa responder para
+ * entregar o que importa: que o filtro exista, se aplique e DIGA onde não se
+ * aplicou.
+ *
+ * Sem filtro, nada é desenhado. Uma faixa dizendo "sem filtro" ocuparia
+ * espaço para informar o estado normal.
+ */
+function FiltroDoPainelNaTela({ filtro }: { filtro: FiltroDoPainel | null }) {
+  if (!filtro) return null;
+
+  const partes: string[] = [];
+  if (filtro.periodo) {
+    const de = filtro.periodo.de ? `de ${filtro.periodo.de}` : "";
+    const ate = filtro.periodo.ate ? `até ${filtro.periodo.ate}` : "";
+    partes.push(`${ROTULOS_DE_EIXO.PERIODO}: ${[de, ate].filter(Boolean).join(" ")}`);
+  }
+  if (filtro.uf?.length) {
+    partes.push(`${ROTULOS_DE_EIXO.UF}: ${filtro.uf.join(", ")}`);
+  }
+  if (partes.length === 0) return null;
+
+  return (
+    <p className="pn-filtro" role="note">
+      <strong>Filtro do painel</strong> · {partes.join(" · ")}
+    </p>
   );
 }

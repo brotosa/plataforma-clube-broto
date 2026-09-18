@@ -1738,3 +1738,17 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   .pn-grade{grid-template-columns:1fr}
   .pn-bloco-inteira{grid-column:auto}
 }
+
+/* ===== T37 · o filtro do painel e o aviso de eixo (Onda 18 — F31) =====
+   O aviso fica ACIMA do número, não no rodapé: o defeito que a RN89 combate
+   é ler dois blocos lado a lado como se respondessem à mesma pergunta, e um
+   aviso abaixo do número chega depois da leitura.
+
+   Âmbar e não vermelho: o bloco não falhou — ele responde a outra coisa que
+   a pessoa precisa saber antes de comparar. */
+.pn-filtro{margin:14px 0 0;padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--azul-lightest);border:1px solid var(--azul-claro);
+  font:var(--font-body-caption-regular);color:var(--preto)}
+.pn-bloco-eixo{margin:0 0 10px;padding:7px 10px;border-radius:var(--r-xs);
+  background:var(--amarelo-claro);border:1px solid var(--amarelo);
+  font:var(--font-body-caption-regular);color:var(--preto)}

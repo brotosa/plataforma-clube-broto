@@ -53,6 +53,7 @@ import type {
 } from "@prisma/client";
 
 import type { Acao } from "@/dominio/autorizacao/permissoes";
+import type { EixosDoAssunto } from "./eixos";
 import { ROTULOS_RECOMENDACAO } from "@/dominio/avaliacao/regras";
 import { NIVEL_EXIGIDO, ROTULOS_META, ROTULOS_NIVEL } from "@/dominio/campanhas/atribuicao";
 import { ROTULOS_DESTINACAO, ROTULOS_ESTADO_CAMPANHA } from "@/dominio/campanhas/regras";
@@ -349,6 +350,19 @@ export interface AssuntoRelatorio {
    * base de gente.
    */
   contemDadoPessoal: boolean;
+  /**
+   * RN89 — qual campo deste assunto responde a cada eixo do filtro do painel.
+   *
+   * **Ausente = o eixo não se aplica, e o bloco avisa.** Declarar um campo
+   * que não responde à pergunta do eixo seria pior que não declarar: o
+   * filtro agiria, o número mudaria, e ninguém saberia que mudou por outro
+   * critério.
+   *
+   * Existe porque os assuntos **não compartilham campo** — medido: dos nove,
+   * `aliado-uf` aparece em dois e `solucao-nome` em dois. Um filtro global
+   * por slug se aplicaria a quase nada, e em silêncio.
+   */
+  eixos?: EixosDoAssunto;
   raiz: { tabela: string; alias: string };
   juncoes: Readonly<Record<string, JuncaoRelatorio>>;
   campos: ReadonlyArray<CampoRelatorio>;
@@ -366,6 +380,19 @@ const OFERTAS: AssuntoRelatorio = {
     "Tudo o que está publicado ou em preparo na vitrine: benefício, cupom, vigência, e de qual aliado e solução cada oferta vem.",
   permissao: "VISUALIZAR",
   contemDadoPessoal: false,
+  /*
+   * RN89. Período pela vigência que COMEÇA — e não por "ativada em", que não
+   * existe aqui: é quando a oferta entrou em circulação.
+   *
+   * UF NÃO é declarada, e a recusa é a parte importante. O único campo de UF
+   * deste assunto é `aliado-uf`, que é a **UF da sede do aliado** — atributo
+   * emprestado de outra entidade, não da oferta. Filtrar ofertas por ele faria
+   * o painel dizer "MT" significando "ofertas de aliados sediados em MT", que
+   * é precisamente a inferência que a RN52 proíbe no mapa: sede não é
+   * abrangência. Quem quiser esse recorte o monta no bloco, onde o rótulo
+   * do campo diz o que ele é.
+   */
+  eixos: { PERIODO: "oferta-vigencia-inicio" },
   raiz: { tabela: "ofertas", alias: "o" },
   juncoes: {
     solucao: { sql: "JOIN solucoes s ON s.id = o.solucao_id" },
@@ -621,6 +648,9 @@ const ALIADOS: AssuntoRelatorio = {
     "As empresas do funil e da rede: estágio, origem, sede, score de scouting e quantas soluções cada uma trouxe.",
   permissao: "VISUALIZAR",
   contemDadoPessoal: false,
+  // RN89. Entrada na rede e UF da sede — os dois são atributos do próprio
+  // aliado, e o rótulo do eixo diz o mesmo que o rótulo do campo.
+  eixos: { PERIODO: "aliado-data-entrada", UF: "aliado-uf" },
   raiz: { tabela: "empresas", alias: "e" },
   juncoes: {
     /*
@@ -812,6 +842,9 @@ const FUNIL: AssuntoRelatorio = {
     "Como a prospecção anda: estágio e tempo parado nele, quem assumiu, o que a avaliação fechada recomendou, situação do dossiê e motivo do descarte.",
   permissao: "VISUALIZAR_FUNIL",
   contemDadoPessoal: false,
+  // RN89. Entrada no radar, e não "no estágio desde": o eixo pergunta quando
+  // o registro entrou em cena, e o estágio muda várias vezes depois disso.
+  eixos: { PERIODO: "empresa-entrada-radar", UF: "empresa-uf" },
   raiz: { tabela: "empresas", alias: "e" },
   juncoes: {
     scout: { sql: "LEFT JOIN usuarios us ON us.id = e.responsavel_scout_id" },
@@ -1123,6 +1156,18 @@ const CAMPANHAS: AssuntoRelatorio = {
    */
   permissao: "VISUALIZAR",
   contemDadoPessoal: false,
+  /*
+   * RN89. Início da vigência, e não "ativada em".
+   *
+   * "Ativada em" seria mais fiel ao "quando aconteceu", mas é NULO em toda
+   * campanha que não chegou a ativar — e filtrar por ele excluiria os
+   * rascunhos em silêncio, que é a classe de defeito que esta onda existe
+   * para impedir. A vigência existe em todas.
+   *
+   * UF não se aplica: campanha não tem UF própria, e o público dela é
+   * congelado por recorte, não por estado.
+   */
+  eixos: { PERIODO: "campanha-vigencia-inicio" },
   raiz: { tabela: "campanhas", alias: "cp" },
   juncoes: {
     autor: { sql: "JOIN usuarios ua ON ua.id = cp.autor_id" },
@@ -1446,6 +1491,9 @@ const PATROCINADORES: AssuntoRelatorio = {
    * do patrocinador, que é onde ele é útil e onde o acesso é pontual.
    */
   contemDadoPessoal: false,
+  // RN89. Assinatura do contrato — o ato que põe o patrocinador em operação.
+  // UF não se aplica: patrocinador não tem UF no modelo.
+  eixos: { PERIODO: "contrato-assinatura" },
   raiz: { tabela: "patrocinadores", alias: "p" },
   juncoes: {
     contrato: { sql: "LEFT JOIN contratos_patrocinio ct ON ct.patrocinador_id = p.id" },
@@ -1757,6 +1805,9 @@ const TELEMETRIA_CATALOGO: AssuntoRelatorio = {
     "O retrato acumulado que a operadora publica por oferta: resgates e compras, com a data do arquivo que os produziu. Sem dado de pessoa.",
   permissao: "VISUALIZAR",
   contemDadoPessoal: false,
+  // RN89. A data do retrato, que é o que este assunto mede: cada linha é o
+  // estado de uma oferta num arquivo datado. UF não existe aqui.
+  eixos: { PERIODO: "tc-data-arquivo" },
   raiz: { tabela: "contadores_oferta_telemetria", alias: "co" },
   juncoes: {
     oferta: { sql: "JOIN ofertas o ON o.id = co.oferta_id" },
@@ -1896,6 +1947,9 @@ const TELEMETRIA_RESGATES: AssuntoRelatorio = {
     "Os eventos nominais que a operadora envia: quando, que produto, em que seller e por quanto. Agregado por período, produto e região — nunca por pessoa.",
   permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
   contemDadoPessoal: true,
+  // RN89. Quando o resgate aconteceu, e a UF do assinante que o fez — os dois
+  // são do próprio evento.
+  eixos: { PERIODO: "tr-data", UF: "tr-uf" },
   raiz: { tabela: "eventos_resgate_telemetria", alias: "ev" },
   juncoes: {
     // O assinante entra para dar REGIÃO e PERFIL, nunca identidade. As
@@ -2088,6 +2142,20 @@ const ASSINANTES: AssuntoRelatorio = {
     "A carteira em agregado: plano, perfil, situação, região e vencimento. Sem nome, sem contato e sem CPF — listagem nominal só pela exportação com finalidade.",
   permissao: "VISUALIZAR_DADOS_PESSOAIS_PLENOS",
   contemDadoPessoal: true,
+  /*
+   * RN89 — e este é o assunto que PROVA a necessidade do eixo declarado.
+   *
+   * A única data daqui é `as-vencimento`, que é **futura**: quando a
+   * assinatura vence. Amarrá-la a um eixo "Período" que, na Auditoria,
+   * significa "quando aconteceu" produziria dois filtros com o mesmo rótulo
+   * e sentidos opostos — "de janeiro a março" traria eventos passados num
+   * bloco e vencimentos por vir no outro, lado a lado, sem nada dizendo.
+   *
+   * Por isso Assinantes NÃO declara Período, e o bloco avisa. Quem quiser
+   * recortar por vencimento o faz no próprio bloco, onde o rótulo do campo
+   * diz o que ele é.
+   */
+  eixos: { UF: "as-uf" },
   raiz: { tabela: "assinantes", alias: "a" },
   juncoes: {
     assinatura: { sql: "LEFT JOIN assinaturas asg ON asg.assinante_id = a.id" },
@@ -2299,6 +2367,9 @@ const AUDITORIA: AssuntoRelatorio = {
     "Quem mexeu em quê, em agregado: por entidade, por campo, por autor e por período. Exige um recorte de datas — a trilha só cresce.",
   permissao: "VISUALIZAR_AUDITORIA",
   contemDadoPessoal: false,
+  // RN89. A data do evento — o caso mais direto: cada linha É um
+  // acontecimento datado. UF não existe na trilha.
+  eixos: { PERIODO: "au-data" },
   raiz: { tabela: "auditoria_eventos", alias: "ae" },
   juncoes: {
     autor: { sql: "JOIN usuarios ua ON ua.id = ae.autor_id" },
