@@ -61,6 +61,22 @@ async function criar(papel: "ADMIN" | "ANALISTA", nome: string) {
   });
 }
 
+/**
+ * O ÚNICO alerta desta conta — falha se não houver exatamente um.
+ *
+ * `toHaveLength(1)` não estreita o tipo com `noUncheckedIndexedAccess`, e
+ * indexar depois dele deixa `possibly undefined`. Este auxiliar afirma a
+ * contagem e devolve o elemento já estreitado, em vez de espalhar `?.` pelas
+ * asserções — que passariam calado se a lista viesse vazia.
+ */
+async function unicoAlertaDe(usuarioId: string) {
+  const alertas = await alertasDe(usuarioId);
+  expect(alertas).toHaveLength(1);
+  const [alerta] = alertas;
+  if (!alerta) throw new Error("esperado exatamente um alerta");
+  return alerta;
+}
+
 /** Eventos de alerta gravados sobre esta conta, por autor de sistema. */
 async function alertasDe(usuarioId: string) {
   return prisma.auditoriaEvento.findMany({
@@ -123,16 +139,15 @@ describe.skipIf(!temBanco)("Tentativas de acesso recusadas deixam rastro", () =>
       await provedorCredenciaisPrisma.autenticarPorCredenciais(isenta.email, SENHA_ERRADA);
     }
 
-    const alertas = await alertasDe(isenta.id);
-    expect(alertas).toHaveLength(1);
-    expect(alertas[0].valorNovo).toContain("isenta de bloqueio");
+    const alerta = await unicoAlertaDe(isenta.id);
+    expect(alerta.valorNovo).toContain("isenta de bloqueio");
     // A mensagem precisa dizer que NÃO trancou — senão quem lê a trilha
     // conclui que a proteção agiu.
-    expect(alertas[0].valorNovo).toContain("NÃO foi trancado");
+    expect(alerta.valorNovo).toContain("NÃO foi trancado");
 
     // O autor é a conta de sistema, nunca a própria vítima: atribuir a
     // autoria a ela diria, na trilha dela, que ela fez isso.
-    const autor = await prisma.usuario.findUniqueOrThrow({ where: { id: alertas[0].autorId } });
+    const autor = await prisma.usuario.findUniqueOrThrow({ where: { id: alerta.autorId } });
     expect(autor.email).toBe(SISTEMA_AUTENTICACAO.email);
     expect(autor.ativo).toBe(false);
   });
@@ -162,9 +177,8 @@ describe.skipIf(!temBanco)("Tentativas de acesso recusadas deixam rastro", () =>
       await provedorCredenciaisPrisma.autenticarPorCredenciais(comum.email, SENHA),
     ).toBeNull();
 
-    const alertas = await alertasDe(comum.id);
-    expect(alertas).toHaveLength(1);
-    expect(alertas[0].valorNovo).toContain("foi trancado");
+    const alerta = await unicoAlertaDe(comum.id);
+    expect(alerta.valorNovo).toContain("foi trancado");
   });
 
   it("insistir numa conta já trancada não multiplica eventos", async () => {
