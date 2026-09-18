@@ -18,7 +18,15 @@ import type { ResumoDePolitica } from "@/dominio/usuarios/resumo-politicas";
  */
 
 /** Uma célula, com a contagem operacional quando houver. */
-function Celula({ resumo, bloqueados }: { resumo: ResumoDePolitica; bloqueados?: number }) {
+function Celula({
+  resumo,
+  bloqueados,
+  isentas,
+}: {
+  resumo: ResumoDePolitica;
+  bloqueados?: number;
+  isentas?: number;
+}) {
   return (
     <div className="kpi-cel">
       <span className="cap">{resumo.rotulo}</span>
@@ -50,6 +58,33 @@ function Celula({ resumo, bloqueados }: { resumo: ResumoDePolitica; bloqueados?:
           {bloqueados === 1 ? "1 bloqueado agora" : `${bloqueados} bloqueados agora`}
         </span>
       ) : null}
+      {/*
+        Tentativas contra conta ISENTA (RN74).
+
+        Linha extra na célula que já existe, e não uma sexta célula: a faixa é
+        `kpi-row-5`, com a contagem de colunas fixa justamente para as cinco
+        fecharem sem sobra. Uma sexta abriria a lacuna que aparece como célula
+        fantasma, porque o fundo do grid é a cor das divisórias — é o mesmo
+        defeito corrigido na Onda 7 no `.dash-stats`, e a lição está no
+        comentário do `dseed-admin.css`. Célula nova na faixa é troca, não
+        acréscimo, e é decisão de Design.
+
+        Fica na célula do bloqueio por conta porque é ali que a pessoa está
+        lendo sobre trancar contas — e a informação que falta é justamente que
+        UMA classe de conta nunca é trancada, e que alguém está tentando.
+
+        Só aparece havendo acúmulo: zero é o estado normal, e uma linha
+        permanente dizendo "0 tentativas" gastaria espaço para não informar
+        nada. Ausência aqui não é ambígua — a célula ao lado já diz qual é a
+        política.
+      */}
+      {isentas !== undefined && isentas > 0 ? (
+        <span className="cap" style={{ color: "var(--erro-texto-aaa)", fontWeight: 700 }}>
+          {isentas === 1
+            ? "1 tentativa em conta isenta"
+            : `${isentas} tentativas em conta isenta`}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -62,6 +97,7 @@ export function FaixaPanorama({
   origem,
   contasBloqueadas,
   origensBloqueadas,
+  tentativasIsentas,
 }: {
   senha: ResumoDePolitica;
   credencial: ResumoDePolitica;
@@ -70,6 +106,8 @@ export function FaixaPanorama({
   origem: ResumoDePolitica;
   contasBloqueadas: number;
   origensBloqueadas: number;
+  /** RN74 — tentativas acumuladas contra contas que nunca são trancadas. */
+  tentativasIsentas: number;
 }) {
   return (
     <div
@@ -83,7 +121,7 @@ export function FaixaPanorama({
           a linha inteira até o fim. */}
       <Celula resumo={credencial} />
       <Celula resumo={sessao} />
-      <Celula resumo={login} bloqueados={contasBloqueadas} />
+      <Celula resumo={login} bloqueados={contasBloqueadas} isentas={tentativasIsentas} />
       <Celula resumo={origem} bloqueados={origensBloqueadas} />
     </div>
   );

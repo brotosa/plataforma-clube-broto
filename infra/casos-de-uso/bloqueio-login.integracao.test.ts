@@ -105,11 +105,24 @@ describe.skipIf(!temBanco)("Bloqueio por tentativas de login (PR C)", () => {
     expect(await provedorCredenciaisPrisma.autenticarPorCredenciais(alvo.email, SENHA)).toBeNull();
   });
 
-  it("o Administrador da Plataforma nunca é bloqueado nem contado", async () => {
+  /**
+   * **Este teste dizia "nem contado", e agora conta.** A mudança é deliberada
+   * e a asserção que importa continua idêntica: a conta isenta NUNCA é
+   * trancada, e entra com a senha certa depois de dez erros.
+   *
+   * O que mudou é que ela deixou de ser invisível. Antes, tentar senhas contra
+   * uma conta de Administrador não tocava contador nenhum e não gravava evento
+   * nenhum — e como o bloqueio por origem nasce desligado, a tentativa podia se
+   * repetir sem limite, sem prazo e sem rastro em lugar algum. A isenção
+   * continua sem contrapartida decidida (pendência da ficha da Onda 15); o que
+   * existe agora é o número em que apoiar a decisão.
+   */
+  it("o Administrador da Plataforma nunca é bloqueado — mas agora é CONTADO", async () => {
     const outroAdmin = await criarDireto("Admin Alvo Blq", "ADMINISTRADOR_PLATAFORMA");
     await errarSenha(outroAdmin.email, 10);
     const estado = await prisma.usuario.findUniqueOrThrow({ where: { id: outroAdmin.id } });
-    expect(estado.loginTentativas).toBe(0);
+    expect(estado.loginTentativas).toBe(10);
+    // Não-regressão da RN74 — inalterado de propósito:
     expect(estado.loginBloqueadoAte).toBeNull();
     expect(await emailEstaBloqueado(outroAdmin.email)).toBe(false);
     // E continua entrando com a senha certa.
@@ -132,11 +145,12 @@ describe.skipIf(!temBanco)("Bloqueio por tentativas de login (PR C)", () => {
    * motivo original da regra: a conta que destranca as outras não pode se
    * trancar.
    */
-  it("o papel renomeado (Administrador) também nunca é bloqueado nem contado", async () => {
+  it("o papel renomeado (Administrador) também nunca é bloqueado — e também é contado", async () => {
     const administrador = await criarDireto("Administrador Alvo Blq", "ADMIN");
     await errarSenha(administrador.email, 10);
     const estado = await prisma.usuario.findUniqueOrThrow({ where: { id: administrador.id } });
-    expect(estado.loginTentativas).toBe(0);
+    expect(estado.loginTentativas).toBe(10);
+    // Não-regressão da RN74 — inalterado de propósito:
     expect(estado.loginBloqueadoAte).toBeNull();
     expect(await emailEstaBloqueado(administrador.email)).toBe(false);
     expect(

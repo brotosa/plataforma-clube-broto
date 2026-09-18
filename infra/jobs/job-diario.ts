@@ -6,6 +6,7 @@ import { estaNaJanelaDeNaoRenovacao } from "@/dominio/contratos/janela";
 import { precisaReavaliacao } from "@/dominio/avaliacao/regras";
 import { logger } from "@/infra/log/logger";
 import { lerRegua } from "@/infra/configuracao/servico-configuracao";
+import { SISTEMA_ROTINA, usuarioDeSistema } from "@/infra/auditoria/usuario-de-sistema";
 
 /**
  * Job diário das Ondas 1 e 2:
@@ -25,26 +26,11 @@ import { lerRegua } from "@/infra/configuracao/servico-configuracao";
  * possui login (ativo = false).
  */
 
-const EMAIL_USUARIO_SISTEMA = "rotina@sistema.clubebroto.local";
-
-async function usuarioDeSistema() {
-  return prisma.usuario.upsert({
-    where: { email: EMAIL_USUARIO_SISTEMA },
-    update: {},
-    create: {
-      nome: "Rotina da plataforma (job diário)",
-      email: EMAIL_USUARIO_SISTEMA,
-      senhaHash: "sem-login",
-      papel: "GESTOR",
-      ativo: false, // nunca autentica: o provedor de identidade exige ativo
-      // F13: a marca de credencial provisória não faz sentido em quem não
-      // tem login — sem isto a rotina apareceria na T27 como "credencial
-      // provisória", sugerindo uma senha a trocar que não existe.
-      trocaSenhaObrigatoria: false,
-    },
-  });
-}
-
+/*
+ * O upsert da conta de sistema saiu daqui para `infra/auditoria/usuario-de-sistema`,
+ * onde a autenticação também o usa. **O e-mail não mudou** — é a identidade da
+ * linha, e trocá-lo partiria em duas a trilha já gravada por esta rotina.
+ */
 export interface ResultadoJobDiario {
   ofertasExpiradas: number;
   contratosMarcados: number;
@@ -54,7 +40,7 @@ export interface ResultadoJobDiario {
 }
 
 export async function executarJobDiario(hoje = new Date()): Promise<ResultadoJobDiario> {
-  const sistema = await usuarioDeSistema();
+  const sistema = await usuarioDeSistema(SISTEMA_ROTINA);
   const resultado: ResultadoJobDiario = {
     ofertasExpiradas: 0,
     contratosMarcados: 0,

@@ -9,7 +9,10 @@ import {
   estaBloqueado,
   estadoLimpo,
   minutosRestantesDeBloqueio,
+  bloqueouAgora,
+  cruzouLimiteDeAlerta,
   registrarFalha,
+  registrarFalhaSemBloquear,
   validarPoliticaDeLogin,
 } from "./politica-login";
 
@@ -101,5 +104,116 @@ describe("bloqueio desligável (tudo configurável)", () => {
 
   it("recusa valor negativo", () => {
     expect(validarPoliticaDeLogin({ maxTentativas: -1, bloqueioMin: 15 })).toHaveLength(1);
+  });
+});
+
+/**
+ * A conta isenta de bloqueio (RN74) — contar sem trancar.
+ *
+ * Estes testes existem porque a isenção era **invisível**: o ramo de isenção
+ * devolvia a recusa sem tocar contador nenhum, e tentar senhas contra uma conta
+ * de Administrador não deixava rastro em lugar algum.
+ */
+describe("conta isenta de bloqueio — conta sem trancar", () => {
+  it("acumula e NUNCA escreve bloqueadoAte", () => {
+    let estado = estadoLimpo();
+    for (let i = 0; i < 40; i += 1) estado = registrarFalhaSemBloquear(estado);
+    expect(estado.tentativas).toBe(40);
+    // A garantia estrutural: nula, a conta isenta fica fora de todo caminho de
+    // bloqueio por construção — inclusive da lista de contas a desbloquear,
+    // que não filtra por isenção.
+    expect(estado.bloqueadoAte).toBeNull();
+  });
+
+  it("o contador NÃO cicla ao passar do limite, ao contrário do da conta comum", () => {
+    // `registrarFalha` zera ao atingir o limite (o bloqueio é o próprio
+    // estado). Se a conta isenta reusasse aquela função, o número na tela
+    // ficaria eternamente entre 0 e 4 e nunca mostraria acumulação.
+    let comum = estadoLimpo();
+    for (let i = 0; i < 5; i += 1) comum = registrarFalha(comum, POL, AGORA);
+    expect(comum.tentativas).toBe(0);
+
+    let isenta = estadoLimpo();
+    for (let i = 0; i < 5; i += 1) isenta = registrarFalhaSemBloquear(isenta);
+    expect(isenta.tentativas).toBe(5);
+  });
+
+  it("conta mesmo com a política desligada — é o único sinal que existe", () => {
+    const estado = registrarFalhaSemBloquear(estadoLimpo());
+    expect(estado.tentativas).toBe(1);
+  });
+});
+
+describe("cruzouLimiteDeAlerta — uma vez por rajada, não uma por tentativa", () => {
+  it("dispara exatamente na travessia do limite", () => {
+    const antes = { tentativas: 4, bloqueadoAte: null };
+    const depois = registrarFalhaSemBloquear(antes);
+    expect(cruzouLimiteDeAlerta(antes, depois, POL)).toBe(true);
+  });
+
+  it("não dispara antes do limite", () => {
+    const antes = { tentativas: 2, bloqueadoAte: null };
+    expect(cruzouLimiteDeAlerta(antes, registrarFalhaSemBloquear(antes), POL)).toBe(false);
+  });
+
+  /**
+   * O ponto inteiro da função. Quem ataca não escolhe o volume da trilha —
+   * a RN49 diz que auditoria não se apaga, e a retenção ainda é `[A CONFIRMAR]`.
+   */
+  it("NÃO dispara de novo depois da travessia, por mais que se insista", () => {
+    let estado = estadoLimpo();
+    let disparos = 0;
+    for (let i = 0; i < 500; i += 1) {
+      const novo = registrarFalhaSemBloquear(estado);
+      if (cruzouLimiteDeAlerta(estado, novo, POL)) disparos += 1;
+      estado = novo;
+    }
+    expect(disparos).toBe(1);
+    expect(estado.tentativas).toBe(500);
+  });
+
+  it("volta a poder disparar depois de um acesso bem-sucedido", () => {
+    let estado = estadoLimpo();
+    let disparos = 0;
+    for (let rajada = 0; rajada < 3; rajada += 1) {
+      for (let i = 0; i < 10; i += 1) {
+        const novo = registrarFalhaSemBloquear(estado);
+        if (cruzouLimiteDeAlerta(estado, novo, POL)) disparos += 1;
+        estado = novo;
+      }
+      estado = estadoLimpo(); // entrou com a senha certa
+    }
+    expect(disparos).toBe(3);
+  });
+
+  it("com a política desligada não há limite a cruzar, e nada dispara", () => {
+    const antes = { tentativas: 99, bloqueadoAte: null };
+    const depois = registrarFalhaSemBloquear(antes);
+    expect(cruzouLimiteDeAlerta(antes, depois, { maxTentativas: 0, bloqueioMin: 15 })).toBe(false);
+  });
+});
+
+describe("bloqueouAgora — a transição da conta comum", () => {
+  it("é verdadeira na falha que tranca", () => {
+    let estado = estadoLimpo();
+    for (let i = 0; i < 4; i += 1) estado = registrarFalha(estado, POL, AGORA);
+    const novo = registrarFalha(estado, POL, AGORA);
+    expect(bloqueouAgora(estado, novo)).toBe(true);
+  });
+
+  it("é falsa nas falhas anteriores", () => {
+    const estado = estadoLimpo();
+    expect(bloqueouAgora(estado, registrarFalha(estado, POL, AGORA))).toBe(false);
+  });
+
+  it("uma janela inteira de insistência produz UMA transição", () => {
+    let estado = estadoLimpo();
+    let transicoes = 0;
+    for (let i = 0; i < 50; i += 1) {
+      const novo = registrarFalha(estado, POL, AGORA);
+      if (bloqueouAgora(estado, novo)) transicoes += 1;
+      estado = novo;
+    }
+    expect(transicoes).toBe(1);
   });
 });
