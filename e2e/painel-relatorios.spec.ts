@@ -88,7 +88,21 @@ test.beforeAll(async () => {
       },
     });
   }
-  const gestor = await prisma.usuario.findFirstOrThrow({ where: { papel: "GESTOR" } });
+  /*
+   * Pelo E-MAIL, e não por `findFirst({ papel: "GESTOR" })`.
+   *
+   * Há OITO contas com papel GESTOR na base de testes, e `findFirst` sem
+   * `orderBy` não garante qual volta. Localmente veio `gestor@dev`; no CI
+   * veio outra — e como o painel da segunda suíte é PRIVADO, `abrirPainel`
+   * recusou para quem abriu, a página não montou bloco nenhum e o teste
+   * falhou procurando um aviso que não tinha onde existir.
+   *
+   * O defeito era do teste, não do produto: quem abre precisa ser o AUTOR,
+   * e "qualquer conta com este papel" não é a mesma coisa que "esta conta".
+   */
+  const gestor = await prisma.usuario.findUniqueOrThrow({
+    where: { email: "gestor@dev.clubebroto.local" },
+  });
   const painel = await prisma.painel.create({
     data: {
       nome: `${MARCA} Segunda-feira`,
@@ -218,7 +232,12 @@ test.describe.serial("T37 — RN89: o filtro por eixo, e o que ele NÃO alcança
 
   test.beforeAll(async () => {
     await prisma.painel.deleteMany({ where: { nome: { startsWith: `${MARCA} filtrado` } } });
-    const gestor = await prisma.usuario.findFirstOrThrow({ where: { papel: "GESTOR" } });
+    // Pelo e-mail, e não pelo papel — ver o comentário na primeira suíte: há
+  // oito contas GESTOR, e este painel é PRIVADO, então o autor precisa ser
+  // exatamente quem abre.
+  const gestor = await prisma.usuario.findUniqueOrThrow({
+    where: { email: "gestor@dev.clubebroto.local" },
+  });
     const painel = await prisma.painel.create({
       data: {
         nome: `${MARCA} filtrado`,
