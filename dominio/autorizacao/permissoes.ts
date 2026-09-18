@@ -309,6 +309,24 @@ export function temAcessoTotal(papel: Papel): boolean {
   return PAPEIS_COM_ACESSO_TOTAL.includes(papel);
 }
 
+/**
+ * Quais papéis podem esta ação — a pergunta de `podeExecutar` invertida.
+ *
+ * Existe para **consulta ao banco**: quem precisa contar ou filtrar linhas por
+ * capacidade não pode chamar `podeExecutar` por linha, e escrever a lista de
+ * papéis à mão no `where` é exatamente o padrão que a renomeação da Onda 15
+ * mostrou ser frágil — a lista literal fica para trás em silêncio quando um
+ * papel muda de nome ou um papel novo ganha a ação.
+ *
+ * Derivada da matriz, então inclui o acesso total sem precisar lembrar dele.
+ */
+export function papeisQuePodem(acao: Acao): ReadonlyArray<Papel> {
+  // Da própria matriz, e não de uma lista de papéis à parte: são os papéis
+  // declarados na linha da ação, mais os de acesso total, que podem tudo por
+  // regra e não aparecem em linha nenhuma.
+  return [...new Set<Papel>([...PERMISSOES[acao], ...PAPEIS_COM_ACESSO_TOTAL])];
+}
+
 /** Erro padronizado para negativas de autorização. */
 export class ErroDeAutorizacao extends Error {
   readonly acao: Acao;

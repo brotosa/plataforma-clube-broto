@@ -1,5 +1,5 @@
 # Ficha de Módulo — Onda 15: Configurações do portal
-**Plataforma de Administração e Gestão do Clube Broto** · v0.5 para validação · 15/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.6 para validação · 18/09/2026
 
 Fase **F23**, única da onda. Módulo novo (**T35**), restrito ao **Administrador** e ao **Administrador da Plataforma**: política de senha, tempo de sessão e os dois bloqueios de acesso — por conta e por origem de rede. Migrations **estritamente aditivas**. Sobre a versão **1.5.0**.
 
@@ -191,6 +191,25 @@ Nenhuma coluna é removida, nenhum tipo é estreitado, nenhuma linha existente �
 ## 6. Pendências declaradas — o que esta ficha NÃO resolve
 
 1. **`[A CONFIRMAR — Superintendência]` Proteção da conta do Administrador.** A RN74 o isenta dos dois bloqueios; nenhuma contrapartida foi definida (segundo fator, lista de origens permitidas, alerta em auditoria após N falhas). **É a lacuna de maior consequência desta ficha**: a conta mais poderosa da plataforma é também a única sem limite de tentativas. Enquanto não houver decisão, a isenção vale como está, e o §4.9 do guia a declara ao leitor em vez de escondê-la.
+
+   **A v0.6 não decide a contrapartida — tira a isenção da invisibilidade, que era o pior da lacuna.** Uma conferência de 18/09 estabeleceu três fatos, todos verificados no código e nenhum deduzido:
+
+   | Fato | Onde |
+   | --- | --- |
+   | Falha contra conta isenta **não incrementava contador nenhum** | o ramo de isenção devolvia a recusa antes de tocar `loginTentativas` |
+   | A chamada que sobrava **tem retorno antecipado** com o bloqueio por origem desligado — e ele **nasce desligado** | `registrarFalhaDeOrigem` |
+   | **Nenhuma falha de login, de conta nenhuma, gravava evento de auditoria** | 33 entidades auditadas, nenhuma de autenticação |
+
+   Somados: tentar senhas contra uma conta de Administrador podia se repetir **sem limite, sem prazo e sem rastro em lugar algum**. O único vestígio era uma linha de log do servidor, que ninguém observa e que a T28 não alcança. A pergunta para a Superintendência deixou de ser só "qual a contrapartida" e passou a incluir que **ninguém conseguia sequer saber que estava acontecendo**.
+
+   **O que passou a existir, sem decidir política:**
+
+   - **A conta isenta conta, e continua nunca sendo trancada.** O contador só cresce e é zerado por um acesso bem-sucedido, de modo que o número significa "falhas desde o último acesso". `loginBloqueadoAte` **nunca** é escrito para ela — não por economia, mas por estrutura: toda leitura de "está bloqueado" olha essa coluna, e a lista de contas a desbloquear **não** filtra por isenção. Nula, a conta isenta fica fora de todo caminho de bloqueio por construção, e não por alguém lembrar de guardar cada consulta nova.
+   - **O número aparece na faixa de panorama da T35**, como linha extra da célula do bloqueio por conta — e **não** como sexta célula: a faixa é `kpi-row-5` com contagem de colunas fixa, e a sexta abriria a lacuna que aparece como célula fantasma, o mesmo defeito corrigido na Onda 7 no `.dash-stats`. Célula nova ali é troca, não acréscimo, e é decisão de Design.
+   - **Dois momentos vão à trilha, e só dois:** o limite atingido em conta isenta, e a conta comum trancada agora. **Não é um evento por tentativa** — isso entregaria a quem ataca o controle do volume de uma tabela que, pela RN49, não se apaga, e cuja retenção segue `[A CONFIRMAR — jurídico]`. O autor é uma conta de sistema inativa, no padrão que o job diário já usava desde a F13 (**sem migration**); atribuir a autoria à própria conta visada diria, na trilha dela, que ela fez aquilo.
+   - **Com o bloqueio desligado o contador continua**, porque aí ele é o único sinal que resta; o evento, não, porque sem limite configurado não há limite a cruzar e inventar um seria escrever política em código.
+
+   **A isenção não mudou**, e há teste de não-regressão para isso: dez senhas erradas seguidas, e a conta isenta entra com a senha certa. O que a decisão da Superintendência ganha é número e trilha em que se apoiar.
 2. **`[A CONFIRMAR — jurídico/Superintendência]` Valores de política para produção.** Os padrões (10 caracteres, 30 min, 5 tentativas/15 min, e as três proteções novas desligadas) são de engenharia, escolhidos para **preservar o comportamento anterior** e por convenção de back-office. Se houver norma interna ou exigência contratual, ela vence e é aplicada pela própria tela, **sem código**.
 3. **`[A CONFIRMAR — TI]` Proteção por taxa na borda.** O bloqueio por origem conta falhas de senha, não requisições por tempo (ver RN74), e portanto **não defende contra volume**: cada tentativa ainda custa consulta e gravação. A defesa é regra baseada em taxa no WAF ou no balanceador, provisionada fora da aplicação. Nada nesta ficha a substitui, e nenhuma configuração desta tela a dispensa.
 4. **Sem teste de ponta a ponta do vencimento de senha.** A expiração de sessão tem prova medida (`e2e/sessao-inatividade.spec.ts`, que forja o próprio cookie para não esperar 30 minutos); o vencimento de senha tem cobertura de unidade sobre `senhaVenceu`, mas não um caminho e2e que envelheça `senhaAlteradaEm` e verifique a condução à tela de troca. É dívida de teste conhecida, não comportamento incerto.

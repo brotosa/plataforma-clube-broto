@@ -3,6 +3,8 @@
 
 **Atualizado em 17/09 à noite:** quatro itens da §5 foram fechados pela TI. Restam **27** — 26 dependentes de terceiros, com mensagens prontas em `consultas-a-terceiros.md`, e uma que depende de observação, não de decisão (§5.3).
 
+**Atualizado em 18/09:** a §4.2 (proteção na borda) ganhou ficha própria — `ficha-onda21-protecao-na-borda.md` —, e a metade de aplicação dela foi entregue; a topologia de produção está confirmada e a §6.1 daquela ficha traz um achado novo, o endereço público do banco. A §2.2 continua aberta, mas deixou de ser invisível: leia o que mudou antes de decidi-la.
+
 Levantamento de **todo** `[A CONFIRMAR]` das 18 fichas, agrupado por **quem responde**. Cada item traz o que acontece **hoje**, sem a resposta — porque nenhuma delas está travando a plataforma: todas têm comportamento definido e declarado. Responder melhora; não responder não quebra.
 
 > **Como este documento se relaciona com as fichas.** Ele não substitui nenhuma: a ficha da onda continua sendo a fonte da verdade. Este é um índice para que as perguntas possam ser levadas às reuniões certas sem alguém ter de varrer dezoito documentos. Respondida uma pergunta, a resposta vai **para a ficha de origem**, e a linha aqui é riscada.
@@ -76,9 +78,11 @@ Oito perguntas, e sete delas cabem numa reunião. É o bloco que mais destrava c
 *Origem:* Onda 9 §71.
 
 **2.2 · A conta de Administrador é isenta dos dois bloqueios (RN74). Qual a contrapartida?**
-*Hoje:* nenhuma. A isenção existe para que quem desbloqueia não se tranque — e o custo dela está declarado, não coberto. Opções levantadas: segundo fator, lista de origens permitidas, alerta em auditoria após N falhas.
+*Hoje:* nenhuma **decidida** — e a pergunta continua aberta. O que mudou em 18/09 é que a isenção deixou de ser **invisível**, que era o pior dela: a conta isenta agora **conta as falhas sem nunca ser trancada**, o número aparece na faixa da T35, e dois momentos vão à trilha (limite atingido em conta isenta; conta comum trancada agora) — nunca um evento por tentativa, senão quem ataca escolheria o volume de uma tabela que a RN49 não deixa apagar.
+*Antes disso:* falha contra conta isenta não incrementava contador nenhum, a contagem por origem tem retorno antecipado com a política desligada (que é como ela nasce), e **nenhuma falha de login, de conta nenhuma, gravava auditoria**. Tentar senhas contra um Administrador podia se repetir sem limite, sem prazo e sem rastro.
+*O que continua sendo da Superintendência:* segundo fator, lista de origens permitidas, ou nada além do registro. A decisão agora tem número e trilha em que se apoiar.
 *Peso:* alto, e é de segurança.
-*Origem:* Onda 15 §193.
+*Origem:* Onda 15 §6.1 (v0.6).
 
 **2.3 · Valores de política de senha e sessão para produção.**
 *Hoje:* 10 caracteres, 30 min de inatividade, 5 tentativas/15 min, e as três proteções novas **desligadas**. São escolhas de engenharia que preservam o comportamento anterior — não são recomendação de segurança.

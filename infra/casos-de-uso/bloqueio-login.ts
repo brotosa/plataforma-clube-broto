@@ -1,7 +1,7 @@
 import { prisma } from "@/infra/prisma/cliente";
 import { criarGravadorPrisma } from "@/infra/auditoria/gravador-prisma";
 import { registrarMutacao } from "@/dominio/auditoria/servico-auditoria";
-import { exigirPermissao, podeExecutar } from "@/dominio/autorizacao/permissoes";
+import { exigirPermissao, papeisQuePodem, podeExecutar } from "@/dominio/autorizacao/permissoes";
 import { ROTULOS_PAPEL } from "@/dominio/autorizacao/papeis";
 import {
   estaBloqueado,
@@ -102,6 +102,34 @@ export async function listarLoginsBloqueados(): Promise<LoginBloqueado[]> {
     bloqueadoAte: linha.loginBloqueadoAte as Date,
     minutosRestantes: minutosRestantesDeBloqueio(linha.loginBloqueadoAte, agora),
   }));
+}
+
+/**
+ * Tentativas acumuladas contra contas **isentas** de bloqueio (RN74).
+ *
+ * A isenção existe para que a conta que destranca as outras não se tranque, e
+ * não tem contrapartida decidida — pendência declarada na ficha da Onda 15.
+ * O que ela não podia continuar sendo é **invisível**: sem este número, quem
+ * administra o portal não tem como saber que alguém está tentando senhas
+ * contra uma conta que nunca será trancada.
+ *
+ * Os papéis vêm de `papeisQuePodem`, e não de uma lista escrita aqui: é a
+ * mesma condição que o provedor de credenciais usa para isentar, e ela precisa
+ * ser a mesma dos dois lados — se divergirem, a tela contaria contas que não
+ * são isentas, ou deixaria de contar as que são.
+ *
+ * Soma, e não contagem de contas: o que importa é quanta insistência houve, e
+ * a conta específica se encontra na trilha, onde o evento foi gravado.
+ */
+export async function tentativasEmContasIsentas(): Promise<number> {
+  const agregado = await prisma.usuario.aggregate({
+    where: {
+      ativo: true,
+      papel: { in: [...papeisQuePodem("CONFIGURAR_PORTAL")] },
+    },
+    _sum: { loginTentativas: true },
+  });
+  return agregado._sum.loginTentativas ?? 0;
 }
 
 /**

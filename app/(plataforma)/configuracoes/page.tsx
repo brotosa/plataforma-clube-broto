@@ -8,7 +8,10 @@ import {
   lerPoliticaDeSessao,
   lerPoliticaDeOrigem,
 } from "@/infra/casos-de-uso/configuracoes";
-import { listarLoginsBloqueados } from "@/infra/casos-de-uso/bloqueio-login";
+import {
+  listarLoginsBloqueados,
+  tentativasEmContasIsentas,
+} from "@/infra/casos-de-uso/bloqueio-login";
 import { listarOrigensBloqueadas } from "@/infra/casos-de-uso/bloqueio-origem";
 import {
   resumirCredencialProvisoria,
@@ -114,6 +117,7 @@ export default async function PaginaConfiguracoes({
     politicaOrigem,
     origens,
     historico,
+    tentativasIsentas,
   ] = await Promise.all([
     lerPoliticaDeSenha(),
     lerPoliticaDeSessao(),
@@ -125,6 +129,9 @@ export default async function PaginaConfiguracoes({
     // repartida em memória. Quatro consultas dariam o mesmo resultado e
     // quadruplicariam o custo de uma tela que se abre o tempo todo.
     historicoDasConfiguracoes(),
+    // RN74 — a isenção de bloqueio não pode ser invisível. Agregação de uma
+    // coluna, na mesma rodada das outras: não custa ida a mais ao banco.
+    tentativasEmContasIsentas(),
   ]);
 
   return (
@@ -145,6 +152,7 @@ export default async function PaginaConfiguracoes({
         origem={resumirPoliticaDeOrigem(politicaOrigem)}
         contasBloqueadas={bloqueados.length}
         origensBloqueadas={origens.length}
+        tentativasIsentas={tentativasIsentas}
       />
 
       <nav
