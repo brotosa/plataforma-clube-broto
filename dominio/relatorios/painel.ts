@@ -131,10 +131,22 @@ function ehLargura(valor: unknown): valor is LarguraDeBloco {
  * banco: aqui a pessoa está montando, e recusar com o motivo é melhor do que
  * guardar algo que vai recusar depois, na abertura.
  */
-export function validarPainelParaGravar(dados: {
-  nome: string;
-  blocos: unknown;
-}): { nome: string; blocos: ReadonlyArray<BlocoDoPainel> } {
+export function validarPainelParaGravar(
+  dados: {
+    nome: string;
+    blocos: unknown;
+  },
+  /**
+   * RN94 — na **edição**, o painel pode ficar sem bloco nenhum.
+   *
+   * Na criação, não: painel vazio recém-criado não serve a ninguém e é
+   * quase sempre engano. Mas recusar a remoção do ÚLTIMO bloco prenderia
+   * quem quer trocar todos — a saída seria apagar o painel e refazê-lo,
+   * perdendo nome, visibilidade e filtro. A galeria já sabe exibir
+   * "0 blocos", e a tela de edição diz que está vazio.
+   */
+  opcoes: { permitirVazio?: boolean } = {},
+): { nome: string; blocos: ReadonlyArray<BlocoDoPainel> } {
   const erros: string[] = [];
 
   const nome = dados.nome?.trim() ?? "";
@@ -147,7 +159,7 @@ export function validarPainelParaGravar(dados: {
     erros.push("O painel precisa de ao menos um bloco.");
     throw new ErroDeRelatorioInvalido(erros);
   }
-  if (dados.blocos.length === 0) {
+  if (dados.blocos.length === 0 && !opcoes.permitirVazio) {
     erros.push("O painel precisa de ao menos um bloco.");
   }
   if (dados.blocos.length > MAXIMO_DE_BLOCOS) {
