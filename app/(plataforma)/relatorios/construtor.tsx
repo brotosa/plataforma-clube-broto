@@ -12,7 +12,7 @@ import {
   ROTULOS_OPERADOR,
   agregacaoNatural,
 } from "@/dominio/relatorios/catalogo";
-import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
+import type { Celula, TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
 import { ROTULOS_DE_FORMATO, type FormatoDeSaida } from "@/dominio/relatorios/saida";
 import { salvarPainelAction } from "../paineis/acoes";
@@ -26,6 +26,11 @@ import {
   tipoEfetivo,
   tiposDisponiveis,
 } from "@/dominio/relatorios/visualizacao";
+import {
+  filtroDoClique,
+  filtroJaAplicado,
+  rotuloDaAcaoDeClique,
+} from "@/dominio/relatorios/interacao";
 import { GraficoDoRelatorio } from "./grafico";
 import { ErrosDoFormulario } from "../aliados/formularios";
 import {
@@ -152,6 +157,42 @@ export function Construtor({
   const [filtros, setFiltros] = useState<FiltroEscolhido[]>(
     (inicial?.filtros ?? []).map((filtro) => ({ ...filtro, valores: [...filtro.valores] })),
   );
+  /**
+   * RN91 — o que o último clique numa dimensão respondeu.
+   *
+   * Uma mensagem só, e não uma pilha: o aviso é sobre o ato que acabou de
+   * acontecer, e guardar histórico dele só encheria a tela de respostas a
+   * perguntas já resolvidas. Limpa-se ao clicar de novo.
+   */
+  const [avisoDoClique, setAvisoDoClique] = useState<string | null>(null);
+
+  /**
+   * O clique numa célula de dimensão vira filtro (RN91).
+   *
+   * **Quem decide é o domínio, não este componente.** Aqui só se aplica o que
+   * `filtroDoClique` respondeu — se a decisão morasse nesta função, a RN75
+   * passaria a depender de o cliente se comportar. O filtro entra na MESMA
+   * lista dos digitados, então ele aparece e se remove pelo caminho que já
+   * existe: filtro que se acumula sem aparecer é como se perde a noção do
+   * recorte que se tem na frente.
+   */
+  const aoClicarNaDimensao = (campoSlug: string, valor: Celula) => {
+    const resultado = filtroDoClique(assunto.campos, campoSlug, valor);
+    if (!resultado.pode) {
+      setAvisoDoClique(resultado.motivo);
+      return;
+    }
+    const novo = resultado.filtro;
+    if (filtroJaAplicado(filtros, novo)) {
+      // Clicar duas vezes no mesmo ponto não empilha o mesmo recorte: o
+      // segundo não estreita nada e a lista passaria a ter duas linhas iguais.
+      setAvisoDoClique("Este filtro já está aplicado.");
+      return;
+    }
+    setFiltros((atual) => [...atual, { ...novo, valores: [...novo.valores] }]);
+    setAvisoDoClique(null);
+  };
+
   const [previa, setPrevia] = useState<{
     carregando: boolean;
     erro?: string;
@@ -842,6 +883,9 @@ export function Construtor({
               finalidadePendente={finalidadePendente}
               visual={visual}
               aoTrocarVisual={setVisual}
+              campos={assunto.campos}
+              aoClicarNaDimensao={aoClicarNaDimensao}
+              avisoDoClique={avisoDoClique}
             />
           </div>
         </section>
@@ -1049,6 +1093,9 @@ function Resultado({
   finalidadePendente,
   visual,
   aoTrocarVisual,
+  campos,
+  aoClicarNaDimensao,
+  avisoDoClique,
 }: {
   previa: {
     carregando: boolean;
@@ -1062,6 +1109,11 @@ function Resultado({
   finalidadePendente: boolean;
   visual: Visualizacao;
   aoTrocarVisual: (visual: Visualizacao) => void;
+  /** RN91 — a lista de campos do assunto, para decidir o que o clique faz. */
+  campos: ReadonlyArray<CampoSerializado>;
+  aoClicarNaDimensao: (campoSlug: string, valor: Celula) => void;
+  /** O que o último clique respondeu: recusa, ou o filtro que entrou. */
+  avisoDoClique: string | null;
 }) {
   if (vazio) {
     return (
@@ -1171,6 +1223,19 @@ function Resultado({
        * `role="region"` com nome existe para o leitor de tela anunciar onde o
        * foco parou — um `<div>` focalizável e mudo é pior que nenhum.
        */}
+      {/*
+        RN91 — o que o clique respondeu.
+
+        `role="status"` e não `alert`: não é erro, é resposta a um ato
+        deliberado. Fica ACIMA da tabela porque chega como consequência do
+        clique — abaixo, chegaria depois de a pessoa já ter relido o número.
+      */}
+      {avisoDoClique ? (
+        <p className="rel-clique-aviso" role="status">
+          {avisoDoClique}
+        </p>
+      ) : null}
+
       <div
         className="rel-resultado"
         aria-busy={previa.carregando}
@@ -1201,13 +1266,29 @@ function Resultado({
           <tbody>
             {tabela.linhas.map((linha, indice) => (
               <tr key={indice}>
-                {linha.chaves.map((chave, posicao) => (
-                  <td key={posicao} className={chave === null ? "rel-vazia" : undefined}>
-                    {/* Rótulo do catálogo, nunca o valor cru do banco:
-                        "Publicada", e não "PUBLICADA". */}
-                    {rotularDimensao(chave, tabela.dimensoes[posicao]?.rotulosDeValor)}
-                  </td>
-                ))}
+                {linha.chaves.map((chave, posicao) => {
+                  const dimensao = tabela.dimensoes[posicao];
+                  /* Rótulo do catálogo, nunca o valor cru do banco:
+                     "Publicada", e não "PUBLICADA". O que VIAJA no clique,
+                     porém, é `chave` — o bruto (RN91a). */
+                  const rotulo = rotularDimensao(chave, dimensao?.rotulosDeValor);
+                  return (
+                    <td key={posicao} className={chave === null ? "rel-vazia" : undefined}>
+                      {dimensao ? (
+                        <CelulaClicavel
+                          campos={campos}
+                          campoSlug={dimensao.campo}
+                          rotuloDoCampo={dimensao.rotulo}
+                          valor={chave}
+                          rotuloDoValor={rotulo}
+                          aoClicar={aoClicarNaDimensao}
+                        />
+                      ) : (
+                        rotulo
+                      )}
+                    </td>
+                  );
+                })}
                 {tabela.medidas.map((medida) => {
                   const celula = linha.celulas[medida.chave] ?? null;
                   return (
@@ -1338,5 +1419,55 @@ function Ajustes({
         </label>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Uma célula de dimensão que responde ao clique (RN91).
+ *
+ * ## Por que `<button>` e não `onClick` na `<td>`
+ *
+ * `<td>` não recebe foco, não responde a Enter e não se anuncia como
+ * acionável. Com botão, o teclado ganha tudo de graça — e a ficha exige que
+ * tudo que o clique faz o teclado faça, no mesmo espírito da RN57.
+ *
+ * ## Por que a recusa NÃO desabilita o botão
+ *
+ * Botão desabilitado não recebe foco, e aí o motivo — que é exatamente o que
+ * a pessoa precisa ler — fica inalcançável por teclado. Ele continua
+ * acionável e responde com a explicação, que é o que a RN55 pede: falha
+ * nomeia a causa, em vez de não acontecer nada.
+ *
+ * ## O nome acessível diz o que vai acontecer
+ *
+ * "São Paulo" não basta como nome de botão: quem navega por teclado ouve o
+ * nome antes de decidir acionar. O texto vem do domínio, para não divergir do
+ * que a função de fato fará.
+ */
+function CelulaClicavel({
+  campos,
+  campoSlug,
+  rotuloDoCampo,
+  valor,
+  rotuloDoValor,
+  aoClicar,
+}: {
+  campos: ReadonlyArray<CampoSerializado>;
+  campoSlug: string;
+  rotuloDoCampo: string;
+  valor: Celula;
+  rotuloDoValor: string;
+  aoClicar: (campoSlug: string, valor: Celula) => void;
+}) {
+  const resultado = filtroDoClique(campos, campoSlug, valor);
+  return (
+    <button
+      type="button"
+      className={`rel-cel-filtro${resultado.pode ? "" : " sem-clique"}`}
+      aria-label={rotuloDaAcaoDeClique(rotuloDoCampo, rotuloDoValor, resultado)}
+      onClick={() => aoClicar(campoSlug, valor)}
+    >
+      {rotuloDoValor}
+    </button>
   );
 }

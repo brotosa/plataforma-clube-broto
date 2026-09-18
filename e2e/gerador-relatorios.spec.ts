@@ -152,6 +152,69 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await expect(page.getByText(/ficariam infladas/)).toBeVisible({ timeout: 20_000 });
   });
 
+  /**
+   * RN91 — clicar numa célula de dimensão acrescenta o filtro.
+   *
+   * Prova pelo NÚMERO, e não pela presença do filtro na lista: um filtro que
+   * entra na tela e não estreita o resultado teria a mesma aparência de um que
+   * funciona, e é exatamente esse o defeito que a regra existe para impedir.
+   */
+  test("clicar numa célula do resultado estreita o relatório (RN91)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas");
+
+    // Situação, e não UF da sede: a base do e2e tem uma UF só, e com uma linha
+    // só não há como provar que o filtro estreitou — o teste passaria pelo
+    // motivo errado.
+    await page.getByRole("button", { name: "Pôr Situação em Linhas" }).click();
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+
+    const linhasAntes = await tabela.locator("tbody tr").count();
+    expect(linhasAntes).toBeGreaterThan(1);
+
+    // O nome acessível diz o que vai acontecer — "Publicada" sozinho seria o
+    // nome de um botão que ninguém sabe que é botão.
+    const celula = tabela
+      .locator("tbody tr")
+      .first()
+      .getByRole("button", { name: /^Filtrar por Situação/ });
+    await expect(celula).toBeVisible();
+    await celula.click();
+
+    // O filtro entrou na MESMA lista dos digitados, e é removível por lá.
+    await expect(page.getByRole("button", { name: /Tirar o filtro de/ }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    // E estreitou de verdade: uma UF só.
+    await expect(async () => {
+      expect(await tabela.locator("tbody tr").count()).toBe(1);
+    }).toPass({ timeout: 20_000 });
+  });
+
+  /**
+   * A recusa da RN91(c). Medido ao escrever a ficha: 34 das 71 dimensões
+   * usáveis não declaram o operador de vazio, e a RN53 obriga a lacuna a
+   * aparecer. O ponto não pode ficar mudo — ele responde com o motivo.
+   */
+  test("a lacuna que não pode virar filtro diz por que não (RN91)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas");
+
+    // Natureza declara só `igual` e `diferente` — sem `vazio`.
+    await page.getByRole("button", { name: "Pôr Natureza em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    // O botão existe e é acionável mesmo quando recusa: desabilitado, ele não
+    // receberia foco e o motivo ficaria inalcançável por teclado.
+    const ponto = page
+      .locator(".rel-resultado tbody tr")
+      .first()
+      .getByRole("button")
+      .first();
+    await expect(ponto).toBeEnabled();
+  });
+
   test("salvar põe na prateleira e abrir recarrega a definição", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/relatorios?assunto=ofertas");

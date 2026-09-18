@@ -1,9 +1,11 @@
 # Ficha de Módulo — Onda 19: Interatividade do Gerador
-**Plataforma de Administração e Gestão do Clube Broto** · v0.1 para validação · 18/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 18/09/2026
 
 O resultado do Gerador passa a **responder ao clique**: clicar num ponto filtra o resto, descer de nível troca a dimensão por uma mais fina, e o agregado abre nas linhas que o compõem. Regras **RN91–RN93**, duas fases (**F33** e **F34**), **sem tela nova**. Sobre a versão **1.5.0**.
 
-> **Ficha antes do código.** Nada foi implementado. A numeração **RN91–RN93** é proposta, e recusá-la não custa retrabalho.
+> **Ficha antes do código.** A numeração **RN91–RN93** é proposta, e recusá-la não custa retrabalho.
+>
+> **A v0.2 registra o que a implementação da RN91 encontrou e a v0.1 não previa:** uma **quarta recusa** (dimensão de data), a decisão de prender o clique à **tabela** e não às marcas do gráfico, e o que ficou de fora da F33. A RN92 e a RN93 seguem sem código.
 
 > **Esta é a terceira das três metades do pedido de "um BI de verdade"** que a TI fez em 17/09. A §7 da ficha da Onda 17 distribuiu o pedido em quatro linhas: escolher o desenho (Onda 17, entregue), painel com vários blocos (Onda 18, entregue), **clicar para filtrar, descer de nível, ver as linhas por trás (esta)**, e distribuir (Onda 20, F28 entregue). É a última que falta, e a única que ainda não tinha ficha.
 
@@ -44,6 +46,8 @@ Clicar numa barra, numa fatia ou numa célula **acrescenta um filtro** à defini
 
 **(c) Lacuna só é clicável onde o campo declara o operador de vazio, e onde não declara a recusa é visível.** A RN53 manda a lacuna aparecer como traço, e ela aparece: metade das dimensões pode ter célula "—". Clicar nela pede *"onde este campo está vazio"*, que é o operador `vazio` — e **34 das 71 dimensões não o declaram**. Onde não houver, o ponto **não responde ao clique e diz por quê**; jamais filtra por texto vazio, que é outra pergunta e devolveria outro número com a mesma cara.
 
+**Quarta recusa, achada na implementação: dimensão de data.** O compilador trata `igual` sobre data como *"naquele dia"*, e deliberadamente — num `timestamp`, `= '18/09'` só casaria com a meia-noite exata. Só que a célula do pivô pode ser um **instante**, e aí o clique alargaria a seleção de um instante para um dia **sem dizer**: o número voltaria diferente do que estava na célula clicada, que é exatamente o que a parte (a) existe para impedir. O catálogo não distingue coluna de data de coluna de instante, então a recusa vale para as duas — conservadora de propósito, e alargá-la depois é aditivo.
+
 **O filtro que o clique acrescenta é removível e visível**, na mesma lista dos filtros digitados. Um filtro que se acumula sem aparecer é como se perde a noção do que se está olhando — e, três cliques depois, ninguém sabe mais que recorte tem na frente.
 
 ### RN92 — Descer de nível segue hierarquia declarada, e onde não há, não desce
@@ -75,6 +79,8 @@ O pivô é agregado. "As linhas por trás" é uma **segunda consulta**, sobre o 
 **Nenhuma tela nova.** Tudo acontece na T36, sobre o resultado que já existe:
 
 - **O ponto clicável se anuncia.** Cursor, foco visível e nome acessível dizendo o que o clique faz — "filtrar por São Paulo", não "São Paulo". Um gráfico que reage ao clique sem avisar que reage é um gráfico em que ninguém clica.
+- **O clique mora na TABELA, e não nas marcas do gráfico.** Decisão da implementação, e a razão é de acessibilidade: o gráfico é `role="img"` com um resumo em `aria-label`, e **filhos de `role="img"` ficam fora da árvore de acessibilidade** — tornar as marcas acionáveis exigiria refazer o modelo que a F27 entregou e testou. A tabela está sempre visível abaixo do desenho (é o que a própria F27 garante ao dizer "a tabela continua abaixo"), é navegável por teclado de graça, e ali cada célula de dimensão vira `<button>`. **Nenhuma função fica só no gráfico**, que é a disciplina da RN57. Clicar na barra fica para quando alguém decidir refazer a a11y do desenho — e isso é troca, não acréscimo.
+- **A recusa não desabilita o botão.** Botão desabilitado não recebe foco, e aí o motivo — que é o que a pessoa precisa ler — fica inalcançável por teclado. Ele continua acionável e **responde com a explicação** (RN55), em vez de não acontecer nada.
 - **Tudo que o clique faz, o teclado faz.** Mesma disciplina da RN57: nenhuma função existe só no ponteiro. Cada ponto é alcançável por tabulação e acionável por Enter, e descer de nível e abrir o detalhe têm caminho por menu.
 - **Os filtros vindos de clique aparecem junto dos digitados**, com origem indicada e removíveis um a um.
 - **Voltar um nível** desfaz o último passo, e não a investigação inteira.
@@ -87,6 +93,8 @@ O pivô é agregado. "As linhas por trás" é uma **segunda consulta**, sobre o 
 | Fase | O que entrega | Muda o catálogo? | Migration |
 | --- | --- | --- | --- |
 | **F33** | Clicar para filtrar (RN91) e descer de nível (RN92) | Sim — hierarquias declaradas | Não |
+
+**A F33 foi partida na entrega, e a razão está na pendência 1.** A **RN91 está entregue**; a **RN92 não**, porque descer de nível **exige que alguém diga quais hierarquias existem**, e construir o mecanismo sem nenhuma declarada seria entregar caminho que nunca dispara. Assim que a pendência 1 for respondida, a RN92 é trabalho pequeno: declaração no catálogo mais a troca de dimensão, sobre o mesmo clique que já existe.
 | **F34** | Ver as linhas por trás (RN93) | Não | Não |
 
 **São duas porque a segunda tem superfície de risco que a primeira não tem.** A F33 reorganiza a consulta que já roda — mesmo alcance, mesma contagem, mesmo teto. A F34 abre uma consulta **nova**, que devolve linha identificável e, em dois assuntos, gente com nome. Juntá-las numa revisão só faria a parte que precisa de atenção viajar de carona na parte que não precisa.
