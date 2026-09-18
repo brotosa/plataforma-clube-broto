@@ -1,9 +1,13 @@
 # Pendências consolidadas — todas as perguntas abertas
 **Plataforma de Administração e Gestão do Clube Broto** · levantado em 17/09/2026 · versão 1.5.0
 
-**Atualizado em 17/09 à noite:** quatro itens da §5 foram fechados pela TI. Restam **27** — 26 dependentes de terceiros, com mensagens prontas em `consultas-a-terceiros.md`, e uma que depende de observação, não de decisão (§5.3).
+**Atualizado em 17/09 à noite:** quatro itens da §5 foram fechados pela TI.
 
-**Atualizado em 18/09:** a §4.2 (proteção na borda) ganhou ficha própria — `ficha-onda21-protecao-na-borda.md` —, e a metade de aplicação dela foi entregue; a topologia de produção está confirmada e a §6.1 daquela ficha traz um achado novo, o endereço público do banco. A §2.2 continua aberta, mas deixou de ser invisível: leia o que mudou antes de decidi-la.
+**Atualizado em 18/09:** a §4.2 (proteção na borda) ganhou ficha própria — `ficha-onda21-protecao-na-borda.md` —, e a metade de aplicação dela foi entregue; a topologia de produção está confirmada e a §6.1 daquela ficha traz um achado novo, o endereço público do banco (§4.8, acrescentada aqui). A §2.2 continua aberta, mas deixou de ser invisível: leia o que mudou antes de decidi-la.
+
+**Atualizado em 18/09 à noite:** a **§5.3 fechou**, por observação da TI em uso — e com isso **toda pendência restante depende de terceiros**. Nenhuma delas se resolve aqui dentro: as mensagens estão prontas em `consultas-a-terceiros.md`, e o que falta é enviá-las.
+
+> **A contagem foi refeita item a item, e não batia.** O cabeçalho dizia 27; contando as linhas numeradas que não estão riscadas, são **29** — 9 da Minutrade, 8 da Superintendência, 2 do jurídico, 8 da TI e 2 de decisão interna. O número anterior era anterior à §4.8 e ao desdobramento da §1, e ninguém o recontou. Fica o registro de que **o número deste cabeçalho é derivado da lista, não o contrário**: quem acrescentar uma linha recontará.
 
 Levantamento de **todo** `[A CONFIRMAR]` das 18 fichas, agrupado por **quem responde**. Cada item traz o que acontece **hoje**, sem a resposta — porque nenhuma delas está travando a plataforma: todas têm comportamento definido e declarado. Responder melhora; não responder não quebra.
 
@@ -26,7 +30,7 @@ Achado deste levantamento. Duas perguntas foram respondidas em **24/07** e regis
 
 ## 1. Minutrade — a maior parte é uma conversa só
 
-Oito perguntas, e sete delas cabem numa reunião. É o bloco que mais destrava coisa: dele dependem o nível de atribuição das campanhas (RN43), os selos de consumo do patrocinador (RN65) e a reconciliação das duas contagens (RN68).
+Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais destrava coisa: dele dependem o nível de atribuição das campanhas (RN43), os selos de consumo do patrocinador (RN65) e a reconciliação das duas contagens (RN68).
 
 **1.1 · O significado de "Resgates" na base atual: emissão de voucher ou resgate efetivo?**
 *Hoje:* o rótulo do campo está em espera e a telemetria é exibida com a origem nomeada, sem interpretação.
@@ -178,10 +182,14 @@ Adotadas pela TI Broto. Permanecem sujeitas à Superintendência, e isso não é
 **5.2 · ~~A divergência de layout da F27.~~ FECHADA em 17/09 — vale o que foi construído.**
 Os ajustes ficam **abaixo** do gráfico, em qualquer largura. A §4 da ficha da Onda 17 foi corrigida para descrever o que existe, e a divergência ficou **registrada e não apagada**: quem ler a ficha daqui a um ano precisa saber que houve escolha, não descuido.
 
-**5.3 · O relato "não consigo gerar relatório" — aberta, e eu não consigo fechá-la sozinho.**
-Nunca reproduzido. Testado com o papel de acesso total, clicando no cartão e não por URL: a tela monta, a tabela vem com dado, sem erro de console nem HTTP de falha. A hipótese é que o layout quebrado da T36 — corrigido desde então — tenha impedido o uso.
+**5.3 · ~~O relato "não consigo gerar relatório".~~ FECHADA em 18/09 — por observação, e não por dedução.**
+A TI relatou, em uso: *"consegui gerar o relatório perfeitamente"*. É exatamente o que esta linha pedia para ser fechada, e é por isso que ela se fecha agora e não antes.
 
-**É a única pendência desta lista que não é falta de decisão, e sim falta de observação.** Fechá-la por dedução seria pior que deixá-la aberta: eu declararia resolvido um defeito que talvez continue lá, e ninguém voltaria a olhar. O que destrava: em que ponto exatamente a tela para — a URL, o que aparece, e se algo sai no console do navegador.
+**Fecha como "não reproduz mais", não como "causa encontrada", e a distinção é o ponto.** A hipótese registrada era o layout quebrado da T36 — corrigido desde então —, e ela **continua sendo hipótese**: nunca foi provada, porque o defeito nunca chegou a ser reproduzido. Dar-lhe status de causa aqui seria inventar um diagnóstico a partir de uma coincidência de datas, e é o tipo de conclusão que a próxima pessoa leria como fato.
+
+O que fica registrado, para o caso de o relato voltar: nunca foi reproduzido pelo lado do código; foi testado com o papel de acesso total, clicando no cartão e não por URL, com a tela montando, a tabela vindo com dado, sem erro de console nem HTTP de falha. Se reaparecer, começa daí — e o que destrava continua sendo o mesmo: em que ponto exatamente a tela para, a URL, e o que sai no console do navegador.
+
+**Era a única pendência desta lista que não era falta de decisão, e sim falta de observação.** A lista volta a ser inteiramente dependente de terceiros.
 
 **5.4 · O vermelho no selo Offline da T27 — aberta.**
 Pedido e implementado. A ressalva levantada na entrega não foi fechada, e ela é de desenho: o vermelho da plataforma é reservado a **falha**, e estar offline não é falha — é estado normal de quem não está usando o sistema agora. Gastar a cor de erro nele enfraquece a cor onde ela importa. Fica como está até haver decisão.
