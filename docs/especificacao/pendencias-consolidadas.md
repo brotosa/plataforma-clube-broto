@@ -9,7 +9,7 @@
 
 > **A contagem foi refeita item a item, e não batia.** O cabeçalho dizia 27; contando as linhas numeradas que não estão riscadas eram **29**. O número anterior era anterior à §4.8 e ao desdobramento da §1, e ninguém o recontou. Fica o registro de que **o número deste cabeçalho é derivado da lista, não o contrário**: quem acrescentar uma linha recontará.
 
-> **Depois dos fechamentos de 18/09 à noite — a §4.9 acrescentada, a §5.4 decidida —, são 29:** 9 da Minutrade, 8 da Superintendência, 2 do jurídico, 9 da TI e 1 de decisão interna. **E a única interna que resta é a §5.5**, o nome do arquivo exportado; todo o resto espera terceiro.
+> **Depois dos fechamentos de 18/09 à noite — a §4.9 acrescentada, a §5.4 e a §5.5 decididas —, são 28:** 9 da Minutrade, 8 da Superintendência, 2 do jurídico e 9 da TI. **A §5 acabou: não há mais decisão interna pendente**, e cada uma das 28 restantes espera resposta de fora.
 
 Levantamento de **todo** `[A CONFIRMAR]` das 18 fichas, agrupado por **quem responde**. Cada item traz o que acontece **hoje**, sem a resposta — porque nenhuma delas está travando a plataforma: todas têm comportamento definido e declarado. Responder melhora; não responder não quebra.
 
@@ -184,7 +184,9 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 
 ## 5. Decisões sobre o que já foi entregue — custo zero agora, retrabalho depois
 
-Estas não dependem de ninguém de fora. São do autor das fichas e da Superintendência, e responder **agora** não custa nada porque nada foi construído em cima delas.
+> **ENCERRADA em 18/09.** As seis foram decididas, e nenhuma delas dependia de alguém de fora — eram do autor das fichas. A seção fica inteira, com as decisões e os motivos, porque o registro de **por que** se escolheu é o que evita a discussão recomeçar do zero daqui a um ano. Pendência interna nova entra aqui.
+
+Estas não dependiam de ninguém de fora. Eram do autor das fichas e da Superintendência, e responder **na hora** não custou nada porque nada foi construído em cima delas — que era exatamente o ponto de listá-las separadas.
 
 **5.1 · ~~Validar as fichas das Ondas 16, 17 e 20 e as numerações RN75–RN85.~~ FECHADA em 17/09.**
 Adotadas pela TI Broto. Permanecem sujeitas à Superintendência, e isso não é ressalva de fachada: **renomear uma RN é edição de documento, não retrabalho de código** — as regras são referenciadas por nome no texto e por comportamento nos testes, nunca por número em identificador. A numeração vigente vai da **RN01 à RN85**.
@@ -208,8 +210,12 @@ A ressalva de desenho era que o vermelho da plataforma é reservado a **falha**,
 
 `pill-erro` → `pill-neutra`, uma palavra. O On-line continua verde, e a distinção fica **mais** legível: um verde no meio de cinzas salta, um verde no meio de vermelhos não. O "visto há" e o "nunca acessou" não se mexem. A escolha está presa em teste, dos dois lados — neutro presente e vermelho ausente —, para não voltar por hábito.
 
-**5.5 · Nome do arquivo exportado — continua aberta, e o padrão atual é o conservador.**
-Hoje `relatorio-<assunto>-<data>`. Relatório salvo poderia usar o próprio nome — mais útil para quem recebe, e **mais revelador**, porque nome de arquivo viaja em anexo e em pasta compartilhada. Enquanto não houver decisão, **permanece o atual**: ele não revela o recorte que a pessoa montou, e passar a revelar é escolha que precisa ser feita, não herdada.
+**5.5 · ~~Nome do arquivo exportado.~~ FECHADA em 18/09 pela TI: permanece `relatorio-<assunto>-<data>`.**
+A alternativa era o relatório salvo sair com o **próprio nome** — mais útil para quem recebe o anexo, e **mais revelador**, porque nome de arquivo viaja em e-mail e em pasta compartilhada.
+
+**Decidido pelo conservador, e o motivo é de divulgação, não de estética.** O padrão atual não conta o recorte que a pessoa montou; passar a contar é escolha que precisa ser feita de propósito, não herdada de uma conveniência. Um anexo chamado "assinantes inadimplentes SP" é uma divulgação que ninguém decidiu fazer — e ela aconteceria na pasta de quem recebe, fora do alcance da RN78 e da trilha.
+
+**Se um dia for reaberta, o desenho proposto é parcial**: nome próprio só nos assuntos **sem dado pessoal**, mantendo o genérico nos dois que o alcançam. Fica registrado para não se recomeçar a discussão do zero.
 *Origem:* Onda 20 §7.3.
 
 **5.6 · ~~Teto de linhas por formato de exportação.~~ FECHADA em 17/09 pela TI.**
