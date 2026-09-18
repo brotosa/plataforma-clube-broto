@@ -164,3 +164,104 @@ export function rotuloDaAcaoDeClique(
   }
   return `Filtrar por ${rotuloDoCampo}: ${rotuloDoValor}`;
 }
+
+/**
+ * RN92 — descer de nível.
+ *
+ * Descer troca a dimensão pelo nível seguinte da hierarquia **e** acrescenta o
+ * filtro do valor de onde se desceu. As duas metades são obrigatórias: descer
+ * em "São Paulo" sem filtrar por São Paulo mostraria os municípios do país
+ * inteiro, que não é descer — é trocar de pergunta.
+ *
+ * Por isso a descida **compõe com `filtroDoClique`** em vez de repetir a
+ * decisão: se aquele valor não pode virar filtro (uma lacuna num campo sem o
+ * operador de vazio, por exemplo), a descida não acontece, e pelo mesmo
+ * motivo. Duas listas de recusa divergiriam na primeira correção.
+ */
+export interface DescidaPossivel {
+  readonly pode: true;
+  /** O campo que sai das Linhas. */
+  readonly de: string;
+  /** O campo que entra no lugar. */
+  readonly para: string;
+  readonly rotuloDestino: string;
+  /** O recorte do valor de onde se desceu. */
+  readonly filtro: FiltroDeClique;
+}
+
+export type ResultadoDaDescida = DescidaPossivel | { readonly pode: false; readonly motivo: string };
+
+/** Uma hierarquia, na forma mínima — mesma razão de `CampoParaClique`. */
+export interface HierarquiaParaDescida {
+  chave: string;
+  rotulo: string;
+  niveis: ReadonlyArray<string>;
+}
+
+/**
+ * O nível seguinte a este campo, em alguma hierarquia declarada.
+ *
+ * `null` quando o campo não está em hierarquia nenhuma **ou** já é o último
+ * nível. Os dois casos significam a mesma coisa para quem olha — não há para
+ * onde descer — e distingui-los na interface só acrescentaria uma explicação
+ * que ninguém pediu.
+ */
+export function nivelSeguinte(
+  hierarquias: ReadonlyArray<HierarquiaParaDescida> | undefined,
+  campoSlug: string,
+): { hierarquia: HierarquiaParaDescida; para: string } | null {
+  for (const hierarquia of hierarquias ?? []) {
+    const posicao = hierarquia.niveis.indexOf(campoSlug);
+    if (posicao === -1 || posicao === hierarquia.niveis.length - 1) continue;
+    const para = hierarquia.niveis[posicao + 1];
+    if (para) return { hierarquia, para };
+  }
+  return null;
+}
+
+/**
+ * A descida que este clique produz — ou o motivo de não produzir nenhuma.
+ *
+ * **Campo sem hierarquia não desce, e a interface não finge que desce**: o
+ * caminho simplesmente não aparece, em vez de aparecer e recusar. Recusar com
+ * motivo é para o que a pessoa poderia razoavelmente esperar que funcionasse.
+ */
+export function descidaDoClique(
+  campos: ReadonlyArray<CampoParaClique>,
+  hierarquias: ReadonlyArray<HierarquiaParaDescida> | undefined,
+  campoSlug: string,
+  valor: Celula,
+): ResultadoDaDescida {
+  const seguinte = nivelSeguinte(hierarquias, campoSlug);
+  if (!seguinte) {
+    return { pode: false, motivo: "Não há nível abaixo deste campo." };
+  }
+
+  const destino = campos.find((candidato) => candidato.slug === seguinte.para);
+  if (!destino || destino.indisponivel) {
+    // Hierarquia declarada sobre campo que sumiu do catálogo. A cerca de
+    // arquitetura existe para isto não chegar aqui — mas se chegar, recusa.
+    return { pode: false, motivo: "O nível abaixo não está disponível neste assunto." };
+  }
+
+  // A metade do recorte. Sem ela não é descida.
+  const recorte = filtroDoClique(campos, campoSlug, valor);
+  if (!recorte.pode) return { pode: false, motivo: recorte.motivo };
+
+  return {
+    pode: true,
+    de: campoSlug,
+    para: destino.slug,
+    rotuloDestino: destino.rotulo,
+    filtro: recorte.filtro,
+  };
+}
+
+/** O nome acessível do botão de descer — ele diz o destino, não uma seta. */
+export function rotuloDaDescida(
+  rotuloDoValor: string,
+  resultado: ResultadoDaDescida,
+): string | null {
+  if (!resultado.pode) return null;
+  return `Descer para ${resultado.rotuloDestino} em ${rotuloDoValor}`;
+}

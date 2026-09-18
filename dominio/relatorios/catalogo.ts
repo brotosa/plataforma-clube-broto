@@ -335,6 +335,35 @@ export interface ModeloRelatorio {
   };
 }
 
+/**
+ * RN92 — um caminho do mais grosso ao mais fino, para descer de nível.
+ *
+ * **Declarada, e nunca deduzida.** O catálogo tem `grupo`, mas ele é
+ * agrupamento do painel de campos, não relação de pai e filho: a ordem dentro
+ * do grupo é arbitrária, e nada nele diz que UF contém município. Deduzir a
+ * hierarquia do agrupamento pareceria funcionar em "Sede" e produziria
+ * bobagem em "Oferta", onde situação e natureza convivem sem nenhum conter o
+ * outro.
+ *
+ * É o mesmo desenho da RN89: o que o catálogo não declara, a plataforma não
+ * inventa. E **declarar a hierarquia errada é pior que não declarar nenhuma**,
+ * porque ela passa a parecer oficial — por isso a cerca de
+ * `infra/arquitetura/hierarquia-declarada.test.ts` confere que cada nível
+ * existe, é usável e pode virar filtro.
+ */
+export interface HierarquiaRelatorio {
+  chave: string;
+  rotulo: string;
+  /**
+   * Slugs de campos deste assunto, **do mais grosso ao mais fino**.
+   *
+   * Descer troca a dimensão pelo nível seguinte e acrescenta o filtro do
+   * valor de onde se desceu — descer em "São Paulo" sem filtrar por São Paulo
+   * mostraria os municípios do país inteiro.
+   */
+  niveis: ReadonlyArray<string>;
+}
+
 export interface AssuntoRelatorio {
   slug: string;
   rotulo: string;
@@ -363,6 +392,8 @@ export interface AssuntoRelatorio {
    * por slug se aplicaria a quase nada, e em silêncio.
    */
   eixos?: EixosDoAssunto;
+  /** RN92 — os caminhos de descida deste assunto. Ausente = não desce. */
+  hierarquias?: ReadonlyArray<HierarquiaRelatorio>;
   raiz: { tabela: string; alias: string };
   juncoes: Readonly<Record<string, JuncaoRelatorio>>;
   campos: ReadonlyArray<CampoRelatorio>;
@@ -393,6 +424,20 @@ const OFERTAS: AssuntoRelatorio = {
    * do campo diz o que ele é.
    */
   eixos: { PERIODO: "oferta-vigencia-inicio" },
+  /**
+   * RN92 — portfólio, do mais grosso ao mais fino.
+   *
+   * **Não há hierarquia de geografia neste assunto**, e a ausência é achado,
+   * não esquecimento: `aliado-uf` existe aqui, `aliado-municipio` não. Declarar
+   * a UF sozinha como caminho seria oferecer uma descida que não desce.
+   */
+  hierarquias: [
+    {
+      chave: "portfolio",
+      rotulo: "Portfólio",
+      niveis: ["solucao-categoria", "solucao-nome", "oferta-titulo"],
+    },
+  ],
   raiz: { tabela: "ofertas", alias: "o" },
   juncoes: {
     solucao: { sql: "JOIN solucoes s ON s.id = o.solucao_id" },
@@ -651,6 +696,19 @@ const ALIADOS: AssuntoRelatorio = {
   // RN89. Entrada na rede e UF da sede — os dois são atributos do próprio
   // aliado, e o rótulo do eixo diz o mesmo que o rótulo do campo.
   eixos: { PERIODO: "aliado-data-entrada", UF: "aliado-uf" },
+  /**
+   * RN92 — geografia da sede, e portfólio da rede.
+   *
+   * A de portfólio atravessa junções que MULTIPLICAM a linha da raiz
+   * (`categorias`, `solucoes`). Não é problema para a contagem — o compilador
+   * conta pela identidade do assunto, que é o que a marca `multiplica` existe
+   * para garantir —, mas é o motivo de a descida parar na solução: descer
+   * mais exigiria um nível que este assunto não tem.
+   */
+  hierarquias: [
+    { chave: "geografia", rotulo: "Geografia", niveis: ["aliado-uf", "aliado-municipio"] },
+    { chave: "portfolio", rotulo: "Portfólio", niveis: ["aliado-categoria", "solucao-nome"] },
+  ],
   raiz: { tabela: "empresas", alias: "e" },
   juncoes: {
     /*
@@ -2156,6 +2214,8 @@ const ASSINANTES: AssuntoRelatorio = {
    * diz o que ele é.
    */
   eixos: { UF: "as-uf" },
+  /** RN92 — geografia da base. */
+  hierarquias: [{ chave: "geografia", rotulo: "Geografia", niveis: ["as-uf", "as-municipio"] }],
   raiz: { tabela: "assinantes", alias: "a" },
   juncoes: {
     assinatura: { sql: "LEFT JOIN assinaturas asg ON asg.assinante_id = a.id" },
