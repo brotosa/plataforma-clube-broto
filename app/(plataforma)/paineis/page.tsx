@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { abrirPainel, listarPaineis } from "@/infra/casos-de-uso/paineis";
 import { ROTULOS_DE_EIXO, type FiltroDoPainel } from "@/dominio/relatorios/eixos";
 import { BlocoDoPainel, type BlocoSerializado } from "./bloco";
+import { ApagarPainel } from "./cartao";
 
 /**
  * T37 — Painel de relatórios (Onda 18, ficha §4).
@@ -60,7 +61,7 @@ export default async function PaginaDePaineis({
       ) : (
         <ul className="pn-galeria">
           {paineis.map((painel) => (
-            <li key={painel.id}>
+            <li key={painel.id} className="pn-item">
               {/* Âncora, e não <Link>: muda só a query string. */}
               <a className="pn-cartao" href={`/paineis?painel=${painel.id}`}>
                 <strong>{painel.nome}</strong>
@@ -69,6 +70,9 @@ export default async function PaginaDePaineis({
                   {painel.visibilidade === "TIME" ? "Do time" : "Só eu"}
                 </span>
               </a>
+              {/* Só o autor apaga — a mesma decisão do relatório salvo, e a
+                  regra que a sustenta vive em `apagarPainel`, não aqui. */}
+              {painel.meu ? <ApagarPainel id={painel.id} nome={painel.nome} /> : null}
             </li>
           ))}
         </ul>

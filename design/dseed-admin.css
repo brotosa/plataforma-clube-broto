@@ -1721,6 +1721,18 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   text-decoration:none}
 .pn-cartao span{font:var(--font-body-caption-regular);color:var(--paragrafo-aaa)}
 
+/* Apagar fica FORA da âncora — botão dentro de link é HTML inválido — e em
+   fluxo, não sobreposto ao canto do cartão: nome de painel é texto livre, e
+   um nome longo colidiria com o botão no painel de outra pessoa. O `flex:1`
+   no cartão mantém os botões alinhados na base quando os nomes têm alturas
+   diferentes na mesma linha da grade. */
+.pn-item{display:flex;flex-direction:column;gap:6px}
+.pn-item>.pn-cartao{flex:1}
+.pn-item-acoes{display:flex;justify-content:flex-end;align-items:center;gap:8px;
+  flex-wrap:wrap}
+.pn-item-erro{margin:0;font:var(--font-body-caption-regular);
+  color:var(--erro-texto-aaa)}
+
 .pn-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:14px;margin-top:18px}
 .pn-bloco{background:var(--branco);border:1px solid var(--borda);

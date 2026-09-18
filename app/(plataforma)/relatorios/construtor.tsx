@@ -423,6 +423,18 @@ export function Construtor({
    * painel já salvo exige reordenar blocos e decidir largura, que é a tela
    * de edição do painel — e ela não existe na F30. Um painel de um bloco é
    * imediatamente útil e não bloqueia nada.
+   *
+   * ## A visibilidade escolhida vale AQUI também, e não valia
+   *
+   * O seletor ao lado dos dois botões governava só o "Salvar": esta função
+   * não passava `visibilidade`, e `salvarPainel` cai em `?? "PRIVADO"`.
+   * Quem escolhia **Do time** e clicava em "Pôr no painel" recebia um painel
+   * privado **sem nada na tela dizendo isso** — e a galeria, que exibe a
+   * visibilidade corretamente, mostrava "Só eu" para todos.
+   *
+   * O aviso passou a **declarar quem vê**, porque a escolha errada aqui é
+   * silenciosa nos dois sentidos: publicar para o time sem querer é tão ruim
+   * quanto montar um painel que ninguém mais abre.
    */
   async function aoPorNoPainel() {
     setAviso(null);
@@ -439,10 +451,11 @@ export function Construtor({
             largura: "METADE",
           },
         ],
+        visibilidade,
       });
       setAviso(
         resposta.ok
-          ? `Painel "${titulo}" criado com este relatório. A definição foi COPIADA — mudar o relatório depois não muda o bloco.`
+          ? `Painel "${titulo}" criado com este relatório, visível ${visibilidade === "TIME" ? "para o time" : "só para você"}. A definição foi COPIADA — mudar o relatório depois não muda o bloco.`
           : (resposta.erro ?? "Não foi possível criar o painel."),
       );
     } finally {
@@ -818,8 +831,11 @@ export function Construtor({
                 onChange={(evento) => setNome(evento.target.value)}
                 placeholder="Ex.: Ofertas a vencer"
               />
+              {/* "o que você salvar", e não "este relatório": o seletor
+                  governa o Salvar E o Pôr no painel — era o nome que fazia
+                  parecer que o painel tinha visibilidade própria. */}
               <select
-                aria-label="Quem vê este relatório"
+                aria-label="Quem vê o que você salvar"
                 style={{
                   height: 32,
                   padding: "0 8px",

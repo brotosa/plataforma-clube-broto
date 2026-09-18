@@ -393,7 +393,10 @@ test.describe.serial("RN76 — relatório do time", () => {
 
     const nome = `${MARCA} rede por estágio`;
     await page.getByLabel("Nome do relatório").fill(nome);
-    await page.getByLabel("Quem vê este relatório").selectOption("TIME");
+    // O rótulo passou a dizer "o que você salvar": o mesmo seletor governa o
+    // Salvar E o Pôr no painel, e o nome antigo fazia parecer que o painel
+    // tinha visibilidade própria — que era, aliás, o defeito.
+    await page.getByLabel("Quem vê o que você salvar").selectOption("TIME");
     await page.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Do time");
 

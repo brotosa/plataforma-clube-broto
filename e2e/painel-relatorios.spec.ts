@@ -321,3 +321,88 @@ test.describe.serial("T37 — RN89: o filtro por eixo, e o que ele NÃO alcança
     await semViolacoesAxe(page);
   });
 });
+
+/**
+ * A jornada que a F30 entregou pela metade, e que só apareceu em uso.
+ *
+ * Duas falhas distintas, encontradas juntas ao olhar a galeria de quem tinha
+ * quatro painéis idênticos:
+ *
+ *  • **o painel nascia sempre privado.** O seletor de visibilidade fica ao
+ *    lado dos dois botões e governava só o "Salvar"; "Pôr no painel" não
+ *    passava `visibilidade`, e `salvarPainel` cai em `?? "PRIVADO"`. Quem
+ *    escolhia "Do time" recebia um painel privado **sem nada dizendo isso**;
+ *  • **não havia como apagar.** `apagarPainel` estava escrito, auditado e
+ *    restrito ao autor desde a F30 — e nenhuma tela o chamava.
+ *
+ *  O teste percorre a jornada inteira **pela interface**, porque é aí que as
+ *  duas falhas viviam: as duas passariam por qualquer teste de unidade do
+ *  caso de uso, que sempre recebeu e honrou o que lhe mandaram.
+ */
+test.describe.serial("T37 — pôr no painel, ver e tirar", () => {
+  const NOME = `${MARCA} jornada`;
+
+  test("o painel nasce com a visibilidade ESCOLHIDA, e não sempre privado", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas");
+
+    await page.getByRole("button", { name: "Pôr Situação em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await page.getByLabel("Nome do relatório").fill(NOME);
+    await page.getByLabel("Quem vê o que você salvar").selectOption("TIME");
+    await page.getByRole("button", { name: "Pôr no painel" }).click();
+
+    // O aviso DECLARA quem vê. Era a metade que faltava: com a gravação
+    // errada e o aviso mudo, não havia como a pessoa perceber.
+    await expect(page.getByRole("status")).toContainText("visível para o time");
+
+    // E a asserção que não depende do texto da tela.
+    const painel = await prisma.painel.findFirstOrThrow({ where: { nome: NOME } });
+    expect(painel.visibilidade).toBe("TIME");
+  });
+
+  test("a galeria mostra a visibilidade gravada", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/paineis");
+    await expect(page.getByRole("link", { name: NOME, exact: false })).toContainText("Do time");
+    await semViolacoesAxe(page);
+  });
+
+  test("quem não é o autor não recebe o botão de apagar", async ({ page }) => {
+    await entrar(page, "analista@dev.clubebroto.local");
+    await page.goto("/paineis");
+
+    // O painel do time aparece para ele — sem isto, a asserção seguinte
+    // passaria numa galeria vazia.
+    const doTime = `${MARCA} Segunda-feira`;
+    await expect(page.getByRole("link", { name: doTime, exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Apagar o painel ${doTime}` })).toHaveCount(0);
+  });
+
+  test("apagar tira da galeria — e o ato fica na trilha (RN49)", async ({ page }) => {
+    const antes = await prisma.painel.findFirstOrThrow({ where: { nome: NOME } });
+
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/paineis");
+
+    page.once("dialog", (dialogo) => dialogo.accept());
+    await page.getByRole("button", { name: `Apagar o painel ${NOME}` }).click();
+
+    await expect(page.getByRole("link", { name: NOME, exact: false })).toHaveCount(0);
+    expect(await prisma.painel.count({ where: { id: antes.id } })).toBe(0);
+
+    /*
+     * O painel some; o registro de que alguém o apagou, não. É evento de
+     * ATO (`campo: "exclusao"`), e não diff de campos — exclusão não tem
+     * estado novo com que comparar, e o diff sairia vazio.
+     */
+    const trilha = await prisma.auditoriaEvento.findMany({
+      where: { entidade: "Painel", entidadeId: antes.id, campo: "exclusao" },
+    });
+    expect(trilha).toHaveLength(1);
+
+    // Higiene: o painel já não existe, então `limpar()` não o alcança mais.
+    await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: antes.id } });
+  });
+});
