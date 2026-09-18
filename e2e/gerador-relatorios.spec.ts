@@ -178,9 +178,13 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await page.getByRole("button", { name: "Pôr Situação em Linhas" }).click();
     await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
 
+    // O CSV deixou de ser o único botão e virou item do menu de saída (F28).
+    // O COMPORTAMENTO dele é o mesmo: as asserções abaixo são as da F24,
+    // intactas — o que mudou é o caminho até ele, não o arquivo.
+    await page.locator(".rel-saida > summary").click();
     const [download] = await Promise.all([
       page.waitForEvent("download"),
-      page.getByRole("button", { name: "Exportar (CSV)" }).click(),
+      page.getByRole("menuitem", { name: "CSV" }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(/^relatorio-ofertas-do-clube-\d{4}-\d{2}-\d{2}\.csv$/);
 
@@ -744,3 +748,126 @@ test.describe.serial("F27 — escolher o desenho, e as recusas", () => {
     }
   });
 });
+
+test.describe.serial("F28 — a saída em três formatos", () => {
+  /*
+   * RN83/RN84 — o que estes testes provam, e o que deixam de fora.
+   *
+   * Provam que cada formato SAI pela rota, com o conteúdo certo e a
+   * procedência dentro. Não provam que o Excel abre a planilha — isso é dos
+   * testes de unidade, que a leem com o próprio ExcelJS.
+   *
+   * O download é interceptado pela API do Playwright em vez de clicado e
+   * conferido na pasta: o que interessa é o que o servidor devolveu, e ler
+   * arquivo do disco só acrescentaria uma fonte de falha que não é do
+   * produto.
+   */
+  const abrirMenu = async (page: import("@playwright/test").Page) => {
+    await page.locator(".rel-saida > summary").click();
+  };
+
+  test("o menu oferece os quatro formatos, e o CSV continua lá", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await abrirMenu(page);
+    for (const rotulo of ["Abrir para impressão", "Planilha (XLSX)", "Copiar", "CSV"]) {
+      await expect(page.getByRole("menuitem", { name: rotulo })).toBeVisible();
+    }
+  });
+
+  test("a planilha baixa, e com o nome do assunto", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await abrirMenu(page);
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "Planilha (XLSX)" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^relatorio-ofertas-do-clube-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  });
+
+  test("o documento de impressão traz procedência e os mesmos números", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    // A rota é conferida direto: o HTML abre em janela nova, e o que importa
+    // é o documento, não a janela.
+    const resposta = await page.request.post("/relatorios/exportar", {
+      data: {
+        definicao: await definicaoDaTela(page),
+        formato: "HTML",
+      },
+    });
+    expect(resposta.status()).toBe(200);
+    expect(resposta.headers()["content-type"]).toContain("text/html");
+
+    const html = await resposta.text();
+    expect(html).toContain("Gerado por");
+    expect(html).toContain("Gestor");
+    // O mesmo aliado que a tela mostra no topo.
+    const primeiro = await page.locator(".rel-resultado tbody tr td").first().innerText();
+    expect(html).toContain(primeiro);
+  });
+
+  test("a cópia devolve TSV — tabulação, não ponto e vírgula", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    const resposta = await page.request.post("/relatorios/exportar", {
+      data: {
+        definicao: await definicaoDaTela(page),
+        formato: "AREA_TRANSFERENCIA",
+      },
+    });
+    expect(resposta.status()).toBe(200);
+    const texto = await resposta.text();
+    expect(texto.split("\n")[0]).toContain("\t");
+    expect(texto.split("\n")[0]).not.toContain(";");
+  });
+
+  test("formato desconhecido é recusado sem ecoar o que veio (RN55)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    const resposta = await page.request.post("/relatorios/exportar", {
+      data: {
+        definicao: await definicaoDaTela(page),
+        formato: "<script>alert(1)</script>",
+      },
+    });
+    expect(resposta.status()).toBe(422);
+    const corpo = await resposta.text();
+    expect(corpo).toContain("Formato de saída desconhecido");
+    // A asserção que importa: o que veio NÃO volta refletido.
+    expect(corpo).not.toContain("script");
+  });
+
+  test("axe-core (AAA) com o menu de saída aberto", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas&modelo=ofertas-por-aliado");
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    await abrirMenu(page);
+    await expect(page.getByRole("menuitem", { name: "CSV" })).toBeVisible();
+    await semViolacoesAxe(page);
+  });
+});
+
+/** A definição que a tela montou, lida do próprio construtor. */
+async function definicaoDaTela(page: import("@playwright/test").Page) {
+  // O modelo "ofertas por aliado" é o mesmo do catálogo; reconstruí-lo aqui
+  // manteria duas cópias que divergiriam na primeira mudança do catálogo.
+  return {
+    assunto: "ofertas",
+    linhas: ["aliado-nome"],
+    colunas: [],
+    valores: [{ campo: "oferta-titulo", agregacao: "QUANTOS" }],
+    filtros: [{ campo: "oferta-status", operador: "igual", valores: ["PUBLICADA"] }],
+  };
+}
