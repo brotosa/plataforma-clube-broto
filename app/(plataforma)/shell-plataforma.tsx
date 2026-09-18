@@ -93,6 +93,23 @@ const ITENS_NAVEGACAO: ReadonlyArray<ItemNavegacao> = [
     icone: "M3 3v18h18M7 16V9M12 16V5M17 16v-4",
   },
   {
+    /*
+     * Onda 18 — logo abaixo do Gerador, porque o painel é composto DELE: um
+     * painel só existe a partir de relatórios salvos, e separá-los na
+     * lateral esconderia essa dependência de quem procura.
+     *
+     * Posição e ícone são PROPOSTA, pelo mesmo motivo registrado no item
+     * acima: a ordem veio do protótipo, que é contrato visual, e acrescentar
+     * item é decisão de Design.
+     *
+     * "Painéis" e não "Painel": a entrada leva à galeria, e o plural evita a
+     * confusão com o Dashboard, que é O painel da instituição.
+     */
+    rotulo: "Painéis",
+    href: "/paineis",
+    icone: "M3 3h7v7H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 14h7v7H3z",
+  },
+  {
     rotulo: "Parametrizador",
     href: "/parametrizador",
     icone: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",

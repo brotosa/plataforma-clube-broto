@@ -144,6 +144,7 @@ model Usuario {
 
   // Onda 16 (F24) — Gerador de relatórios.
   relatoriosSalvos     RelatorioSalvo[]    @relation("relatoriosSalvos")
+  paineis              Painel[]            @relation("paineis")
   execucoesDeRelatorio ExecucaoRelatorio[] @relation("execucoesDeRelatorio")
 
   /// RN46 — a contagem de administradores ativos é lida a cada inativação e a
@@ -2816,6 +2817,43 @@ model RelatorioSalvo {
   @@map("relatorios_salvos")
 }
 
+/// Onda 18 (RN86) — vários relatórios lado a lado, numa página só.
+///
+/// NÃO é o Dashboard (T26). Aquele é institucional e cada indicador dele vem
+/// de ficha validada (RN50); este é de quem o montou e só recompõe
+/// relatórios que a pessoa já podia executar.
+model Painel {
+  id           String                @id @default(cuid())
+  nome         String
+  /// A lista ordenada de blocos, cada um com título, definição, visualização
+  /// e largura.
+  ///
+  /// O bloco guarda a PRÓPRIA definição, e não uma referência ao relatório
+  /// salvo. Com referência, editar um relatório mudaria calado todo painel
+  /// que o usa — inclusive de outras pessoas —, e um painel do time que
+  /// apontasse para relatório PRIVADO do autor quebraria para todos os
+  /// demais. Revalidada a cada leitura, como a do relatório salvo: é
+  /// entrada não confiável no dia em que o catálogo muda.
+  blocos       Json
+  /// O filtro por eixo declarado (RN89, F31). Ausente até lá, e ausente
+  /// também em painel que não usa filtro nenhum.
+  filtro       Json?
+  autorId      String                @map("autor_id")
+  visibilidade VisibilidadeRelatorio @default(PRIVADO)
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  autor     Usuario             @relation("paineis", fields: [autorId], references: [id])
+  execucoes ExecucaoRelatorio[]
+
+  /// A galeria lê por autor ("Meus") e por visibilidade ("Do time"), como a
+  /// dos relatórios.
+  @@index([autorId, atualizadoEm])
+  @@index([visibilidade, atualizadoEm])
+  @@map("paineis")
+}
+
 /// RN78 — a trilha operacional do módulo: toda execução fica registrada.
 ///
 /// **Não substitui a trilha da RN49, acompanha.** A auditoria registra o ato
@@ -2852,6 +2890,13 @@ model ExecucaoRelatorio {
   /// Saída de dado, e não prévia nem execução em tela. É o recorte que
   /// interessa quando se pergunta o que saiu da plataforma.
   exportou    Boolean @default(false)
+  /// RN86 — de qual painel veio esta execução. Nulo quando veio da T36.
+  ///
+  /// Existe para a trilha poder ser LIDA. Sem ela, abrir um painel de oito
+  /// blocos aparece como oito consultas soltas no mesmo segundo, e quem for
+  /// reconstituir um acesso não consegue distinguir isso de alguém varrendo
+  /// a plataforma à mão.
+  painelId    String? @map("painel_id")
   /// RN84 — COMO o dado saiu: "CSV" | "HTML" | "XLSX" | "AREA_TRANSFERENCIA".
   ///
   /// Nulo em execução de tela. Nulo COM `exportou = true` significa CSV, que
@@ -2868,10 +2913,12 @@ model ExecucaoRelatorio {
   criadoEm DateTime @default(now()) @map("criado_em")
 
   relatorio RelatorioSalvo? @relation(fields: [relatorioId], references: [id], onDelete: SetNull)
+  painel    Painel?         @relation(fields: [painelId], references: [id], onDelete: SetNull)
   autor     Usuario         @relation("execucoesDeRelatorio", fields: [autorId], references: [id])
 
   @@index([autorId, criadoEm])
   @@index([relatorioId, criadoEm])
+  @@index([painelId, criadoEm])
   @@index([criadoEm])
   @@map("execucoes_relatorio")
 }

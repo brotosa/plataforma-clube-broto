@@ -128,6 +128,14 @@ export interface OpcoesDeExecucao {
    * único que havia.
    */
   formato?: FormatoDeSaida;
+  /**
+   * RN86 — de qual painel veio esta execução.
+   *
+   * Sem isto, abrir um painel de oito blocos aparece na trilha como oito
+   * consultas soltas no mesmo segundo, e quem for reconstituir um acesso não
+   * consegue distinguir isso de alguém varrendo a plataforma à mão.
+   */
+  painelId?: string;
 }
 
 /**
@@ -153,6 +161,7 @@ async function registrarExecucao(dados: {
   erro?: string;
   exportou: boolean;
   formato?: FormatoDeSaida;
+  painelId?: string;
 }): Promise<void> {
   try {
     await prisma.execucaoRelatorio.create({
@@ -168,6 +177,7 @@ async function registrarExecucao(dados: {
         autorId: dados.ator.id,
         exportou: dados.exportou,
         formato: dados.formato ?? null,
+        painelId: dados.painelId ?? null,
       },
     });
   } catch {
@@ -216,6 +226,7 @@ export async function executarRelatorio(
           : "falha ao executar a consulta",
       exportou: opcoes.exportacao ?? false,
       formato: opcoes.formato,
+      painelId: opcoes.painelId,
     });
     throw erro;
   }
@@ -229,6 +240,7 @@ export async function executarRelatorio(
     duracaoMs: resultado.duracaoMs,
     finalidade: opcoes.finalidade,
     exportou: opcoes.exportacao ?? false,
+    painelId: opcoes.painelId,
   });
 
   return {
