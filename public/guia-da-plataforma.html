@@ -1592,6 +1592,34 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
    glifo, que some numa tabela densa. */
 .rel-vazia{color:var(--paragrafo-aaa)}
 
+/* RN91 — a célula de dimensão vira botão: clicar nela acrescenta o filtro.
+
+   BOTÃO, e não `onClick` numa `<td>`: `<td>` não recebe foco, não responde a
+   Enter e não se anuncia como acionável. Com `<button>`, o teclado ganha tudo
+   de graça — que é o que a regra exige, no mesmo espírito da RN57 ("nenhuma
+   função existe apenas no arrasto").
+
+   O botão precisa PARECER a célula que ele substituiu, senão a tabela vira um
+   mural de botões e a leitura se perde: sem fundo, sem borda, herdando fonte e
+   cor, ocupando a largura toda para a área de clique cobrir a célula inteira.
+   O sublinhado pontilhado é o único sinal de que ali se clica — discreto o
+   bastante para não competir com o dado, presente o bastante para se descobrir.
+
+   Recusa NÃO usa `[disabled]`: botão desabilitado não recebe foco, e aí o
+   motivo — que é justamente o que a pessoa precisa ler — fica inalcançável
+   por teclado. Ele continua acionável e responde com a explicação (RN55). */
+.rel-cel-filtro{display:block;width:100%;text-align:inherit;background:none;
+  border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;
+  text-decoration:underline dotted var(--cinza);text-underline-offset:3px}
+.rel-cel-filtro:hover{text-decoration-color:var(--verde)}
+.rel-cel-filtro.sem-clique{cursor:help;text-decoration-color:var(--borda)}
+
+/* O aviso do clique — recusa, ou o filtro que acabou de entrar. Fica ACIMA da
+   tabela porque é resposta a um ato: embaixo, chegaria depois da releitura. */
+.rel-clique-aviso{margin:0 0 10px;padding:8px 12px;border-radius:var(--r-sm);
+  background:var(--azul-lightest);border:1px solid var(--azul-claro);
+  font:var(--font-body-caption-regular);color:var(--preto)}
+
 /* ===== T36 · abertura do Gerador =======================================
    Os assuntos numa fileira compacta, e os relatórios PRONTOS logo abaixo.
 
