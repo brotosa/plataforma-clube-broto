@@ -1,6 +1,6 @@
 # Plataforma de Administração do Clube Broto
 
-Aplicação web administrativa do Clube Broto (Broto S.A.), em catorze ondas:
+Aplicação web administrativa do Clube Broto (Broto S.A.), em vinte e uma ondas:
 
 | Onda | Módulo | Regras | Telas |
 |---|---|---|---|
@@ -18,15 +18,28 @@ Aplicação web administrativa do Clube Broto (Broto S.A.), em catorze ondas:
 | 12 | Patrocinadores, contratos e telemetria da operadora (F19 + F20) | RN62–RN70 | T32–T34 · R1 |
 | 13 | Armazenamento persistente de arquivos derivados · corretiva, sem tela | RN71 | — |
 | 14 | Acabamento da versão 1 · sem RN nova, sem migration, sem tela nova | — | ajustes |
+| 15 | Configurações do portal · senha, sessão e os dois bloqueios de acesso | RN72–RN74 | T35 |
+| 16 | Gerador de relatórios · construtor visual sobre assuntos pré-modelados | RN75–RN79 | T36 |
+| 17 | Visualização do Gerador · sete tipos de desenho, e as recusas | RN80–RN82 | ajustes em T36 |
+| 20 | Saída do relatório · HTML de impressão, XLSX e área de transferência | RN83–RN85 | ajustes em T36 |
+| 18 | Painel de relatórios · vários lado a lado, filtro por eixo declarado, edição | RN86–RN89 · RN94 | T37 |
+| 19 | Interatividade do Gerador · clicar filtra, descer de nível, ver as linhas | RN91–RN93 | ajustes em T36 |
+| 21 | Proteção na borda · WAF, limite de taxa e a leitura de origem por saltos | RN90 | — |
 
-- Fontes da verdade funcionais: as **catorze fichas** de onda em `docs/especificacao/`
-- Arquitetura e fases: os **quinze** `prompt-claude-code-onda*.md` (mais o `prompt-dossie-due-diligence.md`)
+A ordem da tabela é a de **execução**, não a numérica: a Onda 5 foi antecipada
+à 4, e a 20 às Ondas 18 e 19 — as duas por pedido direto, e nenhuma delas
+dependia das que pulou.
+
+- Fontes da verdade funcionais: as **vinte e uma fichas** de onda em `docs/especificacao/`
+- Arquitetura e fases: os **quinze** `prompt-claude-code-onda*.md` (mais o `prompt-dossie-due-diligence.md`).
+  **Das Ondas 15 a 21 não há prompt**: a partir da F23 as fases foram conduzidas
+  direto da ficha, e o prompt deixou de ser artefato separado
 - Especificação visual vigente: `docs/referencias/Plataforma_Broto_-_Prototipo_v10.1.html`
   (T1–T31). As versões v9.1, v8.1 FINAL, v7.1, v6.1 e v2.1 permanecem apenas como
   histórico. O **texto** do guia é o `docs/referencias/Guia_da_Plataforma_v1.html`.
 
-**Estado atual: todo o escopo até a Onda 14 / F22 — RN01–RN71 e telas T1–T34
-mais o relatório R1. O produto está em produção desde a Onda 6**, e a partir da
+**Estado atual: todo o escopo até a Onda 21 / F35 — RN01–RN94 e telas T1–T37
+mais o relatório R1, na versão 2.0.0. O produto está em produção desde a Onda 6**, e a partir da
 F14 toda fase carrega o dever adicional de não regredir: reescrever cálculo já
 exibido exige teste provando que o número não mudou. Desde a F15 o dever se
 estende ao banco — a base está povoada (aliados e ofertas reais, 46 prospects,
@@ -1869,6 +1882,145 @@ do dump completo do catálogo e a tag "Recompensa" em cards pagos na vitrine.
 |---|---|
 | **Carga inicial do portfólio de soluções** (herdada) | A T29 reflete apenas o que está cadastrado, e **declara isso na tela**. Categorias sem solução publicada aparecem como frágeis ou sem cobertura — pode ser portfólio não classificado, não portfólio ausente, e o volume de aliados sem categoria é exibido junto para não induzir leitura errada. |
 | **Abrangência declarada por aliado** (herdada) | Não existe campo de abrangência no aliado: o cadastro guarda a cobertura na *solução*, e o modo Abrangência da T30 usa a união das coberturas das soluções publicadas. Aliado sem nenhuma declaração entra como **volume não declarado**, com o motivo na tela — nunca deduzido da sede (RN52). Preenchimento é trabalho operacional, não de código. |
+
+## Da Onda 15 à Onda 21 — o que veio depois da versão 1
+
+Sete ondas, treze fases, **RN72–RN94** e duas telas novas (T35 e T37). O que as
+separa das anteriores não é o tamanho: é a **origem**. Nenhuma delas estava no
+escopo planejado — cada uma nasceu de pedido direto, de uso em produção ou de
+falha reproduzida. As fichas em `docs/especificacao/` são a fonte da verdade de
+cada uma; o que segue é o fio da meada.
+
+### Configurações do portal (Onda 15 — F23) · RN72–RN74 · T35
+
+O irmão de segurança do Parametrizador: política de senha, tempo de sessão e os
+dois bloqueios de acesso — por conta e por origem de rede. **A única ficha
+retroativa do repositório**: o módulo foi para produção antes de existir
+especificação, e a ficha descreve o que **existe**, por isso a numeração é
+proposta e o entendimento da Superintendência vence o documento.
+
+**Toda proteção tem `0` como desligamento explícito**, por diretriz do pedido —
+proteção que não se pode desligar é um jeito de perder o acesso à própria
+plataforma. A onda também **renomeou** o papel de administração para
+**Administrador** e deu o nome antigo a um papel novo de **acesso total**, que
+nasce sem detentores. Renomear obrigou a rever toda regra que identificava papel
+por **nome**: duas comparavam com o literal e teriam passado a valer para
+ninguém, em silêncio — passaram a ser definidas por **capacidade**.
+
+### Gerador de relatórios (Onda 16 — F24, F25, F26) · RN75–RN79 · T36
+
+Construtor visual sobre **assuntos pré-modelados**: nove recortes da base, com
+os campos que fazem sentido juntos. Não acrescenta dado nenhum — reorganiza o
+que existe — e **não é console de SQL**: a composição é livre, a linguagem não,
+pelo mesmo desenho do catálogo de segmentos da RN33. Nenhum pedaço de SQL nasce
+de entrada de usuário, e a cerca `relatorio-sem-sql-livre` quebra o build.
+
+O alcance de cada papel é **o que ele já alcançava** (RN76), conferido em quem
+**abre**, nunca em quem montou. Assunto fora do alcance não aparece na lista — e
+não aparece como bloqueado, porque uma lista de coisas proibidas ensina o que
+existe do outro lado. Os dois assuntos que alcançam dado pessoal exigem
+**finalidade declarada** (RN78), que viaja com a consulta até a trilha.
+
+### Visualização do Gerador (Onda 17 — F27) · RN80–RN82
+
+Sete tipos de desenho sobre o pivô que a F24 já produz. **Sem entidade, sem
+migration e sem tela nova** — o bloco de visualização entra no JSONB da
+definição, e relatório salvo antes dela abre igual.
+
+**O que a onda de fato acrescenta são as recusas**, porque gráfico errado não
+parece errado: o tipo que não couber na forma do resultado fica apagado **com o
+motivo**, e barra de altura zero no lugar de uma lacuna é indistinguível de um
+zero verdadeiro. A §7 da ficha responde o pedido de "um BI de verdade" nas duas
+metades — o que cabe, distribuído entre esta onda e as 18, 19 e 20, e o que é
+**recusado por desenho**: modelo semântico livre e junção arbitrária desfariam a
+RN75, e com ela o alcance por papel, a finalidade e a trilha.
+
+### Saída do relatório (Onda 20 — F28) · RN83–RN85
+
+HTML calibrado para impressão, XLSX e área de transferência, pela **mesma rota**
+do CSV: o que muda entre um formato e outro é o valor de `formato` e o que se faz
+com a resposta — permissão, finalidade, teto e trilha continuam sendo do caso de
+uso. **A cópia conta como saída de dado** pela mesma razão que o arquivo conta.
+
+Onda **antecipada** às 18 e 19 porque foi o que a TI pediu com todas as letras e
+porque nada nela dependia das outras duas. **A F29 — agendar e enviar — nasce
+bloqueada e não se desbloqueia no código**: relatório agendado de Assinantes
+carregaria dado pessoal para fora periodicamente, sem ninguém apertando nada,
+transformando a finalidade de declaração por pedido em rotina. É decisão de
+Superintendência e jurídico. **O PDF no servidor está recusado por escrito**: o
+navegador de quem pede já o faz a partir do HTML.
+
+### Painel de relatórios (Onda 18 — F30, F31, F35) · RN86–RN89, RN94 · T37
+
+Vários relatórios lado a lado, numa página que se abre de uma vez. **O painel
+não é o Dashboard, e essa é a parte mais importante da ficha**: a T26 é
+institucional e cada indicador dela vem de ficha validada (RN50); o painel é de
+quem o montou e só recompõe o que a pessoa já podia executar.
+
+**Uma medição feita ao escrever a ficha mudou o desenho da onda.** O "filtro
+global" de um Power BI não tinha em que pegar: dos nove assuntos, `aliado-uf`
+aparece em dois e `solucao-nome` em dois. Daí a RN89 — o filtro age sobre
+**eixos declarados** (Período, UF), e **bloco não filtrado diz que não foi**,
+porque dois blocos lado a lado, um filtrado e outro não, parecem responder à
+mesma pergunta.
+
+A **F35** nasceu de uma semana de uso: "Pôr no painel" criando painel novo de um
+bloco produzia **quatro painéis de um bloco** em vez de um painel de quatro. Ela
+deu ao painel a segunda metade — acrescentar a painel existente, ordenar, dar
+largura, remover e editar o filtro (RN94). **Ordenar é por botão, não por
+arrasto**: a lição da RN57 aplicada na ordem certa, com o caminho por teclado
+nascendo primeiro.
+
+### Interatividade do Gerador (Onda 19 — F33, F34) · RN91–RN93
+
+O resultado passa a responder ao clique: clicar num ponto filtra o resto, descer
+de nível troca a dimensão por uma mais fina, e o agregado abre nas linhas que o
+compõem.
+
+**A medição do catálogo mudou o desenho pela segunda vez seguida.** **Nenhum**
+assunto declarava hierarquia, então descer de nível **exige declaração** (RN92)
+em vez de deduzir do agrupamento — deduzir pareceria funcionar em "Sede" e
+produziria bobagem em "Oferta". E **34 das 71** dimensões não declaram operador
+de vazio, então clicar numa lacuna só vale onde o campo o declara, **dizendo por
+que não** onde não vale.
+
+A **F34** é fase própria porque abre consulta nova: **5 dos 9 assuntos têm
+junção que multiplica a linha**, e o agregado conta pela identidade do assunto
+enquanto o detalhe não — uma célula de "12 aliados" abrindo em 30 linhas sem
+explicação destruiria a confiança no módulo inteiro. Em **2 dos 9** o detalhe é
+gente com nome, e neles ele fica **fechado** até a Superintendência decidir.
+
+### Proteção na borda (Onda 21 — F32) · RN90
+
+Onda **corretiva e de infraestrutura**, e a única do repositório com **duas
+metades de dono diferente**. A metade da borda — WAF e limite de taxa — é da TI
+e **não foi iniciada**. A metade de aplicação está **entregue e em vigor**.
+
+A RN90 tem três partes, e a segunda evita quebrar a plataforma em silêncio:
+**nenhuma regra de borda pode recusar corpo que a aplicação aceita**, e onde a
+borda não puder inspecionar o teto a decisão é deixar passar sem inspecionar,
+nunca recusar. A terceira tira a **rota de saúde** de toda regra de taxa.
+
+A metade de aplicação corrigiu um defeito que a própria borda criaria:
+`x-forwarded-for` cresce da esquerda para a direita, então o primeiro elemento é
+o que o **cliente** mandou. A origem passou a ser lida na posição
+`tamanho − saltos`, contando da direita, com o número em variável de ambiente
+(`SALTOS_CONFIAVEIS_NA_BORDA`) — topologia é configuração, não código. **Em
+produção, `1`**, e o log provou que o defeito era real: antes da correção cada
+tarefa avisava, uma vez, que lia o valor enviado pelo cliente.
+
+### Versão 2.0.0
+
+O número saiu de **1.5.0**, onde estava parado desde 06/08, para **2.0.0** com a
+entrada da Onda 21. As ondas 16 a 21 inteiras foram construídas sob o número
+antigo, e as fichas delas dizem "sobre a versão 1.5.0" — **isso não foi
+reescrito**, porque era verdade quando foi escrito: elas foram especificadas
+sobre aquela base.
+
+O número não é decorativo. O rodapé o exibe para quem usa, lido do build, e a
+esteira marca a imagem com ele (`$ECR_URI:$VERSAO`) — com a versão parada, todo
+build sobrescrevia a mesma tag no ECR, e a tag de versão deixou de identificar
+qualquer coisa. O que salvava o rollback era a tag do SHA curto, publicada junto.
 
 ## Convenções
 
