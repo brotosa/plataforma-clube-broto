@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 
 import { gerarAssinantesSinteticos } from "../infra/assinantes/fixtures-sinteticas";
 import { cifrarCpf, hashCpf } from "../infra/assinantes/protecao-cpf";
+import { ASSUNTOS } from "../dominio/relatorios/catalogo";
 import { entrar, resolverDatabaseUrl, semViolacoesAxe } from "./ajudantes";
 
 /**
@@ -963,7 +964,7 @@ test.describe.serial("F28 — a saída em três formatos", () => {
     // é o documento, não a janela.
     const resposta = await page.request.post("/relatorios/exportar", {
       data: {
-        definicao: await definicaoDaTela(page),
+        definicao: definicaoDoModelo("ofertas", "ofertas-por-aliado"),
         formato: "HTML",
       },
     });
@@ -985,7 +986,7 @@ test.describe.serial("F28 — a saída em três formatos", () => {
 
     const resposta = await page.request.post("/relatorios/exportar", {
       data: {
-        definicao: await definicaoDaTela(page),
+        definicao: definicaoDoModelo("ofertas", "ofertas-por-aliado"),
         formato: "AREA_TRANSFERENCIA",
       },
     });
@@ -1002,7 +1003,7 @@ test.describe.serial("F28 — a saída em três formatos", () => {
 
     const resposta = await page.request.post("/relatorios/exportar", {
       data: {
-        definicao: await definicaoDaTela(page),
+        definicao: definicaoDoModelo("ofertas", "ofertas-por-aliado"),
         formato: "<script>alert(1)</script>",
       },
     });
@@ -1023,15 +1024,38 @@ test.describe.serial("F28 — a saída em três formatos", () => {
   });
 });
 
-/** A definição que a tela montou, lida do próprio construtor. */
-async function definicaoDaTela(page: import("@playwright/test").Page) {
-  // O modelo "ofertas por aliado" é o mesmo do catálogo; reconstruí-lo aqui
-  // manteria duas cópias que divergiriam na primeira mudança do catálogo.
-  return {
-    assunto: "ofertas",
-    linhas: ["aliado-nome"],
-    colunas: [],
-    valores: [{ campo: "oferta-titulo", agregacao: "QUANTOS" }],
-    filtros: [{ campo: "oferta-status", operador: "igual", valores: ["PUBLICADA"] }],
-  };
+/**
+ * A definição de um modelo do catálogo — a MESMA fonte de onde a tela a lê.
+ *
+ * ## O que esta função substituiu, e por que isso importava
+ *
+ * Ela se chamava `definicaoDaTela(page)` e o comentário dizia que a
+ * definição era "lida do próprio construtor". **Não era**: o `page` era
+ * ignorado e o corpo devolvia um literal fixo — que é exatamente a segunda
+ * cópia que o comentário dizia estar evitando. Com o modelo mudando no
+ * catálogo, os três testes abaixo seguiriam passando contra a definição
+ * velha, sem nada denunciando.
+ *
+ * O aviso do ESLint sobre o `page` não usado apontava isso desde sempre, e
+ * ficou invisível entre dez avisos falsos de `useActionState` que a
+ * configuração não sabia ignorar.
+ *
+ * ## O que ela prova, e o que NÃO prova
+ *
+ * Ela garante que a definição enviada à rota de exportação é a **mesma** que
+ * a tela carregou por `?modelo=`, sem cópia paralela. Ela **não** prova que
+ * o construtor montou aquilo na interface — isso vive em estado de
+ * componente, não no DOM, e provar seria outro teste. O que sustenta essa
+ * ponta é a asserção do primeiro teste, que confere o primeiro valor da
+ * tabela da tela dentro do HTML gerado.
+ */
+function definicaoDoModelo(assuntoSlug: string, modeloSlug: string) {
+  const assunto = ASSUNTOS.find((item) => item.slug === assuntoSlug);
+  const modelo = assunto?.modelos.find((item) => item.slug === modeloSlug);
+  // Falha NOMEANDO o que sumiu: sem isto, renomear um slug quebraria os
+  // testes com "cannot read properties of undefined", que não diz nada.
+  if (!assunto || !modelo) {
+    throw new Error(`Modelo "${modeloSlug}" não existe no assunto "${assuntoSlug}".`);
+  }
+  return { assunto: assunto.slug, ...modelo.definicao };
 }
