@@ -149,8 +149,10 @@ Vem depois de propósito: a F30 é útil sozinha, e a F31 carrega toda a decisã
 
 ## 6. Pendências declaradas
 
-1. **`[A CONFIRMAR]` Quantos blocos no máximo.** Cada bloco é uma consulta. Oito parece confortável e doze já é um painel que demora a fechar. Proposta: **teto de 12**, com a recusa nomeando o número — não implementar sem número validado.
-2. **`[A CONFIRMAR]` Os eixos da F31.** A proposta é **dois**: Período e UF. Acrescentar "Aliado" e "Categoria" é possível e cada um custa uma declaração por assunto. Decidir **antes** da F31, porque eixo é contrato de catálogo.
+> **As duas que bloqueavam a F31 foram fechadas em 18/09.** Restam as duas de baixo, que não bloqueiam nada.
+
+1. ~~**Quantos blocos no máximo.**~~ **FECHADA em 18/09 pela TI: teto de 12.** Cada bloco é uma consulta, e a recusa nomeia o número (RN55). É constante nomeada — apertar ou afrouxar depois não é migration.
+2. ~~**Os eixos da F31.**~~ **FECHADA em 18/09 pela TI: dois eixos — Período e UF.** "Aliado" e "Categoria" ficam de fora desta onda. Acrescentar um eixo depois custa **uma declaração por assunto** e nenhuma mudança de estrutura, o que é justamente o motivo de o desenho ser por eixo declarado e não por nome de campo.
 3. **Atualização automática.** O painel não se atualiza sozinho: recarregar é da pessoa. Auto-refresh transformaria cada painel aberto e esquecido numa aba disparando consultas indefinidamente.
 4. **Exportar o painel inteiro.** A F28 exporta um relatório. Exportar um painel em HTML é natural e **não está nesta onda** — entra quando alguém pedir, e é pequeno.
 
