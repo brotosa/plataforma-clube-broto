@@ -1733,6 +1733,39 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
 .pn-item-erro{margin:0;font:var(--font-body-caption-regular);
   color:var(--erro-texto-aaa)}
 
+/* T37 · modo de edição (F35). Lista vertical e não a grade de duas colunas:
+   o que se está olhando aqui é ORDEM, e ordem se lê de cima para baixo. A
+   grade mostraria o segundo bloco à direita do primeiro, que é exatamente a
+   leitura que o botão "subir" contradiz. */
+.pn-ed{margin-top:4px}
+.pn-ed-atributos{background:var(--branco);border:1px solid var(--borda);
+  border-radius:var(--r-sm);padding:14px 16px;margin-bottom:18px}
+.pn-ed-dica{margin:8px 0 12px;color:var(--paragrafo-aaa)}
+.pn-ed-t{margin:0 0 10px;font:var(--font-body-default-bold);color:var(--preto)}
+.pn-ed-lista{list-style:none;margin:0;padding:0;display:flex;
+  flex-direction:column;gap:8px}
+.pn-ed-item{display:flex;align-items:center;gap:12px;padding:10px 14px;
+  background:var(--branco);border:1px solid var(--borda);
+  border-radius:var(--r-sm)}
+.pn-ed-pos{flex:none;width:22px;text-align:right;
+  font:var(--font-body-caption-regular);color:var(--paragrafo-aaa);
+  font-variant-numeric:tabular-nums}
+.pn-ed-nome{flex:1;min-width:0;font:var(--font-body-default-regular);
+  color:var(--preto);overflow-wrap:anywhere}
+.pn-ed-quebrado{color:var(--erro-texto-aaa);font-style:normal}
+.pn-ed-botoes{flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pn-ed-erro{margin:0 0 12px;padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--erro-claro);border:1px solid var(--erro);
+  font:var(--font-body-caption-regular);color:var(--preto)}
+
+@media (max-width:760px){
+  /* Numa coluna estreita os botões descem para baixo do nome em vez de
+     espremê-lo até a quebra por caractere. */
+  .pn-ed-item{flex-wrap:wrap}
+  .pn-ed-nome{flex:1 1 100%;order:1}
+  .pn-ed-botoes{order:2;margin-left:34px}
+}
+
 .pn-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:14px;margin-top:18px}
 .pn-bloco{background:var(--branco);border:1px solid var(--borda);

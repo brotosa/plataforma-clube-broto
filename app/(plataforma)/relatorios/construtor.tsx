@@ -15,7 +15,11 @@ import {
 import type { Celula, TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
 import { ROTULOS_DE_FORMATO, type FormatoDeSaida } from "@/dominio/relatorios/saida";
-import { salvarPainelAction } from "../paineis/acoes";
+import {
+  acrescentarAoPainelAction,
+  meusPaineisAction,
+  salvarPainelAction,
+} from "../paineis/acoes";
 import {
   AJUSTES_DO_TIPO,
   ROTULOS_DE_VISUALIZACAO,
@@ -266,6 +270,19 @@ export function Construtor({
   const [exportando, setExportando] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
   const [guardandoNoPainel, setGuardandoNoPainel] = useState(false);
+  /**
+   * RN94 (ficha §8.4) — o destino do "Pôr no painel".
+   *
+   * `""` é painel novo; qualquer outro valor é o id de um painel **do próprio
+   * autor**. A lista vem de `meusPaineisAction`, que só devolve os dele: um
+   * painel do time de outra pessoa não é destino possível, porque ele não
+   * pode editá-lo — oferecer e depois recusar a gravação é pior que não
+   * oferecer.
+   */
+  const [destinoDoPainel, setDestinoDoPainel] = useState("");
+  const [paineisDoAutor, setPaineisDoAutor] = useState<
+    ReadonlyArray<{ id: string; nome: string; quantosBlocos: number }>
+  >([]);
   /** O TSV quando o navegador recusa a área de transferência (ficha §7.2). */
   const [textoParaCopiar, setTextoParaCopiar] = useState<string | null>(null);
   /*
@@ -311,6 +328,25 @@ export function Construtor({
   );
 
   const vazio = linhas.length === 0 && colunas.length === 0 && valores.length === 0;
+
+  /*
+   * Os painéis do autor, para o seletor de destino (F35).
+   *
+   * Carregado uma vez, sem bloquear nada: é uma listagem dos painéis de UMA
+   * pessoa, e a falha devolve lista vazia de propósito — sem destino
+   * existente, "Painel novo" continua funcionando, e uma tela que quebrasse
+   * porque a lista de destinos não veio seria pior que uma que oferece um
+   * destino a menos.
+   */
+  useEffect(() => {
+    let vivo = true;
+    void meusPaineisAction().then((lista) => {
+      if (vivo) setPaineisDoAutor(lista);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /*
    * A prévia é disparada por efeito sobre a definição, com debounce. O
@@ -441,18 +477,32 @@ export function Construtor({
     setGuardandoNoPainel(true);
     try {
       const titulo = nome.trim() || assunto.rotulo;
+      const bloco = { titulo, definicao, visualizacao: visual, largura: "METADE" };
+
+      // Destino existente (F35): acrescenta ao fim. O teto de 12 é cobrado
+      // no domínio, e a recusa nomeia o número (RN55).
+      if (destinoDoPainel) {
+        const alvo = paineisDoAutor.find((painel) => painel.id === destinoDoPainel);
+        const resposta = await acrescentarAoPainelAction(destinoDoPainel, bloco);
+        if (resposta.ok) {
+          setPaineisDoAutor(await meusPaineisAction());
+        }
+        setAviso(
+          resposta.ok
+            ? `"${titulo}" acrescentado ao painel "${alvo?.nome ?? "escolhido"}". A definição foi COPIADA — mudar o relatório depois não muda o bloco.`
+            : (resposta.erro ?? "Não foi possível acrescentar o bloco."),
+        );
+        return;
+      }
+
       const resposta = await salvarPainelAction({
         nome: titulo,
-        blocos: [
-          {
-            titulo,
-            definicao,
-            visualizacao: visual,
-            largura: "METADE",
-          },
-        ],
+        blocos: [bloco],
         visibilidade,
       });
+      if (resposta.ok) {
+        setPaineisDoAutor(await meusPaineisAction());
+      }
       setAviso(
         resposta.ok
           ? `Painel "${titulo}" criado com este relatório, visível ${visibilidade === "TIME" ? "para o time" : "só para você"}. A definição foi COPIADA — mudar o relatório depois não muda o bloco.`
@@ -867,6 +917,30 @@ export function Construtor({
                 * apontasse para relatório privado do autor quebraria para
                 * todos os demais (ficha da Onda 18 §2).
                 */}
+              {/* O destino (F35). Só aparece quando há painel para escolher:
+                  um seletor de uma opção só é ruído, e antes do primeiro
+                  painel não há o que escolher. */}
+              {paineisDoAutor.length > 0 ? (
+                <select
+                  aria-label="Em qual painel"
+                  style={{
+                    height: 32,
+                    padding: "0 8px",
+                    border: "1px solid var(--borda)",
+                    borderRadius: "var(--r-xs)",
+                    maxWidth: 200,
+                  }}
+                  value={destinoDoPainel}
+                  onChange={(evento) => setDestinoDoPainel(evento.target.value)}
+                >
+                  <option value="">Painel novo</option>
+                  {paineisDoAutor.map((painel) => (
+                    <option key={painel.id} value={painel.id}>
+                      {painel.nome} ({painel.quantosBlocos})
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <button
                 type="button"
                 className="btn btn-ghost btn-sm btn-xs"

@@ -112,6 +112,18 @@ const TELAS_COM_CONTROLE_DE_QUERY: ReadonlyArray<{ arquivo: string; rota: string
    * pessoa montando o relatório sobre o assunto errado sem nada na tela dizer.
    */
   { arquivo: "app/(plataforma)/relatorios/page.tsx", rota: "/relatorios" },
+  /**
+   * Onda 18. A T37 tem o mesmo desenho de rota única em dois estados que a
+   * T36: sem `?painel=`, a galeria; com ele, o painel aberto; e com
+   * `&editar=1` (F35), o modo de edição. Os cartões da galeria, o "voltar" e
+   * o "editar este painel" alteram **apenas a query da própria rota**.
+   *
+   * **Entra atrasada, e o registro importa:** a F30 escreveu a âncora e o
+   * comentário explicando por quê, e não acrescentou o arquivo aqui. A regra
+   * estava sendo seguida e não estava sendo cobrada — que é o estado em que
+   * a próxima mão a desfaz sem que nada quebre.
+   */
+  { arquivo: "app/(plataforma)/paineis/page.tsx", rota: "/paineis" },
 ];
 
 /**

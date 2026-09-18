@@ -406,3 +406,93 @@ test.describe.serial("T37 — pôr no painel, ver e tirar", () => {
     await prisma.auditoriaEvento.deleteMany({ where: { entidadeId: antes.id } });
   });
 });
+
+/**
+ * F35 — a edição do painel (RN94).
+ *
+ * A fase existe porque a F30 entregou a criação sem a edição, e o efeito
+ * disso só apareceu em uso: "Pôr no painel" criando painel novo de um bloco
+ * produz **quatro painéis de um bloco** em vez de um painel de quatro.
+ *
+ * Os dois testes daqui cobrem as duas metades que não servem uma sem a
+ * outra: **acrescentar a painel existente** e **ordenar o que se
+ * acrescentou**. Acrescentar sem poder ordenar produz painel que só cresce
+ * para baixo.
+ */
+test.describe.serial("T37 — editar o painel (RN94)", () => {
+  const NOME = `${MARCA} edição`;
+  let idDoPainel = "";
+
+  test("Pôr no painel oferece destino existente, e o bloco vai para lá", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas");
+    await page.getByRole("button", { name: "Pôr Situação em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    await page.getByLabel("Nome do relatório").fill(NOME);
+    await page.getByRole("button", { name: "Pôr no painel" }).click();
+    await expect(page.getByRole("status")).toContainText("criado");
+
+    idDoPainel = (await prisma.painel.findFirstOrThrow({ where: { nome: NOME } })).id;
+
+    // Segundo relatório, de OUTRO assunto, no MESMO painel — que é o que a
+    // F30 não permitia e o que dá sentido à fase.
+    await page.goto("/relatorios?assunto=aliados");
+    await page.getByRole("button", { name: "Pôr UF da sede em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    await page.getByLabel("Nome do relatório").fill(`${MARCA} por UF`);
+    await page.getByLabel("Em qual painel").selectOption(idDoPainel);
+    await page.getByRole("button", { name: "Pôr no painel" }).click();
+    await expect(page.getByRole("status")).toContainText("acrescentado ao painel");
+
+    const depois = await prisma.painel.findUniqueOrThrow({ where: { id: idDoPainel } });
+    expect((depois.blocos as unknown[]).length).toBe(2);
+  });
+
+  test("o modo de edição reordena, troca a largura e remove", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${idDoPainel}&editar=1`);
+
+    const nomes = page.locator(".pn-ed-item .pn-ed-nome");
+    await expect(nomes).toHaveCount(2);
+    const primeiroAntes = ((await nomes.first().textContent()) ?? "").trim();
+
+    // Descer o primeiro. O botão é nomeado pelo DESTINO, não por uma seta —
+    // é o que a ficha §8.3 exige para o caminho por teclado.
+    await page.getByRole("button", { name: `Descer ${primeiroAntes} para a posição 2 de 2` }).click();
+    await expect(nomes.first()).not.toHaveText(primeiroAntes);
+    await expect(nomes.nth(1)).toHaveText(primeiroAntes);
+
+    // Largura: metade ↔ inteira, e só no bloco tocado.
+    const larguras = page.getByRole("button", { name: /^Trocar a largura de / });
+    await larguras.first().click();
+    await expect(page.locator(".pn-ed-item").first().getByRole("button", { name: /^Trocar a largura de .* para metade$/ })).toBeVisible();
+
+    // Remover: confirma e o painel fica com um bloco.
+    page.once("dialog", (dialogo) => dialogo.accept());
+    await page.getByRole("button", { name: /^Remover .* do painel$/ }).first().click();
+    await expect(page.locator(".pn-ed-item")).toHaveCount(1);
+
+    const depois = await prisma.painel.findUniqueOrThrow({ where: { id: idDoPainel } });
+    expect((depois.blocos as unknown[]).length).toBe(1);
+  });
+
+  test("quem não é o autor não entra no modo de edição pela URL (RN94)", async ({ page }) => {
+    /*
+     * `editar=1` chega pela URL, que é entrada não confiável. Quem não é o
+     * autor vê o painel — sem erro e sem tela vazia, que informariam a
+     * existência de um modo que não é dele.
+     */
+    await entrar(page, "analista@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${painelId}&editar=1`);
+
+    await expect(page.getByRole("heading", { name: `${MARCA} Segunda-feira` })).toBeVisible();
+    await expect(page.locator(".pn-ed")).toHaveCount(0);
+  });
+
+  test("axe-core (AAA) no modo de edição", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto(`/paineis?painel=${idDoPainel}&editar=1`);
+    await expect(page.locator(".pn-ed-item").first()).toBeVisible();
+    await semViolacoesAxe(page);
+  });
+});

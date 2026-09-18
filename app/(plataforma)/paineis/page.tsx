@@ -5,6 +5,7 @@ import { abrirPainel, listarPaineis } from "@/infra/casos-de-uso/paineis";
 import { ROTULOS_DE_EIXO, type FiltroDoPainel } from "@/dominio/relatorios/eixos";
 import { BlocoDoPainel, type BlocoSerializado } from "./bloco";
 import { ApagarPainel } from "./cartao";
+import { EdicaoDoPainel } from "./edicao";
 
 /**
  * T37 — Painel de relatórios (Onda 18, ficha §4).
@@ -32,7 +33,7 @@ export const dynamic = "force-dynamic";
 export default async function PaginaDePaineis({
   searchParams,
 }: {
-  searchParams: Promise<{ painel?: string }>;
+  searchParams: Promise<{ painel?: string; editar?: string }>;
 }) {
   const sessao = await auth();
   if (!sessao?.user) redirect("/entrar");
@@ -40,7 +41,13 @@ export default async function PaginaDePaineis({
   const parametros = await searchParams;
 
   if (parametros.painel) {
-    return <PainelAberto id={parametros.painel} ator={ator} />;
+    return (
+      <PainelAberto
+        id={parametros.painel}
+        ator={ator}
+        editando={parametros.editar === "1"}
+      />
+    );
   }
 
   const paineis = await listarPaineis(ator);
@@ -84,11 +91,44 @@ export default async function PaginaDePaineis({
 async function PainelAberto({
   id,
   ator,
+  editando,
 }: {
   id: string;
   ator: { id: string; papel: Parameters<typeof abrirPainel>[0]["papel"] };
+  editando: boolean;
 }) {
   const painel = await abrirPainel(ator, id);
+
+  /*
+   * RN94 — a edição é do autor. `editar=1` chega pela URL, que é entrada não
+   * confiável: quem não é o autor simplesmente vê o painel, sem erro e sem
+   * tela vazia. A recusa de verdade é do caso de uso; isto é a tela não
+   * oferecendo o que ela sabe que seria recusado.
+   */
+  if (editando && painel.meu) {
+    return (
+      <div className="tela" style={{ padding: "22px 24px 40px", maxWidth: 1180 }}>
+        <h1 className="h-page">Editar: {painel.nome}</h1>
+        <div className="cap" style={{ margin: "4px 0 18px" }}>
+          {/* Âncora: muda só a query string (cerca navegacao-por-query). */}
+          <a href={`/paineis?painel=${painel.id}`}>voltar ao painel</a>
+        </div>
+        <EdicaoDoPainel
+          painelId={painel.id}
+          versao={painel.versao}
+          nome={painel.nome}
+          visibilidade={painel.visibilidade}
+          filtro={painel.filtro}
+          blocos={painel.blocos.map((bloco) => ({
+            titulo: bloco.titulo,
+            largura: bloco.largura,
+            quebrado: bloco.estado === "FALHOU",
+            ...(bloco.estado === "FALHOU" ? { motivo: bloco.motivo } : {}),
+          }))}
+        />
+      </div>
+    );
+  }
 
   const blocos: BlocoSerializado[] = painel.blocos.map((bloco) => ({
     estado: bloco.estado,
@@ -108,9 +148,10 @@ async function PainelAberto({
   return (
     <div className="tela" style={{ padding: "22px 24px 40px", maxWidth: 1180 }}>
       <h1 className="h-page">{painel.nome}</h1>
-      <div className="cap" style={{ margin: "4px 0 18px" }}>
+      <div className="cap" style={{ margin: "4px 0 18px", display: "flex", gap: 12 }}>
         {/* Âncora, e não <Link>: muda só a query string (cerca navegacao-por-query). */}
         <a href="/paineis">voltar aos painéis</a>
+        {painel.meu ? <a href={`/paineis?painel=${painel.id}&editar=1`}>editar este painel</a> : null}
       </div>
 
       <FiltroDoPainelNaTela filtro={painel.filtro} />
@@ -127,11 +168,15 @@ async function PainelAberto({
 /**
  * O filtro vigente do painel (RN89).
  *
- * **Exibido, e não editável nesta fase.** O filtro é gravado com o painel, e
- * mexer nele aqui exigiria decidir se a mudança vale só para esta sessão ou
- * para todo mundo que abre — pergunta que a F31 não precisa responder para
- * entregar o que importa: que o filtro exista, se aplique e DIGA onde não se
- * aplicou.
+ * **Exibido aqui, editado no modo de edição (F35).** A F31 o deixou só de
+ * leitura com uma pergunta declarada: *a mudança vale só para esta sessão ou
+ * para todo mundo que abre?* A F35 respondeu — **para todo mundo, porque é
+ * gravada**: o filtro é atributo do painel, como o nome e a visibilidade, e
+ * quem o muda é o autor, no mesmo ato auditado (ficha §8.5).
+ *
+ * A outra leitura da pergunta não foi recusada, é outra coisa: um filtro **de
+ * sessão**, que quem abre ajusta sem gravar, é exploração temporária, tem
+ * outro desenho e continua fora de escopo.
  *
  * Sem filtro, nada é desenhado. Uma faixa dizendo "sem filtro" ocuparia
  * espaço para informar o estado normal.

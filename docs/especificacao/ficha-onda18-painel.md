@@ -1,9 +1,11 @@
 # Ficha de Módulo — Onda 18: Painel de relatórios
-**Plataforma de Administração e Gestão do Clube Broto** · v0.1 para validação · 18/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 18/09/2026
 
-Tela nova (**T37**): vários relatórios lado a lado, numa página que se abre de uma vez. Duas fases — a **F30** entrega o painel e os blocos; a **F31**, o filtro que atravessa os blocos. Sobre a versão **1.5.0**.
+Tela nova (**T37**): vários relatórios lado a lado, numa página que se abre de uma vez. Três fases — a **F30** entrega o painel e os blocos; a **F31**, o filtro que atravessa os blocos; a **F35**, a edição do painel. Sobre a versão **1.5.0**.
 
-> **Ficha antes do código.** Nada foi implementado. A numeração **RN86–RN89** é proposta: a Superintendência pode recusá-la ou renomeá-la sem custo de retrabalho.
+> **Ficha antes do código.** A numeração **RN86–RN89** é proposta: a Superintendência pode recusá-la ou renomeá-la sem custo de retrabalho. A **RN94**, acrescentada na v0.2, também.
+
+> **A v0.2 nasce de uma semana de uso, e acrescenta a §8.** A F30 e a F31 estão entregues. O que o uso mostrou é que "Pôr no painel" criando **painel novo de um bloco** — decisão declarada e correta na F30 — produz, na mão de quem usa, **quatro painéis de um bloco** em vez de um painel de quatro: o oposto do que a §1 diz que esta onda existe para fazer. A §8 fecha isso, e a §8.1 registra dois defeitos da F30 corrigidos antes dela.
 
 > **Uma descoberta do levantamento muda o desenho desta onda, e está na §3.1.** O "filtro global" que um Power BI oferece **não tem em que pegar aqui**: os nove assuntos quase não compartilham campo — `aliado-uf` aparece em dois, `solucao-nome` em dois, e é só. Um filtro global por nome de campo se aplicaria a quase nada e, pior, **se aplicaria em silêncio a uns blocos e não a outros**. A solução proposta é outra, e é a mesma disciplina da RN51 e da RN63: **eixo declarado**, não coincidência de nome.
 
@@ -125,9 +127,11 @@ O silêncio é o defeito que esta regra existe para impedir, e ele é grave: doi
 
 **A 380px** a grade vira coluna única, e o filtro vira uma linha acima dos blocos.
 
+**O painel aberto tem um segundo estado, o de edição (F35)** — mesma rota, segunda chave de query. Está na §8.
+
 ### T36 — o que muda
 
-Só a entrada "Pôr no painel". Nada mais.
+Só a entrada "Pôr no painel". Nada mais — até a F35, em que ela passa a **perguntar o destino** (§8.4).
 
 ---
 
@@ -145,6 +149,12 @@ Os eixos no catálogo (declaração por assunto), a aplicação e — a parte qu
 
 Vem depois de propósito: a F30 é útil sozinha, e a F31 carrega toda a decisão conceitual desta onda. Separadas, uma recusa na F31 não devolve a F30.
 
+### F35 — a edição do painel
+
+A §8 inteira. Pré-requisito: F30 e F31 na main. **Sem migration** — o que muda é o conteúdo do JSONB que já existe, e nenhuma coluna nova.
+
+Vem separada das duas porque nasceu de uso, e não de escopo planejado: as duas primeiras responderam "o painel existe e filtra"; esta responde "o painel muda de forma depois de pronto".
+
 ---
 
 ## 6. Pendências declaradas
@@ -161,3 +171,61 @@ Vem depois de propósito: a F30 é útil sozinha, e a F31 carrega toda a decisã
 ## 7. Fora de escopo
 
 Bloco de texto livre, imagem ou vídeo no painel. Bloco que combine dois assuntos. Alerta por limiar. Comentário sobre bloco. Painel público sem autenticação. Atualização automática. Qualquer indicador que não venha de um relatório do catálogo — isso é RN50, e o caminho dela é ficha validada.
+
+---
+
+## 8. Edição do painel (F35) — acrescentado na v0.2
+
+### 8.1 Errata sobre a F30: dois defeitos que o uso encontrou
+
+Os dois foram corrigidos antes desta fase, e ficam registrados porque nenhum dos dois é erro de digitação — os dois são fio que a F30 deixou solto ao entregar a criação sem a edição.
+
+**(a) O painel nascia sempre privado.** O seletor de visibilidade da T36 fica ao lado dos dois botões e governava só o "Salvar": "Pôr no painel" não passava a escolha adiante, e a gravação caía no padrão `PRIVADO`. Quem escolhia **Do time** recebia um painel privado, **e nada na tela dizia isso** — a galeria, que exibe a visibilidade corretamente, mostrava "Só eu" para todos. O aviso de criação passou a **declarar quem vê**: a escolha errada aqui é silenciosa nos dois sentidos, e publicar para o time sem querer é tão ruim quanto montar um painel que ninguém mais abre.
+
+**(b) Não havia como apagar.** A regra estava escrita — só o autor apaga, inclusive contra quem tem acesso total, com evento de ato na trilha antes da exclusão — e **nenhuma tela a chamava**. O botão entrou na galeria.
+
+### 8.2 RN94 — O painel se edita, e quem edita é quem o montou
+
+**A edição é do autor, e só dele — inclusive num painel Do time, e inclusive para quem tem acesso total.** É a mesma decisão que a exclusão do painel e a do relatório salvo já tomaram, e pelo mesmo motivo: o painel é a pergunta de uma pessoa, e um painel do time que mudasse de forma sob os pés de quem o abre produziria a situação em que alguém volta na segunda-feira e o painel é outro, sem nada na tela explicando.
+
+**Fechado até haver pedido, e não aberto até haver objeção.** Liberar a edição compartilhada depois não custa nada a ninguém; recuar depois de liberar seria retirar algo já em uso. É o mesmo raciocínio da RN93 sobre os assuntos de dado pessoal.
+
+**Editar grava, e a gravação é auditada** com valor anterior e novo, como a criação já é. Os blocos inteiros vão para a trilha, e não a contagem deles: é a definição de cada um que diz o que aquele painel dava a ver.
+
+**Cada bloco é revalidado contra o alcance de quem grava (RN76), a cada gravação — não só na criação.** Sem isso, bastaria montar o painel enquanto se tinha o papel e editá-lo depois de perdê-lo: a leitura continuaria protegida, mas o painel viraria um jeito de saber **que assuntos existem** fora do próprio alcance, que é justamente o que a RN76 esconde.
+
+**O teto de 12 blocos vale na edição**, com a recusa nomeando o número (RN55). Um teto que só valesse na criação não é um teto.
+
+**Remover bloco não apaga execução.** A trilha da RN86 continua apontando para o painel: o que foi consultado foi consultado, e a RN49 não se apaga por edição de tela.
+
+**Painel pode ficar sem bloco nenhum, e a tela diz que está vazio.** Recusar a remoção do último prenderia quem quer trocar todos os blocos — teria de apagar o painel e refazê-lo, perdendo nome, visibilidade e filtro. A galeria já sabe exibir "0 blocos".
+
+### 8.3 Ordenar é por botão, não por arrasto
+
+**A lição da RN57 aplicada na ordem certa.** Lá, o arrasto foi acrescentado a um menu que já existia, e a regra que sobrou foi: *nenhuma função existe apenas no arrasto*. Aqui o caminho por teclado **nasce primeiro** — subir e descer, com nome acessível dizendo o destino —, e o arrasto, se um dia vier, é acréscimo.
+
+O inverso teria custado uma fase de acessibilidade para consertar.
+
+### 8.4 "Pôr no painel" passa a perguntar o destino
+
+Painel novo, **ou um dos painéis do próprio autor**. Não os painéis do time de outras pessoas: ele não pode editá-los, e oferecer um destino para depois recusar a gravação é pior que não oferecer.
+
+É esta a metade que resolve os quatro cartões repetidos. A outra — reordenar e dar largura ao que se acrescentou — é a tela de edição, e as duas entram juntas porque uma sem a outra não serve: acrescentar sem poder ordenar produz painel que cresce só para baixo.
+
+### 8.5 O filtro do painel passa a ser editável, e isso fecha a pergunta da F31
+
+A F31 exibiu o filtro **sem deixar editar**, com a pergunta declarada em código: *a mudança vale só para esta sessão ou para todo mundo que abre?*
+
+**Resposta: para todo mundo, porque é gravada.** O filtro é atributo do painel, como o nome e a visibilidade, e quem o muda é o autor, no mesmo ato auditado das demais mudanças.
+
+**A outra leitura da pergunta não é recusada — é outra coisa.** Um filtro **de sessão**, que quem abre ajusta sem gravar, é exploração temporária e tem outro desenho (não persiste, não audita, não altera o que os outros veem). Ele continua fora de escopo até alguém o pedir por esse nome.
+
+### 8.6 A tela
+
+**Mesma rota, segundo estado:** `/paineis?painel=<id>&editar=1`. Troca só de query string, então **âncora nativa** — convenção da casa, cobrada pela cerca `navegacao-por-query`.
+
+O modo de edição mostra a mesma grade, e em cada bloco: **subir**, **descer**, **largura** (metade ↔ inteira) e **remover**. Acima da grade: **nome**, **visibilidade** e **filtro**. Os blocos **não executam consulta no modo de edição** — quem está reordenando não precisa do dado, e disparar doze consultas a cada movimento é gasto sem uso.
+
+**Uma gravação por ato, e não um "salvar" no fim.** Um formulário grande com botão de salvar perderia o trabalho de quem fechasse a aba, e obrigaria a decidir o que fazer com uma edição concorrente. Cada ato é pequeno, gravado e auditado — e o desfazer é o ato inverso, que está na tela.
+
+O botão de edição só aparece para o autor. Esconder é conveniência de tela; a autoridade é o caso de uso, e é lá que a RN94 está escrita.

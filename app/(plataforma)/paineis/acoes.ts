@@ -7,8 +7,13 @@ import { auth } from "@/infra/auth";
 import { mensagensDeFalha } from "@/infra/erros/falha-para-mensagem";
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import {
+  type AtoDeEdicao,
+  acrescentarAoPainel,
   apagarPainel,
+  aplicarAtoDeEdicao,
+  atualizarPainel,
   executarBlocoDoPainel,
+  listarPaineisEditaveis,
   salvarPainel,
 } from "@/infra/casos-de-uso/paineis";
 import type { Ator } from "@/infra/casos-de-uso/contexto";
@@ -98,6 +103,82 @@ export async function salvarPainelAction(dados: {
       ok: false,
       erro: mensagensDeFalha(erro, { ...OPCOES_DE_FALHA, operacao: "salvar o painel" }).join(" "),
     };
+  }
+}
+
+/**
+ * RN94 — um ato de edição por chamada, e o cliente manda índice, não blocos.
+ *
+ * Uma gravação por ato, e não um "salvar" no fim: um formulário grande
+ * perderia o trabalho de quem fechasse a aba e obrigaria a decidir o que
+ * fazer com edição concorrente. Cada ato é pequeno, gravado e auditado — e o
+ * desfazer é o ato inverso, que está na tela.
+ */
+export async function editarBlocoAction(
+  painelId: string,
+  ato: AtoDeEdicao,
+  versao: string,
+): Promise<RespostaDeAcao> {
+  try {
+    await aplicarAtoDeEdicao(await atorDaSessao(), painelId, ato, versao);
+    revalidatePath("/paineis");
+    return { ok: true };
+  } catch (erro) {
+    return {
+      ok: false,
+      erro: mensagensDeFalha(erro, { ...OPCOES_DE_FALHA, operacao: "editar o painel" }).join(" "),
+    };
+  }
+}
+
+/** Nome, visibilidade e filtro — os atributos do painel, fora dos blocos. */
+export async function atualizarPainelAction(
+  painelId: string,
+  mudancas: { nome?: string; visibilidade?: VisibilidadeRelatorio; filtro?: unknown },
+): Promise<RespostaDeAcao> {
+  try {
+    await atualizarPainel(await atorDaSessao(), painelId, mudancas);
+    revalidatePath("/paineis");
+    return { ok: true };
+  } catch (erro) {
+    return {
+      ok: false,
+      erro: mensagensDeFalha(erro, { ...OPCOES_DE_FALHA, operacao: "atualizar o painel" }).join(" "),
+    };
+  }
+}
+
+/** O destino do "Pôr no painel" quando não é painel novo. */
+export async function acrescentarAoPainelAction(
+  painelId: string,
+  bloco: unknown,
+): Promise<RespostaDeAcao> {
+  try {
+    await acrescentarAoPainel(await atorDaSessao(), painelId, bloco);
+    revalidatePath("/paineis");
+    return { ok: true, id: painelId };
+  } catch (erro) {
+    return {
+      ok: false,
+      erro: mensagensDeFalha(erro, {
+        ...OPCOES_DE_FALHA,
+        operacao: "acrescentar o bloco ao painel",
+      }).join(" "),
+    };
+  }
+}
+
+/** A lista que a T36 oferece como destino — só os painéis de quem pergunta. */
+export async function meusPaineisAction(): Promise<
+  ReadonlyArray<{ id: string; nome: string; quantosBlocos: number }>
+> {
+  try {
+    return await listarPaineisEditaveis(await atorDaSessao());
+  } catch {
+    // Lista vazia, e não erro: o destino "painel novo" continua funcionando,
+    // e uma tela que falha inteira porque a lista de destinos não veio seria
+    // pior que uma tela que oferece um destino a menos.
+    return [];
   }
 }
 
