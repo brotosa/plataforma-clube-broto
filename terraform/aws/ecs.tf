@@ -32,6 +32,22 @@ resource "aws_ecs_task_definition" "app" {
       environment = [
         { name = "AUTH_TRUST_HOST", value = "true" },
         { name = "AUTH_URL", value = "https://admclube.broto.com.br" },
+        # RN90 (Onda 21, F32) — quantos saltos confiáveis há à frente da
+        # aplicação, para ler a origem do `x-forwarded-for` CONTANDO DA
+        # DIREITA. Um: o ALB, e nada mais — `admclube.broto.com.br` resolve
+        # para os endereços do próprio balanceador, que responde
+        # `server: awselb/2.0` sem cabeçalho de CDN.
+        #
+        # **Sem ela o código se comporta como o anterior à F32**: lê o
+        # primeiro elemento da lista, que é o que o cliente mandou. Uma
+        # linha de `curl` com `x-forwarded-for` forjado evadiria o bloqueio
+        # por origem da RN74 — e trocaria de "origem" a cada tentativa, de
+        # modo que o contador nunca acumularia.
+        #
+        # É topologia, e por isso é variável e não constante no código: pôr
+        # uma CDN na frente passa a ser dois, e isso é mudança de
+        # configuração, não deploy de código novo.
+        { name = "SALTOS_CONFIAVEIS_NA_BORDA", value = "1" },
       ]
 
       secrets = [

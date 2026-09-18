@@ -148,6 +148,14 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 *Encaminhamento proposto:* `PubliclyAccessible: false` com acesso por encaminhamento de porta via SSM Session Manager — dispensa host bastião, não depende de endereço fixo e registra cada sessão. **Duas ressalvas declaradas:** é um `modify-db-instance` que pode interromper conexões (quer janela), e não foi verificado se o subnet group é público.
 *Peso:* alto, e é de segurança.
 *Mensagem pronta:* `consultas-a-terceiros.md` §4.1.
+
+**4.9 · `terraform apply` reverteria a versão da aplicação em produção.** `[NOVA — 18/09, à noite]`
+*Hoje:* o `aws_ecs_service.app` aponta `task_definition = aws_ecs_task_definition.app.arn` **sem** `lifecycle { ignore_changes = [task_definition] }`. Só que quem troca a revisão em produção é a esteira (`buildspec.yml`), por fora do Terraform, a cada push na main.
+*A consequência:* um `terraform apply` hoje tentaria devolver o serviço à revisão que o próprio Terraform gerencia — que carrega `var.imagem_tag`, e **não** a imagem que está no ar. Na prática, um rollback de versão disparado por um comando que ninguém associa a isso.
+*Provavelmente é por isso que ninguém o roda*, e essa é a parte ruim: a fonte da verdade declarada deixou de ser executável, e a divergência só cresce.
+*Encaminhamento:* acrescentar o `ignore_changes` é o padrão para exatamente este arranjo (esteira dona da revisão, Terraform dono do resto). É mudança de comportamento do Terraform, então é decisão de infraestrutura — não foi feita aqui.
+*Peso:* médio hoje, alto no dia em que alguém precisar aplicar Terraform às pressas.
+*Origem:* achado ao acrescentar `SALTOS_CONFIAVEIS_NA_BORDA` ao `terraform/aws/ecs.tf`, em 18/09.
 *Origem:* Onda 21 §6.6 (achado da conferência de rede).
 
 **4.3 · Valores definitivos dos tetos do dossiê.**
