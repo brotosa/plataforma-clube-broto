@@ -27,9 +27,12 @@ import {
   tiposDisponiveis,
 } from "@/dominio/relatorios/visualizacao";
 import {
+  type HierarquiaParaDescida,
+  descidaDoClique,
   filtroDoClique,
   filtroJaAplicado,
   rotuloDaAcaoDeClique,
+  rotuloDaDescida,
 } from "@/dominio/relatorios/interacao";
 import { GraficoDoRelatorio } from "./grafico";
 import { ErrosDoFormulario } from "../aliados/formularios";
@@ -106,6 +109,8 @@ export interface AssuntoSerializado {
   contemDadoPessoal: boolean;
   campos: ReadonlyArray<CampoSerializado>;
   modelos: ReadonlyArray<ModeloSerializado>;
+  /** RN92 — os caminhos de descida. Ausente = este assunto não desce. */
+  hierarquias?: ReadonlyArray<HierarquiaParaDescida>;
 }
 
 interface ValorEscolhido {
@@ -190,6 +195,33 @@ export function Construtor({
       return;
     }
     setFiltros((atual) => [...atual, { ...novo, valores: [...novo.valores] }]);
+    setAvisoDoClique(null);
+  };
+
+  /**
+   * Descer de nível (RN92).
+   *
+   * Troca a dimensão pela seguinte **e** acrescenta o recorte do valor de onde
+   * se desceu — as duas metades, senão não é descida. A troca é posicional: o
+   * nível novo entra onde o antigo estava, e não no fim, senão a ordem das
+   * Linhas mudaria a cada descida e a tabela pareceria outra.
+   */
+  const aoDescerNivel = (campoSlug: string, valor: Celula) => {
+    const descida = descidaDoClique(assunto.campos, assunto.hierarquias, campoSlug, valor);
+    if (!descida.pode) {
+      setAvisoDoClique(descida.motivo);
+      return;
+    }
+    setLinhas((atual) => {
+      const posicao = atual.indexOf(descida.de);
+      if (posicao === -1) return atual;
+      return atual.map((slug, indice) => (indice === posicao ? descida.para : slug));
+    });
+    setFiltros((atual) =>
+      filtroJaAplicado(atual, descida.filtro)
+        ? atual
+        : [...atual, { ...descida.filtro, valores: [...descida.filtro.valores] }],
+    );
     setAvisoDoClique(null);
   };
 
@@ -884,7 +916,9 @@ export function Construtor({
               visual={visual}
               aoTrocarVisual={setVisual}
               campos={assunto.campos}
+              hierarquias={assunto.hierarquias}
               aoClicarNaDimensao={aoClicarNaDimensao}
+              aoDescerNivel={aoDescerNivel}
               avisoDoClique={avisoDoClique}
             />
           </div>
@@ -1094,7 +1128,9 @@ function Resultado({
   visual,
   aoTrocarVisual,
   campos,
+  hierarquias,
   aoClicarNaDimensao,
+  aoDescerNivel,
   avisoDoClique,
 }: {
   previa: {
@@ -1111,7 +1147,9 @@ function Resultado({
   aoTrocarVisual: (visual: Visualizacao) => void;
   /** RN91 — a lista de campos do assunto, para decidir o que o clique faz. */
   campos: ReadonlyArray<CampoSerializado>;
+  hierarquias?: ReadonlyArray<HierarquiaParaDescida>;
   aoClicarNaDimensao: (campoSlug: string, valor: Celula) => void;
+  aoDescerNivel: (campoSlug: string, valor: Celula) => void;
   /** O que o último clique respondeu: recusa, ou o filtro que entrou. */
   avisoDoClique: string | null;
 }) {
@@ -1277,11 +1315,13 @@ function Resultado({
                       {dimensao ? (
                         <CelulaClicavel
                           campos={campos}
+                          hierarquias={hierarquias}
                           campoSlug={dimensao.campo}
                           rotuloDoCampo={dimensao.rotulo}
                           valor={chave}
                           rotuloDoValor={rotulo}
                           aoClicar={aoClicarNaDimensao}
+                          aoDescer={aoDescerNivel}
                         />
                       ) : (
                         rotulo
@@ -1446,28 +1486,59 @@ function Ajustes({
  */
 function CelulaClicavel({
   campos,
+  hierarquias,
   campoSlug,
   rotuloDoCampo,
   valor,
   rotuloDoValor,
   aoClicar,
+  aoDescer,
 }: {
   campos: ReadonlyArray<CampoSerializado>;
+  hierarquias?: ReadonlyArray<HierarquiaParaDescida>;
   campoSlug: string;
   rotuloDoCampo: string;
   valor: Celula;
   rotuloDoValor: string;
   aoClicar: (campoSlug: string, valor: Celula) => void;
+  aoDescer: (campoSlug: string, valor: Celula) => void;
 }) {
   const resultado = filtroDoClique(campos, campoSlug, valor);
+  const descida = descidaDoClique(campos, hierarquias, campoSlug, valor);
+  const rotuloDescer = rotuloDaDescida(rotuloDoValor, descida);
   return (
-    <button
-      type="button"
-      className={`rel-cel-filtro${resultado.pode ? "" : " sem-clique"}`}
-      aria-label={rotuloDaAcaoDeClique(rotuloDoCampo, rotuloDoValor, resultado)}
-      onClick={() => aoClicar(campoSlug, valor)}
-    >
-      {rotuloDoValor}
-    </button>
+    <span className="rel-cel-acoes">
+      <button
+        type="button"
+        className={`rel-cel-filtro${resultado.pode ? "" : " sem-clique"}`}
+        aria-label={rotuloDaAcaoDeClique(rotuloDoCampo, rotuloDoValor, resultado)}
+        onClick={() => aoClicar(campoSlug, valor)}
+      >
+        {rotuloDoValor}
+      </button>
+      {/*
+        RN92 — o botão de descer só aparece onde há nível abaixo.
+
+        Campo sem hierarquia declarada NÃO desce, e a interface não finge que
+        desce: o caminho simplesmente não existe ali, em vez de existir e
+        recusar. Recusar com motivo é para o que a pessoa poderia razoavelmente
+        esperar que funcionasse.
+
+        O nome acessível diz o DESTINO ("Descer para Município em São Paulo"),
+        e não a seta: quem navega por teclado ouve o nome antes de acionar, e
+        "seta para baixo" não informa nada.
+      */}
+      {rotuloDescer ? (
+        <button
+          type="button"
+          className="rel-cel-descer"
+          aria-label={rotuloDescer}
+          title={rotuloDescer}
+          onClick={() => aoDescer(campoSlug, valor)}
+        >
+          <span aria-hidden="true">↳</span>
+        </button>
+      ) : null}
+    </span>
   );
 }

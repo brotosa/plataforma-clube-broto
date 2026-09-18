@@ -57,6 +57,23 @@ function serializar(assunto: AssuntoRelatorio): AssuntoSerializado {
       ...(campo.valores ? { valores: campo.valores.map((opcao) => ({ ...opcao })) } : {}),
       ...(campo.indisponivel ? { indisponivel: campo.indisponivel } : {}),
     })),
+    /*
+     * RN92 — os caminhos de descida atravessam para a tela.
+     *
+     * São só slugs e rótulos: nenhum SQL, nada de expressão de campo, e é por
+     * isso que podem atravessar. A tela precisa deles para saber ONDE existe
+     * nível abaixo — sem isso, o botão de descer apareceria em toda célula e
+     * recusaria na maioria, que é o oposto do que a regra manda.
+     */
+    ...(assunto.hierarquias
+      ? {
+          hierarquias: assunto.hierarquias.map((hierarquia) => ({
+            chave: hierarquia.chave,
+            rotulo: hierarquia.rotulo,
+            niveis: [...hierarquia.niveis],
+          })),
+        }
+      : {}),
     modelos: assunto.modelos.map((modelo) => ({
       slug: modelo.slug,
       nome: modelo.nome,

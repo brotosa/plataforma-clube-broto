@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { ASSUNTOS } from "./catalogo";
-import { filtroDoClique, filtroJaAplicado, rotuloDaAcaoDeClique } from "./interacao";
+import {
+  descidaDoClique,
+  filtroDoClique,
+  filtroJaAplicado,
+  nivelSeguinte,
+  rotuloDaAcaoDeClique,
+  rotuloDaDescida,
+} from "./interacao";
 
 /**
  * RN91 — clicar filtra pelo catálogo.
@@ -199,5 +206,94 @@ describe("rotuloDaAcaoDeClique — o nome que o teclado ouve antes de acionar", 
     expect(
       rotuloDaAcaoDeClique("Natureza", "—", { pode: false, motivo: "qualquer" }),
     ).toContain("não é possível filtrar");
+  });
+});
+
+describe("descidaDoClique — RN92", () => {
+  const ALIADOS = ASSUNTOS.find((a) => a.slug === "aliados")!;
+
+  it("desce da UF para o município E leva o recorte junto", () => {
+    const r = descidaDoClique(ALIADOS.campos, ALIADOS.hierarquias, "aliado-uf", "SP");
+    expect(r).toEqual({
+      pode: true,
+      de: "aliado-uf",
+      para: "aliado-municipio",
+      rotuloDestino: expect.any(String),
+      filtro: { campo: "aliado-uf", operador: "igual", valores: ["SP"] },
+    });
+  });
+
+  /**
+   * As duas metades são obrigatórias. Descer em "São Paulo" sem filtrar por
+   * São Paulo mostraria os municípios do país inteiro — não é descer, é trocar
+   * de pergunta.
+   */
+  it("a descida SEMPRE carrega o filtro do valor de onde se desceu", () => {
+    const r = descidaDoClique(ALIADOS.campos, ALIADOS.hierarquias, "aliado-uf", "SP");
+    if (!r.pode) throw new Error("deveria descer");
+    expect(r.filtro.valores).toEqual(["SP"]);
+  });
+
+  it("a folha não desce", () => {
+    expect(
+      descidaDoClique(ALIADOS.campos, ALIADOS.hierarquias, "aliado-municipio", "Campinas").pode,
+    ).toBe(false);
+  });
+
+  it("campo fora de hierarquia nenhuma não desce", () => {
+    expect(descidaDoClique(ALIADOS.campos, ALIADOS.hierarquias, "aliado-nome", "X").pode).toBe(
+      false,
+    );
+  });
+
+  it("assunto sem hierarquia declarada não desce em campo nenhum", () => {
+    const auditoria = ASSUNTOS.find((a) => a.slug === "auditoria")!;
+    expect(auditoria.hierarquias).toBeUndefined();
+    for (const campo of auditoria.campos) {
+      expect(descidaDoClique(auditoria.campos, auditoria.hierarquias, campo.slug, "x").pode).toBe(
+        false,
+      );
+    }
+  });
+
+  /**
+   * A composição que evita duas listas de recusa. Se o valor não pode virar
+   * filtro, a descida não acontece — e pelo MESMO motivo, com o mesmo texto.
+   */
+  it("valor que não vira filtro também não desce, e devolve o motivo do filtro", () => {
+    const OFERTAS = ASSUNTOS.find((a) => a.slug === "ofertas")!;
+    // `solucao-categoria` declara vazio; a lacuna desce.
+    expect(
+      descidaDoClique(OFERTAS.campos, OFERTAS.hierarquias, "solucao-categoria", null).pode,
+    ).toBe(true);
+    // Já `solucao-nome` não declara vazio: a lacuna nem filtra, nem desce.
+    const semVazio = descidaDoClique(OFERTAS.campos, OFERTAS.hierarquias, "solucao-nome", null);
+    expect(semVazio.pode).toBe(false);
+    if (semVazio.pode) throw new Error("deveria recusar");
+    expect(semVazio.motivo).toContain("ausência de valor");
+  });
+
+  it("o nome do botão diz o DESTINO, não a seta", () => {
+    const r = descidaDoClique(ALIADOS.campos, ALIADOS.hierarquias, "aliado-uf", "SP");
+    expect(rotuloDaDescida("SP", r)).toMatch(/^Descer para .+ em SP$/);
+  });
+
+  it("sem descida não há rótulo — o botão nem é montado", () => {
+    const r = descidaDoClique(ALIADOS.campos, ALIADOS.hierarquias, "aliado-nome", "X");
+    expect(rotuloDaDescida("X", r)).toBeNull();
+  });
+});
+
+describe("nivelSeguinte", () => {
+  const OFERTAS = ASSUNTOS.find((a) => a.slug === "ofertas")!;
+
+  it("percorre o caminho declarado, um nível por vez", () => {
+    expect(nivelSeguinte(OFERTAS.hierarquias, "solucao-categoria")?.para).toBe("solucao-nome");
+    expect(nivelSeguinte(OFERTAS.hierarquias, "solucao-nome")?.para).toBe("oferta-titulo");
+    expect(nivelSeguinte(OFERTAS.hierarquias, "oferta-titulo")).toBeNull();
+  });
+
+  it("hierarquia ausente devolve nulo sem quebrar", () => {
+    expect(nivelSeguinte(undefined, "qualquer")).toBeNull();
   });
 });

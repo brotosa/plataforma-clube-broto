@@ -215,6 +215,52 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await expect(ponto).toBeEnabled();
   });
 
+  /**
+   * RN92 — descer troca a dimensão E leva o recorte junto.
+   *
+   * Prova as duas metades: o cabeçalho passa a ser o nível de baixo, e o
+   * filtro do valor de onde se desceu entrou. Sem a segunda, a tela mostraria
+   * os municípios do país inteiro — que não é descer, é trocar de pergunta.
+   */
+  test("descer de nível troca a dimensão e leva o recorte (RN92)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=aliados");
+
+    await page.getByRole("button", { name: "Pôr UF da sede em Linhas" }).click();
+    const tabela = page.locator(".rel-resultado table");
+    await expect(tabela).toBeVisible({ timeout: 20_000 });
+    await expect(tabela.locator("thead th").first()).toHaveText("UF da sede");
+
+    const descer = tabela
+      .locator("tbody tr")
+      .first()
+      .getByRole("button", { name: /^Descer para / });
+    await expect(descer).toBeVisible();
+    await descer.click();
+
+    // Metade 1: a dimensão trocou, no MESMO lugar das Linhas.
+    await expect(tabela.locator("thead th").first()).toHaveText("Município da sede", {
+      timeout: 20_000,
+    });
+    // Metade 2: o recorte entrou junto, e está visível para ser removido.
+    await expect(page.getByRole("button", { name: /Tirar o filtro de UF da sede/ })).toBeVisible();
+  });
+
+  /**
+   * Campo sem hierarquia declarada NÃO desce, e a interface não finge que
+   * desce: o botão simplesmente não existe ali.
+   */
+  test("onde não há nível abaixo, o botão de descer não é montado (RN92)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=aliados");
+
+    // O nome do aliado não está em hierarquia nenhuma. (Neste assunto ele se
+    // chama "Nome fantasia" — "Aliado" é o rótulo dele em `ofertas`.)
+    await page.getByRole("button", { name: "Pôr Nome fantasia em Linhas" }).click();
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Descer para / })).toHaveCount(0);
+  });
+
   test("salvar põe na prateleira e abrir recarrega a definição", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/relatorios?assunto=ofertas");

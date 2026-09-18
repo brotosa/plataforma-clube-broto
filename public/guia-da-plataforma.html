@@ -1940,6 +1940,21 @@ a.btn-azul,a.btn-azul:hover{color:#fff;text-decoration:none}
   background:var(--amarelo-claro);border:1px solid var(--amarelo);
   font:var(--font-body-caption-regular);color:var(--preto)}
 
+/* RN92 — a célula com as duas ações: o valor (filtra) e o ↳ (desce um nível).
+
+   O botão de descer é pequeno e fica DEPOIS do valor, porque o valor é o dado
+   e a ação é o acessório — invertido, a seta competiria com a leitura da
+   tabela. Só aparece onde há nível abaixo (o componente nem o monta), então a
+   coluna não ganha uma coluna de setas cinzentas inúteis.
+
+   O `flex` mantém os dois na mesma linha de base sem que o valor perca a
+   largura total do clique: ele é o item que cresce. */
+.rel-cel-acoes{display:flex;align-items:baseline;gap:6px}
+.rel-cel-acoes .rel-cel-filtro{flex:1 1 auto}
+.rel-cel-descer{flex:0 0 auto;background:none;border:0;padding:0 2px;margin:0;
+  cursor:pointer;color:var(--paragrafo-aaa);line-height:1}
+.rel-cel-descer:hover{color:var(--verde)}
+
 </style>
 <style>
 html{scroll-behavior:smooth}
