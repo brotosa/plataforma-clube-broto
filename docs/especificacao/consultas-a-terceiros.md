@@ -1,7 +1,9 @@
 # Consultas a terceiros — mensagens prontas
-**Plataforma de Administração e Gestão do Clube Broto** · redigido em 17/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · redigido em 17/09/2026 · atualizado em 18/09/2026
 
-As 26 pendências de `pendencias-consolidadas.md` que dependem de gente de fora, escritas como **mensagens que se pode enviar**, não como lista de tópicos. Uma por destinatário.
+As pendências de `pendencias-consolidadas.md` que dependem de gente de fora, escritas como **mensagens que se pode enviar**, não como lista de tópicos. Uma por destinatário.
+
+> **Atualizado em 18/09.** Duas mudanças, as duas nascidas de trabalho feito naquele dia: a pergunta 2 da Superintendência foi **reescrita**, porque deixou de ser abstrata — hoje há número e trilha para embasá-la; e a TI ganhou uma **mensagem própria** (§4.1), sobre o endereço público do banco de produção, que apareceu numa conferência de rede e não tinha onde ser registrado como pedido.
 
 > **Por que assim.** Pendência que vive numa ficha técnica não sai de lá: quem precisa respondê-la não lê ficha técnica. Cada mensagem abaixo é autossuficiente — diz o que a plataforma faz hoje sem a resposta, o que muda com ela, e pergunta uma coisa de cada vez.
 
@@ -93,7 +95,11 @@ A plataforma está em produção e operando. Há oito pontos em que ela está fu
 
 **1. Não existe uma política de uso da plataforma.** Hoje o papel de cada pessoa é atribuído caso a caso, sem documento por trás. O Guia da Plataforma referencia essa política na seção 5 e ela não existe. É o documento que define, na prática, quem alcança a carteira de assinantes.
 
-**2. A conta de Administrador não pode ser bloqueada, e não há contrapartida.** A isenção existe por um motivo bom — quem desbloqueia os outros não pode se trancar fora —, mas ela deixa essa conta sem a proteção que todas as outras têm. Opções levantadas: segundo fator, lista de origens de rede permitidas, ou alerta na auditoria após N tentativas falhas. Nenhuma foi decidida.
+**2. A conta de Administrador não pode ser bloqueada, e não há contrapartida decidida.** A isenção existe por um motivo bom — quem desbloqueia os outros não pode se trancar fora —, mas deixa essa conta sem a proteção que todas as outras têm.
+
+*O que mudou em 18/09, e por que a pergunta ficou mais fácil de responder:* até então essa exposição era **invisível**. Tentar senhas contra uma conta de Administrador não incrementava contador nenhum, não gravava nada na auditoria — nenhuma falha de login, de conta alguma, gravava — e podia se repetir **sem limite, sem prazo e sem rastro em lugar algum**. Isso foi corrigido: a conta isenta agora **conta as tentativas sem nunca ser trancada**, o número aparece na tela de Configurações, e dois momentos vão à trilha (o limite atingido numa conta isenta, e uma conta comum trancada). A isenção continua inteira — dez senhas erradas seguidas, e a conta entra com a senha certa.
+
+*O que continua sendo de vocês:* a contrapartida. As opções levantadas são **segundo fator**, **lista de origens de rede permitidas** ou **apenas o registro que agora existe**. A terceira é uma resposta legítima: pode ser que ver o número e a trilha já baste. O que não dá para manter é a situação anterior, em que ninguém conseguia sequer saber que estava acontecendo — e essa parte já não é mais o caso.
 
 **3. Os valores da política de senha e de sessão são de engenharia, não recomendação.** Hoje: 10 caracteres mínimos, sessão caindo por 30 minutos de inatividade, 5 tentativas erradas bloqueando por 15 minutos, e três proteções adicionais **desligadas** (validade da senha, teto absoluto de sessão, bloqueio por origem de rede). Foram escolhidos para **preservar o comportamento anterior**, não para recomendar um nível de segurança.
 
@@ -141,12 +147,48 @@ Foi solicitado que relatórios possam ser **agendados e enviados por e-mail**. I
 
 ## 4 · Para a TI (interno)
 
+### 4.1 · O banco de produção tem endereço público — e essa porta não deixa trilha
+
+**Esta tem mensagem própria**, ao contrário das demais da seção: é achado de segurança, veio de conferência e não de planejamento, e o encaminhamento tem ressalvas que não cabem numa linha de tabela.
+
+**Assunto sugerido:** Clube Broto — acesso direto ao banco de produção
+
+Olá,
+
+Numa conferência dos grupos de segurança em 18/09, saiu uma boa notícia e um achado.
+
+**A boa:** a aplicação **não é alcançável por fora do balanceador**. O grupo da tarefa do ECS libera a porta 3000 exclusivamente do grupo do `broto-clube-alb`, sem nenhum CIDR. Isso significa que o WAF que vamos provisionar será **obrigatório, não opcional** — não há caminho paralelo a proteger nem a esquecer.
+
+**O achado:** a instância `broto-clube-db` está com `PubliclyAccessible: true`.
+
+Sendo preciso: **não** é "o banco aberto para a internet". O grupo de segurança barra tudo menos a própria aplicação e um endereço `/32`. O que é verdade é que o endpoint resolve para um **endereço público**, e a única coisa entre ele e a internet é uma regra de grupo de segurança. (A instância `pto-broto` está privada, como deveria.)
+
+Quatro consequências, e a quarta é a que mais pesa:
+
+1. **Aquele `/32` é a saída de um lugar, não de uma pessoa.** Quem estiver atrás daquele endereço — o escritório inteiro, a rede de visitantes, um equipamento comprometido de qualquer um ali — alcança a porta 5432 do banco de produção. A regra não distingue.
+2. **Endereço de operadora muda.** Quando mudar: ou a regra é alargada às pressas para alguém voltar a trabalhar, ou fica apontando para o endereço que a operadora entregou a outro cliente.
+3. **Não há segunda camada.** O WAF, o limite de taxa e o bloqueio por origem são todos da aplicação. Este caminho passa por fora dos três.
+4. **Acesso direto ao banco não deixa trilha.** A plataforma garante que toda alteração registra valor anterior, valor novo e autor. Essa garantia vale para quem entra pela aplicação. Quem entra por `psql` altera aliado, oferta, assinante — **ou a própria tabela de auditoria** — sem gravar evento nenhum. Do outro lado dessa porta estão a base de assinantes, a telemetria e a própria trilha.
+
+**O que propomos**, e é decisão de vocês: `PubliclyAccessible: false`, com o acesso administrativo passando a ser **encaminhamento de porta via SSM Session Manager**. Isso dispensa host bastião, não depende de endereço fixo — resolvendo o item 2 — e registra cada sessão no CloudTrail, que responde ao item 4.
+
+**Duas ressalvas honestas:**
+
+- É um `modify-db-instance`. **Não é instantâneo e pode interromper conexões**, então quer janela.
+- Não verificamos se o `broto-clube-db-subnet-group` está em sub-redes públicas. Se estiver, tirar o endereço público é o passo certo, **mas não é o desenho final**.
+
+Há ainda um item menor e sem pressa, do mesmo dia: a leitura de origem da aplicação já foi corrigida para contar do fim do `x-forwarded-for`, mas ela só entra em vigor com **`SALTOS_CONFIAVEIS_NA_BORDA=1`** na definição de tarefa do ECS. Sem essa variável, o código novo está no ar comportando-se como o antigo — e dizendo isso no log a cada tarefa nova.
+
+---
+
+### Os demais
+
 Sete itens que não precisam de mensagem porque a TI Broto é quem responde. Estão em `pendencias-consolidadas.md` §4:
 
 | | O que decidir | Estado hoje |
 | --- | --- | --- |
 | 4.1 | Registro da imagem de contêiner | GHCR; trocar é configuração |
-| 4.2 | **Proteção por taxa na borda (WAF)** | **não existe** — a única de infraestrutura pura |
+| 4.2 | **Proteção por taxa na borda (WAF)** | **não existe**; ficha própria na Onda 21, e a conferência de 18/09 confirmou que ela será obrigatória |
 | 4.3 | Tetos do dossiê | em espera |
 | 4.4 | Provedor de e-mail e domínio remetente | nada configurado |
 | 4.5 | Dicionário do arquivo de assinantes e ritmo de carga | mapeador tolerante |

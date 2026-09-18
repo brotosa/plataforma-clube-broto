@@ -80,8 +80,9 @@ Oito perguntas, e sete delas cabem numa reunião. É o bloco que mais destrava c
 **2.2 · A conta de Administrador é isenta dos dois bloqueios (RN74). Qual a contrapartida?**
 *Hoje:* nenhuma **decidida** — e a pergunta continua aberta. O que mudou em 18/09 é que a isenção deixou de ser **invisível**, que era o pior dela: a conta isenta agora **conta as falhas sem nunca ser trancada**, o número aparece na faixa da T35, e dois momentos vão à trilha (limite atingido em conta isenta; conta comum trancada agora) — nunca um evento por tentativa, senão quem ataca escolheria o volume de uma tabela que a RN49 não deixa apagar.
 *Antes disso:* falha contra conta isenta não incrementava contador nenhum, a contagem por origem tem retorno antecipado com a política desligada (que é como ela nasce), e **nenhuma falha de login, de conta nenhuma, gravava auditoria**. Tentar senhas contra um Administrador podia se repetir sem limite, sem prazo e sem rastro.
-*O que continua sendo da Superintendência:* segundo fator, lista de origens permitidas, ou nada além do registro. A decisão agora tem número e trilha em que se apoiar.
+*O que continua sendo da Superintendência:* segundo fator, lista de origens permitidas, ou nada além do registro — e **a terceira é resposta legítima**: pode ser que ver o número e a trilha já baste. A decisão agora tem em que se apoiar.
 *Peso:* alto, e é de segurança.
+*Mensagem pronta:* `consultas-a-terceiros.md` §2, item 2 (reescrito em 18/09).
 *Origem:* Onda 15 §6.1 (v0.6).
 
 **2.3 · Valores de política de senha e sessão para produção.**
@@ -132,8 +133,18 @@ Oito perguntas, e sete delas cabem numa reunião. É o bloco que mais destrava c
 
 **4.2 · Proteção por taxa na borda (WAF/balanceador).**
 *Hoje:* **não existe**, e nenhuma configuração da T35 a substitui. O bloqueio por origem conta falhas de senha, não requisições por tempo — cada tentativa ainda custa consulta e gravação, então inundação não é contida.
+*Ganhou ficha própria* — `ficha-onda21-protecao-na-borda.md`, com a RN90 e as três partes dela, das quais a segunda é a que evita quebrar a plataforma em silêncio. A **metade de aplicação foi entregue**; a de borda segue com a TI.
+*E a conferência de 18/09 mostrou que ela será obrigatória:* a aplicação não é alcançável por fora do balanceador, então não há caminho paralelo que a contorne.
 *Peso:* alto, e é a única pendência desta lista que é de infraestrutura pura.
 *Origem:* Onda 15 §195.
+
+**4.8 · O banco de produção tem endereço público, e essa porta não deixa trilha.** `[NOVA — 18/09]`
+*Hoje:* a instância `broto-clube-db` está com `PubliclyAccessible: true`. Não é "o banco aberto para a internet" — o grupo de segurança barra tudo menos a aplicação e um `/32` —, mas o endpoint resolve para endereço público, e a única coisa entre ele e a internet é uma regra de grupo de segurança.
+*O que mais pesa:* **acesso direto por `psql` não grava evento**. A garantia de que toda alteração registra valor anterior, novo e autor vale para quem entra pela aplicação; por essa porta ela nem chega a existir — inclusive para alterações na própria tabela de auditoria, que a RN49 diz que não se apaga.
+*Encaminhamento proposto:* `PubliclyAccessible: false` com acesso por encaminhamento de porta via SSM Session Manager — dispensa host bastião, não depende de endereço fixo e registra cada sessão. **Duas ressalvas declaradas:** é um `modify-db-instance` que pode interromper conexões (quer janela), e não foi verificado se o subnet group é público.
+*Peso:* alto, e é de segurança.
+*Mensagem pronta:* `consultas-a-terceiros.md` §4.1.
+*Origem:* Onda 21 §6.6 (achado da conferência de rede).
 
 **4.3 · Valores definitivos dos tetos do dossiê.**
 *Origem:* Onda 3 §59.
