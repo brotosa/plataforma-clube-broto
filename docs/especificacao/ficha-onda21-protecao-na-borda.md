@@ -1,9 +1,9 @@
 # Ficha de Módulo — Onda 21: Proteção na borda
-**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 18/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.3 para validação · 18/09/2026
 
 A plataforma **não tem WAF nem nenhuma defesa contra volume** — confirmado pela TI em 18/09. Esta onda provisiona a proteção na borda e corrige, na aplicação, a leitura de origem que hoje depende de não haver borda nenhuma. Onda de **uma fase (F32)**, com **duas metades de dono diferente**. Sobre a versão **1.5.0**.
 
-> **A v0.2 fecha a pendência 1** com a topologia confirmada (§6.1) e registra a **metade de aplicação como implementada**. A metade de borda continua sendo da TI, e nada dela foi executado. A numeração **RN90** segue proposta.
+> **A v0.3 fecha a pendência 1 por inteiro** — a topologia e, agora, a segunda metade da pergunta: a borda **não é contornável** (§6.1). E acrescenta a **pendência 6**, que é achado, não escopo: o banco de produção tem endereço público, e nada desta onda o protege. A metade de borda continua sendo da TI, e nada dela foi executado. A numeração **RN90** segue proposta.
 
 > **Esta onda tem uma metade que o Claude Code NÃO pode executar.** Provisionar WAF, balanceador e regras é da TI Broto, na conta AWS — as credenciais desta sessão não têm leitura sequer de `elasticloadbalancing`, `wafv2`, `ecs` ou `cloudfront`. O que está aqui é **especificação e a metade de aplicação**, não execução.
 
@@ -112,12 +112,27 @@ A metade de aplicação **não esperou** a outra: sem o parâmetro, ela preserva
 
    **Decorre daí:** o WAF se associa **regionalmente, neste balanceador** (não em escopo global), e o número de saltos confiáveis é **1**.
 
-   **Fica em aberto o que a topologia não responde:** se o grupo de segurança do balanceador está aberto ao mundo em 80/443 — o esperado para um balanceador voltado à internet — e se a tarefa do ECS só aceita tráfego vindo dele. Sem essa segunda parte, quem alcançar a rede interna fala com a aplicação **pulando a borda**, e a proteção que esta onda provisiona não é atravessada, é contornada. Vale conferir com `aws ec2 describe-security-groups`.
+   **A segunda metade da pergunta — se a borda é contornável — também está RESPONDIDA, e a favor.** O `broto-clube-ecs-sg` (`sg-004f9a0bd01d5a672`) libera a porta 3000 **exclusivamente** do `broto-clube-alb-sg` (`sg-03ec061302417afeb`), com `IpRanges` vazio: nenhum CIDR alcança a aplicação. Quem não passa pelo balanceador não fala com ela.
+
+   **Decorre daí que o WAF será obrigatório, não opcional** — não há caminho paralelo a proteger nem a esquecer. O `broto-clube-alb-sg` abre 80/443 ao mundo, que é o esperado de um balanceador voltado à internet.
 
 2. **`[A CONFIRMAR — TI]` Os limites de taxa.** Proposta para calibrar em contagem: **caminho de autenticação** bem mais apertado que o geral, porque é onde o custo por tentativa é alto e o tráfego legítimo é baixo. Números só depois da janela de observação — a plataforma tem poucas dezenas de usuários, e um limite de catálogo barraria a operação num dia de carga.
 3. **`[A CONFIRMAR — TI]` Teto de inspeção de corpo.** Precisa comportar **5 MB**, ou a regra tem de deixar passar sem inspecionar o que exceder. Confirmar o teto vigente do serviço e o custo de elevá-lo.
 4. **`[A CONFIRMAR — TI]` Regras gerenciadas: quais entram.** As de injeção e entrada maliciosa conhecida têm valor direto. A de **restrição de tamanho** é a que quebra os uploads — decidir se entra com exceção por caminho ou se fica fora.
 5. **`[A CONFIRMAR — Superintendência]` O que fazer com quem estoura o limite.** Recusar, desafiar, ou só registrar. Recusa silenciosa num escritório que sai por um endereço só tranca todo mundo — é o mesmo argumento que fez o bloqueio por origem da RN74 nascer desligado.
+
+6. **`[A CONFIRMAR — TI]` O banco de produção tem endereço público, e nada desta onda o protege.** Achado da conferência de grupos de segurança de 18/09 — **fora do escopo da RN90**, registrado aqui porque foi aqui que apareceu e porque ninguém mais o está olhando.
+
+   **O que é verdade, com precisão.** Não é "o banco está aberto para a internet": o `broto-clube-rds-sg` (`sg-0fe86366926dff17c`) barra tudo menos o `broto-clube-ecs-sg` e o CIDR `177.140.15.214/32`. O que é verdade é que a instância `broto-clube-db` está com `PubliclyAccessible: true` — o endpoint resolve para endereço público, e **a única coisa entre ele e a internet é uma regra de grupo de segurança**. A `pto-broto` está privada, como deveria.
+
+   **Quatro consequências, e a quarta é a que colide com uma regra escrita desta plataforma:**
+
+   1. **Aquele `/32` é a saída de um lugar, não de uma pessoa.** Quem estiver atrás daquele endereço — o escritório inteiro, a rede de visitantes, o equipamento comprometido de qualquer um ali — alcança a porta 5432 do banco de produção. A regra não distingue.
+   2. **Endereço de operadora muda.** Quando mudar: ou a regra é alargada às pressas para alguém voltar a trabalhar, ou fica apontando para o endereço que a operadora entregou a outro cliente.
+   3. **Não há segunda camada.** WAF, limite de taxa (RN90) e bloqueio por origem (RN74) são todos da aplicação. Este caminho passa por fora dos três.
+   4. **Acesso direto ao banco não deixa trilha — e a RN49 diz que auditoria não se apaga.** Aqui ela nem chega a existir: quem entra por `psql` altera aliado, oferta, assinante ou a própria tabela de auditoria **sem gravar evento nenhum**. A garantia de que toda mutação registra valor anterior, novo e autor vale para quem entra pela aplicação. Esta é uma porta lateral, e a base do outro lado tem 2.000 assinantes, a telemetria e a própria trilha.
+
+   **Encaminhamento proposto, e é decisão de infraestrutura, não de código:** `PubliclyAccessible: false`, com acesso administrativo por **encaminhamento de porta via SSM Session Manager** — dispensa host bastião, não depende de endereço fixo e registra cada sessão no CloudTrail, o que responde ao item 4. Duas ressalvas declaradas: é um `modify-db-instance`, **não é instantâneo e pode interromper conexões**, então quer janela; e não foi verificado se o `broto-clube-db-subnet-group` está em sub-redes públicas — se estiver, tirar o endereço público é o passo certo, mas não é o desenho final.
 
 ---
 
