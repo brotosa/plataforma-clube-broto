@@ -17,6 +17,13 @@ import { carregarBlocoAction } from "./acoes";
  * dispara a própria execução ao montar, tem o próprio estado de carregamento
  * e o próprio erro — e um que demore não segura os outros.
  *
+ * ## O título do bloco é `<h2>`, e não `<h3>`
+ *
+ * A página tem um `<h1>` só — o nome do painel —, e um `<h3>` abaixo dele
+ * pularia o nível 2. O axe pegou (`heading-order`), e a queixa é real: quem
+ * navega por cabeçalhos ouviria um nível que não existe e concluiria que
+ * perdeu uma seção.
+ *
  * ## Os quatro estados não são um "indisponível" genérico
  *
  * `SEM_ALCANCE`, `AGUARDA_FINALIDADE` e `FALHOU` respondem perguntas
@@ -49,7 +56,7 @@ export function BlocoDoPainel({
   if (bloco.estado === "SEM_ALCANCE") {
     return (
       <section className={classe} aria-label={bloco.titulo}>
-        <h3 className="pn-bloco-t">{bloco.titulo}</h3>
+        <h2 className="pn-bloco-t">{bloco.titulo}</h2>
         {/*
          * RN87 — o bloco recusa sozinho, e os demais do painel carregam.
          * Não é erro: é um limite de papel, e dizer "tente novamente" seria
@@ -63,7 +70,7 @@ export function BlocoDoPainel({
   if (bloco.estado === "FALHOU") {
     return (
       <section className={classe} aria-label={bloco.titulo}>
-        <h3 className="pn-bloco-t">{bloco.titulo}</h3>
+        <h2 className="pn-bloco-t">{bloco.titulo}</h2>
         <p className="pn-bloco-recusa">{bloco.motivo}</p>
       </section>
     );
@@ -133,7 +140,7 @@ function BlocoQueCarrega({
 
   return (
     <section className={classe} aria-label={bloco.titulo} aria-busy={carregando}>
-      <h3 className="pn-bloco-t">{bloco.titulo}</h3>
+      <h2 className="pn-bloco-t">{bloco.titulo}</h2>
 
       {exigeFinalidade && tabela === null ? (
         <form
