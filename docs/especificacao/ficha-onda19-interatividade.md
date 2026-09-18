@@ -1,11 +1,13 @@
 # Ficha de Módulo — Onda 19: Interatividade do Gerador
-**Plataforma de Administração e Gestão do Clube Broto** · v0.2 para validação · 18/09/2026
+**Plataforma de Administração e Gestão do Clube Broto** · v0.3 para validação · 18/09/2026
 
 O resultado do Gerador passa a **responder ao clique**: clicar num ponto filtra o resto, descer de nível troca a dimensão por uma mais fina, e o agregado abre nas linhas que o compõem. Regras **RN91–RN93**, duas fases (**F33** e **F34**), **sem tela nova**. Sobre a versão **1.5.0**.
 
 > **Ficha antes do código.** A numeração **RN91–RN93** é proposta, e recusá-la não custa retrabalho.
 >
-> **A v0.2 registra o que a implementação da RN91 encontrou e a v0.1 não previa:** uma **quarta recusa** (dimensão de data), a decisão de prender o clique à **tabela** e não às marcas do gráfico, e o que ficou de fora da F33. A RN92 e a RN93 seguem sem código.
+> **A v0.2 registra o que a implementação da RN91 encontrou e a v0.1 não previa:** uma **quarta recusa** (dimensão de data), a decisão de prender o clique à **tabela** e não às marcas do gráfico, e o que ficou de fora da F33.
+>
+> **A v0.3 fecha a onda.** RN92 e RN93 entregues. Registra o que a implementação do detalhe acrescentou: **as colunas dele derivam da ordem do catálogo** em vez de uma declaração nova, a divergência entre linhas e registros **só aparece quando um filtro traz a junção que multiplica** — que é justamente o caso do clique da RN91 —, e a ordem em que as duas recusas do detalhe são conferidas.
 
 > **Esta é a terceira das três metades do pedido de "um BI de verdade"** que a TI fez em 17/09. A §7 da ficha da Onda 17 distribuiu o pedido em quatro linhas: escolher o desenho (Onda 17, entregue), painel com vários blocos (Onda 18, entregue), **clicar para filtrar, descer de nível, ver as linhas por trás (esta)**, e distribuir (Onda 20, F28 entregue). É a última que falta, e a única que ainda não tinha ficha.
 
@@ -72,6 +74,18 @@ O pivô é agregado. "As linhas por trás" é uma **segunda consulta**, sobre o 
 
 **O detalhe não é exportável nesta onda.** Os formatos da F28 saem do pivô; fazer o detalhe sair por eles é decisão de outra rodada, e no caso dos dois assuntos de dado pessoal é decisão que não é só técnica.
 
+### O que a implementação da F34 acrescentou
+
+**As colunas do detalhe derivam da ordem do catálogo, e não de uma declaração nova.** Nos nove assuntos, o primeiro campo é o que identifica o registro — `oferta-titulo`, `aliado-nome`, `patrocinador-razao-social`, `au-data`. Quem escreveu o catálogo já tomou essa decisão, e uma segunda lista envelheceria em paralelo com a primeira. São as **oito primeiras** disponíveis: mais que isso rola na horizontal e deixa de ser conferência de relance. Assunto que precise de outro recorte é o dia em que uma declaração própria passa a valer a pena — hoje seria cerimônia sem ganho.
+
+**A divergência entre linhas e registros só aparece quando um FILTRO traz a junção que multiplica** — e isso é achado, não detalhe de implementação. As junções entram no `FROM` apenas quando alguma coluna ou algum filtro as exige; como as colunas do detalhe são as primeiras do assunto, nenhuma delas as puxa. Quem as puxa é o filtro — **exatamente o que o clique da RN91 acrescenta num relatório agrupado por categoria**. Ou seja: o caso que a regra descreve é o caso que a onda anterior tornou comum, e não uma hipótese.
+
+**A ordem das duas recusas do detalhe importa.** O alcance por papel (RN76) é conferido **antes** da disponibilidade: quem não alcança o assunto ouve que não o alcança, e não que o detalhe dele "depende de decisão da Superintendência" — que informaria a existência e o estado de algo fora do seu alcance.
+
+**A exigência de finalidade está escrita mesmo sendo hoje inalcançável.** Os dois assuntos sensíveis são recusados antes, então o caminho nunca chega lá; ele existe para que, no dia em que a pendência 2 for respondida abrindo o detalhe, a exigência já esteja no lugar — e não vire emenda posterior que alguém precise lembrar de fazer.
+
+**Uma cerca antiga precisou crescer.** A da RN75 fixava **uma** execução de SQL cru no módulo de consulta, com o nome literal da variável. O detalhe acrescentou duas (as linhas e a contagem). A cerca passou a aceitar o **conjunto exato** de nomes que o compilador produz — continua proibido passar literal de template ou concatenação, e passou a reprovar também caminho novo com variável de outro nome, o que obriga a decisão a ficar registrada ali.
+
 ---
 
 ## 4. Tela
@@ -96,6 +110,8 @@ O pivô é agregado. "As linhas por trás" é uma **segunda consulta**, sobre o 
 
 **A F33 foi partida na entrega, e a razão está na pendência 1.** A **RN91 está entregue**; a **RN92 não**, porque descer de nível **exige que alguém diga quais hierarquias existem**, e construir o mecanismo sem nenhuma declarada seria entregar caminho que nunca dispara. Assim que a pendência 1 for respondida, a RN92 é trabalho pequeno: declaração no catálogo mais a troca de dimensão, sobre o mesmo clique que já existe.
 | **F34** | Ver as linhas por trás (RN93) | Não | Não |
+
+**Onda entregue.** A F33 saiu em duas partes (a RN91 esperou as hierarquias da pendência 1 para a RN92) e a F34 saiu inteira, limitada aos sete assuntos sem dado pessoal.
 
 **São duas porque a segunda tem superfície de risco que a primeira não tem.** A F33 reorganiza a consulta que já roda — mesmo alcance, mesma contagem, mesmo teto. A F34 abre uma consulta **nova**, que devolve linha identificável e, em dois assuntos, gente com nome. Juntá-las numa revisão só faria a parte que precisa de atenção viajar de carona na parte que não precisa.
 

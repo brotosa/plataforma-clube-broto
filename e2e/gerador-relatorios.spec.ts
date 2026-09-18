@@ -261,6 +261,34 @@ test.describe.serial("T36 — montar, prever, salvar e exportar", () => {
     await expect(page.getByRole("button", { name: /^Descer para / })).toHaveCount(0);
   });
 
+  /**
+   * RN93 — o detalhe abre ABAIXO do agregado, e não no lugar dele.
+   *
+   * Perder o resultado de vista tira justamente a referência contra a qual se
+   * está conferindo.
+   */
+  test("ver as linhas por trás abre os registros sem tirar o agregado da tela (RN93)", async ({
+    page,
+  }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=ofertas");
+
+    await page.getByRole("button", { name: "Pôr Situação em Linhas" }).click();
+    const agregado = page.locator(".rel-resultado").first();
+    await expect(agregado).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole("button", { name: "Ver as linhas por trás" }).click();
+
+    const detalhe = page.getByRole("region", { name: /linhas por trás/ });
+    await expect(detalhe).toBeVisible({ timeout: 20_000 });
+    // A primeira coluna identifica o registro — é o que faz a linha ser
+    // reconhecível, e vem da ordem do catálogo.
+    await expect(detalhe.locator("thead th").first()).toHaveText("Título da oferta");
+    await expect(detalhe.locator("tbody tr").first()).toBeVisible();
+    // E o agregado continua lá.
+    await expect(agregado).toBeVisible();
+  });
+
   test("salvar põe na prateleira e abrir recarrega a definição", async ({ page }) => {
     await entrar(page, "gestor@dev.clubebroto.local");
     await page.goto("/relatorios?assunto=ofertas");
@@ -704,6 +732,30 @@ test.describe.serial("F26 — Telemetria, Assinantes e Auditoria", () => {
         { timeout: 15_000 },
       )
       .toBeGreaterThan(antes);
+  });
+
+  /**
+   * RN93 — o detalhe dos assuntos de dado pessoal fica FECHADO.
+   *
+   * Fechado até haver resposta da Superintendência, e não aberto até haver
+   * objeção: recuar depois de liberar seria retirar algo já em uso.
+   *
+   * **Mora neste bloco, e não no primeiro, de propósito:** o preparo do e2e
+   * ZERA o módulo de assinantes, e sem linhas o resultado nem monta — o teste
+   * passaria por não haver botão em tela nenhuma, que é o motivo errado. Aqui
+   * a base já tem assinantes.
+   */
+  test("assunto de dado pessoal não abre o detalhe, e diz por quê (RN93)", async ({ page }) => {
+    await entrar(page, "gestor@dev.clubebroto.local");
+    await page.goto("/relatorios?assunto=assinantes");
+    await page.getByRole("button", { name: "Pôr UF em Linhas" }).click();
+    await page.getByLabel("Finalidade da consulta").fill("conferência do detalhe na F34");
+    // A tabela TEM de aparecer: é ela que prova que o botão ausente é ausência
+    // deliberada, e não ausência de resultado.
+    await expect(page.locator(".rel-resultado table")).toBeVisible({ timeout: 20_000 });
+
+    await expect(page.getByRole("button", { name: /Ver as linhas por trás/ })).toHaveCount(0);
+    await expect(page.getByText(/depende de decisão da Superintendência/)).toBeVisible();
   });
 
   test("Auditoria recusa sem período, e aceita com ele", async ({ page }) => {
