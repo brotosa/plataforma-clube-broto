@@ -11,6 +11,10 @@ homologação com a base povoada — sem onda nova. As **seis migrations** do
 período foram **estritamente aditivas** (PR #3, #8, #10, #13, #23 e #32);
 nenhuma removeu coluna, estreitou tipo ou exigiu valor sobre linha existente.
 
+> **A continuação está em
+> [`registro-melhorias-pr48-a-104.md`](./registro-melhorias-pr48-a-104.md)** —
+> os 57 PRs de 28/08 a 18/09, que abriram as Ondas 15 a 21.
+
 > **Onde está o detalhe.** Os PRs **#1–#28** têm registro **ilustrado com telas
 > reais** (e exportações **PDF** e **Word**) em
 > [`registro-melhorias/index.html`](./registro-melhorias/index.html); os **#1–#15**
