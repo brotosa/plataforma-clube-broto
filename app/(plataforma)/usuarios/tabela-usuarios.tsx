@@ -127,11 +127,28 @@ function Presencinha({ usuario }: { usuario: LinhaUsuario }) {
    * a inferência — a classificação é uma janela de atividade, não uma conexão
    * aberta, e a plataforma não deve prometer mais do que mede.
    */
+  /*
+   * OFFLINE é NEUTRO, não vermelho — decidido em 18/09 (pendência §5.4).
+   *
+   * O vermelho desta plataforma é a cor de **falha**, e estar offline não é
+   * falha: é o estado normal de quem não está com a aba aberta neste
+   * instante. A tela de produção mostrou o custo disso — **11 das 13 linhas
+   * vermelhas**, todas dizendo "nada aconteceu".
+   *
+   * O dano não é o excesso de cor, é o que ele encobre: na MESMA tela existe
+   * um vermelho que é problema de verdade — `expirada — emita outra`, da
+   * credencial provisória — e ele estava competindo por atenção com onze
+   * selos que não querem dizer nada.
+   *
+   * E a distinção não se perde: um verde no meio de cinzas salta; um verde no
+   * meio de vermelhos, não. O "visto há" continua no `title`, e "nunca
+   * acessou" continua dito na legenda.
+   */
   const online = usuario.presenca === "ONLINE";
   const nunca = usuario.presenca === "NUNCA";
   return (
     <span
-      className={online ? "pill pill-ok" : "pill pill-erro"}
+      className={online ? "pill pill-ok" : "pill pill-neutra"}
       title={
         nunca
           ? "Esta conta nunca entrou na plataforma."
