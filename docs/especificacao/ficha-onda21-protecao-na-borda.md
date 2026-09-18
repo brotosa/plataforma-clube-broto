@@ -100,6 +100,20 @@ A metade de aplicação **não esperou** a outra: sem o parâmetro, ela preserva
 
 **Um passo de implantação, e ele não é de código.** A leitura correta só entra em vigor quando `SALTOS_CONFIAVEIS_NA_BORDA=1` estiver na definição de tarefa do ECS. Até lá o código novo está no ar comportando-se como o antigo — e dizendo isso no log a cada processo novo. É o único item desta fase que depende de alguém fora do repositório.
 
+**EXECUTADO em 18/09, e a forma como foi feito merece registro.** A variável entrou na **revisão 110** da família `broto-clube-app`, pela CLI, e o `terraform/aws/ecs.tf` recebeu a mesma linha para que a fonte declarada não passasse a mentir.
+
+**A dúvida legítima era se a esteira desfaria a mudança na mão. Não desfaz**, e a razão está no `buildspec.yml`: ele **deriva a revisão nova da que está no ar** — `describe-task-definition`, `jq` trocando apenas `.containerDefinitions[0].image`, `register-task-definition` — em vez de regenerá-la a partir do Terraform. O que for acrescentado à revisão viva é carregado adiante a cada deploy.
+
+**E isso deixou de ser dedução no mesmo dia.** Minutos depois, um merge disparou a esteira, que registrou a **revisão 111** derivando a 110 — e a 111 carrega as três variáveis, `SALTOS_CONFIAVEIS_NA_BORDA` inclusive. A variável sobreviveu a um deploy de verdade, não a uma leitura de arquivo.
+
+**O defeito era real em produção, e está provado por log.** Antes da correção, cada tarefa avisava **uma vez**, no primeiro login que recebia: *"há cadeia de encaminhamento e nenhuma borda declarada: a origem está sendo lida do valor enviado pelo cliente"*. O `/ecs/broto-clube` traz três ocorrências em 18/09 — **16:40, 17:52 e 18:31 UTC** —, uma por tarefa, cada uma de um deploy do dia. Não era risco teórico: a aplicação vinha declarando, sozinha e repetidamente, que lia o lado errado da lista.
+
+O código **não registra sucesso**, de propósito — uma linha por requisição encheria o log sem informar nada. Por isso a evidência positiva disponível é a **ausência** do aviso depois de um login numa tarefa já corrigida.
+
+**A verificação fechou em 18/09, e com a ressalva que a torna válida.** Feito um login contra a tarefa da revisão 111, o filtro por `borda declarada` devolveu lista vazia — e a mesma janela, **sem filtro**, devolveu **21 eventos**. A distinção importa: lista vazia sozinha é asserção sobre conjunto vazio e passa tanto quando a leitura está correta quanto quando log nenhum chegou. Com 21 eventos no intervalo, o canal estava fluindo, o caminho de autenticação foi exercitado, e o silêncio do aviso é silêncio de verdade.
+
+Isso tem o outro lado, e ele virou pendência própria (`pendencias-consolidadas.md` §4.9): como o Terraform **também** declara a mesma definição e o serviço aponta para ela sem `ignore_changes`, um `terraform apply` reverteria a versão da aplicação em produção. A divergência entre o declarado e o vivo não é desta onda, mas foi aqui que ela apareceu.
+
 ---
 
 ## 6. Pendências declaradas — o que a TI precisa responder
