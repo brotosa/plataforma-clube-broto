@@ -37,6 +37,15 @@ test.describe("RN59 — a ajuda abre na seção do módulo de origem", () => {
     { rota: "/assinantes", modulo: "Assinantes", secao: "j3", titulo: "4.3 Base de assinantes" },
     { rota: "/parametrizador", modulo: "Parametrizador", secao: "j6", titulo: "4.6 Configurar a plataforma" },
     { rota: "/usuarios", modulo: "Usuários", secao: "papeis", titulo: "5 Papéis e permissões" },
+    /*
+     * As duas telas da família de relatórios. Antes das seções 4.10 e 4.11
+     * elas estavam fora do `MAPA_AJUDA` inteiro — e o sintoma não era abrir
+     * na seção errada: era **perder a barra de volta**, porque
+     * `resolverOrigem` não casava com padrão nenhum. A última asserção do
+     * laço, que cobra a barra, é a que teria pegado isso.
+     */
+    { rota: "/relatorios", modulo: "Gerador de relatórios", secao: "j10", titulo: "4.10 Perguntar aos dados" },
+    { rota: "/paineis", modulo: "Painéis", secao: "j11", titulo: "4.11 Painéis" },
   ] as const;
 
   for (const { rota, modulo, secao, titulo } of percursos) {

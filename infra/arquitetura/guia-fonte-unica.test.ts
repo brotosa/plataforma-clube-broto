@@ -117,6 +117,16 @@ const SECOES_NASCIDAS_DEPOIS: ReadonlyArray<{ id: string; onda: string }> = [
   { id: "j7", onda: "Onda 12 · Patrocinadores (ficha §5)" },
   { id: "j8", onda: "Onda 12 · Telemetria da operadora (F20, ficha §5)" },
   { id: "j9", onda: "Onda 15 · Configurações do portal (ficha §4 e §6.1)" },
+  /*
+   * Cinco ondas, duas seções — e a agregação é deliberada.
+   *
+   * O Gerador (16), o desenho (17), a saída (20), a interatividade (19) e o
+   * painel (18) são a mesma família na mão de quem usa. Uma seção por onda
+   * daria cinco entradas no sumário para duas perguntas reais: como faço uma
+   * pergunta, e como guardo um conjunto delas lado a lado.
+   */
+  { id: "j10", onda: "Ondas 16, 17, 19 e 20 · Gerador de relatórios" },
+  { id: "j11", onda: "Onda 18 · Painel de relatórios" },
 ];
 
 /**

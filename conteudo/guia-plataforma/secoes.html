@@ -471,6 +471,104 @@
   </div>
 </section>
 
+<section class="gd-sec" id="j10">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.10</span> Perguntar aos dados</h2>
+  <p class="gd-lead">O <strong>Gerador de relatórios</strong> responde perguntas que nenhuma tela da plataforma responde sozinha. Ele não acrescenta dado nenhum: reorganiza o que já existe.</p>
+
+  <p>Começa pela escolha de um <strong>assunto</strong> — um recorte já modelado da base, com os campos que fazem sentido juntos. São nove: Ofertas do Clube, Rede de Aliados, Funil de prospecção, Campanhas e Cestas, Patrocinadores, os dois de Telemetria da operadora (contadores por oferta e extrato de resgates), Assinantes e Auditoria.</p>
+
+  <p>Escolhido o assunto, a montagem tem quatro gavetas:</p>
+  <ul>
+    <li><strong>Linhas</strong> e <strong>Colunas</strong> — por que critério agrupar. Uma linha por situação de oferta, uma coluna por UF.</li>
+    <li><strong>Valores</strong> — o que contar ou somar. A medida se escolhe sozinha pelo tipo do campo, e você pode trocá-la.</li>
+    <li><strong>Filtros</strong> — o recorte.</li>
+  </ul>
+  <p>Cada campo tem três botões — <strong>L</strong>, <strong>C</strong> e <strong>V</strong> — que o põem na gaveta correspondente. Arrastar também funciona, mas nada depende do arrasto: tudo se faz por teclado.</p>
+  <p>O resultado aparece enquanto você monta. Não há passo de "executar".</p>
+
+  <h3>Você alcança aqui o que já alcançava</h3>
+  <p>O Gerador <strong>não amplia permissão</strong>. Assunto que o seu papel não alcança não aparece na lista — e não aparece como "bloqueado", porque uma lista de coisas proibidas ensina o que existe do outro lado. Um relatório compartilhado com o time roda sempre com a permissão de <strong>quem abre</strong>, nunca com a de quem montou.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Dois assuntos pedem a finalidade</span>
+      <p>Assinantes e o extrato de resgates alcançam <strong>dado de pessoa</strong>. Neles, o resultado só sai depois que você escreve para que está consultando — e o texto declarado viaja com a consulta até a auditoria. Não é formalidade: é o que distingue um acesso com motivo de uma varredura.</p>
+      <p>Nos outros sete assuntos a finalidade não é pedida. Exigi-la onde não é necessária ensinaria a preenchê-la sem ler.</p>
+    </div>
+  </div>
+
+  <h3>Desenhar o resultado</h3>
+  <p>A tabela é o desenho padrão, e há mais seis: Barras, Colunas, Linha, Área, Rosca e Número. <strong>O tipo que não couber no formato do resultado fica apagado, com o motivo</strong> — Linha exige uma dimensão que tenha ordem, Rosca exige partes de um mesmo todo, Número exige um valor só. Gráfico errado não parece errado, e é por isso que a recusa é explícita em vez de silenciosa.</p>
+  <p>A tabela continua embaixo do desenho, sempre. É ela que se lê com leitor de tela, e é nela que estão os números exatos.</p>
+
+  <h3>Clicar no resultado</h3>
+  <p>Clicar numa linha da tabela <strong>filtra o relatório por aquele valor</strong> — é um atalho para o filtro que você montaria à mão, e ele aparece na gaveta de Filtros, de onde se tira do mesmo jeito.</p>
+  <p>Onde o assunto declara um caminho — UF e depois Município, categoria e depois solução —, aparece também o botão de <strong>descer para o nível seguinte</strong>, que troca a dimensão e leva o recorte junto. Onde não há caminho declarado, o botão simplesmente não aparece: descer por dedução funcionaria em "Sede" e produziria bobagem em "Oferta".</p>
+  <p>E <strong>Ver as linhas por trás</strong> abre os registros que formaram aquele número, sem tirar o agregado da tela.</p>
+
+  <div class="gd-bloco gd-atencao">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"></path></svg>
+    <div>
+      <span class="gd-rot">Quando o detalhe traz mais linhas que o número dizia</span>
+      <p>Em alguns assuntos um mesmo registro aparece em mais de uma linha do detalhe — uma aliada com duas categorias sai duas vezes. O agregado conta <strong>aliadas</strong>; o detalhe lista <strong>linhas</strong>. Quando os dois números diferem, a tela diz os dois e explica a diferença. Nem um nem outro está errado: eles respondem perguntas diferentes.</p>
+      <p>Alguns cliques não abrem, e a tela diz por quê. Em campo de <strong>data</strong>, porque o filtro recorta o dia inteiro e a célula pode ser um instante dentro dele — o número voltaria diferente do que você clicou. Numa <strong>lacuna</strong>, porque nem todo campo sabe distinguir "sem valor" de "texto vazio", e filtrar pelo segundo seria outra pergunta com a mesma aparência.</p>
+    </div>
+  </div>
+
+  <h3>Guardar e levar embora</h3>
+  <p>Um relatório montado pode ser <strong>salvo</strong> — só para você, ou para o time — e reaberto já montado. Também pode sair da plataforma em quatro formatos: <strong>CSV</strong> e <strong>Planilha (XLSX)</strong> para quem vai continuar trabalhando o dado, <strong>Abrir para impressão</strong> para quem vai ler ou imprimir, e <strong>Copiar</strong>, que leva o resultado para a área de transferência.</p>
+  <p>Copiar conta como saída de dado pela mesma razão que o arquivo conta: o que saiu, saiu. Toda saída fica registrada, com o formato.</p>
+  <p>Não há geração de PDF na plataforma. <em>Abrir para impressão</em> entrega uma página já calibrada, e o "Salvar como PDF" do seu navegador faz o resto — com a vantagem de você escolher o tamanho do papel.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">Há um teto, e ele avisa</span>
+      <p>A prévia e as saídas para leitura param em <strong>5.000 linhas</strong>; CSV e planilha vão até <strong>50.000</strong>. Quando o corte acontece, ele é dito na tela e dentro do próprio arquivo — um resultado truncado em silêncio é pior que nenhum, porque parece completo.</p>
+    </div>
+  </div>
+</section>
+
+<section class="gd-sec" id="j11">
+  <div class="gd-sec-grupo">Como usar</div>
+  <h2><span class="gd-num">4.11</span> Painéis</h2>
+  <p class="gd-lead">Um painel é um conjunto de relatórios lado a lado, numa página que se abre de uma vez — para as perguntas que você faz sempre juntas, toda segunda-feira.</p>
+
+  <div class="gd-bloco gd-nota">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v8"></path><path d="m8.5 14 7-4"></path><path d="m8.5 10 7 4"></path><circle cx="12" cy="12" r="10"></circle></svg>
+    <div>
+      <span class="gd-rot">O painel não é o Dashboard</span>
+      <p>A tela inicial é da instituição: cada número dela é definido em especificação validada, e acrescentar um é decisão de quem dirige o Clube. O painel é <strong>seu</strong>, ou do seu time, e só recompõe relatórios que você já podia executar. Um não substitui o outro, e o painel não é atalho para pôr número novo na tela inicial.</p>
+    </div>
+  </div>
+
+  <h3>Montar</h3>
+  <p>Painéis não se montam na tela de Painéis: montam-se no Gerador. Com o relatório pronto, o botão <strong>Pôr no painel</strong> o guarda — num painel novo, ou num painel seu que já exista, escolhido ao lado do botão.</p>
+  <p>O bloco leva uma <strong>cópia</strong> da definição do relatório. Mudar o relatório depois não muda o bloco, e é assim de propósito: com referência, editar um relatório mudaria calado todo painel que o usasse, inclusive de outras pessoas.</p>
+
+  <h3>Editar</h3>
+  <p>Dentro do painel, <em>editar este painel</em> abre o modo de edição — só para quem o criou, mesmo num painel do time. Ali se muda a ordem dos blocos, a largura de cada um (metade da página ou inteira), o nome, quem vê e o filtro; e se remove bloco.</p>
+  <p>Remover um bloco <strong>não apaga o relatório</strong>: ele sai daquele painel e continua onde estava. O painel comporta até <strong>doze blocos</strong>, e pode ficar sem nenhum — trocar todos é caso legítimo, e obrigar a apagar o painel para isso faria perder o nome, a visibilidade e o filtro.</p>
+  <p>Cada mudança é gravada na hora, com registro na auditoria. Não há botão de salvar no fim, e não há trabalho a perder se a aba fechar.</p>
+
+  <h3>O filtro do painel</h3>
+  <p>O filtro atravessa os blocos por <strong>eixo</strong>, e há dois: <strong>Período</strong> e <strong>UF</strong>. Cada assunto declara qual campo seu responde a cada eixo — e o assunto que não declara um eixo <strong>não é filtrado por ele, e o bloco diz isso</strong>.</p>
+  <p>Esse aviso é a parte mais importante do filtro. Dois blocos lado a lado, um filtrado e outro não, parecem responder à mesma pergunta: quem olha compara os números e tira uma conclusão que nenhum dos dois sustenta.</p>
+
+  <div class="gd-bloco gd-atencao">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"></path></svg>
+    <div>
+      <span class="gd-rot">Dois blocos que não carregam sozinhos</span>
+      <p>Num painel do time pode haver bloco de assunto que <strong>você não alcança</strong>. Ele recusa sozinho, com o motivo, e os demais carregam normalmente — o painel não some e não falha inteiro.</p>
+      <p>E bloco de <strong>dado de pessoa</strong> nunca carrega ao abrir: ele pede a finalidade ali, naquele bloco, a cada vez. Pedi-la uma vez na porta do painel a transformaria em cerimônia de entrada repetida sem leitura — e, num painel compartilhado, faria você declarar finalidade para a pergunta de outra pessoa.</p>
+    </div>
+  </div>
+
+  <p>Na galeria, <strong>Apagar</strong> desfaz o painel. Some a montagem; os relatórios que ele mostrava continuam onde estavam, e o ato fica na auditoria.</p>
+</section>
+
 <section class="gd-sec" id="papeis">
   <div class="gd-sec-grupo">Referência</div>
   <h2><span class="gd-num">5</span> Papéis e permissões</h2>

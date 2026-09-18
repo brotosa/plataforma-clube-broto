@@ -11,11 +11,21 @@
  * a pediu na ficha §5; a décima quarta — **4.8 · Telemetria da
  * operadora** — com a F20 da mesma onda; e a décima quinta — **4.9 ·
  * Configurações do portal** — com a Onda 15, cuja ficha §6.1 registrava
- * justamente a falta dela. O documento de referência é da Onda 9 e não
- * contém nenhuma das três: os textos foram redigidos aqui, na voz do
- * guia, e continuam com fonte ÚNICA (`secoes.html`), como a RN58 exige. A
- * revisão editorial deles é trabalho de quem cuida do guia, não do código
- * — e são as três únicas entradas nesta lista cujo texto não veio pronto.
+ * justamente a falta dela.
+ *
+ * A décima sexta e a décima sétima — **4.10 · Perguntar aos dados** e
+ * **4.11 · Painéis** — cobrem a família de relatórios inteira: o Gerador
+ * (Onda 16), o desenho (Onda 17), a saída (Onda 20), a interatividade
+ * (Onda 19) e o painel (Onda 18). **Cinco ondas, duas seções**, e não uma
+ * por onda: quem abre o guia quer saber como perguntar aos dados, não em
+ * que ordem a plataforma aprendeu a responder. A divisão é por jornada —
+ * fazer uma pergunta, e guardar um conjunto delas lado a lado.
+ *
+ * O documento de referência é da Onda 9 e não contém nenhuma das cinco: os
+ * textos foram redigidos aqui, na voz do guia, e continuam com fonte ÚNICA
+ * (`secoes.html`), como a RN58 exige. A revisão editorial deles é trabalho
+ * de quem cuida do guia, não do código — e são as cinco únicas entradas
+ * desta lista cujo texto não veio pronto.
  *
  * Este é o **único** lugar onde o sumário existe: a rota e o documento
  * autônomo montam o índice a partir daqui, e nenhum dos dois guarda uma
@@ -45,6 +55,8 @@ export const INDICE_DO_GUIA: ReadonlyArray<EntradaDoIndice> = [
   { grupo: "Como usar", id: "j7", rotulo: "4.7 · Patrocinadores" },
   { grupo: "Como usar", id: "j8", rotulo: "4.8 · Telemetria da operadora" },
   { grupo: "Como usar", id: "j9", rotulo: "4.9 · Configurações do portal" },
+  { grupo: "Como usar", id: "j10", rotulo: "4.10 · Perguntar aos dados" },
+  { grupo: "Como usar", id: "j11", rotulo: "4.11 · Painéis" },
   { grupo: "Referência", id: "papeis", rotulo: "5 · Papéis e permissões" },
   { grupo: "Referência", id: "faltam", rotulo: "6 · Por que alguns números não aparecem" },
   { grupo: "Referência", id: "glossario", rotulo: "7 · Glossário" },

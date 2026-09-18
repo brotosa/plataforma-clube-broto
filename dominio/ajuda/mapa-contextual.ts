@@ -92,6 +92,30 @@ export const MAPA_AJUDA: ReadonlyArray<ModuloDeAjuda> = [
    * própria — e a pendência §6.1 da ficha da Onda 15 se fecha.
    */
   { padrao: "/configuracoes", rotulo: "Configurações", secao: "j9" },
+  /**
+   * Gerador de relatórios → 4.10 · Painéis → 4.11.
+   *
+   * **As duas telas estavam fora do mapa inteiro**, e não apontando para a
+   * abertura: sem entrada, `resolverOrigem` devolve nulo e a barra de volta
+   * some — o mesmo defeito que a Onda 15 corrigiu em `/configuracoes`, e
+   * pela mesma causa (módulo entregue depois do mapa, sem passar por aqui).
+   *
+   * São dois módulos e duas seções, embora a família de relatórios tenha
+   * nascido de cinco ondas: o guia agrega por jornada, não por onda.
+   */
+  { padrao: "/relatorios", rotulo: "Gerador de relatórios", secao: "j10" },
+  { padrao: "/paineis", rotulo: "Painéis", secao: "j11" },
+  /**
+   * Busca e Manual — o mesmo caso da carga inicial: módulo conhecido, seção
+   * não atribuída, abre na abertura (RN59).
+   *
+   * Estavam fora do mapa pela mesma razão que o Gerador e os Painéis, e com
+   * a mesma consequência: sem barra de volta. O guia não tem seção sobre
+   * nenhum dos dois — a Busca não é jornada, e o Manual já É documentação —,
+   * e inventar destino seria pior que a abertura honesta.
+   */
+  { padrao: "/busca", rotulo: "Busca", secao: SECAO_DE_ABERTURA },
+  { padrao: "/manual", rotulo: "Manual do usuário", secao: SECAO_DE_ABERTURA },
 ];
 
 /**
