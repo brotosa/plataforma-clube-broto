@@ -15,6 +15,7 @@ import {
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
 import { ROTULOS_DE_FORMATO, type FormatoDeSaida } from "@/dominio/relatorios/saida";
+import { salvarPainelAction } from "../paineis/acoes";
 import {
   AJUSTES_DO_TIPO,
   ROTULOS_DE_VISUALIZACAO,
@@ -165,6 +166,7 @@ export function Construtor({
   const [aviso, setAviso] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [guardandoNoPainel, setGuardandoNoPainel] = useState(false);
   /** O TSV quando o navegador recusa a área de transferência (ficha §7.2). */
   const [textoParaCopiar, setTextoParaCopiar] = useState<string | null>(null);
   /*
@@ -313,6 +315,40 @@ export function Construtor({
         ? `Relatório "${nome}" salvo em ${visibilidade === "TIME" ? "Do time" : "Meus relatórios"}.`
         : (resposta.erro ?? "Não foi possível salvar."),
     );
+  }
+
+  /**
+   * Põe o relatório montado num painel novo, com um bloco só.
+   *
+   * Painel novo e não "escolha um existente", nesta fase: acrescentar a um
+   * painel já salvo exige reordenar blocos e decidir largura, que é a tela
+   * de edição do painel — e ela não existe na F30. Um painel de um bloco é
+   * imediatamente útil e não bloqueia nada.
+   */
+  async function aoPorNoPainel() {
+    setAviso(null);
+    setGuardandoNoPainel(true);
+    try {
+      const titulo = nome.trim() || assunto.rotulo;
+      const resposta = await salvarPainelAction({
+        nome: titulo,
+        blocos: [
+          {
+            titulo,
+            definicao,
+            visualizacao: visual,
+            largura: "METADE",
+          },
+        ],
+      });
+      setAviso(
+        resposta.ok
+          ? `Painel "${titulo}" criado com este relatório. A definição foi COPIADA — mudar o relatório depois não muda o bloco.`
+          : (resposta.erro ?? "Não foi possível criar o painel."),
+      );
+    } finally {
+      setGuardandoNoPainel(false);
+    }
   }
 
   /**
@@ -706,6 +742,23 @@ export function Construtor({
                 disabled={vazio || nome.trim().length < 3}
               >
                 Salvar
+              </button>
+              {/*
+                * "Pôr no painel" — a entrada da Onda 18 na T36.
+                *
+                * COPIA a definição, e o aviso diz isso. Referenciar o
+                * relatório faria editá-lo mudar calado todo painel que o usa,
+                * inclusive de outras pessoas; e um painel do time que
+                * apontasse para relatório privado do autor quebraria para
+                * todos os demais (ficha da Onda 18 §2).
+                */}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-xs"
+                onClick={aoPorNoPainel}
+                disabled={vazio || guardandoNoPainel}
+              >
+                {guardandoNoPainel ? "Guardando…" : "Pôr no painel"}
               </button>
               <MenuDeSaida
                 aberto={menuAberto}
