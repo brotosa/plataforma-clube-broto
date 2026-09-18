@@ -4,7 +4,9 @@ import { prisma } from "@/infra/prisma/cliente";
 import {
   type ColunaProjetada,
   type DefinicaoRelatorio,
+  TETO_DETALHE,
   TETO_LINHAS_PADRAO,
+  compilarDetalhe,
   compilarRelatorio,
 } from "@/dominio/relatorios/compilador";
 import type { Celula, LinhaCrua } from "@/dominio/relatorios/pivo";
@@ -95,4 +97,63 @@ export async function executarConsultaDeRelatorio(
   });
 
   return { projecao: compilado.projecao, linhas, truncado, teto, duracaoMs };
+}
+
+/**
+ * RN93 — a consulta do **detalhe**: os registros por trás do agregado.
+ *
+ * Duas idas ao banco, de propósito. A primeira traz as linhas; a segunda
+ * conta **linhas e registros distintos** sobre o mesmo recorte, sem teto —
+ * porque é justamente a diferença entre os dois números que a tela precisa
+ * declarar quando houver junção que multiplica. Resolver as duas numa só, com
+ * função de janela, economizaria uma viagem e esconderia a intenção; e a
+ * contagem sem teto é barata perto da leitura das colunas.
+ *
+ * Como esta camada, ela não decide nada — não confere permissão, não grava
+ * trilha, não escolhe teto.
+ */
+export interface ResultadoDoDetalhe extends ResultadoDaConsulta {
+  /** Quantas linhas o recorte tem no banco, ignorando o teto. */
+  linhasNoBanco: number;
+  /** Quantos REGISTROS do assunto essas linhas representam. */
+  registros: number;
+}
+
+export async function executarConsultaDeDetalhe(
+  definicao: DefinicaoRelatorio,
+  opcoes: { teto?: number } = {},
+): Promise<ResultadoDoDetalhe> {
+  const teto = opcoes.teto ?? TETO_DETALHE;
+  const { compilado, sqlDeContagem, parametrosDaContagem } = compilarDetalhe(definicao, { teto });
+
+  const comecou = Date.now();
+  const [cruas, contagem] = await Promise.all([
+    prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(compilado.sql, ...compilado.parametros),
+    prisma.$queryRawUnsafe<Array<{ linhas: number; registros: number }>>(
+      sqlDeContagem,
+      ...parametrosDaContagem,
+    ),
+  ]);
+  const duracaoMs = Date.now() - comecou;
+
+  const truncado = cruas.length > teto;
+  const aproveitadas = truncado ? cruas.slice(0, teto) : cruas;
+  const linhas: LinhaCrua[] = aproveitadas.map((crua) => {
+    const linha: Record<string, Celula> = {};
+    compilado.projecao.forEach((coluna) => {
+      linha[coluna.chave] = normalizarCelula(crua[coluna.chave]);
+    });
+    return linha;
+  });
+
+  const primeira = contagem[0];
+  return {
+    projecao: compilado.projecao,
+    linhas,
+    truncado,
+    teto,
+    duracaoMs,
+    linhasNoBanco: primeira?.linhas ?? linhas.length,
+    registros: primeira?.registros ?? linhas.length,
+  };
 }

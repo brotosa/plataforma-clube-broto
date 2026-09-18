@@ -229,16 +229,39 @@ describe("RN75 — o SQL é montado do catálogo e executado de uma variável", 
     const fonte = semComentarios(lerArquivo(ARQUIVO_CONSULTA));
     const chamadas = primeirosArgumentosDeSqlCru(fonte);
 
-    expect(chamadas.length, "nenhuma execução encontrada — a cerca ficou cega").toBe(1);
+    /*
+     * Os nomes que o COMPILADOR produz — e a lista é a regra, não uma
+     * conveniência: o primeiro argumento do SQL cru tem de ser um deles.
+     *
+     * Eram um só até a F34. O detalhe da RN93 acrescentou dois caminhos de
+     * execução (as linhas e a contagem de linhas × registros), e os dois
+     * recebem texto que saiu de `compilarDetalhe`. A cerca cresceu para
+     * abranger o nome novo **sem** afrouxar o que ela pede: continua sendo
+     * proibido passar literal de template ou concatenação.
+     */
+    const NOMES_QUE_O_COMPILADOR_PRODUZ = ["compilado.sql", "sqlDeContagem"];
+
+    expect(chamadas.length, "nenhuma execução encontrada — a cerca ficou cega").toBeGreaterThanOrEqual(
+      3,
+    );
+
+    /*
+     * Anti-cegueira em pares com a de cima: o `forEach` abaixo passaria com
+     * qualquer subconjunto, então o conjunto EXATO de nomes é afirmado aqui.
+     * Caminho de execução novo com variável de outro nome reprova, mesmo que
+     * essa variável seja legítima — e reprovar obriga a decidir aqui, que é
+     * o lugar onde a decisão fica registrada.
+     */
+    expect([...new Set(chamadas)].sort()).toEqual([...NOMES_QUE_O_COMPILADOR_PRODUZ].sort());
 
     chamadas.forEach((primeiroArgumento) => {
       expect(
         primeiroArgumento,
-        "o primeiro argumento do SQL cru precisa ser a variável que o compilador produziu " +
-          "(`compilado.sql`). Literal de template ou concatenação ali é exatamente o " +
-          "caminho que a RN75 fecha — e a leitura comportamental acima não o veria, " +
-          "porque ele nem passaria pelo compilador.",
-      ).toBe("compilado.sql");
+        "o primeiro argumento do SQL cru precisa ser uma variável que o compilador produziu " +
+          `(${NOMES_QUE_O_COMPILADOR_PRODUZ.join(" ou ")}). Literal de template ou ` +
+          "concatenação ali é exatamente o caminho que a RN75 fecha — e a leitura " +
+          "comportamental acima não o veria, porque ele nem passaria pelo compilador.",
+      ).toBeOneOf(NOMES_QUE_O_COMPILADOR_PRODUZ);
     });
   });
 

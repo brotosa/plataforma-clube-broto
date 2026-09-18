@@ -9,6 +9,7 @@ import { LINHAS_DA_PREVIA } from "@/dominio/relatorios/compilador";
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import {
   apagarRelatorio,
+  executarDetalheDoRelatorio,
   executarRelatorio,
   renomearOuCompartilharRelatorio,
   salvarRelatorio,
@@ -133,6 +134,45 @@ export async function apagarRelatorioAction(id: string): Promise<RespostaDeAcao>
     await apagarRelatorio(ator, id);
     revalidatePath("/relatorios");
     return { ok: true };
+  } catch (erro) {
+    return { ok: false, erro: mensagensDeFalha(erro, OPCOES_DE_FALHA).join(" ") };
+  }
+}
+
+/**
+ * RN93 — as linhas por trás do número.
+ *
+ * Roda o **detalhe**: mesma definição, mesmos filtros, sem agregação. O que
+ * volta traz as duas contagens, porque é a diferença entre elas que a tela
+ * precisa declarar quando houver junção que multiplica.
+ */
+export interface RespostaDoDetalhe {
+  ok: boolean;
+  erro?: string;
+  tabela?: TabelaPivotada;
+  total?: number;
+  truncado?: boolean;
+  linhasNoBanco?: number;
+  registros?: number;
+  linhasRepetemRegistros?: boolean;
+}
+
+export async function abrirDetalheDoRelatorio(
+  definicao: unknown,
+  finalidade?: string,
+): Promise<RespostaDoDetalhe> {
+  try {
+    const ator = await atorDaSessao();
+    const resultado = await executarDetalheDoRelatorio(ator, definicao, { finalidade });
+    return {
+      ok: true,
+      tabela: resultado.tabela,
+      total: resultado.total,
+      truncado: resultado.truncado,
+      linhasNoBanco: resultado.linhasNoBanco,
+      registros: resultado.registros,
+      linhasRepetemRegistros: resultado.linhasRepetemRegistros,
+    };
   } catch (erro) {
     return { ok: false, erro: mensagensDeFalha(erro, OPCOES_DE_FALHA).join(" ") };
   }

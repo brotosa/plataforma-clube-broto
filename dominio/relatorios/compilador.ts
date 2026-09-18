@@ -773,3 +773,145 @@ export function resumirDefinicao(definicao: DefinicaoRelatorio): string {
   }
   return partes.join(" · ");
 }
+
+// ---------------------------------------------------------------------
+// RN93 — "ver as linhas por trás": a segunda consulta, sem agregação
+// ---------------------------------------------------------------------
+
+/**
+ * Quantas colunas o detalhe mostra.
+ *
+ * As **primeiras** do assunto, na ordem em que o catálogo as declara — e a
+ * ordem não é arbitrária: em todos os nove assuntos o primeiro campo é o que
+ * identifica o registro (`oferta-titulo`, `aliado-nome`, `patrocinador-razao-social`,
+ * `au-data`…). Quem escreveu o catálogo já tomou essa decisão, e derivá-la é
+ * melhor do que eu escrever uma segunda lista que envelheceria em paralelo.
+ *
+ * Oito porque a tabela do detalhe convive com o resultado agregado na mesma
+ * tela: mais que isso rola na horizontal e deixa de ser conferência de relance.
+ * Assunto que precise de um recorte diferente é o dia em que uma declaração
+ * própria passa a valer a pena — hoje ela seria cerimônia sem ganho.
+ */
+export const COLUNAS_DO_DETALHE = 8;
+
+/** Teto de linhas do detalhe. Menor que o do agregado, e de propósito. */
+export const TETO_DETALHE = 200;
+
+/**
+ * Compila o **detalhe**: os registros por trás do resultado agregado.
+ *
+ * Mesmo `FROM`, mesmo `WHERE`, **sem `GROUP BY` e sem agregação**. Não é o
+ * pivô sem o agrupamento: é outra consulta, e a ficha da Onda 19 §3 explica
+ * por que ela é fase própria.
+ *
+ * ## A contagem vem junto, e é ela que honra a RN93(a)
+ *
+ * Cinco dos nove assuntos têm junção que **multiplica a linha da raiz**. O
+ * agregado já sabe disso — `QUANTOS` compila para `count(DISTINCT raiz.id)`,
+ * exatamente para ser imune à repetição. O detalhe **não** pode se dar a esse
+ * luxo: se ele desduplicasse, uma aliada com três soluções mostraria uma
+ * solução só, e as outras duas sumiriam sem aviso. Então ele mostra as três
+ * linhas **e devolve as duas contagens**, para a tela poder dizer "30 linhas,
+ * 12 aliados". Uma célula de "12" abrindo em 30 linhas sem explicação é a
+ * forma mais direta de destruir a confiança no módulo.
+ *
+ * ## O identificador da raiz NÃO é projetado
+ *
+ * Ele entra só no `count(DISTINCT …)`, do lado do servidor. Identificador
+ * interno na interface é o que a RN55 proíbe, e o detalhe não precisa dele
+ * para nada que a pessoa vá ler.
+ */
+export function compilarDetalhe(
+  definicao: DefinicaoRelatorio,
+  opcoes: { teto?: number } = {},
+): { compilado: RelatorioCompilado; sqlDeContagem: string; parametrosDaContagem: Array<string | number> } {
+  const assunto = assuntoPorSlug(definicao.assunto);
+  if (!assunto) {
+    throw new ErroDeRelatorioInvalido([`O assunto "${definicao.assunto}" não existe.`]);
+  }
+
+  const colunas = assunto.campos
+    .filter((campo) => !campo.indisponivel)
+    .slice(0, COLUNAS_DO_DETALHE);
+  if (colunas.length === 0) {
+    throw new ErroDeRelatorioInvalido([
+      `O assunto "${assunto.rotulo}" não tem campo disponível para detalhar.`,
+    ]);
+  }
+
+  const necessarias = new Set<string>();
+  colunas.forEach((campo) => (campo.requer ?? []).forEach((chave) => necessarias.add(chave)));
+  definicao.filtros.forEach((filtro) => {
+    const campo = campoPorSlug(assunto, filtro.campo);
+    (campo?.requer ?? []).forEach((chave) => necessarias.add(chave));
+  });
+
+  /*
+   * O filtro obrigatório vale IDÊNTICO aqui — e com mais razão, não menos.
+   * O teto limita o que volta; só o filtro limita o que o banco visita, e um
+   * detalhe de Auditoria sem recorte de período varre a trilha inteira.
+   */
+  const OPERADORES_QUE_NAO_RECORTAM: ReadonlyArray<OperadorRelatorio> = ["vazio", "preenchido"];
+  const faltantes = assunto.campos
+    .filter((campo) => campo.filtroObrigatorio)
+    .filter(
+      (campo) =>
+        !definicao.filtros.some(
+          (filtro) =>
+            filtro.campo === campo.slug && !OPERADORES_QUE_NAO_RECORTAM.includes(filtro.operador),
+        ),
+    );
+  if (faltantes.length > 0) {
+    throw new ErroDeRelatorioInvalido(
+      faltantes.map((campo) => `${campo.rotulo}: ${campo.filtroObrigatorio}`),
+    );
+  }
+
+  const parametros: Array<string | number> = [];
+  const selecionados: string[] = [];
+  const projecao: ColunaProjetada[] = [];
+
+  colunas.forEach((campo, indice) => {
+    const chave = `d${indice}`;
+    selecionados.push(`${campo.sql} AS ${chave}`);
+    projecao.push({
+      chave,
+      rotulo: campo.rotulo,
+      papel: "LINHA",
+      campo: campo.slug,
+      tipo: campo.tipo,
+      ...(campo.valores
+        ? {
+            rotulosDeValor: Object.fromEntries(
+              campo.valores.map((opcao) => [opcao.valor, opcao.rotulo]),
+            ),
+          }
+        : {}),
+    });
+  });
+
+  const condicoes = definicao.filtros.map((filtro) => compilarFiltro(assunto, filtro, parametros));
+  const onde = condicoes.length > 0 ? ` WHERE ${condicoes.map((c) => `(${c})`).join(" AND ")}` : "";
+  const de = ` FROM ${montarFrom(assunto, necessarias)}`;
+
+  // A contagem usa os MESMOS parâmetros do recorte, e nada além: ela precisa
+  // responder sobre exatamente as linhas que o detalhe mostraria sem o teto.
+  const parametrosDaContagem = [...parametros];
+  const sqlDeContagem =
+    `SELECT count(*)::int AS linhas, count(DISTINCT ${assunto.raiz.alias}.id)::int AS registros` +
+    de +
+    onde;
+
+  const teto = Math.min(Math.max(1, Math.trunc(opcoes.teto ?? TETO_DETALHE)), TETO_LINHAS_MAXIMO);
+  const limite = teto + 1;
+  parametros.push(limite);
+
+  const sql =
+    `SELECT ${selecionados.join(", ")}` +
+    de +
+    onde +
+    ` ORDER BY 1 ASC NULLS LAST` +
+    ` LIMIT $${parametros.length}`;
+
+  return { compilado: { sql, parametros, projecao, limite }, sqlDeContagem, parametrosDaContagem };
+}

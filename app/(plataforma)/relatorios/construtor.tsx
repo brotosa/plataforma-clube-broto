@@ -35,6 +35,7 @@ import {
   rotuloDaDescida,
 } from "@/dominio/relatorios/interacao";
 import { GraficoDoRelatorio } from "./grafico";
+import { type RespostaDoDetalhe, abrirDetalheDoRelatorio } from "./acoes";
 import { ErrosDoFormulario } from "../aliados/formularios";
 import {
   apagarRelatorioAction,
@@ -181,7 +182,13 @@ export function Construtor({
    * existe: filtro que se acumula sem aparecer é como se perde a noção do
    * recorte que se tem na frente.
    */
+  /*
+   * Toda mudança de definição FECHA o detalhe. Um detalhe aberto sobre o
+   * recorte anterior descreveria outro número — e ficaria parecido o
+   * bastante com o certo para ninguém desconfiar.
+   */
   const aoClicarNaDimensao = (campoSlug: string, valor: Celula) => {
+    setDetalhe(null);
     const resultado = filtroDoClique(assunto.campos, campoSlug, valor);
     if (!resultado.pode) {
       setAvisoDoClique(resultado.motivo);
@@ -207,6 +214,7 @@ export function Construtor({
    * Linhas mudaria a cada descida e a tabela pareceria outra.
    */
   const aoDescerNivel = (campoSlug: string, valor: Celula) => {
+    setDetalhe(null);
     const descida = descidaDoClique(assunto.campos, assunto.hierarquias, campoSlug, valor);
     if (!descida.pode) {
       setAvisoDoClique(descida.motivo);
@@ -223,6 +231,24 @@ export function Construtor({
         : [...atual, { ...descida.filtro, valores: [...descida.filtro.valores] }],
     );
     setAvisoDoClique(null);
+  };
+
+  /**
+   * RN93 — as linhas por trás do número.
+   *
+   * Abre ABAIXO do resultado, e não no lugar dele: perder o agregado de vista
+   * tira justamente a referência contra a qual se está conferindo.
+   */
+  const [detalhe, setDetalhe] = useState<RespostaDoDetalhe | null>(null);
+  const [abrindoDetalhe, setAbrindoDetalhe] = useState(false);
+
+  const aoAbrirDetalhe = async () => {
+    setAbrindoDetalhe(true);
+    try {
+      setDetalhe(await abrirDetalheDoRelatorio(definicao, finalidade || undefined));
+    } finally {
+      setAbrindoDetalhe(false);
+    }
   };
 
   const [previa, setPrevia] = useState<{
@@ -920,6 +946,20 @@ export function Construtor({
               aoClicarNaDimensao={aoClicarNaDimensao}
               aoDescerNivel={aoDescerNivel}
               avisoDoClique={avisoDoClique}
+              detalhe={detalhe}
+              abrindoDetalhe={abrindoDetalhe}
+              aoAbrirDetalhe={aoAbrirDetalhe}
+              detalheDisponivel={
+                assunto.contemDadoPessoal
+                  ? {
+                      pode: false,
+                      motivo:
+                        `"${assunto.rotulo}" alcança dado pessoal, e as linhas por trás do número ` +
+                        `seriam pessoas identificáveis. Abrir o detalhe deste assunto depende de ` +
+                        `decisão da Superintendência.`,
+                    }
+                  : { pode: true }
+              }
             />
           </div>
         </section>
@@ -1132,6 +1172,10 @@ function Resultado({
   aoClicarNaDimensao,
   aoDescerNivel,
   avisoDoClique,
+  detalhe,
+  abrindoDetalhe,
+  aoAbrirDetalhe,
+  detalheDisponivel,
 }: {
   previa: {
     carregando: boolean;
@@ -1152,6 +1196,11 @@ function Resultado({
   aoDescerNivel: (campoSlug: string, valor: Celula) => void;
   /** O que o último clique respondeu: recusa, ou o filtro que entrou. */
   avisoDoClique: string | null;
+  /** RN93 — o detalhe, quando aberto. */
+  detalhe: RespostaDoDetalhe | null;
+  abrindoDetalhe: boolean;
+  aoAbrirDetalhe: () => void;
+  detalheDisponivel: { pode: boolean; motivo?: string };
 }) {
   if (vazio) {
     return (
@@ -1357,7 +1406,129 @@ function Resultado({
           : `${previa.total} linha${previa.total === 1 ? "" : "s"} nesta amostra.`}
         {previa.duracaoMs !== undefined ? ` Consulta em ${previa.duracaoMs} ms.` : ""}
       </p>
+
+      <Detalhe
+        detalhe={detalhe}
+        abrindo={abrindoDetalhe}
+        aoAbrir={aoAbrirDetalhe}
+        disponivel={detalheDisponivel}
+      />
     </>
+  );
+}
+
+/**
+ * RN93 — as linhas por trás do número.
+ *
+ * ## Abre ABAIXO, nunca no lugar
+ *
+ * Perder o agregado de vista tira justamente a referência contra a qual se
+ * está conferindo. Quem abriu o detalhe quer comparar, não trocar de tela.
+ *
+ * ## A divergência entre linhas e registros é DITA, não deixada para deduzir
+ *
+ * Cinco dos nove assuntos têm junção que multiplica a linha da raiz, e o
+ * agregado conta pela identidade do assunto enquanto o detalhe não. Uma
+ * célula de "12 aliados" abrindo em 30 linhas **sem explicação** é a forma
+ * mais direta de destruir a confiança no módulo inteiro — então, quando os
+ * números divergem, a tela diz os dois e o porquê.
+ */
+function Detalhe({
+  detalhe,
+  abrindo,
+  aoAbrir,
+  disponivel,
+}: {
+  detalhe: RespostaDoDetalhe | null;
+  abrindo: boolean;
+  aoAbrir: () => void;
+  disponivel: { pode: boolean; motivo?: string };
+}) {
+  /*
+   * Onde o detalhe não está disponível, o BOTÃO não aparece — mas o motivo,
+   * sim. Sumir com os dois faria quem procura o recurso concluir que ele não
+   * existe; mostrar um botão que sempre recusa é pior ainda.
+   */
+  if (!disponivel.pode) {
+    return (
+      <p className="rel-clique-aviso" style={{ margin: "12px 0 0" }} role="note">
+        {disponivel.motivo}
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button type="button" className="btn btn-sm" onClick={aoAbrir} disabled={abrindo}>
+        {abrindo ? "Abrindo…" : detalhe ? "Atualizar as linhas por trás" : "Ver as linhas por trás"}
+      </button>
+
+      {detalhe && !detalhe.ok ? (
+        <p className="rel-clique-aviso" style={{ marginTop: 10 }} role="status">
+          {detalhe.erro}
+        </p>
+      ) : null}
+
+      {detalhe?.ok && detalhe.tabela ? (
+        <>
+          {/*
+            A declaração da RN93(a). Fica ACIMA da tabela: abaixo, chegaria
+            depois de a pessoa já ter contado as linhas e concluído que o
+            agregado estava errado.
+          */}
+          {detalhe.linhasRepetemRegistros ? (
+            <p className="rel-clique-aviso" style={{ marginTop: 10 }} role="note">
+              <strong>
+                {detalhe.linhasNoBanco} linhas para {detalhe.registros} registros.
+              </strong>{" "}
+              Este recorte passa por uma ligação que repete o registro — um mesmo registro aparece
+              em mais de uma linha. O número do resultado acima conta registros, não linhas.
+            </p>
+          ) : null}
+
+          <div
+            className="rel-resultado"
+            style={{ marginTop: 10 }}
+            tabIndex={0}
+            role="region"
+            aria-label="As linhas por trás do resultado — role para ver as demais"
+          >
+            <table>
+              <caption className="sr-oculto">
+                Registros por trás do resultado agregado, com os mesmos filtros
+              </caption>
+              <thead>
+                <tr>
+                  {detalhe.tabela.dimensoes.map((dimensao) => (
+                    <th key={dimensao.chave} scope="col">
+                      {dimensao.rotulo}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {detalhe.tabela.linhas.map((linha, indice) => (
+                  <tr key={indice}>
+                    {linha.chaves.map((chave, posicao) => (
+                      <td key={posicao} className={chave === null ? "rel-vazia" : undefined}>
+                        {rotularDimensao(chave, detalhe.tabela!.dimensoes[posicao]?.rotulosDeValor)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="cap" style={{ marginTop: 8 }}>
+            {detalhe.truncado
+              ? `Mostrando ${detalhe.total} de ${detalhe.linhasNoBanco} linhas — o detalhe tem teto próprio, menor que o do resultado.`
+              : `${detalhe.total} linha${detalhe.total === 1 ? "" : "s"}.`}{" "}
+            O detalhe não sai em arquivo nesta versão.
+          </p>
+        </>
+      ) : null}
+    </div>
   );
 }
 

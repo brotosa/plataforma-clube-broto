@@ -25,7 +25,7 @@ import {
   nomeDoArquivo,
 } from "@/dominio/relatorios/saida";
 import { type Visualizacao, validarVisualizacao } from "@/dominio/relatorios/visualizacao";
-import { executarConsultaDeRelatorio } from "@/infra/consultas/relatorios";
+import { executarConsultaDeDetalhe, executarConsultaDeRelatorio } from "@/infra/consultas/relatorios";
 import { type Ator, ErroDeValidacao } from "./contexto";
 
 /**
@@ -640,5 +640,136 @@ export async function abrirRelatorio(
     definicao,
     visualizacao: validarVisualizacao(bruto?.visualizacao),
     meu: relatorio.autorId === ator.id,
+  };
+}
+
+// ---------------------------------------------------------------------
+// RN93 — ver as linhas por trás
+// ---------------------------------------------------------------------
+
+/**
+ * Assuntos cujo detalhe abre em **gente com nome**, e por isso não abre.
+ *
+ * `[A CONFIRMAR — Superintendência/jurídico]`, pendência 2 da ficha da Onda
+ * 19. No agregado a pessoa é uma unidade dentro de um número; no detalhe, é
+ * uma linha identificável — e isso é uma escalada de acesso, não um recorte
+ * mais fino do mesmo acesso.
+ *
+ * **Fechado até haver resposta, e não aberto até haver objeção.** Recuar
+ * depois de liberar seria retirar algo já em uso; liberar depois de recusar
+ * não custa nada a ninguém. A lista é derivada de `contemDadoPessoal`, e não
+ * escrita à mão: assunto sensível novo entra fechado sem que ninguém precise
+ * lembrar de acrescentá-lo aqui.
+ */
+export function detalheEstaDisponivel(assunto: AssuntoRelatorio): { pode: boolean; motivo?: string } {
+  if (assunto.contemDadoPessoal) {
+    return {
+      pode: false,
+      motivo:
+        `"${assunto.rotulo}" alcança dado pessoal, e as linhas por trás do número seriam pessoas ` +
+        `identificáveis. Abrir o detalhe deste assunto depende de decisão da Superintendência, ` +
+        `que está registrada como pendência na ficha da Onda 19.`,
+    };
+  }
+  return { pode: true };
+}
+
+export interface ResultadoDoDetalheDoRelatorio {
+  tabela: TabelaPivotada;
+  /** Linhas devolvidas (já cortadas no teto). */
+  total: number;
+  truncado: boolean;
+  teto: number;
+  duracaoMs: number;
+  resumo: string;
+  /** Linhas que o recorte tem no banco, sem teto. */
+  linhasNoBanco: number;
+  /** Registros do assunto que essas linhas representam. */
+  registros: number;
+  /**
+   * As duas contagens divergem?
+   *
+   * Quando sim, a tela **tem** de dizer — é a RN93(a). Calcular aqui, e não
+   * na tela, evita que duas telas cheguem a conclusões diferentes sobre o
+   * mesmo par de números.
+   */
+  linhasRepetemRegistros: boolean;
+}
+
+/**
+ * Executa o detalhe de um recorte (RN93).
+ *
+ * Três garantias, e nenhuma é herdada do agregado:
+ *
+ * 1. **Alcance por papel (RN76)** — a mesma conferência, pelo mesmo caminho.
+ * 2. **Finalidade (RN78) não se herda.** Hoje o ponto é teórico, porque os
+ *    dois assuntos com dado pessoal estão fechados; mas a exigência fica
+ *    escrita e testada para o dia em que abrirem, e não como emenda posterior.
+ * 3. **Evento próprio na trilha.** Não é nota de rodapé da execução que o
+ *    originou: quem investiga precisa ver que alguém abriu os registros, e
+ *    não só que alguém viu um agregado.
+ */
+export async function executarDetalheDoRelatorio(
+  ator: Ator,
+  definicaoBruta: unknown,
+  opcoes: { finalidade?: string; teto?: number } = {},
+): Promise<ResultadoDoDetalheDoRelatorio> {
+  const definicao = validarEstruturaDefinicao(definicaoBruta);
+  const assunto = exigirAssuntoAlcancavel(ator, definicao.assunto);
+
+  const disponivel = detalheEstaDisponivel(assunto);
+  if (!disponivel.pode) {
+    throw new ErroDeValidacao([disponivel.motivo!]);
+  }
+
+  if (assunto.contemDadoPessoal && !opcoes.finalidade?.trim()) {
+    // Inalcançável hoje (o assunto já teria sido recusado acima), e escrito
+    // assim de propósito: se a pendência for respondida abrindo o detalhe, a
+    // exigência de finalidade já está no lugar, e não vira emenda esquecida.
+    throw new ErroDeValidacao([
+      `O assunto "${assunto.rotulo}" alcança dado pessoal. Declare a finalidade antes de abrir o detalhe.`,
+    ]);
+  }
+
+  let resultado;
+  try {
+    resultado = await executarConsultaDeDetalhe(definicao, { teto: opcoes.teto });
+  } catch (erro) {
+    await registrarExecucao({
+      ator,
+      definicao,
+      linhas: 0,
+      truncado: false,
+      duracaoMs: 0,
+      finalidade: opcoes.finalidade,
+      erro:
+        erro instanceof ErroDeRelatorioInvalido || erro instanceof ErroDeValidacao
+          ? erro.message
+          : "falha ao abrir o detalhe",
+      exportou: false,
+    });
+    throw erro;
+  }
+
+  await registrarExecucao({
+    ator,
+    definicao,
+    linhas: resultado.linhas.length,
+    truncado: resultado.truncado,
+    duracaoMs: resultado.duracaoMs,
+    finalidade: opcoes.finalidade,
+    exportou: false,
+  });
+
+  return {
+    tabela: pivotar(resultado.projecao, resultado.linhas),
+    total: resultado.linhas.length,
+    truncado: resultado.truncado,
+    teto: resultado.teto,
+    duracaoMs: resultado.duracaoMs,
+    resumo: resumirDefinicao(definicao),
+    linhasNoBanco: resultado.linhasNoBanco,
+    registros: resultado.registros,
+    linhasRepetemRegistros: resultado.linhasNoBanco !== resultado.registros,
   };
 }
