@@ -7,6 +7,12 @@ import { ErroDeAutorizacao, exigirPermissao } from "@/dominio/autorizacao/permis
 import { assuntoPorSlug } from "@/dominio/relatorios/catalogo";
 import { resumirDefinicao } from "@/dominio/relatorios/compilador";
 import {
+  type EixoDoPainel,
+  type FiltroDoPainel,
+  aplicarFiltroDoPainel,
+  validarFiltroDoPainel,
+} from "@/dominio/relatorios/eixos";
+import {
   type BlocoDoPainel,
   validarBlocos,
   validarPainelParaGravar,
@@ -189,17 +195,19 @@ export async function apagarPainel(ator: Ator, id: string): Promise<void> {
  */
 export type BlocoDoPainelLido =
   /** Carregado, com dado. */
-  | { estado: "PRONTO"; titulo: string; largura: string; visualizacao: Visualizacao; tabela: TabelaPivotada; resumo: string; truncado: boolean }
+  | { estado: "PRONTO"; titulo: string; largura: string; visualizacao: Visualizacao; tabela: TabelaPivotada; resumo: string; truncado: boolean; naoAplicados: ReadonlyArray<EixoDoPainel> }
   /** RN87 — quem abre não alcança o assunto. Os demais blocos seguem. */
   | { estado: "SEM_ALCANCE"; titulo: string; largura: string; motivo: string }
   /** RN88 — alcança dado pessoal: espera a finalidade, por bloco. */
-  | { estado: "AGUARDA_FINALIDADE"; titulo: string; largura: string; assunto: string }
+  | { estado: "AGUARDA_FINALIDADE"; titulo: string; largura: string; assunto: string; naoAplicados: ReadonlyArray<EixoDoPainel> }
   /** O bloco não pôde ser lido ou executado; a causa vem nomeada (RN55). */
   | { estado: "FALHOU"; titulo: string; largura: string; motivo: string };
 
 export interface PainelAberto {
   id: string;
   nome: string;
+  /** RN89 — o filtro vigente, para a tela exibi-lo. */
+  filtro: FiltroDoPainel | null;
   visibilidade: VisibilidadeRelatorio;
   meu: boolean;
   blocos: ReadonlyArray<BlocoDoPainelLido>;
@@ -234,10 +242,12 @@ export async function abrirPainel(ator: Ator, id: string): Promise<PainelAberto>
   }
 
   const lidos = validarBlocos(painel.blocos);
+  const filtro = validarFiltroDoPainel(painel.filtro);
 
   return {
     id: painel.id,
     nome: painel.nome,
+    filtro,
     visibilidade: painel.visibilidade,
     meu: painel.autorId === ator.id,
     blocos: lidos.map((item) => {
@@ -286,12 +296,23 @@ export async function abrirPainel(ator: Ator, id: string): Promise<PainelAberto>
        * manhã. E num painel compartilhado, quem abre estaria declarando
        * finalidade para a pergunta de outra pessoa.
        */
+      /*
+       * RN89 — quais eixos do filtro este assunto NÃO comporta.
+       *
+       * Calculado na abertura e não na execução, de propósito: o bloco que
+       * aguarda finalidade também precisa avisar, e ele pode nunca executar.
+       * Um aviso que só aparecesse depois de carregar seria o pior momento
+       * possível — a pessoa já teria lido o número.
+       */
+      const { naoAplicados } = aplicarFiltroDoPainel(bloco.definicao, assunto, filtro);
+
       if (assunto.contemDadoPessoal) {
         return {
           estado: "AGUARDA_FINALIDADE",
           titulo: bloco.titulo,
           largura: bloco.largura,
           assunto: assunto.rotulo,
+          naoAplicados,
         };
       }
 
@@ -305,6 +326,7 @@ export async function abrirPainel(ator: Ator, id: string): Promise<PainelAberto>
         tabela: { dimensoes: [], medidas: [], linhas: [] } as unknown as TabelaPivotada,
         resumo: resumirDefinicao(bloco.definicao),
         truncado: false,
+        naoAplicados,
       };
     }),
   };
@@ -335,7 +357,23 @@ export async function executarBlocoDoPainel(
     throw new ErroDeValidacao(["Bloco não encontrado neste painel."]);
   }
 
-  // A permissão, a finalidade, o teto e a trilha são todos de
-  // `executarRelatorio`. Não há atalho aqui, e é o que a RN86 exige.
-  return executarRelatorio(ator, item.bloco.definicao, { finalidade, painelId });
+  const assunto = assuntoPorSlug(item.bloco.definicao.assunto);
+  if (!assunto) {
+    throw new ErroDeValidacao(["O assunto deste bloco não existe mais no catálogo."]);
+  }
+
+  /*
+   * RN89 — o filtro do painel entra AQUI, acrescentando à definição do bloco.
+   *
+   * E o que sai daqui volta a passar por `executarRelatorio`: a permissão, a
+   * finalidade, o teto e a trilha continuam sendo dele. O filtro estreita a
+   * pergunta; ele não abre caminho novo até o dado (RN86).
+   */
+  const { definicao } = aplicarFiltroDoPainel(
+    item.bloco.definicao,
+    assunto,
+    validarFiltroDoPainel(painel.filtro),
+  );
+
+  return executarRelatorio(ator, definicao, { finalidade, painelId });
 }

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { TabelaPivotada } from "@/dominio/relatorios/pivo";
 import { rotularDimensao } from "@/dominio/relatorios/pivo";
 import type { Visualizacao } from "@/dominio/relatorios/visualizacao";
+import { type EixoDoPainel, avisoDeEixoNaoAplicado } from "@/dominio/relatorios/eixos";
 import { GraficoDoRelatorio } from "../relatorios/grafico";
 import { carregarBlocoAction } from "./acoes";
 
@@ -40,6 +41,26 @@ export interface BlocoSerializado {
   assunto?: string;
   visualizacao?: Visualizacao;
   resumo?: string;
+  /** RN89 — os eixos do filtro que este assunto não comporta. */
+  naoAplicados?: ReadonlyArray<EixoDoPainel>;
+}
+
+/**
+ * O aviso da RN89, dentro do bloco e ACIMA do número.
+ *
+ * Acima, e não no rodapé: o defeito que a regra combate é a pessoa ler dois
+ * números lado a lado como se respondessem à mesma pergunta. Um aviso abaixo
+ * do número chega depois da leitura — tarde demais para mudar o que ela já
+ * concluiu.
+ */
+function AvisoDeEixo({ naoAplicados }: { naoAplicados?: ReadonlyArray<EixoDoPainel> }) {
+  const texto = avisoDeEixoNaoAplicado(naoAplicados ?? []);
+  if (!texto) return null;
+  return (
+    <p className="pn-bloco-eixo" role="note">
+      {texto}
+    </p>
+  );
 }
 
 export function BlocoDoPainel({
@@ -141,6 +162,7 @@ function BlocoQueCarrega({
   return (
     <section className={classe} aria-label={bloco.titulo} aria-busy={carregando}>
       <h2 className="pn-bloco-t">{bloco.titulo}</h2>
+      <AvisoDeEixo naoAplicados={bloco.naoAplicados} />
 
       {exigeFinalidade && tabela === null ? (
         <form
