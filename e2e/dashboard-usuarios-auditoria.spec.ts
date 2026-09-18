@@ -716,10 +716,33 @@ test("T27 — a presença distingue on-line, offline e quem nunca acessou", asyn
      */
     const linhaOnline = await abrirLinhaDoUsuario(page, online.email);
     await expect(linhaOnline.getByText("On-line", { exact: true })).toBeVisible();
+    // Verde, e conferido AQUI: `abrirLinhaDoUsuario` refaz a listagem, então
+    // guardar este localizador para depois de abrir outra linha o deixa
+    // obsoleto — foi o que fez a primeira versão deste teste falhar.
+    await expect(linhaOnline.locator(".pill").filter({ hasText: "On-line" })).toHaveClass(
+      /pill-ok/,
+    );
 
     const linhaOffline = await abrirLinhaDoUsuario(page, offline.email);
     await expect(linhaOffline.getByText("Offline", { exact: true })).toBeVisible();
     await expect(linhaOffline.locator('[title*="há 3 dias"]')).toHaveCount(1);
+
+    /*
+     * A COR do selo, presa em teste — decidido em 18/09 (pendência §5.4).
+     *
+     * Offline é **neutro**, não vermelho: o vermelho desta plataforma é a cor
+     * de falha, e estar offline não é falha. Em produção isso deixava 11 de
+     * 13 linhas vermelhas, competindo por atenção com o único vermelho que é
+     * problema de verdade na mesma tela — a credencial provisória expirada.
+     *
+     * Prende-se aqui, e não num teste de unidade, porque o que se decidiu foi
+     * o que a PESSOA vê. A asserção é dos dois lados: neutro presente e
+     * vermelho ausente — só conferir o neutro passaria se alguém empilhasse
+     * as duas classes.
+     */
+    const seloOffline = linhaOffline.locator(".pill").filter({ hasText: "Offline" });
+    await expect(seloOffline).toHaveClass(/pill-neutra/);
+    await expect(seloOffline).not.toHaveClass(/pill-erro/);
 
     const linhaNunca = await abrirLinhaDoUsuario(page, nunca.email);
     await expect(linhaNunca.getByText("Offline", { exact: true })).toBeVisible();

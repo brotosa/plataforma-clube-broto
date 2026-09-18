@@ -7,7 +7,9 @@
 
 **Atualizado em 18/09 à noite:** a **§5.3 fechou**, por observação da TI em uso — e com isso **toda pendência restante depende de terceiros**. Nenhuma delas se resolve aqui dentro: as mensagens estão prontas em `consultas-a-terceiros.md`, e o que falta é enviá-las.
 
-> **A contagem foi refeita item a item, e não batia.** O cabeçalho dizia 27; contando as linhas numeradas que não estão riscadas, são **29** — 9 da Minutrade, 8 da Superintendência, 2 do jurídico, 8 da TI e 2 de decisão interna. O número anterior era anterior à §4.8 e ao desdobramento da §1, e ninguém o recontou. Fica o registro de que **o número deste cabeçalho é derivado da lista, não o contrário**: quem acrescentar uma linha recontará.
+> **A contagem foi refeita item a item, e não batia.** O cabeçalho dizia 27; contando as linhas numeradas que não estão riscadas eram **29**. O número anterior era anterior à §4.8 e ao desdobramento da §1, e ninguém o recontou. Fica o registro de que **o número deste cabeçalho é derivado da lista, não o contrário**: quem acrescentar uma linha recontará.
+
+> **Depois dos fechamentos de 18/09 à noite — a §4.9 acrescentada, a §5.4 decidida —, são 29:** 9 da Minutrade, 8 da Superintendência, 2 do jurídico, 9 da TI e 1 de decisão interna. **E a única interna que resta é a §5.5**, o nome do arquivo exportado; todo o resto espera terceiro.
 
 Levantamento de **todo** `[A CONFIRMAR]` das 18 fichas, agrupado por **quem responde**. Cada item traz o que acontece **hoje**, sem a resposta — porque nenhuma delas está travando a plataforma: todas têm comportamento definido e declarado. Responder melhora; não responder não quebra.
 
@@ -199,8 +201,12 @@ O que fica registrado, para o caso de o relato voltar: nunca foi reproduzido pel
 
 **Era a única pendência desta lista que não era falta de decisão, e sim falta de observação.** A lista volta a ser inteiramente dependente de terceiros.
 
-**5.4 · O vermelho no selo Offline da T27 — aberta.**
-Pedido e implementado. A ressalva levantada na entrega não foi fechada, e ela é de desenho: o vermelho da plataforma é reservado a **falha**, e estar offline não é falha — é estado normal de quem não está usando o sistema agora. Gastar a cor de erro nele enfraquece a cor onde ela importa. Fica como está até haver decisão.
+**5.4 · ~~O vermelho no selo Offline da T27.~~ FECHADA em 18/09 pela TI: passa a ser NEUTRO.**
+A ressalva de desenho era que o vermelho da plataforma é reservado a **falha**, e estar offline não é falha — é o estado normal de quem não está usando o sistema agora.
+
+**O que fechou a decisão foi a tela de produção, não o argumento.** Com a base real, **11 das 13 linhas** apareciam vermelhas, todas dizendo "nada aconteceu". E o dano não era o excesso de cor: era o que ele encobria — na mesma tela existe um vermelho que é problema de verdade, o `expirada — emita outra` da credencial provisória, e ele competia por atenção com onze selos sem conteúdo.
+
+`pill-erro` → `pill-neutra`, uma palavra. O On-line continua verde, e a distinção fica **mais** legível: um verde no meio de cinzas salta, um verde no meio de vermelhos não. O "visto há" e o "nunca acessou" não se mexem. A escolha está presa em teste, dos dois lados — neutro presente e vermelho ausente —, para não voltar por hábito.
 
 **5.5 · Nome do arquivo exportado — continua aberta, e o padrão atual é o conservador.**
 Hoje `relatorio-<assunto>-<data>`. Relatório salvo poderia usar o próprio nome — mais útil para quem recebe, e **mais revelador**, porque nome de arquivo viaja em anexo e em pasta compartilhada. Enquanto não houver decisão, **permanece o atual**: ele não revela o recorte que a pessoa montou, e passar a revelar é escolha que precisa ser feita, não herdada.
