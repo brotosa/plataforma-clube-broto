@@ -167,6 +167,12 @@ Duas regras identificavam o administrador pelo **literal** `"ADMINISTRADOR_PLATA
 
 Definir as duas por **capacidade** em vez de nome resolve de uma vez e é auto-mantido: papel novo com essas ações entra sozinho.
 
+**Ficou um terceiro caso, e ele levou até 21/09 para aparecer: o TEXTO.** A revisão por capacidade cobriu as duas regras e parou aí, porque o que quebra build é código. Só que o nome do papel também estava escrito em **20 mensagens da interface** — "peça ao Administrador da Plataforma para desbloquear", "editar parâmetros é exclusivo do Administrador da Plataforma", "a definição de metas é do Administrador da Plataforma" — e todas passaram a mandar o usuário procurar o papel que **nasce sem detentores**. Não é erro de estilo: é instrução que aponta para ninguém, exatamente nos momentos em que a pessoa está travada do lado de fora. Nenhum teste podia pegá-lo, porque cada frase estava certa quando foi escrita e nada no tipo mudou.
+
+No mesmo achado, **o Manual do usuário não tinha seção alguma para o `ADMIN`**: a `ORDEM_PAPEIS` é um array escrito à mão e ninguém o atualizou na renomeação — o `RESUMO_PAPEL`, que é `Record<Papel, …>`, o TypeScript cobrou; a lista, não. Além de o papel não aparecer, o "ir para a sua seção" do cabeçalho levava a uma âncora inexistente para quem administra. Corrigido, com cerca (`manual-cobre-acoes`) que agora cobra papel, e não só ação.
+
+**A lição geral, e ela vale para a próxima renomeação:** revisar por capacidade resolve o que o compilador vê. O que fala com gente — mensagem de erro, legenda, manual, guia — só se revisa procurando o **nome antigo por escrito**, um a um.
+
 #### A RN06 e a mudança de governança
 
 **A RN06 continua valendo para o acesso total, e não é contradição:** ela é verificada **por registro**, comparando `solicitanteId` com quem decide — nunca foi permissão de papel. Poder aprovar não é poder aprovar o que se pediu.

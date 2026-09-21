@@ -45,7 +45,7 @@ export async function acaoSalvarPoliticaSenha(
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "salvar a política de senha",
-        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        semPermissao: "Só o Administrador configura o portal.",
         contexto: "acao-configuracoes",
       }),
     };
@@ -65,7 +65,7 @@ export async function acaoSalvarBloqueioLogin(
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "salvar o bloqueio por tentativas de login",
-        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        semPermissao: "Só o Administrador configura o portal.",
         contexto: "acao-configuracoes",
       }),
     };
@@ -83,7 +83,7 @@ export async function acaoDesbloquearLogin(usuarioId: string): Promise<EstadoCon
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "desbloquear a conta",
-        semPermissao: "Só o Administrador da Plataforma desbloqueia contas.",
+        semPermissao: "Só o Administrador desbloqueia contas.",
         contexto: "acao-configuracoes",
       }),
     };
@@ -106,7 +106,7 @@ export async function acaoSalvarTempoSessao(
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "salvar o tempo de sessão",
-        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        semPermissao: "Só o Administrador configura o portal.",
         contexto: "acao-configuracoes",
       }),
     };
@@ -126,7 +126,7 @@ export async function acaoSalvarBloqueioOrigem(
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "salvar o bloqueio por origem",
-        semPermissao: "Só o Administrador da Plataforma configura o portal.",
+        semPermissao: "Só o Administrador configura o portal.",
         contexto: "acao-configuracoes",
       }),
     };
@@ -144,7 +144,7 @@ export async function acaoDesbloquearOrigem(id: string): Promise<EstadoConfigura
     return {
       erros: mensagensDeFalha(erro, {
         operacao: "liberar o endereço",
-        semPermissao: "Só o Administrador da Plataforma libera endereços.",
+        semPermissao: "Só o Administrador libera endereços.",
         contexto: "acao-configuracoes",
       }),
     };

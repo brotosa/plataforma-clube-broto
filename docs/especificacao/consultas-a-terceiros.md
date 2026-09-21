@@ -113,7 +113,7 @@ A plataforma está em produção e operando. Há oito pontos em que ela está fu
 
 **7. Encerrar uma campanha deve pausar automaticamente as ofertas exclusivas dela?** Está implementado assim, aguardando validação.
 
-**8. Os dados bancários do aliado ficam na Broto ou apenas na operadora?** Hoje a plataforma **não os guarda**. Se passarem a ficar conosco, entram como dado sensível com permissão própria.
+**8. Os dados bancários do aliado ficam no Broto ou apenas na operadora?** Hoje a plataforma **não os guarda**. Se passarem a ficar conosco, entram como dado sensível com permissão própria.
 
 ---
 

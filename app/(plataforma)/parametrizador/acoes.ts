@@ -41,7 +41,7 @@ function paraEstado(erro: unknown): EstadoFormulario {
   // mensagem genérica, que nunca sugere repetir a ação.
   const mensagens = mensagensDeFalha(erro, {
     operacao: "concluir a ação",
-    semPermissao: "Editar parâmetros é exclusivo do Administrador da Plataforma (RN23).",
+    semPermissao: "Editar parâmetros é exclusivo do Administrador (RN23).",
     contexto: "acao-parametrizador",
   });
   return { erros: mensagens };

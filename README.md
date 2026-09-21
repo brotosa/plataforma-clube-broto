@@ -1834,6 +1834,7 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | **Enviar a imagem do card** | `/aliados/{id}/solucoes/{solucaoId}`, cartão *Imagem do card*: PNG/JPG/WEBP até 400 KB, sem SVG, tipo conferido pelo conteúdo (RN60) | Gestor · Analista |
 | **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
 | **Abrir a ajuda** | botão **?** na extremidade direita do cabeçalho (movido na F17): abre `/ajuda` na seção do módulo em que se estava (RN59). O guia também circula como arquivo: `public/guia-da-plataforma.html` | todos |
+| **Consultar o Manual do usuário** | `/manual`: o que cada um dos oito papéis pode fazer, com passo a passo por ação e a captura da tela onde ela acontece. A lista de ações de cada papel é **derivada da matriz de permissões**, não escrita à mão — `conteudo/manual-usuario/conteudo.ts` traz só a descrição didática, e a cerca `manual-cobre-acoes` reprova ação ou papel sem lugar nele | todos |
 | **Verificar que a plataforma está no ar** | `GET /api/saude` (o processo responde) e `GET /api/saude/pronto` (alcança o banco). Públicas, sem sessão, sem revelar ambiente (RN61) | TI · balanceador |
 | **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |
 

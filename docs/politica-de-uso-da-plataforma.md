@@ -56,7 +56,7 @@ Quatro, e por motivos diferentes:
 3. **Administrador da Plataforma** — acesso total. A tela já exige confirmação
    explícita para concedê-lo; esta política exige que a confirmação tenha um
    nome por trás.
-4. **Qualquer papel para pessoa de fora da Broto** — inclusive Leitura. O
+4. **Qualquer papel para pessoa de fora do Broto** — inclusive Leitura. O
    alcance é o menor da lista, mas a pessoa não está sujeita às mesmas
    obrigações de quem é da casa.
 

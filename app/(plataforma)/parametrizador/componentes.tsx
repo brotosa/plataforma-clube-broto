@@ -4,9 +4,9 @@
  */
 
 const TEXTO_LEITURA: Record<"hub" | "lista" | "valores", string> = {
-  hub: "Visualização — a edição de parâmetros é restrita ao Administrador da Plataforma. Tudo aqui é visível a todos os papéis por transparência da configuração vigente.",
-  lista: "Visualização — edição restrita ao Administrador da Plataforma.",
-  valores: "Visualização — edição restrita ao Administrador da Plataforma.",
+  hub: "Visualização — a edição de parâmetros é restrita ao Administrador. Tudo aqui é visível a todos os papéis por transparência da configuração vigente.",
+  lista: "Visualização — edição restrita ao Administrador.",
+  valores: "Visualização — edição restrita ao Administrador.",
 };
 
 /** Banner de leitura para quem não é Administrador (RN23). */

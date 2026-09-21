@@ -134,7 +134,7 @@ export default async function PaginaValoresDeRegra() {
           </h2>
           <p className="cap" style={{ margin: "0 0 14px" }}>
             Uma meta geral vigente por período e, no máximo, uma por categoria por período
-            (RN28). Definidas somente pelo Administrador da Plataforma.
+            (RN28). Definidas somente pelo Administrador.
           </p>
 
           {metas.length === 0 ? (

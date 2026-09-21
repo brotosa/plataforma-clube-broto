@@ -176,7 +176,7 @@ export default async function PaginaMercado({
         // caminho de quem olha o número e quer mudá-lo.
         <p className="cap" style={{ margin: "12px 0 0", maxWidth: "80ch" }}>
           {aba === "metas"
-            ? "As metas exibidas aqui são as mesmas que o Administrador da Plataforma define no "
+            ? "As metas exibidas aqui são as mesmas que o Administrador define no "
             : "As listas que recortam esta cobertura (categorias e abrangência) são mantidas no "}
           <Link href={aba === "metas" ? "/parametrizador/valores" : "/parametrizador"}>
             {aba === "metas" ? "Parametrizador › Valores de regra" : "Parametrizador"}

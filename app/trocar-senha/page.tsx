@@ -68,7 +68,7 @@ export default async function PaginaTrocarSenha() {
           </>
         ) : (
           <>
-            Sua credencial foi emitida pelo Administrador da Plataforma e é provisória. Escolha uma
+            Sua credencial foi emitida pelo Administrador e é provisória. Escolha uma
             senha própria para continuar — enquanto ela não for definida, o acesso fica restrito a
             esta tela.
           </>

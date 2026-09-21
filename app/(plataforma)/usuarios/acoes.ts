@@ -43,7 +43,7 @@ function paraEstado(erro: unknown): EstadoUsuarios {
   // mensagem genérica, que nunca sugere repetir a ação.
   const mensagens = mensagensDeFalha(erro, {
     operacao: "concluir a ação",
-    semPermissao: "Criar, editar e inativar usuários é exclusivo do Administrador da Plataforma (RN46).",
+    semPermissao: "Criar, editar e inativar usuários é exclusivo do Administrador (RN46).",
     contexto: "acao-usuario",
   });
   return { erros: mensagens };

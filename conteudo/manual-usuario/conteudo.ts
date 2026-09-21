@@ -312,7 +312,7 @@ export const MANUAL_ACOES: Readonly<Record<Acao, AcaoManual>> = {
     modulo: "PARAMETRIZADOR",
     titulo: "Definir metas",
     oQueE:
-      "Definir as metas do funil (ex.: novos aliados/ano). É ato exclusivo do Administrador da Plataforma, com efeito prospectivo (RN25).",
+      "Definir as metas do funil (ex.: novos aliados/ano). É ato do Administrador, com efeito prospectivo (RN25).",
     onde: "Parametrizador → metas.",
     passos: [
       "Abra o Parametrizador → metas.",
@@ -485,14 +485,14 @@ export const MANUAL_ACOES: Readonly<Record<Acao, AcaoManual>> = {
     modulo: "CONFIGURACOES",
     titulo: "Configurar o portal",
     oQueE:
-      "Ajustar as configurações técnicas e de segurança do portal, em três blocos: a política de senha (comprimento, classes de caractere exigidas e quantas senhas anteriores não podem repetir); o tempo de sessão por inatividade, que o contador ao lado do sino reflete e que cada atividade reinicia; e o bloqueio por tentativas de login (quantas senhas erradas seguidas bloqueiam a conta e por quanto tempo), com a lista de contas bloqueadas para liberar antes do prazo. O Administrador da Plataforma nunca é bloqueado. Toda mudança é auditada.",
-    onde: "Configurações.",
+      "Ajustar as configurações de segurança do portal, em três abas — Senha, Sessão e Bloqueios — com uma faixa de panorama acima delas, que mostra as quatro proteções o tempo todo (proteção desligada aparece pela palavra “Desligado”, nunca por um zero). Senha: comprimento mínimo, classes de caractere exigidas, quantas senhas anteriores não podem repetir e a validade em dias, mais o empurrão que exige nova senha de todo mundo no próximo acesso. Sessão: o tempo sem atividade que fecha a sessão — o contador ao lado do sino o reflete, e cada ação reinicia a contagem — e o teto absoluto desde o login, que não se renova com o uso. Bloqueios: os dois, por conta e por origem de rede, cada um com a sua lista para desbloquear. Toda proteção aceita 0 como desligamento explícito, e toda mudança é auditada.",
+    onde: "Configurações → abas Senha, Sessão e Bloqueios.",
     passos: [
-      "Abra Configurações na lateral.",
-      "Ajuste a política de senha e salve — vale na próxima troca de senha.",
-      "Ajuste o tempo de sessão e salve — vale nas sessões abertas já na requisição seguinte.",
-      "Ajuste o bloqueio por tentativas e salve — vale nas próximas tentativas de login.",
-      "Em 'Contas bloqueadas', use Desbloquear para liberar alguém antes de o tempo correr.",
+      "Abra Configurações na lateral; a faixa do topo resume as quatro proteções, esteja qual aba estiver aberta.",
+      "Na aba Senha, ajuste a política e salve — vale na próxima troca de cada pessoa. Para a validade começar a contar, use “exigir nova senha no próximo acesso”.",
+      "Na aba Sessão, ajuste a inatividade e o teto absoluto — valem nas sessões já abertas, na requisição seguinte.",
+      "Na aba Bloqueios, ajuste o bloqueio por conta e o por origem de rede; o de origem nasce desligado.",
+      "Ainda em Bloqueios, use Desbloquear nas listas de contas e de endereços para liberar antes de o tempo correr.",
     ],
   },
 };
@@ -558,10 +558,21 @@ export const RESUMO_PAPEL: Readonly<Record<Papel, ResumoPapel>> = {
 };
 
 /**
- * Ordem de exibição dos papéis no manual — do que configura ao que só lê.
+ * Ordem de exibição dos papéis no manual — do que alcança tudo ao que só lê.
+ *
+ * **Tem de conter TODO papel do enum**, e a cerca
+ * `infra/arquitetura/manual-cobre-acoes.test.ts` quebra o build se faltar um.
+ * A cerca nasceu de um defeito real: o `ADMIN`, criado na Onda 15, ficou de
+ * fora desta lista e o manual passou a não ter seção nenhuma para o papel
+ * onde estão as contas de administração reais. Pior que a ausência: o
+ * cabeçalho da tela oferece "ir para a sua seção" a quem está logado, e para
+ * um Administrador aquele link apontava para uma âncora inexistente. O
+ * `RESUMO_PAPEL` acima é `Record<Papel, …>` e o TypeScript o cobrava; esta
+ * lista é um array e não cobrava nada.
  */
 export const ORDEM_PAPEIS: ReadonlyArray<Papel> = [
   "ADMINISTRADOR_PLATAFORMA",
+  "ADMIN",
   "GESTOR",
   "ANALISTA",
   "ANALISTA_SCOUT",
@@ -598,6 +609,11 @@ export const INTRODUCAO = {
       titulo: "Ajuda e manual",
       texto:
         "No canto direito do topo, o “?” abre o Guia da Plataforma (conceitos e jornadas) e o botão de manual abre este Manual do usuário (o que cada papel faz).",
+    },
+    {
+      titulo: "Perguntar aos dados",
+      texto:
+        "Relatórios abre o Gerador: você escolhe um assunto, arrasta campos e medidas, filtra, ordena e vê o resultado em tabela ou em gráfico — e pode salvar a pergunta para repetir. Painéis junta vários relatórios numa página só. Os dois são abertos a todos os papéis, e não ampliam o alcance de ninguém: assunto que o seu papel não alcança simplesmente não aparece na lista.",
     },
     {
       titulo: "O que você pode fazer",

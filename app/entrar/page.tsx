@@ -139,7 +139,7 @@ export default async function PaginaEntrar({
             }}
           >
             Acesso bloqueado por tentativas de senha erradas. Aguarde o tempo de bloqueio ou peça ao
-            Administrador da Plataforma para desbloquear.
+            Administrador para desbloquear.
           </p>
         ) : null}
 
@@ -157,7 +157,7 @@ export default async function PaginaEntrar({
             }}
           >
             Este endereço de rede está temporariamente bloqueado por tentativas repetidas. Aguarde o
-            tempo de bloqueio ou peça ao Administrador da Plataforma para liberar.
+            tempo de bloqueio ou peça ao Administrador para liberar.
           </p>
         ) : null}
 
