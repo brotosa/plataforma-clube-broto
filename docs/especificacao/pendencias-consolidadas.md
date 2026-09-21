@@ -242,3 +242,20 @@ A alternativa era o relatório salvo sair com o **próprio nome** — mais útil
 ## 6. O que este levantamento NÃO cobre
 
 Pendências técnicas internas sem pergunta de negócio por trás — o protótipo v11.2 ausente do repositório (conferência visual da T32, T33 e R1), a ordenação do eixo em campo de lista fechada, e a ausência de isolamento da causa do defeito de navegação por query. Estão registradas nos lugares próprios e não dependem de ninguém responder nada.
+
+### 6.1 · O e2e depende do estado da base entre specs, e isso não estava escrito em lugar nenhum
+
+**Registrado em 21/09, e o motivo de registrar é o próprio fato de ter levado até aqui.**
+
+A suíte de e2e reprovou na CI ao menos duas vezes por um defeito que **não é da mudança que a disparou**: um spec que conta registros lê um número diferente do esperado porque **outro spec, rodando antes dele, deixou a base em outro estado**. As duas vezes a reexecução passou **sem uma linha de código mudar**, e as duas vezes o caso passava localmente.
+
+O caso de que ficou a identidade é o `e2e/campanhas.spec.ts:236` — a asserção de *público congelado: 5*, que localmente passou 7 de 7 e na CI reprovou uma vez e passou na seguinte. Da outra ocorrência **não ficou registro de qual spec era**, o que é exatamente o sintoma que esta seção existe para corrigir: sem lugar para anotar, cada episódio se resolve com um "roda de novo" e não deixa rastro, e o terceiro começa do zero.
+
+**Por que não se conserta com um `retries`.** Reexecutar esconde a dependência em vez de removê-la, e o dia em que ela virar falha de verdade — dois specs que não podem coexistir — a suíte vai dizer "instável" em vez de "quebrado". O que o defeito pede é **isolamento de dados por spec** (prefixo próprio, como o `configuracao-global.ts` já faz com "Aliado E2E" na T1) ou contagem relativa em vez de absoluta.
+
+**Não é pendência de terceiro nem de negócio**, e por isso está aqui e não na §1–§4: não depende de ninguém responder nada. O que ela precisa é de uma fase com tempo para separar as bases, e enquanto isso não acontece o comportamento conhecido é: **reprovou um caso de contagem e a mudança não toca nele, reexecute — e anote aqui qual foi.**
+
+| Quando | Spec | O que a asserção contava | Desfecho |
+|---|---|---|---|
+| 09/2026 | `e2e/campanhas.spec.ts:236` | público congelado: 5 | passou na reexecução, sem mudança de código |
+| 09/2026 | *não registrado na ocasião* | contagem | passou na reexecução, sem mudança de código |
