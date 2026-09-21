@@ -21,7 +21,7 @@ import { type Ator, ErroDeValidacao } from "./contexto";
  * Casos de uso da T27 (Onda 6, ficha §3).
  *
  * Três invariantes atravessam tudo o que está aqui:
- *  RN46 — escrita exclusiva do Administrador da Plataforma, e o último
+ *  RN46 — escrita exclusiva do Administrador, e o último
  *         administrador ativo não pode ser rebaixado nem inativado;
  *  RN47 — inativar e rebaixar revogam o acesso na hora, incrementando a
  *         época da sessão, e nada é excluído — histórico e autoria ficam;

@@ -169,6 +169,13 @@ const COMPLEMENTOS: ReadonlyArray<{ secao: string; origem: string }> = [
   { secao: "j2", origem: "Complemento — Onda 10" }, // imagem do card (RN60)
   { secao: "j4", origem: "Complemento — Onda 13" }, // imagem da peça (RN71)
   { secao: "j5", origem: "Complemento — Onda 8" }, // arrasto no funil (RN57)
+  // A §4.6 diz "Restrito ao Administrador da Plataforma", que era verdade
+  // quando o Design escreveu e virou instrução enganosa depois da renomeação:
+  // esse nome passou a designar o acesso total, que nasce sem detentores. E é
+  // justamente a seção que a ajuda contextual abre para quem vem do
+  // Parametrizador — o leitor mais provável é um Administrador sendo informado
+  // de que a tela é de outro papel.
+  { secao: "j6", origem: "Complemento — Onda 15" },
   // Desdobramento do papel de administração em Admin + acesso total. A tabela
   // de papéis da §5 veio da referência e não se edita: o complemento diz o que
   // mudou sem tocar numa frase transcrita — que é exatamente o caso para o

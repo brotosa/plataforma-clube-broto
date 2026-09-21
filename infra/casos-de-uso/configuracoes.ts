@@ -27,7 +27,7 @@ import { type Ator, ErroDeValidacao } from "./contexto";
 /**
  * Configurações do portal — leitura e escrita do singleton `ConfiguracaoPortal`.
  *
- * A escrita é do Administrador da Plataforma (CONFIGURAR_PORTAL) e sempre
+ * A escrita é de quem tem CONFIGURAR_PORTAL — o Administrador — e sempre
  * auditada, no mesmo padrão do Parametrizador. A leitura devolve os padrões do
  * domínio quando ainda não há linha — assim o comportamento anterior é
  * preservado sem depender de seed.
