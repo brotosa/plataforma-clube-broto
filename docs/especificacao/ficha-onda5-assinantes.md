@@ -62,4 +62,6 @@ Cobrança ou qualquer ação automática sobre vencimento; disparo de campanhas 
 
 ## 10. Pendências
 
-**[A CONFIRMAR]**: dicionário real do arquivo de assinantes (ou exemplo anonimizado); ritmo de carga e política padrão (foto completa × incremental); atributos e fonte do enriquecimento; origem do vencimento (arquivo × Minutrade); granularidade por CPF na telemetria (pendência Minutrade da Onda 1 — agora crítica para a RN36).
+**RESPONDIDO em 21/09/2026 — a política padrão de carga: MANTÉM-SE A ATUAL.** `INCREMENTAL` é o padrão da tela, e `FOTO_COMPLETA` continua exigindo que a pessoa **digite "FOTO COMPLETA"** para confirmar. A fricção é deliberada e fica: só a foto completa pode remover assinante que sumiu do arquivo, e essa é a operação que não se desfaz. **Nada muda no código.**
+
+**[A CONFIRMAR]**: dicionário real do arquivo de assinantes (ou exemplo anonimizado); ritmo de carga; atributos e fonte do enriquecimento; origem do vencimento (arquivo × Minutrade); granularidade por CPF na telemetria (pendência Minutrade da Onda 1 — agora crítica para a RN36).

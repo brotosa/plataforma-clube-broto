@@ -12,6 +12,10 @@
 > **Depois dos fechamentos de 18/09 à noite — a §4.9 acrescentada, a §5.4 e a §5.5 decididas —, eram 28:** 9 da Minutrade, 8 da Superintendência, 2 do jurídico e 9 da TI. A §5 acabou ali.
 
 > **Em 21/09 caíram mais nove, todas por DECISÃO e nenhuma por implantação** — 2.2, 2.4, 2.5, 2.6, 2.7, 2.8, 3.1, 3.2 e 4.1. **Restam 19:** 9 da Minutrade, 2 da Superintendência (a 2.1, que virou documento a escrever, e a 2.3, que é digitar valores na T35), nenhuma do jurídico e 8 da TI — **o jurídico saiu da lista inteiro**.
+
+> **Ainda em 21/09 caíram mais duas, e com elas acabou o que era só decisão:** a **4.3** (dossiê assistido fica desligado) e a **metade decidível da 4.5** (política de carga mantém-se a atual). **Restam 18**, e **nenhuma delas se resolve decidindo**: 9 são perguntas à Minutrade, 2 dependem da Superintendência (a 2.1 aguarda validação do rascunho, a 2.3 é digitar valores), e 7 da TI são infraestrutura, provisionamento, arquivo ou trabalho operacional.
+>
+> **O que mudou de natureza:** até aqui havia sempre algo a decidir. A partir de agora, avançar depende de **alguém de fora responder**, de **infraestrutura ser provisionada** ou de **dado ser carregado**. Não há mais item que uma conversa feche.
 >
 > **O que sobrou tem outra natureza.** As nove de 21/09 se respondiam lendo e decidindo; o que resta são **perguntas a terceiros** (as 9 da Minutrade), **ações de infraestrutura** (WAF, endereço público do banco, `terraform apply`, provedor de e-mail) e **dado ou trabalho operacional** (dicionário do arquivo de assinantes, formato das listas de prospects, carga do portfólio). Nenhuma delas se fecha numa conversa.
 >
@@ -168,7 +172,9 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 *Origem:* achado ao acrescentar `SALTOS_CONFIAVEIS_NA_BORDA` ao `terraform/aws/ecs.tf`, em 18/09.
 *Origem:* Onda 21 §6.6 (achado da conferência de rede).
 
-**4.3 · Valores definitivos dos tetos do dossiê.**
+**4.3 · ~~Valores definitivos dos tetos do dossiê.~~ FECHADA em 21/09: não se define — o dossiê assistido fica DESLIGADO.**
+*Decidido:* a pergunta parecia ser sobre dois números e não era. **Teto nulo mantém a geração assistida indisponível**, falhando seguro, com a tela dizendo o que falta — não é exposição de custo, é funcionalidade que não roda. Ligá-la exigiria os tetos **e mais** a chave da API e as duas tarifas; enquanto isso não for decidido, os nulos ficam **de propósito** e a inserção manual segue sendo o caminho.
+*Quando for ligar:* o número se mede, não se escolhe — custo real de um dossiê em tokens para o unitário, e unitário × volume para o mensal.
 *Origem:* Onda 3 §59.
 
 **4.4 · Provedor de e-mail, domínio remetente e tratamento de devolução.**
@@ -176,8 +182,9 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 *Bloqueia:* a F29, junto com a 3.2.
 *Origem:* Onda 20 §124.
 
-**4.5 · Dicionário real do arquivo de assinantes, ritmo de carga e política (foto completa × incremental).**
-*Hoje:* o mapeador de colunas absorve variações; a política é escolhida na importação.
+**4.5 · Dicionário real do arquivo de assinantes e ritmo de carga.** `[a POLÍTICA foi decidida em 21/09]`
+*Decidido — política padrão de carga:* **mantém-se a atual**. `INCREMENTAL` é o padrão da tela, e `FOTO_COMPLETA` continua exigindo que a pessoa **digite "FOTO COMPLETA"**. A fricção é deliberada e fica: só a foto completa remove assinante que sumiu do arquivo, e é a operação que não se desfaz. Nada muda no código.
+*Segue aberto:* o dicionário real e o ritmo de carga — que são **informação de terceiro**, não decisão. O mapeador de colunas absorve variações até lá.
 *Origem:* Onda 5 §14, §53, §65.
 
 **4.6 · Formato das listas de prospects existentes.**
