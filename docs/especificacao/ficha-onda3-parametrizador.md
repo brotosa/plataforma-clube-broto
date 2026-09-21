@@ -56,4 +56,12 @@ Edição de taxas transacionais (standby por decisão de 24/07); edição de par
 
 ## 8. Pendências
 
-**[A CONFIRMAR]**: valores definitivos dos tetos do dossiê (TI). Fechadas em 24/07: comissão-padrão 5% confirmada; meta vigente 24 novos aliados/ano (geral).
+**~~[A CONFIRMAR]: valores definitivos dos tetos do dossiê (TI).~~ RESPONDIDO em 21/09/2026: NÃO se define — o dossiê assistido fica DESLIGADO.**
+
+A pergunta parecia ser sobre dois números e não era. **Teto nulo mantém `lerConfiguracaoDossie` devolvendo indisponível**, e a geração assistida não roda — falhando seguro, com a tela dizendo o que falta. Não é exposição de custo: é funcionalidade que não está ligada.
+
+Ligá-la exigiria os dois tetos **e mais** a chave da API e as duas tarifas de token. Enquanto não houver essa decisão, os tetos seguem nulos **de propósito**, e a inserção manual do dossiê continua sendo o caminho.
+
+**Quando for ligar, o número não se escolhe no escuro:** mede-se o custo real de um dossiê em tokens, o unitário sai disso com folga, e o mensal é o unitário × volume esperado. Número arbitrário ou bloqueia o uso legítimo ou não protege nada.
+
+Fechadas em 24/07: comissão-padrão 5% confirmada; meta vigente 24 novos aliados/ano (geral).

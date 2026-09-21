@@ -190,7 +190,13 @@ Nenhuma coluna é removida, nenhum tipo é estreitado, nenhuma linha existente �
 
 ## 6. Pendências declaradas — o que esta ficha NÃO resolve
 
-1. **`[A CONFIRMAR — Superintendência]` Proteção da conta do Administrador.** A RN74 o isenta dos dois bloqueios; nenhuma contrapartida foi definida (segundo fator, lista de origens permitidas, alerta em auditoria após N falhas). **É a lacuna de maior consequência desta ficha**: a conta mais poderosa da plataforma é também a única sem limite de tentativas. Enquanto não houver decisão, a isenção vale como está, e o §4.9 do guia a declara ao leitor em vez de escondê-la.
+1. **~~`[A CONFIRMAR — Superintendência]` Proteção da conta do Administrador.~~ RESPONDIDO em 21/09/2026: a contrapartida é o REGISTRO que passou a existir.**
+
+   A RN74 isenta o Administrador dos dois bloqueios, e a pergunta era o que se põe no lugar. Das três saídas na mesa — segundo fator, lista de origens permitidas, ou nada além do registro —, **a terceira foi escolhida, e ela era legítima**: desde 18/09 a conta isenta **conta as falhas sem nunca ser trancada**, o número aparece na faixa da T35, e dois momentos vão à trilha. O que era insuportável não era a isenção: era ela ser **invisível**, e isso deixou de ser verdade.
+
+   **O segundo fator não foi recusado — foi adiado com fundamento.** Ele é uma onda inteira para proteger **uma conta**, e a ameaça que ele endereçaria de fato — volume de tentativas — se resolve na **borda** (item 3 desta lista), não na aplicação.
+
+   **Condição de reabertura, proposta e ainda não decidida:** quando houver **mais de uma conta** com `CONFIGURAR_PORTAL`. Com uma só, o risco de a plataforma se trancar fora justifica a isenção; com várias, deixa de justificar, porque uma destranca a outra.
 
    **A v0.6 não decide a contrapartida — tira a isenção da invisibilidade, que era o pior da lacuna.** Uma conferência de 18/09 estabeleceu três fatos, todos verificados no código e nenhum deduzido:
 

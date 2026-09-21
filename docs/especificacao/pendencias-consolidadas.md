@@ -9,7 +9,17 @@
 
 > **A contagem foi refeita item a item, e não batia.** O cabeçalho dizia 27; contando as linhas numeradas que não estão riscadas eram **29**. O número anterior era anterior à §4.8 e ao desdobramento da §1, e ninguém o recontou. Fica o registro de que **o número deste cabeçalho é derivado da lista, não o contrário**: quem acrescentar uma linha recontará.
 
-> **Depois dos fechamentos de 18/09 à noite — a §4.9 acrescentada, a §5.4 e a §5.5 decididas —, são 28:** 9 da Minutrade, 8 da Superintendência, 2 do jurídico e 9 da TI. **A §5 acabou: não há mais decisão interna pendente**, e cada uma das 28 restantes espera resposta de fora.
+> **Depois dos fechamentos de 18/09 à noite — a §4.9 acrescentada, a §5.4 e a §5.5 decididas —, eram 28:** 9 da Minutrade, 8 da Superintendência, 2 do jurídico e 9 da TI. A §5 acabou ali.
+
+> **Em 21/09 caíram mais nove, todas por DECISÃO e nenhuma por implantação** — 2.2, 2.4, 2.5, 2.6, 2.7, 2.8, 3.1, 3.2 e 4.1. **Restam 19:** 9 da Minutrade, 2 da Superintendência (a 2.1, que virou documento a escrever, e a 2.3, que é digitar valores na T35), nenhuma do jurídico e 8 da TI — **o jurídico saiu da lista inteiro**.
+
+> **Ainda em 21/09 caíram mais duas, e com elas acabou o que era só decisão:** a **4.3** (dossiê assistido fica desligado) e a **metade decidível da 4.5** (política de carga mantém-se a atual). **Restam 18**, e **nenhuma delas se resolve decidindo**: 9 são perguntas à Minutrade, 2 dependem da Superintendência (a 2.1 aguarda validação do rascunho, a 2.3 é digitar valores), e 7 da TI são infraestrutura, provisionamento, arquivo ou trabalho operacional.
+>
+> **O que mudou de natureza:** até aqui havia sempre algo a decidir. A partir de agora, avançar depende de **alguém de fora responder**, de **infraestrutura ser provisionada** ou de **dado ser carregado**. Não há mais item que uma conversa feche.
+>
+> **O que sobrou tem outra natureza.** As nove de 21/09 se respondiam lendo e decidindo; o que resta são **perguntas a terceiros** (as 9 da Minutrade), **ações de infraestrutura** (WAF, endereço público do banco, `terraform apply`, provedor de e-mail) e **dado ou trabalho operacional** (dicionário do arquivo de assinantes, formato das listas de prospects, carga do portfólio). Nenhuma delas se fecha numa conversa.
+>
+> **Duas ficaram decididas pela metade, de propósito:** a **2.1** foi decidida *escrever* a política de uso — e decidir escrever não é ter escrito, então segue aberta até o documento existir; a **4.3** (tetos do dossiê) não foi decidida porque não é número solto: teto nulo mantém a geração assistida **desligada**, falhando seguro, e ligá-la exige também a chave da API e as duas tarifas.
 
 Levantamento de **todo** `[A CONFIRMAR]` das 18 fichas, agrupado por **quem responde**. Cada item traz o que acontece **hoje**, sem a resposta — porque nenhuma delas está travando a plataforma: todas têm comportamento definido e declarado. Responder melhora; não responder não quebra.
 
@@ -78,15 +88,16 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 
 ## 2. Superintendência — decisões de negócio
 
-**2.1 · Política de uso da plataforma: quem recebe qual papel.**
-*Hoje:* o papel é atribuído caso a caso, sem documento por trás. A §5 do Guia a referencia e ela não existe.
+**2.1 · Política de uso da plataforma: quem recebe qual papel.** `[RASCUNHO ESCRITO em 21/09 — aguarda validação]`
+*Decidido em 21/09:* **escrever, e curta.** O rascunho existe em [`politica-de-uso-da-plataforma.md`](../politica-de-uso-da-plataforma.md) e deriva da matriz de permissões; **segue aberta** até a Superintendência validar, porque dois pontos só ela responde: **quem aprova** as quatro concessões nomeadas e **com que periodicidade** se faz a varredura.
+*Achado ao escrever:* o `perfis-de-acesso.md` estava inteiro no sentido **anterior** à renomeação da Onda 15 — chamava de "Administrador da Plataforma" o papel de 12 ações. Quem o lesse concederia acreditando dar configuração e daria **acesso total**. Corrigido no mesmo PR.
 *Peso:* alto. É o documento que define quem alcança a carteira de assinantes.
 *Origem:* Onda 9 §71.
 
-**2.2 · A conta de Administrador é isenta dos dois bloqueios (RN74). Qual a contrapartida?**
-*Hoje:* nenhuma **decidida** — e a pergunta continua aberta. O que mudou em 18/09 é que a isenção deixou de ser **invisível**, que era o pior dela: a conta isenta agora **conta as falhas sem nunca ser trancada**, o número aparece na faixa da T35, e dois momentos vão à trilha (limite atingido em conta isenta; conta comum trancada agora) — nunca um evento por tentativa, senão quem ataca escolheria o volume de uma tabela que a RN49 não deixa apagar.
+**2.2 · ~~A conta de Administrador é isenta dos dois bloqueios (RN74). Qual a contrapartida?~~ FECHADA em 21/09: o REGISTRO que passou a existir.**
+*Decidido:* **nada além do registro** — e era a terceira saída da lista abaixo, legítima desde sempre. O que a tornou suficiente foi 18/09: é que a isenção deixou de ser **invisível**, que era o pior dela: a conta isenta agora **conta as falhas sem nunca ser trancada**, o número aparece na faixa da T35, e dois momentos vão à trilha (limite atingido em conta isenta; conta comum trancada agora) — nunca um evento por tentativa, senão quem ataca escolheria o volume de uma tabela que a RN49 não deixa apagar.
 *Antes disso:* falha contra conta isenta não incrementava contador nenhum, a contagem por origem tem retorno antecipado com a política desligada (que é como ela nasce), e **nenhuma falha de login, de conta nenhuma, gravava auditoria**. Tentar senhas contra um Administrador podia se repetir sem limite, sem prazo e sem rastro.
-*O que continua sendo da Superintendência:* segundo fator, lista de origens permitidas, ou nada além do registro — e **a terceira é resposta legítima**: pode ser que ver o número e a trilha já baste. A decisão agora tem em que se apoiar.
+*O segundo fator não foi recusado, foi adiado:* é uma onda inteira para proteger **uma conta**, e a ameaça que ele endereçaria — volume de tentativas — se resolve na borda (§4.2). **Condição de reabertura, proposta e não decidida:** quando houver mais de uma conta com `CONFIGURAR_PORTAL`.
 *Peso:* alto, e é de segurança.
 *Mensagem pronta:* `consultas-a-terceiros.md` §2, item 2 (reescrito em 18/09).
 *Origem:* Onda 15 §6.1 (v0.6).
@@ -95,46 +106,47 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 *Hoje:* 10 caracteres, 30 min de inatividade, 5 tentativas/15 min, e as três proteções novas **desligadas**. São escolhas de engenharia que preservam o comportamento anterior — não são recomendação de segurança.
 *Origem:* Onda 15 §194.
 
-**2.4 · Vaga de patrocínio encerrada pode ser reocupada (rotatividade)?**
-*Hoje:* o modelo **comporta** rotatividade — encerrar devolve a vaga ao saldo e preserva o histórico — mas a plataforma não decide se ela é permitida.
+**2.4 · ~~Vaga de patrocínio encerrada pode ser reocupada (rotatividade)?~~ FECHADA em 21/09: PERMITIDA.**
+*Decidido:* **permitida**. O patrocinador comprou assinaturas, não pessoas — recusar obrigaria a comprar vaga nova a cada troca de funcionário. O modelo já comportava, e **nada muda no código**: o abuso possível fica **visível no histórico** em vez de impossível.
 *Origem:* Onda 12, herdada da F19.
 
-**2.5 · O kit de campanha sai carimbado quando a aprovação externa não foi registrada. Está certo?**
-*Hoje:* sai, com a pendência carimbada. Bloquear seria a escolha mais destrutiva e menos reversível, e a premissa está declarada.
+**2.5 · ~~O kit de campanha sai carimbado quando a aprovação externa não foi registrada.~~ FECHADA em 21/09: está certo, MANTÉM.**
+*Decidido:* **mantém como está**. Bloquear não impediria nada — a aprovação acontece fora da plataforma de qualquer forma — e só empurraria a execução para um canal sem registro. O carimbo torna a lacuna visível para quem executa. A premissa da RN64 passa de declarada a confirmada.
 *Origem:* Onda 12 §72.
 
-**2.6 · Existe papel interno de marketing a criar?**
-*Hoje:* modelagem e ativação de campanha são de Gestor e Analista.
+**2.6 · ~~Existe papel interno de marketing a criar?~~ FECHADA em 21/09: NÃO se cria agora.**
+*Decidido:* **não se cria agora**. Papel se justifica quando alguém é impedido do que precisa ou alcança o que não deveria, e nenhum dos dois acontece. **Reabre** se entrar alguém de marketing que não deva alcançar a carteira de assinantes.
 *Origem:* Onda 4 §18, §63.
 
-**2.7 · Encerrar uma campanha deve pausar as ofertas exclusivas dela (RN40)?**
-*Hoje:* implementado como a regra descreve, aguardando validação.
+**2.7 · ~~Encerrar uma campanha deve pausar as ofertas exclusivas dela (RN40)?~~ FECHADA em 21/09: SIM, validada como está.**
+*Decidido:* **sim, como está**. A oferta exclusiva existe por causa da campanha; mantê-la publicada depois deixaria o Clube exibindo oferta que ninguém mede e que o aliado não concordou em manter. Deixa de estar aguardando validação.
 *Origem:* Onda 4 §63.
 
-**2.8 · Onde residem os dados bancários do aliado — na Broto ou só na operadora/meio de pagamento?**
-*Hoje:* a plataforma **não os guarda**. Se passar a guardar, são dado sensível com permissão específica.
+**2.8 · ~~Onde residem os dados bancários do aliado?~~ FECHADA em 21/09: FORA da plataforma.**
+*Decidido:* **ficam fora da plataforma**. Nenhuma função existente precisa deles — o pagamento corre pela operadora —, e guardá-los criaria uma classe de dado sensível com permissão, auditoria e exposição próprias, por zero ganho. Se um dia for necessário, é onda com ficha.
 *Origem:* Onda 1 §66.
 
 ---
 
 ## 3. Jurídico
 
-**3.1 · Política de retenção da trilha de auditoria.**
-*Hoje:* **retenção integral** — nenhum evento é apagado (RN49), por premissa declarada até haver definição.
+**3.1 · ~~Política de retenção da trilha de auditoria.~~ FECHADA em 21/09: INTEGRAL, com gatilho medido.**
+*Decidido:* **integral, com condição objetiva de revisão — não prazo arbitrário**. Escolher um prazo hoje seria escolher no escuro; segue-se a disciplina da RN71, e a conversa reabre com número medido na mão. O gatilho exato é de medição (TI), não de política.
 *Peso:* cresce com o tempo, literalmente. A trilha só aumenta.
 *Origem:* Onda 6 §38, §47.
 
-**3.2 · Relatório agendado por e-mail pode carregar dado pessoal?**
-*Hoje:* não existe envio. A pergunta é se a finalidade da RN78 — hoje declarada por uma pessoa a cada pedido — pode passar a ser declarada uma vez e repetida por uma rotina, indefinidamente, sem ninguém apertando nada.
-*Bloqueia:* a F29 inteira.
+**3.2 · ~~Relatório agendado por e-mail pode carregar dado pessoal?~~ FECHADA em 21/09: NÃO.**
+*Decidido:* **não**. A finalidade da RN78 continua sendo declaração de uma pessoa a cada pedido, e não se converte em rotina.
+*Bloqueia:* a F29 **nesta forma** — deixa de ser pergunta aberta e passa a ser recusa registrada.
+*Proposto e NÃO decidido:* agendamento restrito aos sete assuntos **sem** dado pessoal. A pergunta respondida foi sobre dado pessoal; esta não chegou a ser feita.
 *Origem:* Onda 20 §126.
 
 ---
 
 ## 4. TI — respondíveis por você
 
-**4.1 · Registro final da imagem de contêiner: GHCR ou registro corporativo?**
-*Hoje:* GHCR, porque não exige provisionamento. Trocar depois é mudança de configuração, não de arquitetura.
+**4.1 · ~~Registro final da imagem de contêiner: GHCR ou registro corporativo?~~ FECHADA em 21/09: é o ECR — e já era.**
+*Decidido:* **ECR** — e a pergunta já estava respondida pelo código. O `buildspec.yml` publica em `373945090777.dkr.ecr.sa-east-1`, mesma conta e região do ECS que puxa a imagem; **não há GHCR em ponto algum da esteira**. A ficha da Onda 11 descrevia uma intenção que a implementação não seguiu, e foi corrigida.
 *Origem:* Onda 11 §48.
 
 **4.2 · Proteção por taxa na borda (WAF/balanceador).**
@@ -160,7 +172,9 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 *Origem:* achado ao acrescentar `SALTOS_CONFIAVEIS_NA_BORDA` ao `terraform/aws/ecs.tf`, em 18/09.
 *Origem:* Onda 21 §6.6 (achado da conferência de rede).
 
-**4.3 · Valores definitivos dos tetos do dossiê.**
+**4.3 · ~~Valores definitivos dos tetos do dossiê.~~ FECHADA em 21/09: não se define — o dossiê assistido fica DESLIGADO.**
+*Decidido:* a pergunta parecia ser sobre dois números e não era. **Teto nulo mantém a geração assistida indisponível**, falhando seguro, com a tela dizendo o que falta — não é exposição de custo, é funcionalidade que não roda. Ligá-la exigiria os tetos **e mais** a chave da API e as duas tarifas; enquanto isso não for decidido, os nulos ficam **de propósito** e a inserção manual segue sendo o caminho.
+*Quando for ligar:* o número se mede, não se escolhe — custo real de um dossiê em tokens para o unitário, e unitário × volume para o mensal.
 *Origem:* Onda 3 §59.
 
 **4.4 · Provedor de e-mail, domínio remetente e tratamento de devolução.**
@@ -168,8 +182,9 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 *Bloqueia:* a F29, junto com a 3.2.
 *Origem:* Onda 20 §124.
 
-**4.5 · Dicionário real do arquivo de assinantes, ritmo de carga e política (foto completa × incremental).**
-*Hoje:* o mapeador de colunas absorve variações; a política é escolhida na importação.
+**4.5 · Dicionário real do arquivo de assinantes e ritmo de carga.** `[a POLÍTICA foi decidida em 21/09]`
+*Decidido — política padrão de carga:* **mantém-se a atual**. `INCREMENTAL` é o padrão da tela, e `FOTO_COMPLETA` continua exigindo que a pessoa **digite "FOTO COMPLETA"**. A fricção é deliberada e fica: só a foto completa remove assinante que sumiu do arquivo, e é a operação que não se desfaz. Nada muda no código.
+*Segue aberto:* o dicionário real e o ritmo de carga — que são **informação de terceiro**, não decisão. O mapeador de colunas absorve variações até lá.
 *Origem:* Onda 5 §14, §53, §65.
 
 **4.6 · Formato das listas de prospects existentes.**

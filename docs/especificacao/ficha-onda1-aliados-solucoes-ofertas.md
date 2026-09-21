@@ -63,7 +63,7 @@ Segregação de funções: quem solicita não aprova o próprio item (RN06). Dad
 | Status contratual | enum: vigente · denunciado · encerrado | ● | Encerramento cancela acessos e despublica (cascata RN04) |
 | Comissão (%) | percentual | ● | Sobre o valor efetivamente pago pelos assinantes; **por aliado, fonte = contrato** (exemplo real: 5% no contrato Agromove). Incide apenas sobre Benefícios pagos; Recompensas não geram comissão |
 | Ambientes de pagamento habilitados | dentro da Plataforma · fora da Plataforma · ambos | ● | Escolha do aliado, alterável por solicitação; condiciona as mecânicas disponíveis nas ofertas (RN11) |
-| Dados bancários | — | — | **[A CONFIRMAR]** onde residem (Broto ou somente Operadora/meio de pagamento); se a Broto guardar, tratar como dado sensível com permissão específica |
+| Dados bancários | — | — | **DECIDIDO em 21/09/2026: ficam FORA da plataforma.** Residem na operadora/meio de pagamento. Nenhuma função existente precisa deles — o pagamento corre por lá —, e guardá-los criaria uma classe de dado sensível com permissão própria, peso próprio na auditoria e exposição própria, em troca de zero ganho funcional. Se um dia for necessário, é onda com ficha, não campo acrescentado ao cadastro |
 
 ¹ Opcional para salvar; obrigatório para publicar oferta do aliado (RN09 — régua de completude).
 

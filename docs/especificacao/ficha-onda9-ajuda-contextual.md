@@ -68,4 +68,8 @@ Busca dentro do guia; edição de conteúdo pela interface; versionamento do gui
 
 ## 5. Pendências
 
-**[A CONFIRMAR — Superintendência]:** a **política de uso da plataforma**, que define quem recebe qual papel. A seção 5 do guia a referencia; quando existir, entra como anexo natural do documento.
+**[A CONFIRMAR — Superintendência] — ENCAMINHADO em 21/09/2026: a política será escrita, e curta.**
+
+A **política de uso da plataforma** define quem recebe qual papel. A seção 5 do guia a referencia, e hoje aponta para um documento que **não existe** — é a lacuna de maior peso da lista de pendências, porque é ela que governa quem alcança a carteira de assinantes.
+
+**Decidido que se escreve; o texto ainda não existe.** Uma página: os oito papéis, quem recebe cada um e quem aprova a concessão. A matriz de permissões já diz o que cada papel **pode**; a política diz quem **deve ser**. Enquanto o documento não existir, esta pendência continua aberta — decidir escrever não é o mesmo que ter escrito.

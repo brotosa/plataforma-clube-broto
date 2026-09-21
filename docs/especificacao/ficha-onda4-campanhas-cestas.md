@@ -15,7 +15,7 @@ Time Broto modela e ativa; **Minutrade executa** o disparo a partir do kit. Hand
 
 ## 2. Permissões
 
-Modelagem e ativação: Gestor e Analista (**[A CONFIRMAR]** se existe papel de marketing a criar); porta de aprovação de campanha **ligável** na T7 (nasce desligada). Geração/download do kit inclui a exportação de lista da Onda 5 — herda a permissão "exportar listas de contato" e a auditoria (RN34), com finalidade autopreenchida pelo nome da campanha.
+Modelagem e ativação: Gestor e Analista (papel de marketing próprio **recusado em 21/09** — ver §63); porta de aprovação de campanha **ligável** na T7 (nasce desligada). Geração/download do kit inclui a exportação de lista da Onda 5 — herda a permissão "exportar listas de contato" e a auditoria (RN34), com finalidade autopreenchida pelo nome da campanha.
 
 ## 3. Entidades e campos
 
@@ -60,4 +60,10 @@ Disparo por qualquer canal; acesso da Minutrade à plataforma (v1 é kit); autom
 
 ## 9. Pendências
 
-**[A CONFIRMAR]**: canal de entrega e formato do kit preferidos pela Minutrade; papel interno de marketing (existe?); validação da RN40 (pausar exclusivas ao encerrar); telemetria por CPF (recorrente — condiciona o nível público da RN43 e a conversão da RN44).
+**[A CONFIRMAR]**: canal de entrega e formato do kit preferidos pela Minutrade; telemetria por CPF (recorrente — condiciona o nível público da RN43 e a conversão da RN44).
+
+**Duas RESPONDIDAS em 21/09/2026:**
+
+**Papel interno de marketing — NÃO se cria agora.** Modelagem e ativação seguem com Gestor e Analista. Papel se justifica quando alguém é impedido do que precisa ou alcança o que não deveria, e nenhum dos dois está acontecendo. Cada papel novo é uma coluna permanente na matriz de 35 ações e um custo de manutenção para sempre. **Reabre** se entrar alguém de marketing que **não deva** alcançar a carteira de assinantes — aí o papel passa a ter razão de existir.
+
+**RN40 (pausar as ofertas exclusivas ao encerrar a campanha) — VALIDADA como está.** A oferta exclusiva existe por causa da campanha; mantê-la publicada depois do encerramento deixaria o Clube exibindo oferta que ninguém está medindo e que o aliado não concordou em manter. A tela avisa antes de pausar. A regra deixa de estar "aguardando validação".

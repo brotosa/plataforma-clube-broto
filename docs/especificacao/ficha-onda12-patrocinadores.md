@@ -69,6 +69,12 @@ Os arquivos de **usuários e resgates nominais** trazem nome, e-mail, telefone e
 
 **[A CONFIRMAR — Minutrade]:** **nome exato da coluna de CPF, presença de máscara e cobertura** (todas as linhas ou parte) — não observados em arquivo real; o parser é escrito tolerante por causa disso, e a primeira importação real é o teste de verdade. Seguem abertos os itens 2 (IDs no extrato), 3 (acessos e uso), 4 (dicionário e regra de contagem da RN68), 5, 6 e 7 da requisição de 27/07.
 
-**[A CONFIRMAR — Marco]:** revisão editorial da §4.7 do Guia (F19); adotar ou não o `.skip` do Design; e, herdadas da F19, a rotatividade de vaga na minuta Yamer e o carimbo do kit sem aprovação registrada.
+**[A CONFIRMAR — Marco]:** revisão editorial da §4.7 do Guia (F19); adotar ou não o `.skip` do Design.
+
+**Duas das herdadas da F19 foram RESPONDIDAS em 21/09/2026:**
+
+**Rotatividade de vaga — PERMITIDA.** O patrocinador comprou assinaturas, não pessoas: recusar obrigaria a comprar vaga nova a cada troca de funcionário, o que não é o que ele contratou. O modelo já comportava (encerrar devolve a vaga ao saldo e preserva o histórico) e **nada muda no código**. O abuso possível — ciclar muita gente por uma vaga — fica **visível no histórico** em vez de impossível, e essa é a troca deliberada: observável é melhor que proibido quando proibir custa o uso legítimo.
+
+**O kit carimbado sem aprovação registrada — MANTIDO.** Bloquear seria a opção mais destrutiva e menos reversível, e não impediria nada: a aprovação acontece fora da plataforma de qualquer forma, então bloquear só empurraria a execução para um canal sem registro nenhum. O carimbo torna a lacuna visível para quem executa, que é quem pode cobrá-la. A premissa da RN64 fica **confirmada**, não mais declarada.
 
 **Permissões:** `IMPORTAR_TELEMETRIA` — Gestor e Analista. Demais papéis leem o histórico e as divergências.
