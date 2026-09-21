@@ -1,7 +1,7 @@
 # Ficha de Módulo — Onda 11: Esteira de imagem e prontidão para implantação
 **Plataforma de Administração e Gestão do Clube Broto** · v0.1 para validação · 27/07/2026
 
-Onda de infraestrutura, sem tela e sem regra de negócio nova. Origem: preparação do handoff para o time de Tecnologia da Broto. Continuidade: regra **RN61**.
+Onda de infraestrutura, sem tela e sem regra de negócio nova. Origem: preparação do handoff para o time de Tecnologia do Broto. Continuidade: regra **RN61**.
 
 ---
 

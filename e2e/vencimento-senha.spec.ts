@@ -118,7 +118,7 @@ test("senha vencida conduz à troca sem derrubar a sessão, e trocar destrava", 
   expect(new URL(page.url()).pathname).toBe("/trocar-senha");
 
   // 4. E a tela diz o motivo CERTO. Antes desta rodada ela dizia a todo mundo
-  //    que "sua credencial foi emitida pelo Administrador da Plataforma" —
+  //    que "sua credencial foi emitida pelo Administrador" —
   //    falso para quem escolheu a própria senha e só viu o prazo passar.
   await expect(page.getByRole("heading", { level: 1, name: "Sua senha venceu" })).toBeVisible();
   await expect(page.getByText(/exige troca a cada 30 dias/)).toBeVisible();

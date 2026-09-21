@@ -47,7 +47,8 @@ export default async function LayoutPlataforma({
         nome: sessao.user.nome,
         rotuloPapel: ROTULOS_PAPEL[sessao.user.papel],
         // O item "Configurações" na lateral só aparece para quem pode
-        // configurar o portal (Administrador da Plataforma).
+        // configurar o portal — o Administrador e, por acesso total, o
+        // Administrador da Plataforma. A condição é a capacidade, não o nome.
         podeConfigurarPortal: podeExecutar(sessao.user.papel, "CONFIGURAR_PORTAL"),
       }}
       sair={sair}

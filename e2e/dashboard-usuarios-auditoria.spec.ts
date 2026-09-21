@@ -346,7 +346,7 @@ test("T27 — quem não é Administrador vê a tela em somente leitura (RN46)", 
 
   await expect(page.getByRole("heading", { level: 1, name: "Usuários" })).toBeVisible();
   await expect(
-    page.getByText("exclusivo do Administrador da Plataforma (RN46)"),
+    page.getByText("exclusivo do Administrador (RN46)"),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "+ Novo usuário" })).toHaveCount(0);
   await expect(page.getByText("somente leitura").first()).toBeVisible();

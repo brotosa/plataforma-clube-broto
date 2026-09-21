@@ -4,7 +4,7 @@
 
 ## Missão
 
-Implementar o produto da Onda 1 — módulo de Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch e carga inicial — fiel ao protótipo v2.1 e à ficha v0.6. O sistema será mantido pela TI da Broto com apoio do Claude Code: otimize para legibilidade, convenção e documentação, não para esperteza.
+Implementar o produto da Onda 1 — módulo de Aliados, Soluções e Ofertas com motor de aprovação, publicação/telemetria batch e carga inicial — fiel ao protótipo v2.1 e à ficha v0.6. O sistema será mantido pela TI do Broto com apoio do Claude Code: otimize para legibilidade, convenção e documentação, não para esperteza.
 
 ## Stack (premissa declarada — se a TI Broto padronizar diferente, adapte mantendo a arquitetura)
 

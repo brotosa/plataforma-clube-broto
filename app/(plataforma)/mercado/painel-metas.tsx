@@ -5,7 +5,7 @@ import type { MetasDaTela } from "@/infra/consultas/cobertura-metas";
 /**
  * T14 — Metas (aba "Metas" da T8 no protótipo v6.1): meta × realizado do
  * período, geral e por categoria. Somente leitura nesta fase — a criação
- * e a edição de metas são do Administrador da Plataforma no Parametrizador
+ * e a edição de metas são do Administrador no Parametrizador
  * (Onda 3, T17, RN28), e a ficha da Onda 3 é errata explícita sobre a
  * matriz da Onda 2 nesse ponto.
  *
@@ -61,7 +61,7 @@ export function PainelDeMetas({ metas }: { metas: MetasDaTela }) {
             </div>
             <p className="cap" style={{ margin: "12px 0 0" }}>
               <span className="selo">meta não definida</span> Nenhuma meta vigente para o período.
-              A definição é do Administrador da Plataforma, no Parametrizador.
+              A definição é do Administrador, no Parametrizador.
             </p>
           </>
         )}

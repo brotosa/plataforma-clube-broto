@@ -58,7 +58,7 @@ completo à vista.
 
 A **F10** tirou as réguas do código: comissão-padrão, prazos, tetos e metas
 passam por um **Serviço de Configuração** com leitura cacheada e invalidação
-na escrita, editado pelo papel **Administrador da Plataforma** (RN23) sempre
+na escrita, editado pelo papel **Administrador** (RN23) sempre
 com auditoria e efeito prospectivo (RN25) — mudar um peso não re-pontua
 avaliação fechada. A **F11** trouxe a base de assinantes com CPF protegido em
 repouso e segmentação declarativa; a **F12**, a campanha com público congelado
@@ -195,7 +195,8 @@ segredo conhecido.
 | `comercial@dev.clubebroto.local` | Comercial (Onda 2) |
 | `aprovador@dev.clubebroto.local` | Aprovador |
 | `leitura@dev.clubebroto.local` | Leitura |
-| `administrador@dev.clubebroto.local` | Administrador da Plataforma |
+| `administrador@dev.clubebroto.local` | Administrador (Onda 15 — o papel de administração, `ADMIN`) |
+| `acessototal@dev.clubebroto.local` | Administrador da Plataforma (Onda 15 — acesso total; na base real nasce sem ninguém, e aqui existe para os testes o exercitarem) |
 
 Senha de todos: `clube-broto-dev` (sobrescrevível com `SENHA_USUARIOS_DEV`).
 
@@ -588,13 +589,13 @@ classificado, e a tela não deixa confundir as duas coisas.
 **T14 — Metas** (`/mercado?aba=metas`). Meta × realizado do período, geral e
 por categoria. O valor da meta vem sempre da tabela `metas_periodo`; não há
 meta escrita em código, e sem meta configurada a tela mostra só o realizado e
-diz que a definição é do Administrador da Plataforma. *Realizado* (RN22) é
+diz que a definição é do Administrador. *Realizado* (RN22) é
 **promoção efetivada no período**, contada na trilha de auditoria pela mudança
 de estágio para Aliada ativa com valor anterior preenchido — as 46 aliadas da
 carga inicial nasceram ativas e por isso não contam.
 
-A tela é somente leitura nesta onda: criar e editar metas é do Administrador da
-Plataforma no Parametrizador (Onda 3, T17, RN28). A tabela já nasce no formato
+A tela é somente leitura nesta onda: criar e editar metas é do Administrador no
+Parametrizador (Onda 3, T17, RN28). A tabela já nasce no formato
 que esse editor espera — período, janela, categoria opcional, valor e a
 `origem` da decisão —, e o seed grava a meta vigente (24 novos aliados no ano
 de 2026) de forma idempotente, sem sobrescrever o que já existir.
@@ -652,7 +653,7 @@ ativa para medir. Todo número de campanha viaja com a etiqueta de atribuição
 porque só exibe agregados (coerente com a RN33).
 
 **T27 — Usuários** (`/usuarios`). Leitura de todos os papéis; escrita
-exclusiva do Administrador da Plataforma (**RN46**). Duas garantias:
+exclusiva do Administrador (**RN46**). Duas garantias:
 
 - **anti-lockout**: o último administrador ATIVO não pode ser rebaixado nem
   inativado. A tela desabilita o botão com o motivo, e o serviço recusa de
@@ -1834,6 +1835,7 @@ Roteiro único de quem opera. Cada item aponta para a seção com o detalhe.
 | **Enviar a imagem do card** | `/aliados/{id}/solucoes/{solucaoId}`, cartão *Imagem do card*: PNG/JPG/WEBP até 400 KB, sem SVG, tipo conferido pelo conteúdo (RN60) | Gestor · Analista |
 | **Gerir usuários** | `/usuarios`: criar, editar papel, inativar. Inativar derruba a sessão na hora (RN47) | Administrador |
 | **Abrir a ajuda** | botão **?** na extremidade direita do cabeçalho (movido na F17): abre `/ajuda` na seção do módulo em que se estava (RN59). O guia também circula como arquivo: `public/guia-da-plataforma.html` | todos |
+| **Consultar o Manual do usuário** | `/manual`: o que cada um dos oito papéis pode fazer, com passo a passo por ação e a captura da tela onde ela acontece. A lista de ações de cada papel é **derivada da matriz de permissões**, não escrita à mão — `conteudo/manual-usuario/conteudo.ts` traz só a descrição didática, e a cerca `manual-cobre-acoes` reprova ação ou papel sem lugar nele | todos |
 | **Verificar que a plataforma está no ar** | `GET /api/saude` (o processo responde) e `GET /api/saude/pronto` (alcança o banco). Públicas, sem sessão, sem revelar ambiente (RN61) | TI · balanceador |
 | **Consultar auditoria** | `/auditoria`: filtros, antes → depois, extrato CSV auditado (RN48) | todos leem · Gestor/Administrador exportam |
 

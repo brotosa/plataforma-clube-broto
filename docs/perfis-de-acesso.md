@@ -237,6 +237,16 @@ uma célula e furar o acesso total sem perceber.
 ## Onde isso é gerenciado
 
 Papel de cada usuário: tela **Usuários** (`/usuarios`), exclusiva do
-Administrador da Plataforma. Criação de credencial nasce sempre com troca
-de senha obrigatória — o Administrador nunca sabe a senha final de
-ninguém.
+**Administrador** (e, por acesso total, do Administrador da Plataforma).
+Criação de credencial nasce sempre com troca de senha obrigatória — o
+Administrador nunca sabe a senha final de ninguém.
+
+## A mesma informação, dentro do produto
+
+O **Manual do usuário** (`/manual`) traz esta matriz em forma de passo a
+passo: uma seção por papel, as ações que ele alcança agrupadas por módulo,
+com o que é cada uma, onde fica e como se faz. Ele não é escrito à mão —
+a lista de ações de cada papel sai da mesma `permissoes.ts` citada no topo
+deste documento, e duas cercas de arquitetura reprovam o build se uma ação
+ou um papel novo ficar sem lugar nele. É aberto a todos os papéis, como o
+Guia da Plataforma (`/ajuda`).

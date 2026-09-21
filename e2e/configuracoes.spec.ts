@@ -5,7 +5,7 @@ import { entrar, prisma, runId, SENHA, semViolacoesAxe } from "./ajudantes";
  * E2E das Configurações (PR A — item na lateral + política de senha).
  *
  * Cobre o que a interface promete: o item "Configurações" aparece na lateral
- * abaixo de "Auditoria" só para o Administrador da Plataforma (CONFIGURAR_PORTAL);
+ * abaixo de "Auditoria" só para quem tem CONFIGURAR_PORTAL (o Administrador);
  * o Gestor não o vê e é redirecionado se tentar a rota direto; o Administrador
  * edita a política, salva (auditado no serviço) e a tela confirma. Axe-core
  * limpo na tela.

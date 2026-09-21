@@ -53,8 +53,11 @@ const ABA_PADRAO: AbaId = "senha";
 
 /**
  * Configurações do portal — o irmão técnico/de segurança do Parametrizador.
- * Só o Administrador da Plataforma (CONFIGURAR_PORTAL): quem não é, é
- * redirecionado. Toda mudança é auditada.
+ * Só quem tem `CONFIGURAR_PORTAL` — o Administrador e, por acesso total, o
+ * Administrador da Plataforma: quem não tem é redirecionado. A condição é a
+ * **capacidade**, nunca o nome do papel; a renomeação da Onda 15 mostrou que
+ * comparar com o literal `ADMINISTRADOR_PLATAFORMA` passaria a valer para
+ * ninguém, em silêncio. Toda mudança é auditada.
  *
  * A tela cresceu de um bloco (política de senha) para quatro e passou a rolar
  * demais; as abas organizam. O que elas custam — esconder o que não está na
@@ -139,7 +142,7 @@ export default async function PaginaConfiguracoes({
       <div style={{ marginBottom: 18 }}>
         <h1 className="h-page">Configurações</h1>
         <div className="cap" style={{ marginTop: 4 }}>
-          Segurança e ajustes técnicos do portal · exclusivo do Administrador da Plataforma · toda
+          Segurança e ajustes técnicos do portal · exclusivo do Administrador · toda
           escrita é auditada
         </div>
       </div>
@@ -225,8 +228,10 @@ export default async function PaginaConfiguracoes({
             Bloqueio por tentativas de login
           </h2>
           <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
-            Quantas senhas erradas seguidas bloqueiam a conta e por quanto tempo. O Administrador da
-            Plataforma nunca é bloqueado — a conta que faz o desbloqueio não pode se trancar.
+            Quantas senhas erradas seguidas bloqueiam a conta e por quanto tempo. Quem pode
+            configurar o portal (Administrador e Administrador da Plataforma) nunca é bloqueado — a
+            conta que faz o desbloqueio não pode se trancar. As tentativas contra ela, porém, são
+            contadas.
           </p>
 
           <FormularioBloqueioLogin inicial={politicaLogin} />
@@ -254,8 +259,9 @@ export default async function PaginaConfiguracoes({
           </h2>
           <p className="cap" style={{ margin: "0 0 14px", maxWidth: "74ch" }}>
             Tranca o endereço de onde vêm falhas repetidas de login, qualquer que seja a conta alvo.
-            Nasce desligado. O Administrador da Plataforma continua entrando de um endereço
-            bloqueado — mas as falhas contra contas de Administrador também contam para a origem.
+            Nasce desligado. Quem pode configurar o portal continua entrando de um endereço
+            bloqueado — mas as falhas contra essas contas também contam para a origem, senão
+            bastaria mirar um e-mail isento para evadir a regra.
           </p>
 
           <FormularioBloqueioOrigem inicial={politicaOrigem} />

@@ -52,7 +52,7 @@ test("RN23 — quem não é Administrador lê o hub com banner e sem ações de 
   await expect(page.getByRole("heading", { level: 1, name: "Parametrizador" })).toBeVisible();
 
   await expect(
-    page.getByText("a edição de parâmetros é restrita ao Administrador da Plataforma"),
+    page.getByText("a edição de parâmetros é restrita ao Administrador"),
   ).toBeVisible();
   await expect(page.getByText("Você pode editar")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Abrir editor" })).toHaveCount(0);

@@ -169,11 +169,49 @@ const COMPLEMENTOS: ReadonlyArray<{ secao: string; origem: string }> = [
   { secao: "j2", origem: "Complemento — Onda 10" }, // imagem do card (RN60)
   { secao: "j4", origem: "Complemento — Onda 13" }, // imagem da peça (RN71)
   { secao: "j5", origem: "Complemento — Onda 8" }, // arrasto no funil (RN57)
+  // A §4.6 diz "Restrito ao Administrador da Plataforma", que era verdade
+  // quando o Design escreveu e virou instrução enganosa depois da renomeação:
+  // esse nome passou a designar o acesso total, que nasce sem detentores. E é
+  // justamente a seção que a ajuda contextual abre para quem vem do
+  // Parametrizador — o leitor mais provável é um Administrador sendo informado
+  // de que a tela é de outro papel.
+  { secao: "j6", origem: "Complemento — Onda 15" },
   // Desdobramento do papel de administração em Admin + acesso total. A tabela
   // de papéis da §5 veio da referência e não se edita: o complemento diz o que
   // mudou sem tocar numa frase transcrita — que é exatamente o caso para o
   // qual este mecanismo foi criado.
   { secao: "papeis", origem: "Complemento — Onda 15" },
+  // A tabela de papéis da referência traz cinco linhas, e a plataforma tem
+  // oito papéis: Leitura e Aprovador nunca estiveram ali, e "Analista" é, no
+  // produto, "Analista de Aliados". Não é defasagem de onda nenhuma — é
+  // lacuna do próprio documento entregue, encontrada na revisão de 21/09.
+  // Como a tabela vem da referência e não se edita, o complemento diz o que
+  // falta e aponta o lugar onde a lista é completa por construção: o Manual
+  // do usuário, que deriva da matriz de permissões.
+  { secao: "papeis", origem: "Complemento — Revisão de 21/09/2026" },
+];
+
+/**
+ * Os complementos de uma seção, na ordem em que a seção os traz.
+ *
+ * A primeira versão do mecanismo admitia **um** bloco por seção, e a
+ * asserção era `toHaveLength(1)`. Bastou uma seção precisar de dois — a §5,
+ * com o desdobramento da Onda 15 e a lacuna da tabela de papéis, que são
+ * assuntos distintos e não cabem sob um rótulo só — para o limite virar
+ * pressão a favor de espremer coisas sob uma origem que não é a delas, que é
+ * o oposto do que esta lista existe para fazer. O que continua preso é o que
+ * importa: todo bloco declarado, na ordem, ao final, com a origem visível, e
+ * nenhuma frase vinda da referência.
+ */
+function complementosDeclaradosDe(id: string): ReadonlyArray<string> {
+  return COMPLEMENTOS.filter((complemento) => complemento.secao === id).map(
+    (complemento) => complemento.origem,
+  );
+}
+
+/** As seções que têm complemento declarado, sem repetir, na ordem da lista. */
+const SECOES_COM_COMPLEMENTO: ReadonlyArray<string> = [
+  ...new Set(COMPLEMENTOS.map((complemento) => complemento.secao)),
 ];
 
 /** O bloco de complemento, reconhecido pela classe e pela origem declarada. */
@@ -357,14 +395,13 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
    */
   describe("complementos — bloco declarado, ao final, e nunca no lugar da transcrição", () => {
     it("todo bloco de complemento no fonte está declarado, e só em seção da referência", () => {
-      const declaradas = COMPLEMENTOS.map((complemento) => complemento.secao);
       const noFonte = INDICE_DO_GUIA.map((entrada) => entrada.id).filter(
         (id) => separarComplementos(secao(secoes, id)).complementos.length > 0,
       );
       expect(
         noFonte,
         "bloco .gd-compl em seção não declarada — acrescente a COMPLEMENTOS ou remova o bloco",
-      ).toEqual(declaradas);
+      ).toEqual(SECOES_COM_COMPLEMENTO);
       // Seção nascida depois não precisa de complemento: ela é editável por
       // inteiro, então o bloco ali seria decoração sem função.
       for (const { secao: id } of COMPLEMENTOS) {
@@ -375,21 +412,26 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
       }
     });
 
-    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao, complemento.origem] as const))(
-      "§%s traz um único bloco, ao final, com a origem «%s» visível",
-      (id, origem) => {
+    it.each(SECOES_COM_COMPLEMENTO.map((id) => [id] as const))(
+      "§%s traz exatamente os blocos declarados, na ordem, ao final e com a origem visível",
+      (id) => {
         const conteudo = secao(secoes, id);
         const { transcrito, complementos } = separarComplementos(conteudo);
-        expect(complementos, `blocos de complemento em §${id}`).toHaveLength(1);
-        const bloco = complementos[0];
-        expect(bloco?.origem, `data-origem de §${id}`).toBe(origem);
-        // Visível na tela, não só no atributo.
-        expect(texto(bloco?.html ?? ""), `origem impressa em §${id}`).toContain(origem);
-        expect(texto(bloco?.html ?? "").length, `texto do complemento de §${id}`).toBeGreaterThan(
-          120,
-        );
+        const declarados = complementosDeclaradosDe(id);
+        expect(
+          complementos.map((bloco) => bloco.origem),
+          `blocos de complemento em §${id}`,
+        ).toEqual(declarados);
+        for (const bloco of complementos) {
+          // Visível na tela, não só no atributo.
+          expect(texto(bloco.html), `origem impressa em §${id}`).toContain(bloco.origem);
+          expect(
+            texto(bloco.html).length,
+            `texto do complemento «${bloco.origem}» de §${id}`,
+          ).toBeGreaterThan(120);
+        }
         /*
-         * Ao final, de verdade.
+         * Ao final, de verdade — e agora para CADA bloco, não só o último.
          *
          * A primeira versão desta asserção comparava `transcrito + bloco`
          * com a seção inteira — e passava sempre, porque o corte fatia
@@ -398,16 +440,22 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
          * fidelidade acima reprovava (a transcrição vinha truncada), mas
          * este teste dizia "ao final" sem verificar nada.
          *
-         * Agora fecha pelo balanço das `<div>`: depois do `</div>` que
-         * fecha o próprio bloco não pode sobrar nada além de espaço.
+         * Fecha pelo balanço das `<div>`: depois do `</div>` que fecha o
+         * próprio bloco não pode sobrar nada além de espaço. Verificar
+         * apenas o último bastava quando havia um só; com dois, o texto
+         * solto ENTRE eles cairia na fatia do primeiro e passaria — porque
+         * `separarComplementos` corta de marcador a marcador, não no fim de
+         * cada bloco. Cada bloco responde pelo seu próprio fecho.
          */
         expect(transcrito, `transcrição de §${id}`).not.toBe("");
-        const fim = fimDoBloco(bloco?.html ?? "");
-        expect(fim, `bloco de §${id} não fecha`).toBeGreaterThan(0);
-        expect(
-          (bloco?.html ?? "").slice(fim).trim(),
-          `texto DEPOIS do complemento em §${id} — o bloco não é o último`,
-        ).toBe("");
+        for (const bloco of complementos) {
+          const fim = fimDoBloco(bloco.html);
+          expect(fim, `bloco «${bloco.origem}» de §${id} não fecha`).toBeGreaterThan(0);
+          expect(
+            bloco.html.slice(fim).trim(),
+            `texto DEPOIS do complemento «${bloco.origem}» em §${id}`,
+          ).toBe("");
+        }
       },
     );
 
@@ -419,10 +467,13 @@ describe("RN58 — o texto é o do documento entregue, frase por frase", () => {
      * da transcrição e recolocá-la aqui embaixo. Cada frase do
      * complemento é procurada na referência, e nenhuma pode estar lá.
      */
-    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao] as const))(
-      "nenhuma frase do complemento de §%s existe na referência",
-      (id) => {
-        const [bloco] = separarComplementos(secao(secoes, id)).complementos;
+    it.each(COMPLEMENTOS.map((complemento) => [complemento.secao, complemento.origem] as const))(
+      "nenhuma frase do complemento «%s → %s» existe na referência",
+      (id, origem) => {
+        const bloco = separarComplementos(secao(secoes, id)).complementos.find(
+          (candidato) => candidato.origem === origem,
+        );
+        expect(bloco, `bloco «${origem}» em §${id}`).toBeTruthy();
         const naReferencia = texto(referencia);
         /*
          * O corte por elemento vem ANTES do corte por pontuação, e é o
@@ -493,7 +544,7 @@ describe("RN58 — fonte única: a rota e o documento autônomo montam do mesmo 
 
   it("o texto do guia não existe em nenhuma segunda cópia no repositório", () => {
     // Uma frase de assinatura do guia, procurada onde ela não pode estar.
-    const frase = "A Broto decide e modela; a Minutrade executa e opera.";
+    const frase = "O Broto decide e modela; a Minutrade executa e opera.";
     const permitidos = [
       "conteudo/guia-plataforma/secoes.html", // a fonte
       CAMINHO_DO_AUTONOMO, // o gerado, que sai dela

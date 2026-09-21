@@ -1,7 +1,7 @@
 import { criarZip, type ArquivoDoZip } from "./zip";
 
 /**
- * Kit de execução da campanha — o que a Broto entrega e a Minutrade
+ * Kit de execução da campanha — o que o Broto entrega e a Minutrade
  * executa (ficha §1.1). O CANAL e o FORMATO definitivos preferidos pela
  * Minutrade estão **[A CONFIRMAR]** (ficha §9): a montagem fica isolada
  * atrás desta porta, com a implementação genérica da v1 (pacote zip com

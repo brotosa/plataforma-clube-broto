@@ -1975,7 +1975,7 @@ model OfertaPretendida {
 // ---------------------------------------------------------------------
 // Campanhas e Cestas (Onda 4, F12) — ficha-onda4-campanhas-cestas.md
 //
-// Modelo operacional (ficha §1.1): a Broto modela e ativa; a MINUTRADE
+// Modelo operacional (ficha §1.1): o Broto modela e ativa; a MINUTRADE
 // executa o disparo a partir do kit. Nenhum caminho de disparo existe
 // nesta plataforma (RN39) — o que sai daqui é o pacote versionado.
 // ---------------------------------------------------------------------

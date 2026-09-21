@@ -43,7 +43,7 @@ import { type Ator, ErroDeValidacao } from "./contexto";
  * parciais). A T14 lê e a T17 escreve a MESMA tabela — não há cópia.
  *
  * Três invariantes atravessam tudo o que está aqui:
- *  RN23 — escrita só do Administrador da Plataforma, sempre auditada;
+ *  RN23 — escrita só do Administrador, sempre auditada;
  *  RN25 — efeito prospectivo: nada aqui recalcula registro fechado, e
  *         escrita que muda o score gera nova versão de configuração;
  *  RN27 — quando a regra PARAMETRO_SENSIVEL está ligada na T7, a escrita
@@ -491,7 +491,7 @@ export interface NovaMeta {
 const ORIGEM_T17 = "Definida no Parametrizador (Onda 3, T17)";
 
 export async function criarMeta(ator: Ator, nova: NovaMeta): Promise<ResultadoDeEscrita> {
-  // Errata da ficha Onda 3 v0.2: metas são do Administrador da Plataforma.
+  // Errata da ficha Onda 3 v0.2: metas são do Administrador.
   exigirPermissao(ator.papel, "DEFINIR_METAS");
 
   const { inicio, fim } = intervaloDoPeriodo(nova.periodo, nova.referencia);

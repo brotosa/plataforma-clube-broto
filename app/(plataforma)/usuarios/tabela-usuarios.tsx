@@ -619,8 +619,7 @@ export function TabelaUsuarios({
       {podeGerir ? null : (
         <div className="aviso-inline">
           <span>
-            Visualização — criar, editar e inativar usuários é exclusivo do Administrador da
-            Plataforma (RN46).
+            Visualização — criar, editar e inativar usuários é exclusivo do Administrador (RN46).
           </span>
         </div>
       )}
