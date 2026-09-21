@@ -123,7 +123,13 @@ Dois bloqueios, e nenhum deles é técnico de resolver aqui:
 
 **1. Não existe infraestrutura de e-mail na plataforma.** Verificado: não há `nodemailer`, não há cliente de SES, não há remetente configurado, não há nada. `[A CONFIRMAR — TI]`: qual provedor, qual domínio remetente, o que se faz com devolução e com marcação de spam. Nada disso é decisão de código.
 
-**2. Enviar relatório por e-mail é decisão de negócio, não funcionalidade.** Um relatório agendado de Assinantes **carrega dado pessoal para fora da plataforma, periodicamente, sem ninguém apertando nada** — e a finalidade da RN78, que hoje é declarada por uma pessoa no momento em que pede, passaria a ser declarada uma vez e repetida indefinidamente por uma rotina. Isso muda a natureza do controle, não a sua forma. `[A CONFIRMAR — Superintendência/jurídico]`.
+**2. Enviar relatório por e-mail é decisão de negócio, não funcionalidade.** Um relatório agendado de Assinantes **carrega dado pessoal para fora da plataforma, periodicamente, sem ninguém apertando nada** — e a finalidade da RN78, que hoje é declarada por uma pessoa no momento em que pede, passaria a ser declarada uma vez e repetida indefinidamente por uma rotina. Isso muda a natureza do controle, não a sua forma.
+
+**~~`[A CONFIRMAR — Superintendência/jurídico]`~~ RESPONDIDO em 21/09/2026: NÃO.** Relatório agendado **não pode carregar dado pessoal**. A finalidade da RN78 continua sendo declaração de uma pessoa a cada pedido, e não se converte em rotina.
+
+**A F29 segue bloqueada**, e agora por decisão registrada em vez de pergunta aberta — o que muda o estado dela: não é mais "aguardando", é "recusada nesta forma".
+
+**O que NÃO foi decidido, e fica proposto:** agendamento **restrito aos sete assuntos sem dado pessoal**, mantendo Assinantes e o extrato de resgates fora. Entregaria a maior parte do valor da F29 sem tocar na RN78. A pergunta respondida foi sobre dado pessoal; esta não chegou a ser feita, e não se deve presumir recusada.
 
 A infraestrutura de agendamento, essa sim, já existe: o job diário roda por rota própria (`app/api/jobs/diario/route.ts`) e é o lugar natural. Mas ter onde pendurar não é motivo para pendurar.
 

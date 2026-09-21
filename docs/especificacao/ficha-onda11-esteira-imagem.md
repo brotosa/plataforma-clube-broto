@@ -45,4 +45,8 @@ Provisionamento de infraestrutura de destino (é da TI, com o roteiro de implant
 
 ## 7. Pendências
 
-**[A CONFIRMAR — TI]:** se o registro final será o GHCR ou um registro corporativo. A onda publica no GHCR porque não exige provisionamento e está disponível hoje; migrar o destino depois é mudança de configuração, não de arquitetura.
+**~~[A CONFIRMAR — TI]~~ RESPONDIDO em 21/09/2026: o registro é o ECR.**
+
+`373945090777.dkr.ecr.sa-east-1.amazonaws.com/broto-clube-app`, na **mesma conta e região** do ECS que puxa a imagem — sem egresso entre nuvens, sem credencial de terceiro, com o IAM resolvendo a autenticação.
+
+**E o parágrafo anterior descrevia uma intenção que a implementação não seguiu.** Ele dizia que "a onda publica no GHCR"; o `buildspec.yml` publica no ECR desde sempre, e não há GHCR em ponto algum da esteira. A pergunta estava aberta no papel e fechada no código — fica o registro de que **o que vale é o que a esteira faz**, e de que uma pendência pode envelhecer por já ter sido respondida sem ninguém notar.
