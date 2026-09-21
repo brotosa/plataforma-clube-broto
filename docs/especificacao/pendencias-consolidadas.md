@@ -84,8 +84,9 @@ Nove perguntas, e a maior parte cabe numa reunião só. É o bloco que mais dest
 
 ## 2. Superintendência — decisões de negócio
 
-**2.1 · Política de uso da plataforma: quem recebe qual papel.**
-*Hoje:* o papel é atribuído caso a caso, sem documento por trás. A §5 do Guia a referencia e ela não existe.
+**2.1 · Política de uso da plataforma: quem recebe qual papel.** `[RASCUNHO ESCRITO em 21/09 — aguarda validação]`
+*Decidido em 21/09:* **escrever, e curta.** O rascunho existe em [`politica-de-uso-da-plataforma.md`](../politica-de-uso-da-plataforma.md) e deriva da matriz de permissões; **segue aberta** até a Superintendência validar, porque dois pontos só ela responde: **quem aprova** as quatro concessões nomeadas e **com que periodicidade** se faz a varredura.
+*Achado ao escrever:* o `perfis-de-acesso.md` estava inteiro no sentido **anterior** à renomeação da Onda 15 — chamava de "Administrador da Plataforma" o papel de 12 ações. Quem o lesse concederia acreditando dar configuração e daria **acesso total**. Corrigido no mesmo PR.
 *Peso:* alto. É o documento que define quem alcança a carteira de assinantes.
 *Origem:* Onda 9 §71.
 

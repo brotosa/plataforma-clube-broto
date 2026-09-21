@@ -7,7 +7,15 @@ por ação de negócio, direto das tabelas §2 de cada ficha) e os rótulos em
 `dominio/autorizacao/papeis.ts`. Este arquivo é uma leitura organizada
 daquela tabela — se um dia divergirem, o código vence.
 
-Existem **7 papéis**. Todo usuário tem exatamente um.
+Existem **8 papéis**. Todo usuário tem exatamente um.
+
+> **Correção de 21/09/2026 — a renomeação da Onda 15 não havia chegado aqui.**
+> Até então este documento chamava de **Administrador da Plataforma** o papel de
+> configuração. Esse nome passou a designar **outro** papel, de **acesso total**,
+> e o de configuração passou a se chamar **Administrador** (`ADMIN`). O texto
+> descrevia a coisa certa pelo nome errado — e o erro era do tipo que engana no
+> sentido perigoso: quem lesse concederia "Administrador da Plataforma"
+> acreditando dar configuração, e daria **tudo**.
 
 ## Como funciona, em uma frase
 
@@ -27,7 +35,8 @@ ação consegue de fato criar, editar, aprovar ou configurar.
 | **Comercial** | Negocia com prospects: solicita promoção, lê dossiê, assume negociação. Não avalia nem aprova. |
 | **Aprovador** | Só aprova ou devolve solicitações — nunca as próprias. Não cria, não edita. |
 | **Leitura** | Enxerga tudo, não muda nada. Nenhuma ação de escrita em lugar nenhum. |
-| **Administrador da Plataforma** | Configura o produto (parâmetros, metas, usuários) e vê dado pessoal pleno. Não opera o negócio do dia a dia (não cadastra, não aprova, não roda campanha). |
+| **Administrador** | Configura o produto (parâmetros, metas, usuários, portal) e vê dado pessoal pleno. Não opera o negócio do dia a dia (não cadastra, não aprova, não roda campanha). |
+| **Administrador da Plataforma** | **Acesso total**: pode toda ação da plataforma, inclusive as criadas depois. Nasce sem detentores. |
 
 ## Detalhamento por papel
 
@@ -52,7 +61,7 @@ O papel mais amplo em ações operacionais. Consegue:
 
 **Não** consegue: definir metas oficiais, configurar parâmetros da
 plataforma (Serviço de Configuração) nem gerir usuários — as três coisas
-que são exclusivas do Administrador da Plataforma, por desenho (quem
+que são exclusivas do Administrador, por desenho (quem
 configura o produto não pode ser quem opera nele).
 
 ### Analista de Aliados (`ANALISTA`)
@@ -119,14 +128,15 @@ Acesso de visualização total, escrita nenhuma:
 absolutamente nada. É o papel certo para quem precisa acompanhar sem
 operar (ex.: diretoria, auditoria externa, consultor pontual).
 
-### Administrador da Plataforma (`ADMINISTRADOR_PLATAFORMA`)
+### Administrador (`ADMIN`)
 
 Configura o produto — não opera o negócio do dia a dia:
 
 - **Exclusivo dele**: definir as metas oficiais (ex.: meta de novos
   aliados/ano), configurar os parâmetros do Serviço de Configuração
   (réguas, tetos, comissão-padrão — RN23), gerir usuários (criar, trocar
-  papel, inativar/reativar — RN46/RN47).
+  papel, inativar/reativar — RN46/RN47) e configurar o portal (senha,
+  sessão e bloqueios — RN72/RN73/RN74).
 - Ver dado pessoal pleno de assinante e exportar listas de contato (junto
   com o Gestor).
 - Ver e exportar o extrato de auditoria.
@@ -138,6 +148,25 @@ mexer no funil de scout, modelar ou ativar campanha, gerir patrocinadores
 ou gerar o Relatório do Patrocinador. Essa exclusão é proposital — o
 mesmo papel que define as regras não pode ser quem as opera.
 
+### Administrador da Plataforma (`ADMINISTRADOR_PLATAFORMA`)
+
+**Acesso total.** Pode **toda** ação da plataforma — as 35 de hoje e as que
+vierem depois, sem ninguém precisar lembrar de concedê-las.
+
+**Não é uma lista de permissões: é uma regra.** Ele vive em
+`PAPEIS_COM_ACESSO_TOTAL`, e por isso não aparece como coluna na matriz
+abaixo — repeti-lo em 35 linhas só criaria a chance de esquecer uma e furar o
+total em silêncio. A cerca `acesso-total-cobre-todas-as-acoes` quebra o build
+se isso deixar de valer.
+
+**Nasce sem detentores**, e é a concessão de maior consequência da T27 — por
+isso ela exige confirmação explícita na tela.
+
+**A RN06 continua valendo para ele, e não é contradição:** a segregação
+solicitante ≠ aprovador é verificada **por registro**, comparando quem pediu
+com quem decide. Poder aprovar não é poder aprovar o que se pediu — ele aprova
+o pedido dos outros e continua barrado no próprio.
+
 ## Regras que atravessam todos os papéis
 
 - **Segregação de funções (RN06)** — quem solicita uma promoção ou
@@ -145,8 +174,10 @@ mesmo papel que define as regras não pode ser quem as opera.
   aprovar em geral. Isso vale para Gestor e Aprovador igual — a regra é
   sobre a pessoa e o pedido, não sobre o papel.
 - **Proteção do último Administrador (RN46)** — o sistema recusa rebaixar
-  ou inativar o único Administrador da Plataforma ativo. É preciso
-  designar outro administrador antes.
+  ou inativar a única conta ativa capaz de **gerir usuários**. É preciso
+  designar outra antes. A regra é por **capacidade** (`GERIR_USUARIOS`), não
+  por nome de papel: a renomeação da Onda 15 mostrou que comparar com o
+  literal faria a proteção valer para ninguém, em silêncio.
 - **Revogação imediata (RN47)** — trocar o papel de alguém ou inativá-lo
   derruba a sessão dela na próxima requisição (não espera o token
   expirar). Reativar não força nova sessão — não há o que revogar em quem
@@ -162,6 +193,10 @@ mesmo papel que define as regras não pode ser quem as opera.
 ## Matriz completa (ação × papel)
 
 Fonte: `dominio/autorizacao/permissoes.ts`. "✓" = o papel pode.
+
+**O Administrador da Plataforma não tem coluna aqui, e isso é deliberado**: ele
+pode todas, por regra, e uma coluna de 35 vistos convidaria alguém a "corrigir"
+uma célula e furar o acesso total sem perceber.
 
 | Ação | Gestor | Analista | Scout | Comercial | Aprovador | Leitura | Administrador |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
